@@ -23,15 +23,17 @@
  */
 package com.sun.electric.tool.io.input;
 
-import com.sun.electric.database.hierarchy.Library;
 import com.sun.electric.database.text.Pref;
 import com.sun.electric.database.text.Setting;
 import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.technology.Foundry;
 import com.sun.electric.technology.Layer;
 import com.sun.electric.technology.Technology;
+import com.sun.electric.tool.Job;
+import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.io.IOTool;
+import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.dialogs.EDialog;
 import com.sun.electric.tool.user.dialogs.OpenFile;
 import com.sun.electric.tool.user.ui.TopLevel;
