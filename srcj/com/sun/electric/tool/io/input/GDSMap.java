@@ -280,7 +280,7 @@ public class GDSMap extends EDialog
 			}
             changeBatch.add(foundry.getGDSLayerSetting(layer), layerInfo);
 		}
-		Library.getCurrent().getDatabase().implementSettingChanges(changeBatch);
+        new OKUpdate(changeBatch).startJob();
 	}
 
 	private void ok()
@@ -320,4 +320,28 @@ public class GDSMap extends EDialog
 		pref.setString(layerName);
 	}
 
+	/**
+	 * Class to update GDS Map.
+	 */
+	private static class OKUpdate extends Job
+	{
+		private Setting.SettingChangeBatch changeBatch;
+
+		private OKUpdate(Setting.SettingChangeBatch changeBatch)
+		{
+			super("Update GDS Mapping", User.getUserTool(), Job.Type.CHANGE, null, null, Job.Priority.USER);
+            this.changeBatch = changeBatch;
+		}
+
+		public boolean doIt() throws JobException
+		{
+			getDatabase().implementSettingChanges(changeBatch);
+			return true;
+		}
+
+		@Override
+		public void terminateOK()
+		{
+		}
+	}
 }
