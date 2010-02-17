@@ -30,7 +30,6 @@ import com.sun.electric.database.ImmutableExport;
 import com.sun.electric.database.constraint.Constraints;
 import com.sun.electric.database.geometry.DBMath;
 import com.sun.electric.database.geometry.Dimension2D;
-import com.sun.electric.database.geometry.EPoint;
 import com.sun.electric.database.geometry.Orientation;
 import com.sun.electric.database.geometry.Poly;
 import com.sun.electric.database.id.ExportId;
@@ -50,8 +49,8 @@ import com.sun.electric.technology.ArcProto;
 import com.sun.electric.technology.PrimitivePort;
 import com.sun.electric.technology.technologies.Schematics;
 import com.sun.electric.tool.user.ErrorLogger;
-import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.ViewChanges;
+import com.sun.electric.tool.user.IconParameters;
 import com.sun.electric.tool.user.dialogs.BusParameters;
 
 import java.awt.geom.AffineTransform;
@@ -146,7 +145,7 @@ public class Export extends ElectricObject implements PortProto, Comparable<Expo
      * @return the newly created Export.
      */
     public static Export newInstance(Cell parent, PortInst portInst, String protoName) {
-        return newInstance(parent, portInst, protoName, null, true);
+        return newInstance(parent, portInst, protoName, null, true, null);
     }
 
     /**
@@ -158,8 +157,10 @@ public class Export extends ElectricObject implements PortProto, Comparable<Expo
      * @param characteristic the characteristic (input, output) of this Export.
      * @return the newly created Export.
      */
-    public static Export newInstance(Cell parent, PortInst portInst, String protoName, PortCharacteristic characteristic) {
-        return newInstance(parent, portInst, protoName, characteristic, true);
+    public static Export newInstance(Cell parent, PortInst portInst, String protoName, 
+                                     PortCharacteristic characteristic, IconParameters iconParameters)
+    {
+        return newInstance(parent, portInst, protoName, characteristic, true, iconParameters);
     }
 
     /**
@@ -173,10 +174,13 @@ public class Export extends ElectricObject implements PortProto, Comparable<Expo
      * @return the newly created Export.
      */
     public static Export newInstance(Cell parent, PortInst portInst, String protoName,
-            PortCharacteristic characteristic, boolean createOnIcon) {
+                                     PortCharacteristic characteristic, boolean createOnIcon,
+                                     IconParameters iconParameters)
+    {
         if (protoName == null) {
             return null;
         }
+        EditingPreferences ep = parent.getEditingPreferences();
 
         boolean busNamesAllowed = parent.busNamesAllowed();
         Name protoNameKey = ImmutableExport.validExportName(protoName, busNamesAllowed);
@@ -231,7 +235,7 @@ public class Export extends ElectricObject implements PortProto, Comparable<Expo
                 Dimension2D alignmentToGrid = parent.getEditingPreferences().getAlignmentToGrid();
                 double newlocX = (locX - bounds.getMinX()) / bounds.getWidth() * iconBounds.getWidth() + iconBounds.getMinX();
                 newlocX = DBMath.toNearest(newlocX, alignmentToGrid.getWidth());
-                double bodyDX = User.getIconGenLeadLength();
+                double bodyDX = ep.iconGenLeadLength;
                 double distToXEdge = locX - bounds.getMinX();
                 if (locX >= bounds.getCenterX()) {
                     bodyDX = -bodyDX;
@@ -239,7 +243,7 @@ public class Export extends ElectricObject implements PortProto, Comparable<Expo
                 }
                 double newlocY = (locY - bounds.getMinY()) / bounds.getHeight() * iconBounds.getHeight() + iconBounds.getMinY();
                 newlocY = DBMath.toNearest(newlocY, alignmentToGrid.getHeight());
-                double bodyDY = User.getIconGenLeadLength();
+                double bodyDY = ep.iconGenLeadLength;
                 double distToYEdge = locY - bounds.getMinY();
                 if (locY >= bounds.getCenterY()) {
                     bodyDY = -bodyDY;
@@ -258,16 +262,8 @@ public class Export extends ElectricObject implements PortProto, Comparable<Expo
                 newlocY = point.getY();
 
                 // create export in icon
-                int exportTech = User.getIconGenExportTech();
-                boolean drawLeads = User.isIconGenDrawLeads();
-                int exportStyle = User.getIconGenExportStyle();
-                int exportLocation = User.getIconGenExportLocation();
-                boolean ad = User.isIconsAlwaysDrawn();
-                int rotation = ViewChanges.iconTextRotation(pp, User.getIconGenInputRot(),
-                        User.getIconGenOutputRot(), User.getIconGenBidirRot(), User.getIconGenPowerRot(),
-                        User.getIconGenGroundRot(), User.getIconGenClockRot());
-                if (!ViewChanges.makeIconExport(pp, 0, newlocX, newlocY, newlocX + bodyDX, newlocY + bodyDY, icon,
-                        exportTech, drawLeads, exportStyle, exportLocation, rotation, ad)) {
+                int rotation = ViewChanges.iconTextRotation(pp);
+                if (!IconParameters.makeIconExport(pp, 0, newlocX, newlocY, newlocX + bodyDX, newlocY + bodyDY, icon, rotation)) {
                     System.out.println("Warning: Failed to create associated export in icon " + icon.describe(true));
                 }
             }
@@ -390,17 +386,38 @@ public class Export extends ElectricObject implements PortProto, Comparable<Expo
         setD(d.withName(newNameKey), true);
         //       parent.notifyRename(false);
 
-        // rename associated export in icon, if any
-        Cell iconCell = parent.iconView();
-        if ((iconCell != null) && (iconCell != parent)) {
-            for (Iterator<Export> it = iconCell.getExports(); it.hasNext();) {
-                Export pp = it.next();
-                if (pp.getName().equals(oldName.toString())) {
-                    pp.rename(newName);
-                    break;
-                }
-            }
+        // rename associated export in icons, if any
+        if (parent.getView() == View.SCHEMATIC)
+        {
+	        for(Iterator<Cell> cIt = parent.getCellGroup().getCells(); cIt.hasNext(); )
+	        {
+	        	Cell iconCell = cIt.next();
+	        	if (iconCell.getView() != View.ICON) continue;
+	            for (Iterator<Export> it = iconCell.getExports(); it.hasNext();)
+	            {
+	                Export pp = it.next();
+	                if (pp.getName().equals(oldName.toString()))
+	                {
+	                    pp.rename(newName);
+	                    break;
+	                }
+	            }
+	        }
         }
+
+//        Cell iconCell = parent.iconView();
+//        if (iconCell != null && iconCell != parent)
+//        {
+//            for (Iterator<Export> it = iconCell.getExports(); it.hasNext();)
+//            {
+//                Export pp = it.next();
+//                if (pp.getName().equals(oldName.toString()))
+//                {
+//                    pp.rename(newName);
+//                    break;
+//                }
+//            }
+//        }
     }
 
     /**
@@ -501,26 +518,44 @@ public class Export extends ElectricObject implements PortProto, Comparable<Expo
         TextDescriptor.Position pos = td.getPos();
         Poly.Type style = pos.getPolyType();
         Point2D[] pointList = new Point2D.Double[1];
+//        if (NEWWAY)
+//        {
+//	        // must untransform the node to apply the offset
+//	        NodeInst ni = getOriginalPort().getNodeInst();
+//            AffineTransform trans = ni.rotateIn();
+//	        pointList[0] = new Point2D.Double(cX, cY);
+//	        trans.transform(pointList[0], pointList[0]);
+//	        pointList[0].setLocation(pointList[0].getX()+offX, pointList[0].getY()+offY);
+//
+//	        poly = new Poly(pointList);
+//	        poly.setStyle(style);
+//	        poly.setPort(this);
+//	        poly.setString(getName());
+//	        poly.setTextDescriptor(td);
+//	        poly.setDisplayedText(new DisplayedText(this, EXPORT_NAME));
+//	        poly.transform(ni.rotateOut());
+//        } else
+        {
+	        // must untransform the node to apply the offset
+	        NodeInst ni = getOriginalPort().getNodeInst();
+	        if (!ni.getOrient().equals(Orientation.IDENT)) {
+	            pointList[0] = new Point2D.Double(cX, cY);
+	            AffineTransform trans = ni.rotateIn();
+	            trans.transform(pointList[0], pointList[0]);
+	            pointList[0].setLocation(pointList[0].getX() + offX, pointList[0].getY() + offY);
+	            trans = ni.rotateOut();
+	            trans.transform(pointList[0], pointList[0]);
+	        } else {
+	            pointList[0] = new Point2D.Double(cX + offX, cY + offY);
+	        }
 
-        // must untransform the node to apply the offset
-        NodeInst ni = getOriginalPort().getNodeInst();
-        if (!ni.getOrient().equals(Orientation.IDENT)) {
-            pointList[0] = new Point2D.Double(cX, cY);
-            AffineTransform trans = ni.rotateIn();
-            trans.transform(pointList[0], pointList[0]);
-            pointList[0].setLocation(pointList[0].getX() + offX, pointList[0].getY() + offY);
-            trans = ni.rotateOut();
-            trans.transform(pointList[0], pointList[0]);
-        } else {
-            pointList[0] = new Point2D.Double(cX + offX, cY + offY);
+	        poly = new Poly(pointList);
+	        poly.setStyle(style);
+	        poly.setPort(this);
+	        poly.setString(getName());
+	        poly.setTextDescriptor(td);
+	        poly.setDisplayedText(new DisplayedText(this, EXPORT_NAME));
         }
-
-        poly = new Poly(pointList);
-        poly.setStyle(style);
-        poly.setPort(this);
-        poly.setString(getName());
-        poly.setTextDescriptor(td);
-        poly.setDisplayedText(new DisplayedText(this, EXPORT_NAME));
         return poly;
     }
 

@@ -31,7 +31,6 @@ import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.network.Netlist;
 import com.sun.electric.database.network.Network;
 import com.sun.electric.database.prototype.PortProto;
-import com.sun.electric.database.text.Pref;
 import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.Connection;
@@ -52,6 +51,7 @@ import com.sun.electric.tool.user.CircuitChanges;
 import com.sun.electric.tool.user.Highlight;
 import com.sun.electric.tool.user.Highlighter;
 import com.sun.electric.tool.user.User;
+import com.sun.electric.tool.user.UserInterfaceMain;
 import com.sun.electric.tool.user.menus.EditMenu;
 
 import java.awt.event.ActionEvent;
@@ -91,10 +91,10 @@ public class ClickZoomWireListener
         ActionListener
 {
     private static Preferences prefs = Preferences.userNodeForPackage(ClickZoomWireListener.class);
-    private static long cancelMoveDelayMillis; /* cancel move delay in milliseconds */
-    private static long zoomInDelayMillis; /* zoom in delay in milliseconds */
+    private long cancelMoveDelayMillis; /* cancel move delay in milliseconds */
+    private long zoomInDelayMillis; /* zoom in delay in milliseconds */
 //    private static boolean useFatWiringMode;
-    private static boolean interactiveDRCDrag;
+    private boolean interactiveDRCDrag;
 
     private static final boolean debug = false; /* for debugging */
 
@@ -158,8 +158,6 @@ public class ClickZoomWireListener
 
     /** Constructor is private */
     private ClickZoomWireListener() {
-        router = new SimpleWirer();
-        router.setTool(User.getUserTool());
         readPrefs();
     }
 
@@ -672,7 +670,7 @@ public class ClickZoomWireListener
 	                if (interactiveDRCDrag && selected.size() == 1)
 	                {
 	                	Geometric g = selected.get(0);
-	                	Netlist nl = g.getParent().acquireUserNetlist();
+	                	Netlist nl = g.getParent().getNetlist();
 	                	if (g instanceof ArcInst)
 	                	{
 	                		ArcInst ai = (ArcInst)g;
@@ -1647,9 +1645,9 @@ public class ClickZoomWireListener
             // nothing under mouse to route to/switch between, return
         } else {
             // toggle fat wiring mode
-            EditingPreferences ep = EditingPreferences.getThreadEditingPreferences();
-            ep.fatWires = !ep.fatWires;
-            ep.putPrefs(Pref.getPrefRoot(), true);
+            EditingPreferences ep = UserInterfaceMain.getEditingPreferences();
+            ep = ep.withFatWires(!ep.fatWires);
+            UserInterfaceMain.setEditingPreferences(ep);
             if (ep.fatWires) {
                 System.out.println("Enabling fat wiring mode");
             } else {
@@ -1748,7 +1746,9 @@ public class ClickZoomWireListener
     /**
      * Recached Preferences after change
      */
-    public static void readPrefs() {
+    public void readPrefs() {
+        router = new SimpleWirer(EditingPreferences.getThreadEditingPreferences().fatWires);
+        router.setTool(User.getUserTool());
         cancelMoveDelayMillis = prefs.getLong(cancelMoveDelayMillisPref, getFactoryCancelMoveDelayMillis());
         zoomInDelayMillis = prefs.getLong(zoomInDelayMillisPref, 120);
 //        useFatWiringMode = prefs.getBoolean(useFatWiringModePref, true);

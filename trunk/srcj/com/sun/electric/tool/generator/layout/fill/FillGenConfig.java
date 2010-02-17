@@ -29,15 +29,13 @@ import java.util.List;
 
 import com.sun.electric.technology.Technology;
 import com.sun.electric.tool.Job;
-import com.sun.electric.tool.generator.layout.LayoutLib;
 import com.sun.electric.tool.generator.layout.TechType;
-import com.sun.electric.tool.generator.layout.Tech;
 
 /****************************** CONFIG ******************************/
 
 public class FillGenConfig implements Serializable
 {
-    public TechType.TechTypeEnum techType = null;
+    private TechType.TechTypeEnum techType = null;
     public FillGeneratorTool.FillTypeEnum fillType = FillGeneratorTool.FillTypeEnum.INVALID;
     public String fillLibName;
     List<ReserveConfig> reserves = new ArrayList<ReserveConfig>();
@@ -74,9 +72,10 @@ public class FillGenConfig implements Serializable
         }
     }
 
-    public FillGenConfig(FillGeneratorTool.FillTypeEnum type, TechType.TechTypeEnum tech, String lib, ExportConfig perim,
-                         int first, int last,
-                         double w, double h, boolean even,
+    public FillGenConfig(TechType.TechTypeEnum tech) { techType = tech; }
+
+    public FillGenConfig(TechType.TechTypeEnum tech, FillGeneratorTool.FillTypeEnum type, String lib,
+                         ExportConfig perim, int first, int last, double w, double h, boolean even,
                          int[] cellTiles, boolean hierarchy, double minO, double drcSpacingRule,
                          boolean binary, boolean useMaster, boolean onlyAround, double gap, FillGenType genType,
                          int level)
@@ -93,7 +92,6 @@ public class FillGenConfig implements Serializable
         this.useMaster = useMaster;
 
         techType = tech;
-        Tech.setTechType(tech.getTechType());
 
         this.fillLibName = lib;
         this.perim = perim;
@@ -104,6 +102,10 @@ public class FillGenConfig implements Serializable
         this.fillCellType = genType;
         this.level = level;
     }
+
+    public TechType getTechType() { return techType.getTechType(); }
+    public boolean is180Tech() { return techType == TechType.TechTypeEnum.MOCMOS || 
+        techType == TechType.TechTypeEnum.TSMC180; }
 
     public void setTargetValues(double targetW, double targetH, double sx, double sy)
     {
@@ -118,7 +120,7 @@ public class FillGenConfig implements Serializable
                                              double gndReserved, FillGeneratorTool.Units gndUnits)
     {
         int numMetals = tech.getNumMetals();
-        LayoutLib.error(layer<1 || layer>numMetals,
+        Job.error(layer<1 || layer>numMetals,
                     "Bad layer. Layers must be between 2 and "+numMetals+ " inclusive: "+
                     layer);
         ReserveConfig config = new ReserveConfig(layer, vddReserved, gndReserved, vddUnits, gndUnits);

@@ -98,7 +98,6 @@ import javax.swing.SwingUtilities;
 public abstract class Job implements Serializable {
 
     private static boolean GLOBALDEBUG = false;
-    private static boolean threadSafe;
     static final int PROTOCOL_VERSION = 19; // Apr 17
     public static boolean LOCALDEBUGFLAG; // Gilda's case
 //    private static final String CLASS_NAME = Job.class.getName();
@@ -113,6 +112,8 @@ public abstract class Job implements Serializable {
     public static boolean getDebug() { return GLOBALDEBUG; }
 
     public static void setDebug(boolean f) { GLOBALDEBUG = f; }
+
+    // ---------------------------- public methods ---------------------------
 
     /**
 	 * Type is a typesafe enum class that describes the type of job (CHANGE or EXAMINE).
@@ -170,17 +171,13 @@ public abstract class Job implements Serializable {
     transient EJob ejob;
     transient EDatabase database;
 
-    public static void initJobManager(int numThreads, String loggingFilePath, int socketPort, AbstractUserInterface ui, Job initDatabaseJob, boolean threadSafe) {
-        if (threadSafe) {
-            setThreadSafe();
-        }
+    public static void initJobManager(int numThreads, String loggingFilePath, int socketPort, AbstractUserInterface ui, Job initDatabaseJob) {
         currentUI = ui;
         serverJobManager = new ServerJobManager(numThreads, loggingFilePath, false, socketPort);
         serverJobManager.runLoop(initDatabaseJob);
     }
 
     public static void pipeServer(int numThreads, String loggingFilePath, int socketPort) {
-        setThreadSafe();
         Pref.forbidPreferences();
         EDatabase.setServerDatabase(new EDatabase(IdManager.stdIdManager.getInitialSnapshot()));
         Tool.initAllTools();
@@ -188,7 +185,6 @@ public abstract class Job implements Serializable {
     }
 
     public static void socketClient(String serverMachineName, int socketPort, AbstractUserInterface ui, Job initDatabaseJob) {
-        setThreadSafe();
         currentUI = ui;
         try {
             clientJobManager = new ClientJobManager(serverMachineName, socketPort);
@@ -199,7 +195,6 @@ public abstract class Job implements Serializable {
     }
 
     public static void pipeClient(Process process, AbstractUserInterface ui, Job initDatabaseJob, boolean skipOneLine) {
-        setThreadSafe();
         currentUI = ui;
         try {
             clientJobManager = new ClientJobManager(process, skipOneLine);
@@ -313,9 +308,6 @@ public abstract class Job implements Serializable {
                 }
             } else {
                 Job.currentUI.putProcessingEJob(ejob, onMySnapshot);
-                if (!isThreadSafe()) {
-                    serverJobManager.addJob(ejob, onMySnapshot);
-                }
             }
         }
     }
@@ -593,18 +585,27 @@ public abstract class Job implements Serializable {
         return EThread.findValidSnapshot();
     }
 
-    public static boolean isThreadSafe() {
-        return threadSafe;
-    }
-
-    static void setThreadSafe() {
-        threadSafe = true;
-    }
-
 	//-------------------------------JOB UI--------------------------------
 
     public String toString() { return ejob.jobName+" ("+getStatus()+")"; }
 
+    /**
+     * Print a message, dump a stack trace, and throw a RuntimeException if
+     * errorHasOccurred argument is true.
+     *
+     * @param errorHasOccurred indicates a runtime error has been detected
+     * @param msg the message to print when an error occurs
+     * @throws RuntimeException if errorHasOccurred is true
+     */
+    public static void error(boolean errorHasOccurred, String msg) {
+        if (!errorHasOccurred) return;
+        RuntimeException e = new RuntimeException(msg);
+        // The following prints a stack trace on the console
+        ActivityLogger.logException(e);
+
+        // The following prints a stack trace in the Electric messages window
+        throw e;
+    }
 
     /** Get info on Job */
     public String getInfo() {

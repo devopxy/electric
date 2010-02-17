@@ -323,7 +323,7 @@ public class MoCMOS extends Technology
         Foundry foundry = getSelectedFoundry();
         List<DRCTemplate> theRules = foundry.getRules();
         XMLRules rules = new XMLRules(this);
-        boolean pWellProcess = User.isPWellProcessLayoutTechnology();
+        boolean pSubstrateProcess = User.isPSubstrateProcessLayoutTechnology();
 
         assert(foundry != null);
 
@@ -420,7 +420,7 @@ public class MoCMOS extends Technology
                     rule.ruleName +=  ", " +  extraString;
                 }
 
-                rules.loadDRCRules(this, foundry, rule, pWellProcess);
+                rules.loadDRCRules(this, foundry, rule, pSubstrateProcess);
 			}
 		}
 
@@ -543,17 +543,17 @@ public class MoCMOS extends Technology
 	 */
 	public Setting getAlternateActivePolyRulesSetting() { return cacheAlternateActivePolyRules; }
 
-	private final Setting cacheAnalog = makeBooleanSetting(getTechName() + "Analog", "Technology tab", "MOSIS CMOS: Vertical NPN transistor pbase",
+	private final Setting cacheAnalog = makeBooleanSetting(getTechName() + "Analog", "Technology tab", "MOSIS CMOS: Analog",
 		techParamAnalog.xmlPath.substring(TECH_NAME.length() + 1), false);
 	/**
-	 * Method to tell whether this technology has layers for vertical NPN transistor pbase.
+	 * Method to tell whether this technology provides analog elements.
 	 * The default is false.
-	 * @return true if this Technology has layers for vertical NPN transistor pbase.
+	 * @return true if this Technology provides analog elements..
 	 */
 	public boolean isAnalog() { return paramAnalog.booleanValue(); }
 	/**
-	 * Returns project preferences to tell whether this technology has layers for vertical NPN transistor pbase.
-	 * @return project preferences to tell whether this technology has layers for vertical NPN transistor pbase.
+	 * Returns project preferences to tell whether this technology provides analog elements.
+	 * @return project preferences to tell whether this technology provides analog elements.
 	 */
 	public Setting getAnalogSetting() { return cacheAnalog; }
 
@@ -677,17 +677,19 @@ public class MoCMOS extends Technology
         Xml.PrimitiveNodeGroup[] scalableTransistorNodes = new Xml.PrimitiveNodeGroup[2];
         Xml.PrimitiveNodeGroup npnTransistorNode = tech.findNodeGroup("NPN-Transistor");
         Xml.PrimitiveNodeGroup polyCapNode = tech.findNodeGroup("Poly1-Poly2-Capacitor");
-        List<Xml.PrimitiveNodeGroup> analogElems = new ArrayList<Xml.PrimitiveNodeGroup>();
-        analogElems.add(tech.findNodeGroup("NPN-Transistor"));
-        analogElems.add(tech.findNodeGroup("Hi-Res-Poly-Resistor"));
-        analogElems.add(tech.findNodeGroup("P-Active-Resistor"));
+        Set<Xml.PrimitiveNodeGroup> analogElems = new HashSet<Xml.PrimitiveNodeGroup>();
         analogElems.add(tech.findNodeGroup("N-Active-Resistor"));
-        analogElems.add(tech.findNodeGroup("P-Well-Resistor"));
-        analogElems.add(tech.findNodeGroup("N-Well-Resistor"));
-        analogElems.add(tech.findNodeGroup("P-Poly-Resistor"));
-        analogElems.add(tech.findNodeGroup("N-Poly-Resistor"));
-        analogElems.add(tech.findNodeGroup("P-No-Silicide-Poly-Resistor"));
         analogElems.add(tech.findNodeGroup("N-No-Silicide-Poly-Resistor"));
+        analogElems.add(tech.findNodeGroup("N-Well-Resistor"));
+        analogElems.add(tech.findNodeGroup("P-Well-Resistor"));
+        analogElems.add(tech.findNodeGroup("P-No-Silicide-Poly-Resistor"));
+        analogElems.add(tech.findNodeGroup("P-Poly-Resistor"));
+        analogElems.add(tech.findNodeGroup("NPN-Transistor"));
+        analogElems.add(tech.findNodeGroup("P-Active-Resistor"));
+        analogElems.add(tech.findNodeGroup("N-Poly-Resistor"));
+        analogElems.add(tech.findNodeGroup("Hi-Res-Poly2-Resistor"));
+        // Remove all possible null entries (not found elements)
+        analogElems.remove(null);
 
         assert(analogElems.size() == 10 &&  polyCapNode != null); // so far
         
@@ -813,9 +815,9 @@ public class MoCMOS extends Technology
             // Clear palette box with capacitor if poly2 is on
             if (!secondPolysilicon)
             {
-            	assert tech.menuPalette.menuBoxes.get(0).get(1) == polyCapNode.nodes.get(0);
+            	assert ((Xml.MenuNodeInst)tech.menuPalette.menuBoxes.get(0).get(1)).protoName.equals(polyCapNode.nodes.get(0).name);
             	// location of capacitor 
-            	tech.menuPalette.menuBoxes.get(0).remove(polyCapNode.nodes.get(0));
+            	tech.menuPalette.menuBoxes.get(0).remove(1);
                 polyFlag = true;
             }
         } else {
@@ -895,6 +897,8 @@ public class MoCMOS extends Technology
     }
 
     private static void resizeContacts(Xml.PrimitiveNodeGroup ng, ResizeData rd) {
+        if (ng == null) return;
+
         for (Xml.NodeLayer nl: ng.nodeLayers) {
             if (nl.representation != Technology.NodeLayer.MULTICUTBOX) continue;
             nl.sizex = nl.sizey = rd.contact_size;

@@ -322,7 +322,7 @@ public class Highlighter implements DatabaseChangeListener {
 	 */
 	public void addNetwork(Network net, Cell cell)
 	{
-		Netlist netlist = cell.acquireUserNetlist();
+		Netlist netlist = cell.getNetlist();
 		if (netlist == null)
 		{
 			System.out.println("Sorry, a deadlock aborted highlighting (network information unavailable).  Please try again");
@@ -346,7 +346,7 @@ public class Highlighter implements DatabaseChangeListener {
     public void showNetworks(Cell cell)
     {
     	// find out what is selected
-		Netlist netlist = cell.acquireUserNetlist();
+		Netlist netlist = cell.getNetlist();
 		if (netlist == null)
 		{
 			System.out.println("Sorry, a deadlock aborted netlist display (network information unavailable).  Please try again");
@@ -929,7 +929,7 @@ public class Highlighter implements DatabaseChangeListener {
 		Cell cell = WindowFrame.getCurrentCell();
 		if (cell != null)
 		{
-			Netlist netlist = cell.acquireUserNetlist();
+			Netlist netlist = cell.getNetlist();
 			if (netlist == null)
 			{
 				String msg = "Selected networks are not ready";
@@ -1964,11 +1964,13 @@ public class Highlighter implements DatabaseChangeListener {
      */
     public static Highlight getSimiliarHighlight(List<Highlight> highlights, Highlight exampleHigh) {
         if (highlights.size() == 0) return null;
-        if (exampleHigh == null) return highlights.get(0);
+        if (exampleHigh == null || !exampleHigh.isValid()) return highlights.get(0);
 
         // get Highlights of the same type
         List<Highlight> sameTypes = new ArrayList<Highlight>();
-        for (Highlight h : highlights) {
+        for (Highlight h : highlights)
+        {
+            assert(h.isValid()); // looking for more invalid cases
             if (h.getClass() == exampleHigh.getClass())
             {
                 sameTypes.add(h);
@@ -2038,6 +2040,7 @@ public class Highlighter implements DatabaseChangeListener {
                     // reset ai and pi
                     ArcInst ai = exAi;
                     PortInst pi = exPi;
+                    assert(h.isValid()); // looking for more invalid cases
                     if (h.getElectricObject().getClass() == ArcInst.class)
                         ai = (ArcInst)h.getElectricObject();
                     if (h.getElectricObject().getClass() == PortInst.class)

@@ -26,6 +26,7 @@ package com.sun.electric.tool.user.dialogs;
 import com.sun.electric.database.IdMapper;
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.Library;
+import com.sun.electric.database.id.CellId;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.user.CellChangeJobs;
@@ -35,8 +36,10 @@ import java.awt.Frame;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.BoundedRangeModel;
 import javax.swing.DefaultListModel;
@@ -332,7 +335,8 @@ public class CrossLibCopy extends EDialog
 		private transient CrossLibCopy dialog;
 		private boolean deleteAfter, copyRelated, copySubs, useExisting;
 		private int index;
-        private IdMapper idMapper; 
+        private IdMapper idMapper;
+        private Map<CellId,Cell> newCells = new HashMap<CellId,Cell>();
 
 		public CrossLibraryCopyJob(List<Cell> fromCells, Library toLibrary, CrossLibCopy dialog, boolean deleteAfter,
 			boolean copyRelated, boolean copySubs, boolean useExisting)
@@ -357,17 +361,20 @@ public class CrossLibCopy extends EDialog
 		public boolean doIt() throws JobException
 		{
 			// do the copy
-			idMapper = CellChangeJobs.copyRecursively(fromCells, toLibrary, true, deleteAfter, copyRelated, copySubs, useExisting);
+			idMapper = CellChangeJobs.copyRecursively(fromCells, toLibrary, true, deleteAfter, copyRelated, copySubs, useExisting, newCells);
             fieldVariableChanged("idMapper");
+            fieldVariableChanged("newCells");
 			return true;
 		}
 
+        @Override
         public void terminateOK()
         {
             User.fixStaleCellReferences(idMapper);
+            CellChangeJobs.copyExpandedStatus(newCells);
 
             if (dialog == null) return; // from ExplorerTree
-            
+
             // reload the dialog
 			dialog.showCells(false);
 
@@ -630,7 +637,7 @@ public class CrossLibCopy extends EDialog
 	}//GEN-LAST:event_copySubcellsActionPerformed
 
     private void compareContentItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_compareContentItemStateChanged
-        
+
         if (compareContent.isSelected())
 		{
 			centerLabel.setText("Date/Content");

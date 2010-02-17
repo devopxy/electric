@@ -59,6 +59,7 @@ import com.sun.electric.tool.routing.AutoStitch.AutoOptions;
 import com.sun.electric.tool.user.CellChangeJobs;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.ViewChanges;
+import com.sun.electric.tool.user.IconParameters;
 
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
@@ -149,8 +150,9 @@ public class PadGenerator
 	private HashMap<String,PadExports> exports;		// which ports to export
 	private List<Object> orderedCommands;			// list of orderedCommands to do
 	private boolean coreAllOnOneSide = false;
+    private IconParameters iconParameters = IconParameters.makeInstance(true);
 
-	private static class ArrayAlign
+    private static class ArrayAlign
 	{
 		int lineno;
 		String cellname;
@@ -212,7 +214,7 @@ public class PadGenerator
 		angle = 0;
 		lineno = 1;
 		orderedCommands = new ArrayList<Object>();
-	}
+    }
 
 	private Cell makePadFrame(Job job)
 	{
@@ -336,7 +338,7 @@ public class PadGenerator
 				FileType style = FileType.DEFAULTLIB;
 				if (TextUtils.getExtension(fileURL).equals("txt")) style = FileType.READABLEDUMP;
 				if (TextUtils.getExtension(fileURL).equals("elib")) style = FileType.ELIB;
-				cellLib = LibraryFiles.readLibrary(fileURL, null, style, false);
+				cellLib = LibraryFiles.readLibrary(fileURL, null, style, false, iconParameters);
 				if (cellLib == null)
 				{
 					err("cannot read library " + keyWord);
@@ -707,6 +709,7 @@ public class PadGenerator
 			System.out.println("Could not create pad frame Cell: " + name);
 			return null;
 		}
+        EditingPreferences ep = framecell.getEditingPreferences();
 
 		List<Export> padPorts = new ArrayList<Export>();
 		List<Export> corePorts = new ArrayList<Export>();
@@ -766,7 +769,7 @@ public class PadGenerator
 				{
 					List<Cell> fromCells = new ArrayList<Cell>();
 					fromCells.add(existing);
-					CellChangeJobs.copyRecursively(fromCells, destLib, false, false, false, true, true);
+					CellChangeJobs.copyRecursively(fromCells, destLib, false, false, false, true, true, null);
 					for(Iterator<Cell> cIt = destLib.getCells(); cIt.hasNext(); )
 					{
 						Cell thereCell = cIt.next();
@@ -1043,8 +1046,8 @@ public class PadGenerator
 			// into CircuitChanges.makeIconViewCommand()
 
 			// get icon style controls
-			double leadLength = User.getIconGenLeadLength();
-			double leadSpacing = User.getIconGenLeadSpacing();
+			double leadLength = ep.iconGenLeadLength;
+			double leadSpacing = ep.iconGenLeadSpacing;
 
 			// create the new icon cell
 			String iconCellName = framecell.getName() + "{ic}";
@@ -1063,7 +1066,7 @@ public class PadGenerator
 
 			// create the "black box"
 			NodeInst bbNi = null;
-			if (User.isIconGenDrawBody())
+			if (ep.iconGenDrawBody)
 			{
 				bbNi = NodeInst.newInstance(Artwork.tech().openedThickerPolygonNode, new Point2D.Double(0, 0), xSize, ySize, iconCell);
 				if (bbNi == null) return framecell;
@@ -1082,11 +1085,11 @@ public class PadGenerator
 			}
 
 			// get icon preferences
-			int exportTech = User.getIconGenExportTech();
-			boolean drawLeads = User.isIconGenDrawLeads();
-			int exportStyle = User.getIconGenExportStyle();
-			int exportLocation = User.getIconGenExportLocation();
-			boolean ad = User.isIconsAlwaysDrawn();
+			int exportTech = ep.iconGenExportTech;
+			boolean drawLeads = ep.iconGenDrawLeads;
+			int exportStyle = ep.iconGenExportStyle;
+			int exportLocation = ep.iconGenExportLocation;
+			boolean ad = ep.iconsAlwaysDrawn;
 
 			if (coreAllOnOneSide)
 			{
@@ -1133,11 +1136,9 @@ public class PadGenerator
 				if (leftSide * 2 < rightSide) spacing = leadSpacing * 2;
 				yBBPos = yPos = ySize / 2 - ((ySize - (leftSide - 1) * spacing) / 2 + total * spacing);
 
-				int rotation = ViewChanges.iconTextRotation(pp, User.getIconGenInputRot(),
-					User.getIconGenOutputRot(), User.getIconGenBidirRot(), User.getIconGenPowerRot(),
-					User.getIconGenGroundRot(), User.getIconGenClockRot());
-				if (ViewChanges.makeIconExport(pp, 0, xPos, yPos, xBBPos, yBBPos, iconCell,
-					exportTech, drawLeads, exportStyle, exportLocation, rotation, ad))
+				int rotation = ViewChanges.iconTextRotation(pp);
+				if (IconParameters.makeIconExport(pp, 0, xPos, yPos, xBBPos, yBBPos, iconCell,
+					rotation))
 						total++;
 			}
 			total = 0;
@@ -1158,23 +1159,21 @@ public class PadGenerator
 				xPos = xBBPos + leadLength;
 				if (rightSide * 2 < leftSide) spacing = leadSpacing * 2;
 				yBBPos = yPos = ySize / 2 - ((ySize - (rightSide - 1) * spacing) / 2 + total * spacing);
-				int rotation = ViewChanges.iconTextRotation(pp, User.getIconGenInputRot(),
-					User.getIconGenOutputRot(), User.getIconGenBidirRot(), User.getIconGenPowerRot(),
-					User.getIconGenGroundRot(), User.getIconGenClockRot());
-				if (ViewChanges.makeIconExport(pp, 1, xPos, yPos, xBBPos, yBBPos, iconCell,
-					exportTech, drawLeads, exportStyle, exportLocation, rotation, ad))
+				int rotation = ViewChanges.iconTextRotation(pp);
+				if (IconParameters.makeIconExport(pp, 1, xPos, yPos, xBBPos, yBBPos, iconCell,
+					rotation))
 						total++;
 			}
 
 			// if no body, leads, or cell center is drawn, and there is only 1 export, add more
-			if (!User.isIconGenDrawBody() && !User.isIconGenDrawLeads() &&
-				User.isPlaceCellCenter() && total <= 1)
+			if (!ep.iconGenDrawBody && !ep.iconGenDrawLeads &&
+				ep.placeCellCenter && total <= 1)
 			{
 				NodeInst.newInstance(Generic.tech().invisiblePinNode, new Point2D.Double(0, 0), xSize, ySize, iconCell);
 			}
 
 			// place an icon in the schematic
-			int exampleLocation = User.getIconGenInstanceLocation();
+			int exampleLocation = ep.iconGenInstanceLocation;
 			Point2D iconPos = new Point2D.Double(0, 0);
 			Rectangle2D cellBounds = framecell.getBounds();
 			Rectangle2D iconBounds = iconCell.getBounds();

@@ -341,6 +341,7 @@ public class Pref {
             transformer.setOutputProperty(OutputKeys.INDENT, "yes");
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             OutputStreamWriter outSW = (Client.isOSMac()) ? new OutputStreamWriter(bos) : new OutputStreamWriter(bos, "utf-8");
+//            OutputStreamWriter outSW = new OutputStreamWriter(bos, "UTF-8");
             StreamResult result = new StreamResult(outSW);
             transformer.transform(source, result);
 

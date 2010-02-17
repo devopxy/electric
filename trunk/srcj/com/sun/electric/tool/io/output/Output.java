@@ -23,6 +23,7 @@
  */
 package com.sun.electric.tool.io.output;
 
+import com.sun.electric.Main;
 import com.sun.electric.database.IdMapper;
 import com.sun.electric.database.LibraryBackup;
 import com.sun.electric.database.Snapshot;
@@ -41,7 +42,6 @@ import com.sun.electric.database.variable.EditWindow_;
 import com.sun.electric.database.variable.ElectricObject;
 import com.sun.electric.database.variable.VarContext;
 import com.sun.electric.database.variable.Variable;
-import com.sun.electric.Main;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.Listener;
@@ -49,6 +49,7 @@ import com.sun.electric.tool.Tool;
 import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.io.IOTool;
 import com.sun.electric.tool.user.ErrorLogger;
+import com.sun.electric.tool.user.IconParameters;
 import com.sun.electric.tool.user.User;
 
 import java.awt.geom.Rectangle2D;
@@ -130,7 +131,6 @@ public class Output
         if (!factory && !SwingUtilities.isEventDispatchThread() && !Main.isBatch())
                 throw new IllegalStateException("Current default Prefs can be accessed only from client thread");
 
-        if (type == FileType.ARCHSIM) return new ArchSim.ArchSimPreferences(factory);
 		if (type == FileType.CDL) return new Spice.SpicePreferences(factory, true);
 		if (type == FileType.CIF) return new CIF.CIFPreferences(factory);
 		if (type == FileType.COSMOS || type == FileType.ESIM || type == FileType.RSIM) return new Sim.SimPreferences(factory, type);
@@ -153,6 +153,7 @@ public class Output
 		if (type == FileType.SKILL) return new IOTool.SkillPreferences(factory, false, cell);
         if (type == FileType.SKILLEXPORTSONLY) return new IOTool.SkillPreferences(factory, true, cell);
 		if (type == FileType.SPICE) return new Spice.SpicePreferences(factory, false);
+		if (type == FileType.SVG) return new SVG.SVGPreferences(factory);
 		if (type == FileType.TEGAS) return new Tegas.TegasPreferences(factory);
 		if (type == FileType.VERILOG) return new Verilog.VerilogPreferences(factory);
         return null;
@@ -197,6 +198,7 @@ public class Output
         // IO Settings
         public boolean useCopyrightMessage = IOTool.isUseCopyrightMessage();
         public boolean includeDateAndVersionInOutput = User.isIncludeDateAndVersionInOutput();
+        public IconParameters iconParameters = IconParameters.makeInstance(true);
 
         protected OutputPreferences() { this(false); }
         protected OutputPreferences(boolean factory) {

@@ -59,7 +59,7 @@ public class Version implements Comparable<Version>, Serializable {
     /**
      * This is the current version of Electric
      */
-    private static final String CURRENT = "8.10";
+    private static final String CURRENT = "8.11";
     private static final String ROOTARNAME = "electric";
     private final String version;
     private final int major;
@@ -144,7 +144,7 @@ public class Version implements Comparable<Version>, Serializable {
      * @return Sun Microsystems and Static Free Software
      */
     public static String getCopyrightInformation() {
-        return "Copyright (c) 2009 Sun Microsystems and Static Free Software";
+        return "Copyright (c) 2010 Sun Microsystems and Static Free Software";
     }
 
     /**

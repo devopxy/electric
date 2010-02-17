@@ -1927,17 +1927,33 @@ public class Technology implements Comparable<Technology>, Serializable
 
     /**
 	 * Method to determine the index in the upper-left triangle array for two layers/nodes.
+     * The sequence of indices is: rules for single layers, rules for nodes, rules that
+     * involve more than 1 layers.
 	 * @param index1 the first layer/node index.
 	 * @param index2 the second layer/node index.
 	 * @return the index in the array that corresponds to these two layers/nodes.
 	 */
-//	public int getRuleIndex(int index1, int index2)
-//	{
-//		if (index1 > index2) { int temp = index1; index1 = index2;  index2 = temp; }
-//		int pIndex = (index1+1) * (index1/2) + (index1&1) * ((index1+1)/2);
-//		pIndex = index2 + (getNumLayers()) * index1 - pIndex;
-//		return getNumLayers() + getNumNodes() + pIndex;
-//	}
+	public int getRuleIndex(int index1, int index2)
+	{
+        int numLayers = getNumLayers();
+        if (index1 > index2) { int temp = index1; index1 = index2;  index2 = temp; }
+		int pIndex = (index1+1) * (index1/2) + (index1&1) * ((index1+1)/2);
+		pIndex = index2 + numLayers * index1 - pIndex;
+		return numLayers + getNumNodes() + pIndex;
+	}
+
+    /**
+     * Method to retrieve index of the node in the map containing DRC rules
+     * It must add the total number of layers to guarantee indexes don't collide with
+     * layer indices.
+     * The sequence of indices is: rules for single layers, rules for nodes, rules that
+     * involve more than 1 layers.
+     * @return the index of this node in its Technology.
+     */
+    public final int getPrimNodeIndexInTech(PrimitiveNode node)
+    {
+        return getNumLayers() + node.getPrimNodeInddexInTech();
+    }
 
     /**
      * Method to determine index of layer or node involved in the rule
@@ -3821,19 +3837,19 @@ public class Technology implements Comparable<Technology>, Serializable
 
         Foundry foundry = getSelectedFoundry();
         List<DRCTemplate> rulesList = foundry.getRules();
-        boolean pWellProcess = User.isPWellProcessLayoutTechnology();
+        boolean pSubstrateProcess = User.isPSubstrateProcessLayoutTechnology();
 
         // load the DRC tables from the explanation table
         if (rulesList != null) {
             for(DRCTemplate rule : rulesList)
             {
                 if (rule.ruleType != DRCTemplate.DRCRuleType.NODSIZ)
-                    rules.loadDRCRules(this, foundry, rule, pWellProcess);
+                    rules.loadDRCRules(this, foundry, rule, pSubstrateProcess);
             }
             for(DRCTemplate rule : rulesList)
             {
                 if (rule.ruleType == DRCTemplate.DRCRuleType.NODSIZ)
-                    rules.loadDRCRules(this, foundry, rule, pWellProcess);
+                    rules.loadDRCRules(this, foundry, rule, pSubstrateProcess);
             }
         }
 
@@ -4246,7 +4262,13 @@ public class Technology implements Comparable<Technology>, Serializable
                         System.out.println("WARNING: Technology " + getTechName() + ", node " + np.getName() +
     		        		" should connect to " + aFun + " because that layer is in the node");
         			}
-	        	} else if (fun.isFET())
+                } else if (fun.isCapacitor())
+                {
+                    if (np.getNumPorts() < 2)
+                        System.out.println("ERROR: Technology " + getTechName() + ", node " + np.getName() +
+    		        		" must have at least two ports if defined as capacitor");
+
+                } else if (fun.isFET())
 	        	{
 	        		// check validity of transistors
 	        		List<PrimitivePort> traPorts = new ArrayList<PrimitivePort>();
@@ -4262,7 +4284,7 @@ public class Technology implements Comparable<Technology>, Serializable
 	        			PrimitivePort dTop = traPorts.get(1);
 	        			PrimitivePort pRight = traPorts.get(2);
 	        			PrimitivePort dBot = traPorts.get(3);
-	        			if (!getTechName().equals("tft"))
+	        			if (!getTechName().startsWith("tft"))
 	        			{
 		        			if (!connectsToPoly(pLeft))
 		    					System.out.println("WARNING: Technology " + getTechName() + ", node " + np.getName() +

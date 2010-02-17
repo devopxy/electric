@@ -31,6 +31,7 @@ import com.sun.electric.database.geometry.DBMath;
 import com.sun.electric.database.geometry.Dimension2D;
 import com.sun.electric.database.geometry.EPoint;
 import com.sun.electric.database.geometry.ERectangle;
+import com.sun.electric.database.geometry.GenMath;
 import com.sun.electric.database.geometry.Orientation;
 import com.sun.electric.database.geometry.Poly;
 import com.sun.electric.database.geometry.PolyBase;
@@ -65,6 +66,7 @@ import com.sun.electric.technology.technologies.Generic;
 import com.sun.electric.technology.technologies.Schematics;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
+import com.sun.electric.tool.Tool;
 import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.io.input.LibraryFiles;
 import com.sun.electric.tool.user.dialogs.OpenFile;
@@ -233,16 +235,38 @@ public class CircuitChangeJobs
 			Point2D.Double tmpPt1 = new Point2D.Double(), tmpPt2 = new Point2D.Double();
 
 			// Rotate nodes in markObj
-			for (Geometric geom : markObj) {
+			for (Geometric geom : markObj)
+			{
 				if (!(geom instanceof NodeInst)) continue;
 				NodeInst ni = (NodeInst)geom;
+				boolean wasMirroredInX = ni.isMirroredAboutXAxis();
+				boolean wasMirroredInY = ni.isMirroredAboutYAxis();
 				trans.transform(ni.getAnchorCenter(), tmpPt1);
 				ni.rotate(dOrient);
 				ni.move(tmpPt1.getX() - ni.getAnchorCenterX(), tmpPt1.getY() - ni.getAnchorCenterY());
+
+				if (Poly.NEWTEXTTREATMENT)
+				{
+					// rotate any text on the node
+					rotateText(ni, NodeInst.NODE_NAME, dOrient, wasMirroredInX==wasMirroredInY);
+					for(Iterator<Variable> it = ni.getParametersAndVariables(); it.hasNext(); )
+					{
+						Variable var = it.next();
+						rotateText(ni, var.getKey(), dOrient, wasMirroredInX==wasMirroredInY);
+					}
+
+					// rotate any exports on the node
+					for(Iterator<Export> it = ni.getExports(); it.hasNext(); )
+					{
+						Export e = it.next();
+						rotateText(e, Export.EXPORT_NAME, dOrient, wasMirroredInX==wasMirroredInY);
+					}
+				}
 			}
 
 			// Rotate arcs in markObj
-			for (Geometric geom : markObj) {
+			for (Geometric geom : markObj)
+			{
 				if (!(geom instanceof ArcInst)) continue;
 				ArcInst ai = (ArcInst)geom;
 				if (markObj.contains(ai.getHeadPortInst().getNodeInst()))
@@ -255,9 +279,85 @@ public class CircuitChangeJobs
 					tmpPt2.setLocation(ai.getTailLocation());
 				ai.modify(tmpPt1.getX() - ai.getHeadLocation().getX(), tmpPt1.getY() - ai.getHeadLocation().getY(),
 					tmpPt2.getX() - ai.getTailLocation().getX(), tmpPt2.getY() - ai.getTailLocation().getY());
+
+				if (Poly.NEWTEXTTREATMENT)
+				{
+					// rotate any text on the arc
+					rotateText(ai, ArcInst.ARC_NAME, dOrient, !mirror);
+					for(Iterator<Variable> it = ai.getParametersAndVariables(); it.hasNext(); )
+					{
+						Variable var = it.next();
+						rotateText(ai, var.getKey(), dOrient, true);
+					}
+				}
 			}
 
 			return true;
+		}
+
+		/**
+		 * Method to rotate text on an object.
+		 * @param eObj the ElectricObject on which the text resides.
+		 * @param key the Key for the text on the object.
+		 * @param dOrient the amount of rotation.
+		 * @param wasSameMirror true if the L-R mirroring was the same as the U-D mirroring.
+		 */
+		private void rotateText(ElectricObject eObj, Variable.Key key, Orientation dOrient, boolean wasSameMirror)
+		{
+			TextDescriptor td = eObj.getTextDescriptor(key);
+			Poly.Type oldType = td.getPos().getPolyType();
+			if (oldType == Poly.Type.TEXTCENT || oldType == Poly.Type.TEXTBOX) return;
+
+			AffineTransform dTrans = dOrient.pureRotate();
+			Poly.Type newType = oldType;
+			if (dOrient == Orientation.X)
+			{
+				// mirror X (left-right)
+				oldType = oldType.rotateTextAnchorIn(td.getRotation());
+				if (oldType == Poly.Type.TEXTLEFT) oldType = Poly.Type.TEXTRIGHT; else
+				if (oldType == Poly.Type.TEXTRIGHT) oldType = Poly.Type.TEXTLEFT; else
+				if (oldType == Poly.Type.TEXTBOTLEFT) oldType = Poly.Type.TEXTBOTRIGHT; else
+				if (oldType == Poly.Type.TEXTBOTRIGHT) oldType = Poly.Type.TEXTBOTLEFT; else
+				if (oldType == Poly.Type.TEXTTOPLEFT) oldType = Poly.Type.TEXTTOPRIGHT; else
+				if (oldType == Poly.Type.TEXTTOPRIGHT) oldType = Poly.Type.TEXTTOPLEFT;
+				oldType = oldType.rotateTextAnchorOut(td.getRotation());
+				newType = oldType;
+			} else if (dOrient == Orientation.Y)
+			{
+				// mirror Y (top-bottom)
+				oldType = oldType.rotateTextAnchorIn(td.getRotation());
+				if (oldType == Poly.Type.TEXTBOT) oldType = Poly.Type.TEXTTOP; else
+				if (oldType == Poly.Type.TEXTTOP) oldType = Poly.Type.TEXTBOT; else
+				if (oldType == Poly.Type.TEXTBOTLEFT) oldType = Poly.Type.TEXTTOPLEFT; else
+				if (oldType == Poly.Type.TEXTTOPLEFT) oldType = Poly.Type.TEXTBOTLEFT; else
+				if (oldType == Poly.Type.TEXTBOTRIGHT) oldType = Poly.Type.TEXTTOPRIGHT; else
+				if (oldType == Poly.Type.TEXTTOPRIGHT) oldType = Poly.Type.TEXTBOTRIGHT;
+				oldType = oldType.rotateTextAnchorOut(td.getRotation());
+				newType = oldType;
+			} else
+			{
+				// determine change in angle because of node rotation
+				int origAngle = oldType.getTextAngle();
+				if (!wasSameMirror && ((origAngle%1800) == 0 || (origAngle%1800) == 1350))
+					origAngle += 1800;
+				Point2D pt = new Point2D.Double(100, 0);
+				dTrans.transform(pt, pt);
+				int xAngle = GenMath.figureAngle(new Point2D.Double(0, 0), pt);
+				int angle = (origAngle + xAngle) % 3600;
+				newType = Poly.Type.getTextTypeFromAngle(angle);
+			}
+			TextDescriptor.Position newPos = TextDescriptor.Position.getPosition(newType);
+//System.out.println("WAS "+oldType.name()+" ROTATED "+dOrient.toString()+" IS "+newType.name());
+			td = td.withPos(newPos);
+			eObj.setTextDescriptor(key, td);
+
+			// if an arc, rotate the offset point
+			if (eObj instanceof ArcInst)
+			{
+				Point2D pt = new Point2D.Double(td.getXOff(), td.getYOff());
+				dTrans.transform(pt, pt);
+				eObj.setTextDescriptor(key, td.withOff(pt.getX(), pt.getY()));
+			}
 		}
 	}
 
@@ -779,7 +879,7 @@ public class CircuitChangeJobs
 			for(ArcInst ai : list)
 			{
 				if (ai.getProto() != Schematics.tech().bus_arc) continue;
-				Netlist netList = ai.getParent().acquireUserNetlist();
+				Netlist netList = ai.getParent().getNetlist();
 				if (netList == null)
 				{
 					System.out.println("Sorry, a deadlock aborted bus ripping (network information unavailable).  Please try again");
@@ -2995,8 +3095,9 @@ public class CircuitChangeJobs
 	public static class ReloadLibraryJob extends Job
 	{
 		private Library lib;
+        private IconParameters iconParameters = IconParameters.makeInstance(true);
 
-		public ReloadLibraryJob(Library lib)
+        public ReloadLibraryJob(Library lib)
 		{
 			super("Reload Library " + lib.getName(), User.getUserTool(), Job.Type.CHANGE, null, null, Job.Priority.USER);
 			this.lib = lib;
@@ -3005,7 +3106,7 @@ public class CircuitChangeJobs
 
 		public boolean doIt()
 		{
-			LibraryFiles.reloadLibrary(lib);
+			LibraryFiles.reloadLibrary(lib, iconParameters);
 			return true;
 		}
 	}
@@ -3317,4 +3418,74 @@ public class CircuitChangeJobs
 		}
 	}
 
+    /****************************** Make Cell Annotation Job ******************************/
+    public static class MakeCellAnnotationJob extends Job
+    {
+    	static final long serialVersionUID = 0;
+
+		private transient EditWindow_ wnd;
+        private Cell cell;
+        private String newAnnotation;
+        private Variable.Key key;
+
+        public static void makeAnnotationMenuCommand(Tool tool, Variable.Key key, String newAnnotation)
+        {
+            UserInterface ui = Job.getUserInterface();
+            EditWindow_ wnd = ui.needCurrentEditWindow_();
+            if (wnd == null) return;
+            Cell cell = ui.needCurrentCell();
+            if (cell == null) return;
+		    new MakeCellAnnotationJob(wnd, cell, tool, key, newAnnotation);
+        }
+
+        private MakeCellAnnotationJob(EditWindow_ wnd, Cell cell, Tool tool, Variable.Key k, String annotation)
+        {
+            super("Make Cell NCC Annotation", tool, Job.Type.CHANGE, null, null, Job.Priority.USER);
+            this.wnd = wnd;
+            this.cell = cell;
+            newAnnotation = annotation;
+            key = k;
+            startJob();
+        }
+		@Override
+        public boolean doIt() throws JobException {
+        	addAnnotation(cell, key, newAnnotation);
+        	return true;
+        }
+		@Override
+        public void terminateOK() {
+        	wnd.clearHighlighting();
+			wnd.addHighlightText(cell, cell, key);
+			wnd.finishedHighlighting();
+        }
+
+        public static void addAnnotation(Cell c, Variable.Key k, String annotation)
+        {
+            Variable var = c.getVar(k);
+            if (var == null) {
+                String [] initial = new String[1];
+                initial[0] = annotation;
+                TextDescriptor td = TextDescriptor.getCellTextDescriptor().withInterior(true).withDispPart(TextDescriptor.DispPos.NAMEVALUE);
+                var = c.newVar(k, initial, td);
+                Job.error(var==null, "couldn't create" + k + " annotation");
+            } else {
+                Object oldObj = var.getObject();
+                if (oldObj instanceof String) {
+                    /* Groan! Menu command always creates attributes as arrays of strings.
+                     * However, if user edits a single line attribute then dialog box
+                     * converts it back into a String.  Be prepared to convert it back into an array*/
+                    oldObj = new String[] {(String)oldObj};
+                }
+                Job.error(!(oldObj instanceof String[]), k + " annotation not String[]");
+                String[] oldVal = (String[]) oldObj;
+                TextDescriptor td = var.getTextDescriptor();
+
+                int newLen = oldVal.length+1;
+                String[] newVal = new String[newLen];
+                for (int i=0; i<newLen-1; i++) newVal[i]=oldVal[i];
+                newVal[newLen-1] = annotation;
+                var = c.newVar(k, newVal, td);
+            }
+        }
+    }
 }

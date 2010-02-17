@@ -336,6 +336,7 @@ public class StatusBar extends JPanel implements HighlightListener, DatabaseChan
 			NodeInst theNode = null;
 			for(Highlight h : highlighter.getHighlights())
 			{
+                if (!h.isValid()) continue;
 				if (h.isHighlightEOBJ())
 				{
 					ElectricObject eObj = h.getElectricObject();
@@ -436,6 +437,7 @@ public class StatusBar extends JPanel implements HighlightListener, DatabaseChan
 	 */
 	private String getSelectedText(Highlight h)
 	{
+        assert h.isValid();
 		PortInst thePort;
 		NodeInst theNode;
 		ArcInst theArc;
@@ -457,7 +459,7 @@ public class StatusBar extends JPanel implements HighlightListener, DatabaseChan
 			} else if (eObj instanceof ArcInst)
 			{
 				theArc = (ArcInst)eObj;
-				Netlist netlist = theArc.getParent().acquireUserNetlist();
+				Netlist netlist = theArc.getParent().getNetlist();
 				if (netlist == null)
 					return("netlist exception! try again");
 				if (!theArc.isLinked())

@@ -69,6 +69,8 @@ import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.ncc.basic.TransitiveRelation;
 
 import com.sun.electric.tool.user.ErrorLogger;
+import com.sun.electric.tool.user.IconParameters;
+
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
@@ -288,8 +290,9 @@ public class ELIB extends LibraryFiles
     /** variable keys possibly in the library */                            private Variable.Key[] varKeys;
 	/** true to convert all text descriptor values */						private boolean convertTextDescriptors;
 	/** true to require text descriptor values */							private boolean alwaysTextDescriptors;
+    /** icon parameters for exports */                                      private IconParameters iconParameters;
 
- 	/**
+     /**
 	 * This class is used to convert old "facet" style Libraries to pure Cell Libraries.
 	 */
 	private static class FakeCell
@@ -298,7 +301,10 @@ public class ELIB extends LibraryFiles
 		NodeProto firstInCell;
 	}
 
-	ELIB() {}
+	ELIB(IconParameters iconParams)
+    {
+        iconParameters = iconParams;
+    }
 
 	// ----------------------- public methods -------------------------------
 
@@ -308,21 +314,21 @@ public class ELIB extends LibraryFiles
 	 * @param fileURL the URL to the disk file.
 	 * @return the read Library, or null if an error occurred.
 	 */
-	public static synchronized Header readLibraryHeader(URL fileURL, ErrorLogger errorLogger)
-	{
-		try {
-			ELIB in = new ELIB();
-			if (in.openBinaryInput(fileURL)) return null;
-			Header header = in.readHeader();
-			// read the library
-			in.closeInput();
-			return header;
-        } catch (Exception e)
-		{
-            errorLogger.logError("Error " + e + " on " + fileURL, -1);
-        }
-		return null;
-    }
+//	public static synchronized Header readLibraryHeader(URL fileURL, ErrorLogger errorLogger)
+//	{
+//		try {
+//			ELIB in = new ELIB();
+//			if (in.openBinaryInput(fileURL)) return null;
+//			Header header = in.readHeader();
+//			// read the library
+//			in.closeInput();
+//			return header;
+//        } catch (Exception e)
+//		{
+//            errorLogger.logError("Error " + e + " on " + fileURL, -1);
+//        }
+//		return null;
+//    }
 
 	/**
 	 * Method to read a Library from disk.
@@ -330,10 +336,11 @@ public class ELIB extends LibraryFiles
 	 * @param fileURL the URL to the disk file.
 	 * @return the read Library, or null if an error occurred.
 	 */
-	public static synchronized boolean readStatistics(URL fileURL, ErrorLogger errorLogger, LibraryStatistics.FileContents fc)
+	public static synchronized boolean readStatistics(URL fileURL, ErrorLogger errorLogger,
+                                                      LibraryStatistics.FileContents fc)
 	{
 		try {
-			ELIB in = new ELIB();
+			ELIB in = new ELIB(null);
 			if (in.openBinaryInput(fileURL)) return true;
 			boolean error = in.readTheLibrary(true, fc);
 			// read the library
@@ -1773,7 +1780,7 @@ public class ELIB extends LibraryFiles
                 Point2D center = new Point2D.Double(expected.getX() - anchorX, expected.getY() - anchorY);
                 PrimitiveNode pn = Generic.tech().universalPinNode;
                 NodeInst ni = NodeInst.newInstance(pn, center, 0, 0, c, Orientation.IDENT, "");
-                Export ex = Export.newInstance(c, ni.getOnlyPortInst(), portname, null, false);
+                Export ex = Export.newInstance(c, ni.getOnlyPortInst(), portname, null, false, iconParameters);
                 if (ex != null) {
                     return node.findPortInst(portname);
                 }
@@ -2112,7 +2119,7 @@ public class ELIB extends LibraryFiles
 		int highY = cellHighY[cellIndex];
 
 		// get the external library
-		Library elib = readExternalLibraryFromFilename(cellLibraryPath[cellIndex], FileType.ELIB);
+		Library elib = readExternalLibraryFromFilename(cellLibraryPath[cellIndex], FileType.ELIB, iconParameters);
 
 		// find this cell in the external library
 		Cell c = elib.findNodeProto(fullCellName);

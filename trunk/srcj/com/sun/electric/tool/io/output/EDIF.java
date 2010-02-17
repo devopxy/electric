@@ -415,7 +415,7 @@ public class EDIF extends Topology
     /**
      * Build up lists of cells that need to be written, organized by library
      */
-    protected void writeCellTopology(Cell cell, CellNetInfo cni, VarContext context, Topology.MyCellInfo info)
+    protected void writeCellTopology(Cell cell, String cellName, CellNetInfo cni, VarContext context, Topology.MyCellInfo info)
     {
         Library lib = cell.getLibrary();
         LibToWrite l = libsToWrite.get(lib);
@@ -1297,7 +1297,7 @@ public class EDIF extends Topology
 					{
 						Connection con = cIt.next();
 						ArcInst ai = con.getArc();
-						if (netlist == null) netlist = cell.acquireUserNetlist();
+						if (netlist == null) netlist = cell.getNetlist();
 						int width = netlist.getBusWidth(ai);
 						if (width > 1) busWidthFound = width; else
 							wireFound = true;

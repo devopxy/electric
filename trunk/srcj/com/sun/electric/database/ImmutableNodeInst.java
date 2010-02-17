@@ -503,7 +503,8 @@ public class ImmutableNodeInst extends ImmutableElectricObject {
             return this;
         }
         EPoint size = this.size;
-        if (SIMPLE_TRACE_SIZE && var.getKey() == NodeInst.TRACE) {
+        if (SIMPLE_TRACE_SIZE && var.getKey() == NodeInst.TRACE &&
+                protoId instanceof PrimitiveNodeId && !isCellCenter(protoId)) {
             Object value = var.getObject();
             if (value instanceof EPoint[]) {
                 EPoint newSize = calcTraceSize((EPoint[]) value);
@@ -889,7 +890,7 @@ public class ImmutableNodeInst extends ImmutableElectricObject {
         ImmutableNodeInst that = (ImmutableNodeInst) o;
         return this.nodeId == that.nodeId && this.protoId == that.protoId
                 && this.name == that.name && this.nameDescriptor == that.nameDescriptor
-                && this.orient == that.orient && this.anchor == that.anchor && this.size == that.size
+                && this.orient == that.orient && this.anchor.equals(that.anchor) && this.size.equals(that.size)
                 && this.flags == that.flags && this.techBits == that.techBits
                 && this.protoDescriptor == that.protoDescriptor;
     }
@@ -914,7 +915,7 @@ public class ImmutableNodeInst extends ImmutableElectricObject {
         assert orient != null;
         assert anchor != null;
         assert size != null;
-        if (SIMPLE_TRACE_SIZE) {
+        if (SIMPLE_TRACE_SIZE && protoId instanceof PrimitiveNodeId && !isCellCenter(protoId)) {
             EPoint[] trace = getTrace();
             if (trace != null) {
                 assert calcTraceSize(trace).equals(size);

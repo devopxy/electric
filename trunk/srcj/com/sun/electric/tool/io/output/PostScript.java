@@ -35,12 +35,7 @@ import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.Connection;
 import com.sun.electric.database.topology.NodeInst;
 import com.sun.electric.database.topology.PortInst;
-import com.sun.electric.database.variable.EditWindow0;
-import com.sun.electric.database.variable.EditWindow_;
-import com.sun.electric.database.variable.TextDescriptor;
-import com.sun.electric.database.variable.UserInterface;
-import com.sun.electric.database.variable.VarContext;
-import com.sun.electric.database.variable.Variable;
+import com.sun.electric.database.variable.*;
 import com.sun.electric.technology.Layer;
 import com.sun.electric.technology.PrimitiveNode;
 import com.sun.electric.technology.TechPool;
@@ -900,7 +895,9 @@ public class PostScript extends Output
 				{
 					// combine all features of port text with color of the port
 					TextDescriptor descript = portPoly.getTextDescriptor();
-					TextDescriptor portDescript = pp.getTextDescriptor(Export.EXPORT_NAME).withColorIndex(descript.getColorIndex());
+                    if (descript == null)
+                        descript = TextDescriptor.TextType.EXPORT.getFactoryTextDescriptor();//TextDescriptor.EMPTY;
+                    TextDescriptor portDescript = pp.getTextDescriptor(Export.EXPORT_NAME).withColorIndex(descript.getColorIndex());
 					Poly.Type type = descript.getPos().getPolyType();
 					portPoly.setStyle(type);
 					String portName = pp.getName();
@@ -1374,6 +1371,10 @@ public class PostScript extends Output
 		double sX = Math.abs(psH.getX() - psL.getX());
 		double sY = Math.abs(psH.getY() - psL.getY());
 		putPSHeader(HEADERSTRING);
+
+		// set text color
+		Color full = EGraphics.getColorFromIndex(td.getColorIndex());
+		setColor(full);
 
 		boolean changedFont = false;
 		String faceName = null;

@@ -23,8 +23,6 @@
 */
 package com.sun.electric.tool.user.ncc;
 
-import java.util.Iterator;
-
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.Export;
 import com.sun.electric.database.hierarchy.Nodable;
@@ -36,7 +34,10 @@ import com.sun.electric.tool.ncc.result.PartReport;
 import com.sun.electric.tool.ncc.result.PortReport;
 import com.sun.electric.tool.ncc.result.WireReport;
 import com.sun.electric.tool.user.Highlighter;
+import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.ui.EditWindow;
+
+import java.util.Iterator;
 
 public class HighlightTools {
     
@@ -45,8 +46,17 @@ public class HighlightTools {
         // validate the cell (it may have been deleted)
         if (cell != null) {
             if (!cell.isLinked()) System.out.println("Cell is deleted");
+
             // make sure it is shown
-            EditWindow wnd = EditWindow.showEditWindowForCell(cell, context);
+            EditWindow wnd = EditWindow.getCurrent();
+        	if (User.isShowCellsInNewWindow()) wnd = null;
+        	if (wnd == null)
+        	{
+            	wnd = EditWindow.showEditWindowForCell(cell, context);
+        	} else
+        	{
+        		wnd.setCell(cell, context, null);
+        	}
             highlighter = wnd.getHighlighter();
             highlighter.clear();
         }
@@ -59,7 +69,7 @@ public class HighlightTools {
     }
 
     public static void highlightNetworkByName(Highlighter highlighter, Cell cell, String netName) {
-        Netlist netlist = cell.acquireUserNetlist();
+        Netlist netlist = cell.getNetlist();
         if (netlist == null) {
             System.out.println("Sorry, a deadlock aborted mimic-routing (network information unavailable).  Please try again");
             return;
@@ -81,7 +91,7 @@ public class HighlightTools {
 
     public static void highlightPart(Highlighter highlighter, Cell cell, PartReport part) {
         String name = part.getNameProxy().leafName();
-        Netlist netlist = cell.acquireUserNetlist();
+        Netlist netlist = cell.getNetlist();
         if (netlist == null) {
             System.out.println("Sorry, a deadlock aborted mimic-routing (network information unavailable).  Please try again");
             return;
@@ -98,7 +108,7 @@ public class HighlightTools {
     }
     
     public static void highlightNetNamed(Highlighter highlighter, Cell cell, String name) {
-        Netlist netlist = cell.acquireUserNetlist();
+        Netlist netlist = cell.getNetlist();
         if (netlist == null) {
             System.out.println("Sorry, a deadlock aborted mimic-routing (network information unavailable).  Please try again");
             return;

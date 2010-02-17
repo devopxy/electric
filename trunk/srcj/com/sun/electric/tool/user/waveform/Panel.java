@@ -1476,19 +1476,47 @@ public class Panel extends JPanel
         }
     }
 
-	void dumpDataForGnuplot(PrintWriter pw) {
+    private static String pad2(String s) { return s.length()>=2 ? s : pad2("0"+s); }
+	void dumpDataForGnuplot(PrintWriter pw) { dumpDataForGnuplot(pw, Double.MIN_VALUE, Double.MAX_VALUE, ""); }
+	void dumpDataForGnuplot(PrintWriter pw, double min, double max, String sep) {
+        boolean first = true;
+        int linetype = 1;
+		for(WaveSignal ws : waveSignals.values()) {
+            boolean used = false;
+			if (ws.getSignal() instanceof AnalogSignal) {
+				AnalogSignal as = (AnalogSignal)ws.getSignal();
+				for (int s = 0, numSweeps = as.getNumSweeps(); s < numSweeps; s++) {
+                    if (!first) pw.print(sep);
+                    pw.print(" \'-\' with lines ");
+                    Color c = ws.getColor();
+                    pw.print(" lt "+linetype+" ");
+                    pw.print("lc rgb \"#"+
+                             pad2(Integer.toString(c.getRed()   & 0xff, 16))+
+                             pad2(Integer.toString(c.getGreen() & 0xff, 16))+
+                             pad2(Integer.toString(c.getBlue()  & 0xff, 16))+
+                             "\" ");
+                    pw.print(" title \""+ws.getSignal().getFullName()+"\" ");
+                    first = false;
+                    used = true;
+                }
+            }
+            if (used) linetype++;
+        }
 		for(WaveSignal ws : waveSignals.values()) {
 			if (ws.getSignal() instanceof AnalogSignal) {
 				AnalogSignal as = (AnalogSignal)ws.getSignal();
-//				AnalogAnalysis an = as.getAnalysis();
 				for (int s = 0, numSweeps = as.getNumSweeps(); s < numSweeps; s++) {
                     pw.println();
 					Waveform wave = as.getWaveform(s);
                     NewSignal.Approximation pref = wave.getPreferredApproximation();
                     NewSignal.Approximation waveform = pref /* FIXME */;
 					int numEvents = waveform.getNumEvents();
-					for(int i=0; i<numEvents; i++)
+					for(int i=0; i<numEvents; i++) {
+                        if (waveform.getTime(i) < min || waveform.getTime(i) > max) continue;
                         pw.println(waveform.getTime(i) + " " + ((ScalarSample)waveform.getSample(i)).getValue());
+                    }
+                    pw.println("e");
+                    pw.println();
                 }
             }
         }
@@ -1844,7 +1872,7 @@ public class Panel extends JPanel
 		{
 			if (g != null) g.setColor(ws.getColor());
 
-			Double [] points = ws.getSignal().getControlPoints();
+			Double [] points = ws.getSignal().getAnalysis().getStimuli().getControlPoints(ws.getSignal());
 			if (points == null) continue;
 			if (g != null) g.setColor(ws.getColor());
 			for(int i=0; i<points.length; i++)

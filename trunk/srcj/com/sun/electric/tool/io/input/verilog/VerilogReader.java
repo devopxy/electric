@@ -22,6 +22,7 @@ import com.sun.electric.tool.placement.Placement;
 import com.sun.electric.tool.simulation.Simulation;
 import com.sun.electric.tool.io.input.Input;
 import com.sun.electric.tool.user.ViewChanges;
+import com.sun.electric.tool.user.IconParameters;
 
 import java.awt.geom.Point2D;
 import java.io.IOException;
@@ -55,6 +56,7 @@ public class VerilogReader extends Input
     {
 		public boolean runPlacement = Simulation.getFactoryVerilogRunPlacementTool();
         Placement.PlacementPreferences placementPrefs;
+        IconParameters iconParameters = IconParameters.makeInstance(true);
 
         public VerilogPreferences(boolean factory)
         {
@@ -209,7 +211,7 @@ public class VerilogReader extends Input
 
     private NodeInst readSupply(VerilogData.VerilogModule module, boolean power, String name)
     {
-        VerilogData.VerilogPort supply = module.addPort(name, false);
+        VerilogData.VerilogPort supply = module.addPort(name, false, false);
         supply.type = (power) ? PortCharacteristic.PWR : PortCharacteristic.GND;
         return null;
     }
@@ -289,7 +291,7 @@ public class VerilogReader extends Input
                     if (exp == null)
                     {
 //                            System.out.println("Warning: port " + export + " not found in module " + element.name + " yet");
-                        exp = element.addPort(export, false);
+                        exp = element.addPort(export, false, true);
                     }
                     verilogInst.addPortInstance(pin, exp);
                 }
@@ -464,7 +466,7 @@ public class VerilogReader extends Input
         module.setValid(true);
         // adding ports in modules: from 1 -> inputs.size()-1;
         for (int i = 1; i < inputs.size(); i++)
-            module.addPort(inputs.get(i), true);
+            module.addPort(inputs.get(i), true, true);
 
         String nextToken = null;
 
@@ -872,7 +874,7 @@ public class VerilogReader extends Input
                         cell, Orientation.IDENT, pinName);
                 if (addExport)
                 {
-                    Export.newInstance(cell, ni.getOnlyPortInst(), pinName, portType);
+                    Export.newInstance(cell, ni.getOnlyPortInst(), pinName, portType, localPrefs.iconParameters);
                 }
             }
             else
@@ -953,7 +955,7 @@ public class VerilogReader extends Input
                 ArcInst.makeInstanceBase(Schematics.tech().wire_arc, 0.0,
                     ni.getOnlyPortInst(), supply.getOnlyPortInst(), null, null, name);
 
-                Export.newInstance(cell, ni.getOnlyPortInst(), name, portType);
+                Export.newInstance(cell, ni.getOnlyPortInst(), name, portType, localPrefs.iconParameters);
             }
             else
                 System.out.println("Skipping this characteristic?");

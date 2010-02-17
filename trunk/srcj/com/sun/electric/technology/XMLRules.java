@@ -54,16 +54,19 @@ public class XMLRules implements DRCRules, Serializable
     /**
 	 * Method to determine the index in the upper-left triangle array for two layers/nodes. In this type of rules,
      * the index starts after primitive nodes and single layers rules.
+     * The sequence of indices is: rules for single layers, rules for nodes, rules that
+     * involve more than 1 layers.
 	 * @param index1 the first layer/node index.
 	 * @param index2 the second layer/node index.
 	 * @return the index in the array that corresponds to these two layers/nodes.
 	 */
 	public int getRuleIndex(int index1, int index2)
 	{
-		if (index1 > index2) { int temp = index1; index1 = index2;  index2 = temp; }
-		int pIndex = (index1+1) * (index1/2) + (index1&1) * ((index1+1)/2);
-		pIndex = index2 + (tech.getNumLayers()) * index1 - pIndex;
-		return tech.getNumLayers() + tech.getNumNodes() + pIndex;
+        return tech.getRuleIndex(index1, index2);
+//		if (index1 > index2) { int temp = index1; index1 = index2;  index2 = temp; }
+//		int pIndex = (index1+1) * (index1/2) + (index1&1) * ((index1+1)/2);
+//		pIndex = index2 + (tech.getNumLayers()) * index1 - pIndex;
+//		return tech.getNumLayers() + tech.getNumNodes() + pIndex;
 	}
 
      /**
@@ -270,8 +273,9 @@ public class XMLRules implements DRCRules, Serializable
         XMLRule oldRule = getRule(index, type);
         HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix[index];
 
-        // Remove old rule first
-        map.remove(oldRule);
+        // Remove old rule first but only if exists
+        if (map != null)
+            map.remove(oldRule);
         XMLRule r = new XMLRule(name, new double[]{value}, type, 0, 0, -1, DRCTemplate.DRCMode.ALL.mode());
         addXMLRule(index, r);
     }
@@ -883,9 +887,13 @@ public class XMLRules implements DRCRules, Serializable
 			pos = endKey + 1;
 		}
 	}
-
-
-    public void loadDRCRules(Technology tech, Foundry foundry, DRCTemplate theRule, boolean pWellProcess)
+	
+    /**
+	 * Method to build "factory" design rules, given the current technology settings.
+	 * Returns the "factory" design rules for this Technology.
+	 * Returns null if there is an error loading the rules.
+     */
+    public void loadDRCRules(Technology tech, Foundry foundry, DRCTemplate theRule, boolean pSubstrateProcess)
     {
         int numMetals = tech.getNumMetals();
         DRCTemplate.DRCMode m = DRCTemplate.DRCMode.ALL;
@@ -902,7 +910,7 @@ public class XMLRules implements DRCRules, Serializable
             System.out.println("Trying to upload metal layer that does not exist:" + numMetals);
         }
 
-        if (theRule.isRuleIgnoredInPWellProcess(pWellProcess))  // Skip this rule in pwell process
+        if (theRule.isRuleIgnoredInPSubstrateProcess(pSubstrateProcess))  // Skip this rule in PSubstrate process
             return;
 
         // load the DRC tables from the explanation table
@@ -1025,7 +1033,7 @@ public class XMLRules implements DRCRules, Serializable
                 break;
             case FORBIDDEN:
                 if (nty != null) // node forbidden
-                    addRule(nty.getPrimNodeIndexInTech(), theRule);
+                    addRule(tech.getPrimNodeIndexInTech(nty), theRule);
                 else
                     addRule(index, theRule);
                 break;
@@ -1056,7 +1064,7 @@ public class XMLRules implements DRCRules, Serializable
                 assert(false);
                 break;
             case NODSIZ:
-                addRule(nty.getPrimNodeIndexInTech(), theRule);
+                addRule(tech.getPrimNodeIndexInTech(nty), theRule);
                 break;
             case SURROUND:
                 addRule(index, theRule);

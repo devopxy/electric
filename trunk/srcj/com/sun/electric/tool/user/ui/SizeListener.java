@@ -72,8 +72,6 @@ import javax.swing.JTextField;
 public class SizeListener
 	implements MouseMotionListener, MouseListener, MouseWheelListener, KeyListener
 {
-	private static final boolean NEWWAY = true;
-
 	private Geometric stretchGeom;
 	private EventListener oldListener;
 	private Cursor oldCursor;
@@ -99,14 +97,22 @@ public class SizeListener
 			return;
 		}
 		Geometric geom = geomList.get(0);
-		EventListener newListener = null;
+		if (geom instanceof NodeInst)
+		{
+			NodeInst ni = (NodeInst)geom;
+			if (ni.isCellInstance())
+			{
+				System.out.println("You can only resize primitive nodes, not cell instances.");
+				return;
+			}
+		}
 
 		// remember the listener that was there before
 		EventListener oldListener = WindowFrame.getListener();
 		Cursor oldCursor = TopLevel.getCurrentCursor();
 
 		System.out.println("Click to stretch " + geom);
-		newListener = oldListener;
+		EventListener newListener = oldListener;
 		if (newListener == null || !(newListener instanceof SizeListener))
 		{
 			currentListener = new SizeListener();
@@ -433,33 +439,30 @@ public class SizeListener
 				NodeInst ni = (NodeInst)stretchGeom;
 				Point2D newCenter = new Point2D.Double(ni.getAnchorCenterX(), ni.getAnchorCenterY());
 				Point2D newSize = getNewNodeSize(evt, newCenter);
-				if (NEWWAY)
-				{
-					if (stillUp)
-					{
-						newSize.setLocation(ni.getLambdaBaseXSize(), ni.getLambdaBaseYSize());
-						newCenter.setLocation(ni.getAnchorCenterX(), ni.getAnchorCenterY());
-					}
-				}
-				Poly stretchedPoly = ni.getBaseShape(EPoint.snap(newCenter), newSize.getX(), newSize.getY());
+
+                if (stillUp)
+                {
+                    newSize.setLocation(ni.getLambdaBaseXSize(), ni.getLambdaBaseYSize());
+                    newCenter.setLocation(ni.getAnchorCenterX(), ni.getAnchorCenterY());
+                }
+
+                Poly stretchedPoly = ni.getBaseShape(EPoint.snap(newCenter), newSize.getX(), newSize.getY());
 				Point2D [] stretchedPoints = stretchedPoly.getPoints();
 				for(int i=0; i<stretchedPoints.length; i++)
 				{
 					int lastI = i - 1;
 					if (lastI < 0) lastI = stretchedPoints.length - 1;
 					highlighter.addLine(stretchedPoints[lastI], stretchedPoints[i], cell);
-					if (NEWWAY)
-					{
-						double cX = (stretchedPoints[lastI].getX() + stretchedPoints[i].getX()) / 2;
-						double cY = (stretchedPoints[lastI].getY() + stretchedPoints[i].getY()) / 2;
-						Poly poly = new Poly(cX, cY, boxSize, boxSize);
-						poly.setStyle(Poly.Type.FILLED);
-						highlighter.addPoly(poly, cell, dotColor);
 
-						poly = new Poly(stretchedPoints[i].getX(), stretchedPoints[i].getY(), boxSize, boxSize);
-						poly.setStyle(Poly.Type.FILLED);
-						highlighter.addPoly(poly, cell, dotColor);
-					}
+                    double cX = (stretchedPoints[lastI].getX() + stretchedPoints[i].getX()) / 2;
+                    double cY = (stretchedPoints[lastI].getY() + stretchedPoints[i].getY()) / 2;
+                    Poly poly = new Poly(cX, cY, boxSize, boxSize);
+                    poly.setStyle(Poly.Type.FILLED);
+                    highlighter.addPoly(poly, cell, dotColor);
+
+                    poly = new Poly(stretchedPoints[i].getX(), stretchedPoints[i].getY(), boxSize, boxSize);
+                    poly.setStyle(Poly.Type.FILLED);
+                    highlighter.addPoly(poly, cell, dotColor);
 				}
 			} else
 			{
@@ -494,7 +497,7 @@ public class SizeListener
 
 		// get information about the node being stretched
 		NodeInst ni = (NodeInst)stretchGeom;
-		if (ni.getProto() instanceof Cell) return EPoint.ORIGIN;
+		if (ni.getProto() instanceof Cell) return new Point2D.Double(0, 0);
 
 		// setup outline of node with standard offset
 		Poly nodePoly = ni.getBaseShape();

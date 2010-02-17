@@ -209,6 +209,7 @@ public class Verilog extends Topology
         // Verilog factory Prefs
 		public boolean stopAtStandardCells = Simulation.getFactoryVerilogStopAtStandardCells();
 		public boolean parameterizeModuleNames = Simulation.getFactoryVerilogParameterizeModuleNames();
+		public boolean writeModuleForEachIcon = Simulation.isFactoryVerilogWriteModuleForEachIcon();
         public Map<Cell,String> modelFiles = Collections.emptyMap();
 
         // Verilog ouput preferences need VerilogInputPreferences in case of doc cells with Verilog code
@@ -227,6 +228,7 @@ public class Verilog extends Topology
             // Verilog current Prefs
 			stopAtStandardCells = Simulation.getVerilogStopAtStandardCells();
 			parameterizeModuleNames = Simulation.getVerilogParameterizeModuleNames();
+			writeModuleForEachIcon = Simulation.isVerilogWriteModuleForEachIcon();
             modelFiles = CellModelPrefs.verilogModelPrefs.getUnfilteredFileNames(EDatabase.clientDatabase());
 		}
 
@@ -374,9 +376,15 @@ public class Verilog extends Topology
 	}
 
 	/**
+	 * Since the Verilog netlister should write a separate copy of schematic cells for each icon,
+	 * this override returns true.
+	 */
+	protected boolean isWriteCopyForEachIcon() { return localPrefs.writeModuleForEachIcon; }
+
+	/**
 	 * Method to write cellGeom
 	 */
-	protected void writeCellTopology(Cell cell, CellNetInfo cni, VarContext context, Topology.MyCellInfo info)
+	protected void writeCellTopology(Cell cell, String cellName, CellNetInfo cni, VarContext context, Topology.MyCellInfo info)
 	{
 		if (cell == topCell) {
 			// gather all global signal names
@@ -449,7 +457,7 @@ public class Verilog extends Topology
 		// write the module header
 		printWriter.println();
 		StringBuffer sb = new StringBuffer();
-		sb.append("module " + cni.getParameterizedName() + "(");
+		sb.append("module " + cellName + "(");
 		boolean first = true;
 		for(Iterator<CellAggregateSignal> it = cni.getCellAggregateSignals(); it.hasNext(); )
 		{
@@ -477,7 +485,7 @@ public class Verilog extends Topology
 		}
 		sb.append(");\n");
 		writeWidthLimited(sb.toString());
-		definedModules.put(cni.getParameterizedName(), "Cell "+cell.libDescribe());
+		definedModules.put(cellName, "Cell "+cell.libDescribe());
 
         // add in any user-specified parameters
         includeTypedCode(cell, VERILOG_PARAMETER_KEY, "parameters");
@@ -560,7 +568,7 @@ public class Verilog extends Topology
 		if (localPrefs.stopAtStandardCells)
 		{
 			if (SCLibraryGen.isStandardCell(cell)) {
-				printWriter.println("endmodule   /* " + cni.getParameterizedName() + " */");
+				printWriter.println("endmodule   /* " + cellName + " */");
 				return;
 			}
 		}
@@ -851,14 +859,23 @@ public class Verilog extends Topology
 			// get the name of the node
 			int implicitPorts = 0;
 			boolean dropBias = false;
-			String nodeName = "";
+			String nodeName = "", trueNodeName = "";
 			if (no.isCellInstance())
 			{
 				// make sure there are contents for this cell instance
 				if (((Cell)niProto).isIcon()) continue;
 
-				nodeName = parameterizedName(no, context);
-				// cells defined as "primitives" in Verilog View must have implicit port ordering
+				nodeName = trueNodeName = parameterizedName(no, context);
+
+				// make sure to use the correct icon cell name if there are more than one
+                NodeInst ni = no.getNodeInst();
+                if (ni != null)
+                {
+                	String alternateSubCellName = getIconCellName((Cell)ni.getProto());
+                	if (alternateSubCellName != null) nodeName = alternateSubCellName;
+                }
+
+                // cells defined as "primitives" in Verilog View must have implicit port ordering
 				if (definedPrimitives.containsKey(niProto)) {
 					implicitPorts = 3;
 				}
@@ -900,6 +917,7 @@ public class Verilog extends Topology
 					implicitPorts = 1;
 					nodeName = chooseNodeName((NodeInst)no, "buf", "not");
 				}
+				trueNodeName = nodeName;
 			}
 			if (nodeName.length() == 0) continue;
 
@@ -928,7 +946,7 @@ public class Verilog extends Topology
 			switch (implicitPorts)
 			{
 				case 0:		// explicit ports (for cell instances)
-					CellNetInfo subCni = getCellNetInfo(nodeName);
+					CellNetInfo subCni = getCellNetInfo(trueNodeName);
 					for(Iterator<CellAggregateSignal> sIt = subCni.getCellAggregateSignals(); sIt.hasNext(); )
 					{
 						CellAggregateSignal cas = sIt.next();
@@ -1099,7 +1117,7 @@ public class Verilog extends Topology
 			infstr.append("\n");
 			writeWidthLimited(infstr.toString());
 		}
-		printWriter.println("endmodule   /* " + cni.getParameterizedName() + " */");
+		printWriter.println("endmodule   /* " + cellName + " */");
 
 		// check export direction consistency (inconsistent directions can cause opens in some tools)
 		for (Iterator<Export> it = cell.getExports(); it.hasNext(); ) {

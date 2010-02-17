@@ -24,6 +24,7 @@
 
 package com.sun.electric.tool.user.menus;
 
+import static com.sun.electric.database.text.ArrayIterator.i2i;
 import static com.sun.electric.tool.user.menus.EMenuItem.SEPARATOR;
 
 import com.sun.electric.database.geometry.EPoint;
@@ -33,26 +34,21 @@ import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.EDatabase;
 import com.sun.electric.database.hierarchy.Export;
 import com.sun.electric.database.hierarchy.HierarchyEnumerator;
-import com.sun.electric.database.hierarchy.HierarchyEnumerator.CellInfo;
 import com.sun.electric.database.hierarchy.Library;
 import com.sun.electric.database.hierarchy.Nodable;
 import com.sun.electric.database.hierarchy.View;
+import com.sun.electric.database.hierarchy.HierarchyEnumerator.CellInfo;
 import com.sun.electric.database.id.CellUsage;
 import com.sun.electric.database.network.Netlist;
 import com.sun.electric.database.network.Network;
-import com.sun.electric.database.network.NetworkTool;
 import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.prototype.PortCharacteristic;
 import com.sun.electric.database.prototype.PortProto;
 import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.Connection;
-import com.sun.electric.database.topology.Geometric;
 import com.sun.electric.database.topology.NodeInst;
-import com.sun.electric.database.topology.IconNodeInst;
 import com.sun.electric.database.topology.PortInst;
-import static com.sun.electric.database.text.ArrayIterator.i2i;
-import static com.sun.electric.database.text.ArrayIterator.i2al;
 import com.sun.electric.database.variable.DisplayedText;
 import com.sun.electric.database.variable.EditWindow_;
 import com.sun.electric.database.variable.ElectricObject;
@@ -104,7 +100,6 @@ import com.sun.electric.tool.ncc.NccCrossProbing;
 import com.sun.electric.tool.ncc.NccJob;
 import com.sun.electric.tool.ncc.NccOptions;
 import com.sun.electric.tool.ncc.PassedNcc;
-import com.sun.electric.tool.ncc.Pie;
 import com.sun.electric.tool.ncc.SchemNamesToLay;
 import com.sun.electric.tool.ncc.basic.NccCellAnnotations;
 import com.sun.electric.tool.ncc.basic.NccUtils;
@@ -145,11 +140,13 @@ import java.awt.event.KeyEvent;
 import java.awt.geom.Point2D;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.swing.JMenu;
@@ -209,8 +206,11 @@ public class ToolMenu
                     DRC.DRCPreferences dp = new DRC.DRCPreferences(false);
                     DRC.checkDRCHierarchically(dp, wnd.getCell(), wnd.getHighlightedEObjs(true, true),
                             wnd.getHighlightedArea(), GeometryHandler.GHMode.ALGO_SWEEP, false); }},
+                new EMenuItem("Add _Skip Annotation to Cell") { public void run() {
+                   DRC.makeDRCAnnotation(); }},
                 new EMenuItem("Check Area _Coverage") { public void run() {
-                    LayerCoverageTool.layerCoverageCommand(WindowFrame.needCurCell(), GeometryHandler.GHMode.ALGO_SWEEP, true, new LayerCoverageTool.LayerCoveragePreferences(false)); }},
+                    LayerCoverageTool.layerCoverageCommand(WindowFrame.needCurCell(),
+                        GeometryHandler.GHMode.ALGO_SWEEP, true, new LayerCoverageTool.LayerCoveragePreferences(false)); }},
                 new EMenuItem("_List Layer Coverage on Cell") { public void run() {
                     layerCoverageCommand(LayerCoverageTool.LCMode.AREA, GeometryHandler.GHMode.ALGO_SWEEP); }},
 
@@ -384,12 +384,7 @@ public class ToolMenu
 		        new EMenuItem("Write _FastHenry Deck...") { public void run() {
                     FileMenu.exportCommand(FileType.FASTHENRY, true); }},
 		        new EMenuItem("Fast_Henry Arc Properties...") { public void run() {
-                    FastHenryArc.showFastHenryArcDialog(); }},
-                SEPARATOR,
-		        new EMenuItem("Write _ArchSim Deck...") { public void run() {
-                    FileMenu.exportCommand(FileType.ARCHSIM, true); }},
-		        new EMenuItem("Display ArchSim _Journal...") { public void run() {
-                    Simulate.plotArchSimResults(); }}),
+                    FastHenryArc.showFastHenryArcDialog(); }}),
 
 		//------------------- ERC
 
@@ -447,7 +442,7 @@ public class ToolMenu
 
         //------------------- Network
 
-			// mnemonic keys available:    D F  IJK M O Q S   W YZ
+			// mnemonic keys available:    D F  IJK M O Q S U W YZ
             new EMenu("Net_work",
 		        new EMenuItem("Show _Network", 'K') { public void run() {
                     showNetworkCommand(); }},
@@ -482,9 +477,9 @@ public class ToolMenu
 		        new EMenuItem("_Validate Power and Ground") { public void run() {
                     validatePowerAndGround(false); }},
 		        new EMenuItem("_Repair Power and Ground") { public void run() {
-                    new RepairPowerAndGround(); }},
+                    new RepairPowerAndGround(); }}/*,
 		        new EMenuItem("Redo Network N_umbering") { public void run() {
-                    NetworkTool.renumberNetlists(); }}),
+                    NetworkTool.renumberNetlists(); }}*/),
 
 		//------------------- Logical Effort
 
@@ -846,7 +841,7 @@ public class ToolMenu
 		System.out.println("  Denominator is the width of transistors on the network");
 		System.out.println("    Separate results are computed for N and P transistors, as well as their sum");
 		System.out.println("-----------------------------------------------------------------------------");
-		Netlist nl = cell.acquireUserNetlist();
+		Netlist nl = cell.getNetlist();
 		for(Iterator<Network> it =  nl.getNetworks(); it.hasNext(); )
 		{
 			Network net = it.next();
@@ -963,12 +958,14 @@ public class ToolMenu
 	{
 		Cell cell = WindowFrame.getCurrentCell();
 		if (cell == null) return;
-		Netlist netlist = cell.acquireUserNetlist();
+		Netlist netlist = cell.getNetlist();
 		if (netlist == null)
 		{
 			System.out.println("Sorry, a deadlock aborted netlist display (network information unavailable).  Please try again");
 			return;
 		}
+		Map<Network,ArcInst[]> arcMap = null;
+		if (cell.getView() != View.SCHEMATIC) arcMap = netlist.getArcInstsByNetwork();
 		int total = 0;
 		for(Iterator<Network> it = netlist.getNetworks(); it.hasNext(); )
 		{
@@ -982,9 +979,15 @@ public class ToolMenu
 //				formatinfstr(infstr, _(" (bus with %d signals)"), net->buswidth);
 //			}
 			boolean connected = false;
-			for(Iterator<ArcInst> aIt = net.getArcs(); aIt.hasNext(); )
+			ArcInst[] arcsOnNet = null;
+			if (arcMap != null) arcsOnNet = arcMap.get(net); else
 			{
-				ArcInst ai = aIt.next();
+				List<ArcInst> arcList = new ArrayList<ArcInst>();
+				for(Iterator<ArcInst> aIt = net.getArcs(); aIt.hasNext(); ) arcList.add(aIt.next());
+				arcsOnNet = arcList.toArray(new ArcInst[]{});
+			}
+			for(ArcInst ai : arcsOnNet)
+			{
 				if (!connected)
 				{
 					connected = true;
@@ -1022,7 +1025,7 @@ public class ToolMenu
         Highlighter highlighter = wnd.getHighlighter();
 
         Set<Network> nets = highlighter.getHighlightedNetworks();
-		Netlist netlist = cell.acquireUserNetlist();
+		Netlist netlist = cell.getNetlist();
 		if (netlist == null)
 		{
 			System.out.println("Sorry, a deadlock aborted query (network information unavailable).  Please try again");
@@ -1116,7 +1119,7 @@ public class ToolMenu
         Highlighter highlighter = wnd.getHighlighter();
 
         Set<Network> nets = highlighter.getHighlightedNetworks();
-		Netlist netlist = cell.acquireUserNetlist();
+		Netlist netlist = cell.getNetlist();
 		if (netlist == null)
 		{
 			System.out.println("Sorry, a deadlock aborted query (network information unavailable).  Please try again");
@@ -1147,7 +1150,7 @@ public class ToolMenu
         Highlighter highlighter = wnd.getHighlighter();
 
         Set<Network> nets = highlighter.getHighlightedNetworks();
-		Netlist netlist = cell.acquireUserNetlist();
+		Netlist netlist = cell.getNetlist();
 		if (netlist == null)
 		{
 			System.out.println("Sorry, a deadlock aborted query (network information unavailable).  Please try again");
@@ -1192,7 +1195,7 @@ public class ToolMenu
                 {
                     CellUsage u = uIt.next();
                     Cell superCell = u.getParent(database);
-            		Netlist superNetlist = cell.acquireUserNetlist();
+            		Netlist superNetlist = cell.getNetlist();
             		if (superNetlist == null)
             		{
             			System.out.println("Sorry, a deadlock aborted query (network information unavailable).  Please try again");
@@ -1241,7 +1244,7 @@ public class ToolMenu
                     if (listedExports.contains(pp)) continue;
                     listedExports.add(pp);
                     System.out.println("    Export " + pp.getName() + " in " + subCell);
-            		Netlist subNetlist = subCell.acquireUserNetlist();
+            		Netlist subNetlist = subCell.getNetlist();
             		if (subNetlist == null)
             		{
             			System.out.println("Sorry, a deadlock aborted query (network information unavailable).  Please try again");
@@ -1287,7 +1290,9 @@ public class ToolMenu
         Cell cell = wnd.getCell();
         if (cell == null) return;
         wnd.clearHighlighting();
-        Netlist nl = cell.acquireUserNetlist();
+        Netlist nl = cell.getNetlist();
+		Map<Network,ArcInst[]> arcMap = null;
+		if (cell.getView() != View.SCHEMATIC) arcMap = nl.getArcInstsByNetwork();
         int colors = nl.getNumNetworks();
         Color [] netColors = makeUniqueColors(colors);
         int index = 0;
@@ -1295,12 +1300,17 @@ public class ToolMenu
         for(Iterator<Network> it = nl.getNetworks(); it.hasNext(); )
         {
         	Network net = it.next();
-        	Iterator<ArcInst> aIt = net.getArcs();
-        	if (!aIt.hasNext()) continue;
+    		ArcInst[] arcsOnNet = null;
+    		if (arcMap != null) arcsOnNet = arcMap.get(net); else
+    		{
+    			List<ArcInst> arcList = new ArrayList<ArcInst>();
+    			for(Iterator<ArcInst> aIt = net.getArcs(); aIt.hasNext(); ) arcList.add(aIt.next());
+    			arcsOnNet = arcList.toArray(new ArcInst[]{});
+    		}
+        	if (arcsOnNet.length == 0) continue;
         	Color col = netColors[index++];
-        	for( ; aIt.hasNext(); )
+        	for(ArcInst ai : arcsOnNet)
         	{
-        		ArcInst ai = aIt.next();
                 Point2D [] points = new Point2D[2];
         		points[0] = ai.getHeadLocation();
         		points[1] = ai.getTailLocation();
@@ -1454,12 +1464,26 @@ public class ToolMenu
                 }
                 public void exitCell(CellInfo cellInfo) {
                     Cell cell = cellInfo.getCell();
+        			Map<Network,ArcInst[]> arcMap = null;
+        			Map<Network,PortInst[]> portMap = null;
+        			if (cell.getView() != View.SCHEMATIC)
+        			{
+        				arcMap = cell.getNetlist().getArcInstsByNetwork();
+                		portMap = cell.getNetlist().getPortInstsByNetwork();
+        			}
                     for(Network net : i2i(cell.getNetlist().getNetworks())) {
                         boolean driven = false;
                         boolean hasInputExport = false;
 
                         // because we're in exitCell, we know that we've already added any Ports to drivenPorts
-                        for(PortInst pi : i2i(net.getPorts())) {
+            			PortInst[] portsOnNet = null;
+            			if (portMap != null) portsOnNet = portMap.get(net); else
+            			{
+            				List<PortInst> portList = new ArrayList<PortInst>();
+            				for(Iterator<PortInst> pIt = net.getPorts(); pIt.hasNext(); ) portList.add(pIt.next());
+            				portsOnNet = portList.toArray(new PortInst[]{});
+            			}
+                        for(PortInst pi : portsOnNet) {
                             NodeInst ni = pi.getNodeInst();
                             PortProto pp = pi.getPortProto();
                             if (ni.isCellInstance() && ((Cell)ni.getProto()).getView() == View.ICON)
@@ -1497,10 +1521,16 @@ public class ToolMenu
                                 }
                         if (!driven && !hasInputExport) {
                             // problem!
-                            if (net.getArcs().hasNext())
-                                errorLogger.logMessage("Undriven network", (ArrayList<ArcInst>)i2al(net.getArcs()), cell, 0, true);
-                            else if (net.getPorts().hasNext()) {
-                                PortInst pi = net.getPorts().next();
+            				List<ArcInst> arcsOnNet = null;
+                			if (arcMap != null) arcsOnNet = new ArrayList<ArcInst>(Arrays.asList(arcMap.get(net))); else
+                			{
+                				arcsOnNet = new ArrayList<ArcInst>();
+                				for(Iterator<ArcInst> aIt = net.getArcs(); aIt.hasNext(); ) arcsOnNet.add(aIt.next());
+                			}
+                            if (arcsOnNet.size() > 0)
+                                errorLogger.logMessage("Undriven network", arcsOnNet, cell, 0, true);
+                            else if (portsOnNet.length > 0) {
+                                PortInst pi = portsOnNet[0];
                                 errorLogger.logMessage("Undriven network on node " + pi.getNodeInst().describe(false) + ", port " +
                                                        pi.getPortProto().getName(), null, null, cell, 0, true);
                             }
@@ -1516,7 +1546,7 @@ public class ToolMenu
                 }
             };
 
-        HierarchyEnumerator.enumerateCell(wnd.getCell(), wnd.getVarContext(), visitor); 
+        HierarchyEnumerator.enumerateCell(wnd.getCell(), wnd.getVarContext(), visitor);
         errorLogger.termLogging(true);
     }
 
@@ -1559,7 +1589,7 @@ public class ToolMenu
         if (wnd == null) return;
         Highlighter highlighter = wnd.getHighlighter();
 
-		Netlist netlist = cell.acquireUserNetlist();
+		Netlist netlist = cell.getNetlist();
 		if (netlist == null)
 		{
 			System.out.println("Sorry, a deadlock aborted query (network information unavailable).  Please try again");
@@ -2009,7 +2039,7 @@ public class ToolMenu
 			// read standard cell library
 			System.out.println("Reading Standard Cell Library '" + SilComp.SCLIBNAME + "'");
 			URL fileURL = LibFile.getLibFile(SilComp.SCLIBNAME + ".jelib");
-			LibraryFiles.readLibrary(fileURL, null, FileType.JELIB, true);
+			LibraryFiles.readLibrary(fileURL, null, FileType.JELIB, true, null);
             return true;
         }
 

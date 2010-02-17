@@ -113,7 +113,7 @@ public abstract class Topology extends Output
 	protected void enterCell(HierarchyEnumerator.CellInfo info) { }
 
 	/** Abstract method to write CellGeom to disk */
-	protected abstract void writeCellTopology(Cell cell, CellNetInfo cni, VarContext context, Topology.MyCellInfo info);
+	protected abstract void writeCellTopology(Cell cell, String cellName, CellNetInfo cni, VarContext context, Topology.MyCellInfo info);
 
 	/** Abstract method to convert a network name to one that is safe for this format */
 	protected abstract String getSafeNetName(String name, boolean bus);
@@ -159,6 +159,23 @@ public abstract class Topology extends Output
 	 * subcells, override this method.
 	 */
 	protected boolean skipCellAndSubcells(Cell cell) { return false; }
+
+	/**
+	 * Method to tell whether the netlister should write a separate copy of schematic cells for each icon.
+	 *
+	 * If you want this to happen, you must do these things:
+	 * (1) override this method and have it return true.
+	 * (2) At the place where the cell name is written, use this code:
+	 *     // make sure to use the correct icon cell name if there are more than one
+	 *     String subCellName = subCni.getParameterizedName();
+	 *     NodeInst ni = no.getNodeInst();
+	 *     if (ni != null)
+	 *     {
+	 *         String alternateSubCellName = getIconCellName((Cell)ni.getProto());
+	 *         if (alternateSubCellName != null) subCellName = alternateSubCellName;
+	 *     }
+	 */
+	protected boolean isWriteCopyForEachIcon() { return false; }
 
 	/**
 	 * If a cell is skipped, this method can perform any checking to
@@ -253,7 +270,29 @@ public abstract class Topology extends Output
 					isNetworksUseExportedNames(), info);
 				cellTopos.put(parameterizedName, cni);
 			}
-			outGeom.writeCellTopology(cell, cni, info.getContext(), (MyCellInfo)info);
+			String cellName = cni.getParameterizedName();
+			outGeom.writeCellTopology(cell, cellName, cni, info.getContext(), (MyCellInfo)info);
+
+			// see if there are alternate icons with different names
+			if (isWriteCopyForEachIcon() && cell != topCell)
+			{
+				for(Iterator<Cell> it = cell.getCellGroup().getCells(); it.hasNext(); )
+				{
+					Cell otherCell = it.next();
+					if (otherCell.getView() != View.ICON) continue;
+					if (otherCell.getName().equals(cell.getName())) continue;
+					String otherCellName = getSafeCellName(otherCell.getName());
+					if (isLibraryNameAlwaysAddedToCellName())
+					{
+						if (otherCellName.startsWith("_")) otherCellName = "_" + otherCellName; else
+							otherCellName = "__" + otherCellName;
+						otherCellName = otherCell.getLibrary().getName() + otherCellName;
+					}
+					if (otherCellName.equals(cellName)) continue;
+					outGeom.writeCellTopology(cell, otherCellName, cni, info.getContext(), (MyCellInfo)info);			
+				}
+			}
+
 			lastInfo = info;
 		}
 
@@ -1086,6 +1125,16 @@ public abstract class Topology extends Output
 
 	/**
 	 * Method to return the name of cell "c", given that it may be ambiguously used in multiple
+	 * libraries.  Also, since this is an icon cell name, do not switch to its schematic.
+	 */
+	protected String getIconCellName(Cell cell)
+	{
+		String name = cellNameMap.get(cell);
+		return name;
+	}
+
+	/**
+	 * Method to return the name of cell "c", given that it may be ambiguously used in multiple
 	 * libraries.
 	 */
 	protected String getUniqueCellName(Cell cell)
@@ -1093,21 +1142,27 @@ public abstract class Topology extends Output
 		Cell contents = cell.contentsView();
 		if (contents != null) cell = contents;
 		String name = cellNameMap.get(cell);
+		if (name == null) name = getDefaultName(cell);
 		return name;
 	}
 
-	private static class NameMapGenerator extends HierarchyEnumerator.Visitor {
+	private String getDefaultName(Cell cell)
+	{
+		if (isLibraryNameAlwaysAddedToCellName() && !SCLibraryGen.isStandardCell(cell))
+			return cell.getLibrary().getName() + "__" + cell.getName();
+		return cell.getName();
+	}
+
+	private class NameMapGenerator extends HierarchyEnumerator.Visitor {
 
 		private Map<Cell,String> cellNameMap;
 		private Map<String,List<Cell>> cellNameMapReverse;
-		private boolean alwaysUseLibName;
 		private Topology topology;
 		private Cell topCell;
 
-		public NameMapGenerator(boolean alwaysUseLibName, Topology topology) {
+		public NameMapGenerator(Topology topology) {
 			cellNameMap = new HashMap<Cell,String>();
 			cellNameMapReverse = new HashMap<String,List<Cell>>();
-			this.alwaysUseLibName = alwaysUseLibName;
 			this.topology = topology;
 			topCell = null;
 		}
@@ -1122,6 +1177,25 @@ public abstract class Topology extends Output
 			cellNameMap.put(cell, name);
 			getConflictList(name).add(cell);
 			//System.out.println("Mapped "+cell.describe(false) + " --> " + name);
+
+			// see if there are alternate icons with different names
+			if (cell != topCell && topology.isWriteCopyForEachIcon() && cell.isSchematic())
+			{
+				for(Iterator<Cell> it = cell.getCellGroup().getCells(); it.hasNext(); )
+				{
+					Cell otherCell = it.next();
+					if (otherCell.getView() != View.ICON) continue;
+					if (otherCell.getName().equals(cell.getName())) continue;
+					String otherCellName = getDefaultName(otherCell);
+
+					// add name for this cell
+					if (!cellNameMap.containsKey(otherCell))
+					{
+						cellNameMap.put(otherCell, otherCellName);
+						getConflictList(otherCellName).add(otherCell);
+					}
+				}
+			}
 			return true;
 		}
 
@@ -1186,13 +1260,6 @@ public abstract class Topology extends Output
 			return true;
 		}
 
-		private String getDefaultName(Cell cell)
-		{
-			if (alwaysUseLibName && !SCLibraryGen.isStandardCell(cell))
-				return cell.getLibrary().getName() + "__" + cell.getName();
-			return cell.getName();
-		}
-
 		private void resolveConflicts()
 		{
 			List<List<Cell>> conflictLists = new ArrayList<List<Cell>>();
@@ -1235,7 +1302,7 @@ public abstract class Topology extends Output
 				}
 
 				// if not using library names, resolve conflicts by using them
-				if (!alwaysUseLibName)
+				if (!isLibraryNameAlwaysAddedToCellName())
 				{
 					for(int i=0; i<conflictList.size(); i++)
 					{
@@ -1319,7 +1386,7 @@ public abstract class Topology extends Output
 	 */
 	private Map<Cell,String> makeCellNameMap(Cell cell)
 	{
-		NameMapGenerator gen = new NameMapGenerator(isLibraryNameAlwaysAddedToCellName(), this);
+		NameMapGenerator gen = new NameMapGenerator(this);
 		HierarchyEnumerator.enumerateCell(cell, VarContext.globalContext, gen);
 		return gen.cellNameMap;
 	}

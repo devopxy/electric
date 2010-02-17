@@ -25,8 +25,11 @@ package com.sun.electric.tool.user.ui;
 
 import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.tool.Job;
+import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.user.User;
+import com.sun.electric.tool.user.ActivityLogger;
 import com.sun.electric.tool.user.dialogs.EDialog;
+import com.sun.electric.tool.user.dialogs.OpenFile;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -48,6 +51,9 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.net.URL;
+import java.io.File;
+import java.io.PrintWriter;
 
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
@@ -61,7 +67,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
-import javax.swing.text.BadLocationException;
 
 /**
  * a console for the Java side of Electric.  Used because the standard
@@ -124,6 +129,8 @@ public class MessagesWindow
 			((JFrame)jf).pack();
 			((JFrame)jf).setVisible(true);
 		}
+
+        appendString(ActivityLogger.getLoggingInformation());
 	}
 
 //	public Component getComponent()
@@ -219,13 +226,18 @@ public class MessagesWindow
 	public void appendString(String str)
 	{
 		info.append(str);
-		try
-		{
-			Rectangle r = info.modelToView(info.getDocument().getLength());
-			info.scrollRectToVisible(r);
-		} catch (BadLocationException ble)
-		{
-		}
+		SwingUtilities.invokeLater(new Runnable() {
+			public void run() { info.setCaretPosition(info.getDocument().getLength()); }
+		});
+//		info.setCaretPosition(info.getDocument().getLength());
+
+//		try
+//		{
+//			Rectangle r = info.modelToView(info.getDocument().getLength());
+//			info.scrollRectToVisible(r);
+//		} catch (BadLocationException ble)
+//		{
+//		}
 	}
 
 	public void mouseClicked(MouseEvent e) {}
@@ -270,7 +282,13 @@ public class MessagesWindow
 		menuItem = new JMenuItem("Copy All");
 		menu.add(menuItem);
 		menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { copyText(true, false); } });
-		menuItem = new JMenuItem("Clear");
+        if (Job.getDebug())
+        {
+            menuItem = new JMenuItem("Save All");
+            menu.add(menuItem);
+            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { saveAll(); } });
+        }
+        menuItem = new JMenuItem("Clear");
 		menu.add(menuItem);
 		menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { clear(true); } });
 
@@ -310,7 +328,30 @@ public class MessagesWindow
 		}
 	}
 
-	/**
+    /**
+	 * Method to copy text from the Messages Window.
+	 */
+	public void saveAll()
+	{
+        String fileName = OpenFile.chooseOutputFile(FileType.TEXT, null, "Message");
+        if (fileName == null) return; // cancel
+
+        URL libURL = TextUtils.makeURLToFile(fileName);
+        File f = new File(libURL.getPath());
+        try
+        {
+            System.out.println("Saving console messages in '" + fileName + " '");
+            PrintWriter wr = new PrintWriter(f);
+            wr.print(info.getText());
+            wr.close();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+	}
+
+    /**
 	 * Method to erase everything in the Messages Window.
 	 * @param all true to delete all text; false to delete only selected text.
 	 */

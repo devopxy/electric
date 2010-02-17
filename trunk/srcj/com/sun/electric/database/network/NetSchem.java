@@ -44,12 +44,12 @@ import com.sun.electric.technology.ArcProto;
 import com.sun.electric.technology.PrimitiveNode;
 import com.sun.electric.technology.technologies.Schematics;
 
-import com.sun.electric.tool.Job;
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -61,25 +61,6 @@ class NetSchem extends NetCell {
 
     /** Check immutable algorithm which computes equivalent ports */
     private static final boolean CHECK_EQUIV_PORTS = true;
-
-    static void updateCellGroup(Cell.CellGroup cellGroup) {
-        NetworkManager mgr = cellGroup.getDatabase().getNetworkManager();
-        Cell mainSchematics = cellGroup.getMainSchematics();
-        NetSchem mainSchem = null;
-        if (mainSchematics != null) {
-            mainSchem = (NetSchem) mgr.getNetCell(mainSchematics);
-        }
-        for (Iterator<Cell> it = cellGroup.getCells(); it.hasNext();) {
-            Cell cell = it.next();
-            if (cell.isIcon()) {
-                NetSchem icon = (NetSchem) mgr.getNetCell(cell);
-                if (icon == null) {
-                    continue;
-                }
-                icon.setImplementation(mainSchem != null ? mainSchem : icon);
-            }
-        }
-    }
 
     private class IconInst {
 
@@ -128,20 +109,17 @@ class NetSchem extends NetCell {
     Name[] drawnNames;
     /** */
     int[] drawnWidths;
+    private IdentityHashMap<Name, Integer> exportNameMapOffsets;
 
     NetSchem(Cell cell) {
         super(cell);
         setImplementation(this);
-        if (NetworkTool.isLazy()) {
-            if (cell.isIcon()) {
-                Cell mainSchematics = cell.getCellGroup().getMainSchematics();
-                if (mainSchematics != null) {
-                    NetSchem mainSchem = new NetSchem(mainSchematics);
-                    setImplementation(mainSchem);
-                }
+        if (cell.isIcon()) {
+            Cell mainSchematics = cell.getCellGroup().getMainSchematics();
+            if (mainSchematics != null) {
+                NetSchem mainSchem = new NetSchem(mainSchematics);
+                setImplementation(mainSchem);
             }
-        } else {
-            updateCellGroup(cell.getCellGroup());
         }
     }
 
@@ -278,7 +256,7 @@ class NetSchem extends NetCell {
             return -1;
         }
         assert !(no instanceof NodeInst)
-                || no == iconInst.nodeInst && ((Cell)iconInst.nodeInst.getProto()).isSchematic();
+                || no == iconInst.nodeInst && ((Cell) iconInst.nodeInst.getProto()).isSchematic();
         int indexOfGlobal = iconInst.eq.implementation.globals.indexOf(global);
         if (indexOfGlobal < 0) {
             return -1;
@@ -338,7 +316,7 @@ class NetSchem extends NetCell {
             EquivalentSchematicExports eq = iconInst.eq;
             int portIndex = portProto.getPortIndex();
             if (no instanceof IconNodeInst) {
-                Nodable no1 = ((IconNodeInst)no).getNodable(0);
+                Nodable no1 = ((IconNodeInst) no).getNodable(0);
 //                if (Job.getDebug()) {
 //                    System.out.println("IconNodeInst " + no + " is passed to getNodeIndex. Replaced by IconNodeable " + no1);
 //                }
@@ -397,6 +375,34 @@ class NetSchem extends NetCell {
     }
 
     /*
+     * Get offset in networks map for given export name.
+     */
+    @Override
+    int getNetMapOffset(Name exportName) {
+        assert !exportName.isBus();
+        if (exportNameMapOffsets == null) {
+            buildExportNameMapOffsets();
+        }
+        Integer objResult = exportNameMapOffsets.get(exportName);
+        return objResult != null ? objResult.intValue() : -1;
+    }
+
+    private void buildExportNameMapOffsets() {
+        IdentityHashMap<Name, Integer> map = new IdentityHashMap<Name, Integer>();
+        for (int exportIndex = 0; exportIndex < cell.getNumPorts(); exportIndex++) {
+            Export e = cell.getPort(exportIndex);
+            for (int busIndex = 0; busIndex < e.getNameKey().busWidth(); busIndex++) {
+                Name exportName = e.getNameKey().subname(busIndex);
+                if (map.containsKey(exportName)) {
+                    continue;
+                }
+                map.put(exportName, Integer.valueOf(portOffsets[exportIndex] + busIndex));
+            }
+        }
+        exportNameMapOffsets = map;
+    }
+
+    /*
      * Get offset in networks map for given arc.
      */
     @Override
@@ -435,22 +441,6 @@ class NetSchem extends NetCell {
             return 0;
         }
         return drawnWidths[drawn];
-    }
-
-    @Override
-    void invalidateUsagesOf(boolean strong) {
-        super.invalidateUsagesOf(strong);
-        if (cell.isIcon()) {
-            return;
-        }
-        for (Iterator<Cell> it = cell.getCellGroup().getCells(); it.hasNext();) {
-            Cell c = it.next();
-            if (!c.isIcon()) {
-                continue;
-            }
-            NetSchem icon = (NetSchem) networkManager.getNetCell(c);
-            icon.setInvalid(strong, strong);
-        }
     }
 
     private boolean initNodables() {
@@ -1361,12 +1351,14 @@ class NetSchem extends NetCell {
         synchronized (networkManager) {
             Snapshot oldSnapshot = expectedSnapshot.get();
             Snapshot newSnapshot = database.backup();
-            if (oldSnapshot == newSnapshot) return;
+            if (oldSnapshot == newSnapshot) {
+                return;
+            }
             if (oldSnapshot == null || !newSnapshot.sameNetlist(oldSnapshot, cell.getId())) {
                 // clear errors for cell
                 networkManager.startErrorLogging(cell);
                 try {
-
+                    exportNameMapOffsets = null;
                     makeDrawns();
                     // Gather port and arc names
                     initNetnames();

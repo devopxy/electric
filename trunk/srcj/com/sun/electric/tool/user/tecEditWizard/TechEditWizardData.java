@@ -60,7 +60,8 @@ public class TechEditWizardData
     private double resolution; // technology resolution for delta values (not in real scale)
     private boolean pSubstrateProcess = false; // to control if process is a pwell or psubstrate process or not. If true, Tech Creation Wizard will not create pwell layers
     private boolean horizontalFlag = true; // to control if transistor gates are aligned horizontally. True by default . If transistors are horizontal -> M1 is horizontal?
-    private boolean extraInfoFlag = false; // to control if protection polys are added to transistors. False by default
+    // 0=Basic is only with metal info, 0=Standard is with info for mocmos, 1=Complex with extra elements like resistors
+    private int caseFlag = 0; // to control what information is stored: -1=basic, 0=standard, 1=complex
     private boolean analogElementsFlag = false; // to control if analog elements are generated. False by default
     private boolean secondPolyFlag = false; // to control if second poly. False by default
 
@@ -142,14 +143,14 @@ public class TechEditWizardData
     private static class ContactNode
     {
         String layer;
-        WizardField overX; // overhang X value
-        WizardField overY; // overhang Y value
+        WizardField valueX; // overhang or size X value. Size value for cuts
+        WizardField valueY; // overhang or size Y value. Size value for cuts
 
-        ContactNode(String l, double overXV, String overXS, double overYV, String overYS)
+        ContactNode(String l, double valX, String nameX, double valY, String nameY)
         {
             layer = l;
-            overX = new WizardField(overXV, overXS);
-            overY = new WizardField(overYV, overYS);
+            valueX = new WizardField(valX, nameX);
+            valueY = new WizardField(valY, nameY);
         }
     }
     private static class Contact
@@ -166,8 +167,11 @@ public class TechEditWizardData
             layers = new ArrayList<ContactNode>();
         }
     }
-    private Map<String,List<Contact>> metalContacts;
-    private Map<String,List<Contact>> otherContacts;
+
+    private Map<String,List<Contact>> metalContacts = new HashMap<String,List<Contact>>();
+    private Map<String,List<Contact>> otherContacts = new HashMap<String,List<Contact>>(); 
+    private Map<String,List<Contact>> genericContacts = new HashMap<String,List<Contact>>();
+    private Map<String,List<Contact>> capacitors = new HashMap<String,List<Contact>>();
 
     private static class PaletteGroup
     {
@@ -240,6 +244,7 @@ public class TechEditWizardData
         boolean addArc = false;
         WizardField spacing, minimum;
         Layer.Function function = Layer.Function.ART; // ART is better default than UNKNOWN
+        PaletteGroup grp;  // to place extra elements for a given layer later in the palette
 
         LayerInfo(String n)
         {
@@ -414,8 +419,7 @@ public class TechEditWizardData
 
         layers.add(diff_layer);
         layers.add(poly_layer);
-        if (getExtraInfoFlag())
-            layers.addAll(extraLayers);
+        layers.addAll(extraLayers); // nothing added if list is empty
         layers.add(nplus_layer);
         layers.add(pplus_layer);
         layers.add(nwell_layer);
@@ -437,10 +441,6 @@ public class TechEditWizardData
 		via_array_spacing = new WizardField[num_metal_layers-1];
 		via_overhang = new WizardField[num_metal_layers-1];
 		metal_antenna_ratio = new double[num_metal_layers];
-
-        metalContacts = new HashMap<String,List<Contact>>();
-        otherContacts = new HashMap<String,List<Contact>>();
-
         metal_layers = new LayerInfo[num_metal_layers];
 		via_layers = new LayerInfo[num_metal_layers-1];
 
@@ -546,8 +546,9 @@ public class TechEditWizardData
     void setPSubstratelProcess(boolean b) { pSubstrateProcess = b; }
     boolean getHorizontalTransistors() { return horizontalFlag;}
     void setHorizontalTransistors(boolean b) { horizontalFlag = b; }
-    private boolean getExtraInfoFlag() { return extraInfoFlag;}
-    private void setExtraInfoFlag(boolean b) { extraInfoFlag = b; }
+    private boolean isComplexCase() { return caseFlag == 1;} // complex case
+    private boolean isBasicCase() { return caseFlag == -1;} // basic case = only metals
+    private void setCaseFlag(int b) { assert(b > -2 && b < 2); caseFlag = b; }  // -1, 0, 1
     private boolean getAnalogFlag() { return analogElementsFlag;}
     private void setAnalogFlag(boolean b) { analogElementsFlag = b; }
     private boolean getSecondPolyFlag() { return secondPolyFlag;}
@@ -695,23 +696,26 @@ public class TechEditWizardData
 		if (tech_name == null || tech_name.length() == 0) return "General panel: No technology name";
 		if (stepsize == 0) return "General panel: Invalid unit size";
 
-        // check the Active data
-		if (diff_width.value == 0) return "Active panel: Invalid width";
+        if (!isBasicCase())  // at least standard case
+        {
+            // check the Active data
+            if (diff_width.value == 0) return "Active panel: Invalid width";
 
-		// check the Poly data
-		if (poly_width.value == 0) return "Poly panel: Invalid width";
+            // check the Poly data
+            if (poly_width.value == 0) return "Poly panel: Invalid width";
 
-		// check the Gate data
-		if (gate_width.value == 0) return "Gate panel: Invalid width";
-		if (gate_length.value == 0) return "Gate panel: Invalid length";
+            // check the Gate data
+            if (gate_width.value == 0) return "Gate panel: Invalid width";
+            if (gate_length.value == 0) return "Gate panel: Invalid length";
 
-		// check the Contact data
-		if (contact_size.value == 0) return "Contact panel: Invalid size";
+            // check the Contact data
+            if (contact_size.value == 0) return "Contact panel: Invalid size";
 
-		// check the Well/Implant data
-		if (nplus_width.value == 0) return "Well/Implant panel: Invalid NPlus width";
-		if (pplus_width.value == 0) return "Well/Implant panel: Invalid PPlus width";
-		if (nwell_width.value == 0) return "Well/Implant panel: Invalid NWell width";
+            // check the Well/Implant data
+            if (nplus_width.value == 0) return "Well/Implant panel: Invalid NPlus width";
+            if (pplus_width.value == 0) return "Well/Implant panel: Invalid PPlus width";
+            if (nwell_width.value == 0) return "Well/Implant panel: Invalid NWell width";   
+        }
 
 		// check the Metal data
 		for(int i=0; i<num_metal_layers; i++)
@@ -745,11 +749,6 @@ public class TechEditWizardData
     public boolean importData(String fileName)
     {
         URL url = TextUtils.makeURLToFile(fileName);
-
-        // clean arrays first
-        metalContacts.clear();
-        otherContacts.clear();
-        extraLayers.clear();
 
         try
 		{
@@ -796,7 +795,7 @@ public class TechEditWizardData
 					if (varName.equalsIgnoreCase("num_metal_layers")) setNumMetalLayers(TextUtils.atoi(varValue)); else
                     if (varName.equalsIgnoreCase("psubstrate_process")) setPSubstratelProcess(Boolean.valueOf(varValue)); else
                     if (varName.equalsIgnoreCase("horizontal_transistors")) setHorizontalTransistors(Boolean.valueOf(varValue)); else
-                    if (varName.equalsIgnoreCase("extra_info")) setExtraInfoFlag(Boolean.valueOf(varValue)); else
+                    if (varName.equalsIgnoreCase("extra_info")) setCaseFlag(Integer.valueOf(varValue)); else
                     if (varName.equalsIgnoreCase("stepsize")) setStepSize(TextUtils.atoi(varValue)); else
                     if (varName.equalsIgnoreCase("resolution")) setResolution(TextUtils.atof(varValue)); else
                     if (varName.equalsIgnoreCase("analog_elements")) setAnalogFlag(Boolean.valueOf(varValue)); else
@@ -909,6 +908,10 @@ public class TechEditWizardData
 
                     if (varName.equalsIgnoreCase("metal_contacts_series")) fillContactSeries(varValue, metalContacts); else
                     if (varName.equalsIgnoreCase("contacts_series")) fillContactSeries(varValue, otherContacts); else
+                    // capacitors
+                    if (varName.equalsIgnoreCase("capacitors_series")) fillContactSeries(varValue, capacitors); else
+                    // more generic contacts that are not multicuts.
+                    if (varName.equalsIgnoreCase("nomulti_contacts_series")) fillContactSeries(varValue, genericContacts); else
                     // Special layers
                     if (varName.equalsIgnoreCase("extra_layers")) fillLayerSeries(varValue, extraLayers); else
                         
@@ -1193,7 +1196,7 @@ public class TechEditWizardData
     }
 
     // to get general contact
-    private void fillContactSeries(String str, Map<String,List<Contact>> contactMap)
+    private void fillContactSeries(String str, Map<String, List<Contact>> contactMap)
     {
         StringTokenizer parse = new StringTokenizer(str, "[]", false);
         List<ContactNode> nodeList = new ArrayList<ContactNode>();
@@ -1227,7 +1230,6 @@ public class TechEditWizardData
                     {
                         String l = n.nextToken();
                         layerNames.add(l);
-
                     }
                     assert (nodeList.size() == layerNames.size());
                     Contact cont = new Contact(prefix);
@@ -1235,8 +1237,9 @@ public class TechEditWizardData
                     {
                         String name = layerNames.get(i);
                         ContactNode tmp = nodeList.get(i);
-                        ContactNode node = new ContactNode(name,  tmp.overX.value,  tmp.overX.rule,
-                        tmp.overY.value,  tmp.overY.rule);
+                        ContactNode node = new ContactNode(name,
+                            tmp.valueX.value,  tmp.valueX.rule,
+                            tmp.valueY.value,  tmp.valueY.rule);
                         cont.layers.add(node);
                     }
 
@@ -1261,7 +1264,7 @@ public class TechEditWizardData
             }
             else
             {
-                // syntax: A(overX, overXS, overY, overYS)(Layer2, overX, overXS, overY, overYS)
+                // syntax: (overX, overXS, overY, overYS)(overX, overXS, overY, overYS)
                 // pair of layers found
                 StringTokenizer p = new StringTokenizer(value, "()", false);
 
@@ -1355,7 +1358,7 @@ public class TechEditWizardData
 		pw.println("$num_metal_layers = " + num_metal_layers + ";");
 		pw.println("$psubstrate_process = " + pSubstrateProcess + ";");
 		pw.println("$horizontal_transistors = " + horizontalFlag + ";");
-        pw.println("$extra_info = " + extraInfoFlag + ";");
+        pw.println("$extra_info = " + caseFlag + ";");
         pw.println();
 		pw.println("## stepsize is minimum granularity that will be used as movement grid");
 		pw.println("## set to manufacturing grid or lowest common denominator with design rules");
@@ -1628,7 +1631,7 @@ public class TechEditWizardData
      */
     private Xml.PrimitiveNodeGroup makeXmlPrimitiveCon(List<Xml.PrimitiveNodeGroup> nodeGroups, String name,
                                                        PrimitiveNode.Function function, double sizeX, double sizeY,
-                                                       SizeOffset so, List<String> portNames, Xml.NodeLayer... list)
+                                                       SizeOffset so, List<String> portArcNames, Xml.NodeLayer... list)
     {
         List<Xml.NodeLayer> nodesList = new ArrayList<Xml.NodeLayer>(list.length);
         List<Xml.PrimitivePort> nodePorts = new ArrayList<Xml.PrimitivePort>();
@@ -1639,8 +1642,35 @@ public class TechEditWizardData
             nodesList.add(lb);
         }
 
-        nodePorts.add(makeXmlPrimitivePort(name.toLowerCase(), 0, 180, 0, null, 0, -1, 0, 1, 0, -1, 0, 1, portNames));
+        nodePorts.add(makeXmlPrimitivePort(name.toLowerCase(), 0, 180, 0, null, 0, -1, 0, 1, 0, -1, 0, 1, portArcNames));
         return makeXmlPrimitive(nodeGroups, name + "-Con", function, sizeX, sizeY, 0, 0,
+                so, nodesList, nodePorts, null, false);
+    }
+
+    /**
+     * Method to creat the XML version of a PrimitiveNode representing a contact
+     * @return
+     */
+    private Xml.PrimitiveNodeGroup makeXmlCapacitor(List<Xml.PrimitiveNodeGroup> nodeGroups, String name,
+                                                    PrimitiveNode.Function function, double sizeX, double sizeY,
+                                                    SizeOffset so, List<String> portNames, List<String> portArcNames,
+                                                    Xml.NodeLayer... list)
+    {
+        List<Xml.NodeLayer> nodesList = new ArrayList<Xml.NodeLayer>(list.length);
+        List<Xml.PrimitivePort> nodePorts = new ArrayList<Xml.PrimitivePort>();
+
+        for (Xml.NodeLayer lb : list)
+        {
+            if (lb == null) continue; // in case the pwell layer off
+            nodesList.add(lb);
+        }
+
+        for (String port : portNames)
+        {
+            nodePorts.add(makeXmlPrimitivePort(port, 0, 180, 0, null,
+                0, -1, 0, 1, 0, -1, 0, 1, portArcNames));
+        }
+        return makeXmlPrimitive(nodeGroups, name + "-Capacitor", function, sizeX, sizeY, 0, 0,
                 so, nodesList, nodePorts, null, false);
     }
 
@@ -2065,7 +2095,7 @@ public class TechEditWizardData
                                            double extLayer1, Xml.Layer layer1,
                                            double extLayer2, Xml.Layer layer2)
     {
-        List<String> portNames = new ArrayList<String>();
+        List<String> portNames = new ArrayList<String>(2);
 
         portNames.add(layer1.name);
         portNames.add(layer2.name);
@@ -2073,7 +2103,7 @@ public class TechEditWizardData
         // align contact
         double hlaLong1 = DBMath.round(contSize/2 + extLayer1);
         double hlaLong2 = DBMath.round(contSize/2 + extLayer2);
-        double longD = DBMath.isGreaterThan(extLayer1, extLayer2) ? extLayer1 : extLayer2;
+//        double longD = DBMath.isGreaterThan(extLayer1, extLayer2) ? extLayer1 : extLayer2;
 
         // long square contact. Standard ones
         return (makeXmlPrimitiveCon(nodeGroups, composeName, PrimitiveNode.Function.CONTACT, -1, -1,
@@ -2130,10 +2160,6 @@ public class TechEditWizardData
 		Color poly_colour = new Color(255,155,192);   // pink
 		Color diff_colour = new Color(107,226,96);    // light green
 		Color via_colour = new Color(205,205,205);    // lighter gray
-		Color contact_colour = new Color(100,100,100);   // darker gray
-        Color nplus_colour = new Color(224,238,224);
-		Color pplus_colour = new Color(224,224,120);
-		Color nwell_colour = new Color(140,140,140);
         // Five transparent colors: poly_colour, diff_colour, metal_colour[0->2]
         Color[] colorMap = {poly_colour, diff_colour, metal_colour[0], metal_colour[1], metal_colour[2]};
         for (int i = 0; i < colorMap.length; i++) {
@@ -2320,7 +2346,7 @@ public class TechEditWizardData
                 metal_width[i], true, true);
             metalLayers.add(layer);
 
-            if (getExtraInfoFlag())
+            if (isComplexCase())
             {
                 // dummy layers
                 graph = new EGraphics(true, true, null, tcol, r, g, b, opacity, false, nullPattern);
@@ -2354,6 +2380,804 @@ public class TechEditWizardData
                 graph, via_size[i], true, false));
         }
 
+        // Aggregating all palette groups into one
+        List<PaletteGroup> allGroups = new ArrayList<PaletteGroup>();
+        EGraphics graph;
+        if (!isBasicCase())
+            addStandardLayers(t, layerMap, nullPattern, dexclPattern);
+
+        if (isComplexCase())
+        {
+            // exclusion layer N/P diff
+            graph = new EGraphics(true, true, null, 2, 0, 0, 0, 1, true, dexclPattern);
+            Xml.Layer exclusionDiffPLayer = makeXmlLayer(t.layers, "DEXCL-P-"+ diff_layer.name, Layer.Function.DEXCLDIFF, 0, graph,
+                2*diff_width.value, true, false);
+            Xml.Layer exclusionDiffNLayer = makeXmlLayer(t.layers, "DEXCL-N-"+ diff_layer.name, Layer.Function.DEXCLDIFF, 0, graph,
+                2*diff_width.value, true, false);
+            makeLayerGDS(t, exclusionDiffPLayer, "150/20");
+            makeLayerGDS(t, exclusionDiffNLayer, "150/20");
+        }
+
+        // DeviceMark
+        graph = new EGraphics(false, false, null, 0, 255, 0, 0, 0.4, true, nullPattern);
+        Xml.Layer deviceMarkLayer = makeXmlLayer(t.layers, layerMap, marking_layer.name, Layer.Function.CONTROL, 0,
+            graph, nplus_width, true, false);
+
+        // Extra layers
+        List<PaletteGroup> extraPaletteList = new ArrayList<PaletteGroup>();
+        for (LayerInfo info : extraLayers)
+        {
+            graph = null;
+            // either color or template
+            assert (info.graphicsTemplate == null || info.graphicsColor == null);
+            if (info.graphicsTemplate != null)
+            {
+                // look for layer name and get its EGraphics
+                for (Xml.Layer l : t.layers)
+                {
+                    if (l.name.equals(info.graphicsTemplate))
+                    {
+                        graph = l.desc;
+                        break;
+                    }
+                }
+                if (graph == null)
+                    System.out.println("No template layer " + info.graphicsTemplate + " found");
+            }
+            else if (info.graphicsColor != null)
+            {
+                boolean displayPatterned = (info.graphicsOutline != EGraphics.Outline.NOPAT);
+                graph = new EGraphics(displayPatterned, displayPatterned, info.graphicsOutline, 0,
+                    info.graphicsColor.getRed(), info.graphicsColor.getGreen(), info.graphicsColor.getBlue(),
+                    1, true, info.graphicsPattern);
+            }
+            if (graph == null)
+                graph = new EGraphics(false, false, null, 0, 255, 0, 0, 0.4, true, nullPattern);
+
+            if (DBMath.areEquals(info.width, 0))
+                System.out.println("Adding pure layer node '" + info.name + "' with zero width");
+            WizardField wf = new WizardField(info.width, info.name); // name is irrelevant
+            Xml.Layer layer = makeXmlLayer(t.layers, layerMap, info.name, info.function, 0, graph,
+                wf, true, info.addArc, info.name);
+            if (info.cif != null) layer.cif = info.cif;
+            makeLayerGDS(t, layer, String.valueOf(info));
+
+            if (info.addArc)
+            {
+                info.grp = new PaletteGroup();
+                info.grp.addArc(makeXmlArc(t, info.name, ArcProto.Function.UNKNOWN, 0,
+                    makeXmlArcLayer(layer, wf)));
+                double hla = scaledValue(info.width / 2);
+                info.grp.addPinOrResistor(makeXmlPrimitivePin(t, info.name, hla, null,
+                    null, makeXmlNodeLayer(hla, hla, hla, hla, layer, Poly.Type.CROSSED)), null);
+                extraPaletteList.add(info.grp);
+            }
+
+            // Adding 3D info
+            if (info.height > -1) // -1 is the default valuu
+                layer.height3D = info.height;
+            if (info.thickness > -1) // -1 is the default valuu
+                layer.thick3D = info.thickness;
+        }
+
+        // Generic contacts which might be based on extraLayers
+        addGenericContacts(t, genericContacts, extraPaletteList);
+
+        // Palette elements should be added at the end so they will appear in groups
+        PaletteGroup[] metalPalette = new PaletteGroup[num_metal_layers];
+
+         /**************************** Metal Nodes/Arcs ***********************************************/
+        // write metal arcs
+        for(int i=1; i<=num_metal_layers; i++)
+        {
+            double ant = (int)Math.round(metal_antenna_ratio[i-1]) | 200;
+            PaletteGroup group = new PaletteGroup();
+            metalPalette[i-1] = group;
+            group.addArc(makeXmlArc(t, "Metal-"+i, ArcProto.Function.getContact(i), ant,
+                makeXmlArcLayer(metalLayers.get(i-1), metal_width[i-1])));
+        }
+
+        if (!isBasicCase())
+            addStandardElements(t, layerMap, metalLayers, allGroups);
+
+        /**************************** Metals Nodes/Arcs ***********************************************/
+
+        // Pins
+        for (int i = 0; i < num_metal_layers; i++)
+        {
+            double hla = scaledValue(metal_width[i].value / 2);
+            Xml.Layer lt = metalLayers.get(i);
+            PaletteGroup group = metalPalette[i];  // structure created by the arc definition
+            group.addPinOrResistor(makeXmlPrimitivePin(t, lt.name, hla, null, //new SizeOffset(hla, hla, hla, hla),
+                null, makeXmlNodeLayer(hla, hla, hla, hla, lt, Poly.Type.CROSSED)), null);
+        }
+
+        // contacts
+        for(int i=1; i<num_metal_layers; i++)
+		{
+            Xml.Layer lb = metalLayers.get(i-1);
+            Xml.Layer lt = metalLayers.get(i);
+            PaletteGroup group = metalPalette[i-1];  // structure created by the arc definition
+
+            if (!isComplexCase())
+            {
+                // original contact Square
+                // via
+                Xml.Layer via = viaLayers.get(i-1);
+                double viaSize = scaledValue(via_size[i-1].value);
+                double viaSpacing = scaledValue(via_inline_spacing[i-1].value);
+                double viaArraySpacing = scaledValue(via_array_spacing[i-1].value);
+                String name = lb.name + "-" + lt.name;
+
+                double longDist = scaledValue(via_overhang[i-1].value);
+                group.addElement(makeContactSeries(t.nodeGroups, name, viaSize, via, viaSpacing, viaArraySpacing,
+                    longDist, lt, longDist, lb), null);
+            }
+        }
+
+        List<String> portNames = new ArrayList<String>();
+
+        // metal contacts
+        for (Map.Entry<String,List<Contact>> e : metalContacts.entrySet())
+        {
+            // generic contacts
+            for (Contact c : e.getValue())
+            {
+                // We know those layer names are numbers!
+                assert(c.layers.size() == 2);
+                ContactNode verticalLayer = c.layers.get(0);
+                ContactNode horizontalLayer = c.layers.get(1);
+
+                int i = Integer.valueOf(verticalLayer.layer);
+                int j = Integer.valueOf(horizontalLayer.layer);
+                Xml.Layer ly = metalLayers.get(i-1);
+                Xml.Layer lx = metalLayers.get(j-1);
+                String name = (j>i)?ly.name + "-" + lx.name:lx.name + "-" + ly.name;
+                int via = (j>i)?i:j;
+                double metalContSize = scaledValue(via_size[via-1].value);
+                double spacing = scaledValue(via_inline_spacing[via-1].value);
+                double arraySpacing = scaledValue(via_array_spacing[via-1].value);
+                Xml.Layer metalConLayer = viaLayers.get(via-1);
+                double h1x = scaledValue(via_size[via-1].value /2 + verticalLayer.valueX.value);
+                double h1y = scaledValue(via_size[via-1].value /2 + verticalLayer.valueY.value);
+                double h2x = scaledValue(via_size[via-1].value /2 + horizontalLayer.valueX.value);
+                double h2y = scaledValue(via_size[via-1].value /2 + horizontalLayer.valueY.value);
+                double longX = scaledValue(Math.abs(verticalLayer.valueX.value - horizontalLayer.valueX.value));
+                double longY = scaledValue(Math.abs(verticalLayer.valueY.value - horizontalLayer.valueY.value));
+                portNames.clear();
+                portNames.add(lx.name);
+                portNames.add(ly.name);
+
+                // some primitives might not have prefix. "-" should not be in the prefix to avoid
+                // being displayed in the palette
+                String p = (c.prefix == null || c.prefix.equals("")) ? "" : c.prefix + "-";
+                metalPalette[via-1].addElement(makeXmlPrimitiveCon(t.nodeGroups, p + name, PrimitiveNode.Function.CONTACT, -1, -1,
+                    new SizeOffset(longX, longX, longY, longY),
+                    portNames,
+                    makeXmlNodeLayer(h1x, h1x, h1y, h1y, ly, Poly.Type.FILLED), // layer1
+                    makeXmlNodeLayer(h2x, h2x, h2y, h2y, lx, Poly.Type.FILLED), // layer2
+                    makeXmlMulticut(metalConLayer, metalContSize, spacing, arraySpacing)), c.prefix); // contact
+            }
+        }
+
+        // Aggregating all palette groups into one
+        for (PaletteGroup g : metalPalette)
+            allGroups.add(g);
+        // Extra layers with pins/arcs
+        allGroups.addAll(extraPaletteList);
+
+        // Adding elements in palette
+        for (PaletteGroup o : allGroups)
+        {
+            t.menuPalette.menuBoxes.add(o.arcs);  // arcs
+            t.menuPalette.menuBoxes.add(o.pins);  // pins
+            t.menuPalette.menuBoxes.add(o.elements);  // contacts
+        }
+
+        // Writting GDS values
+        makeLayerGDS(t, deviceMarkLayer, String.valueOf(marking_layer));
+
+        for (int i = 0; i < num_metal_layers; i++) {
+            Xml.Layer met = metalLayers.get(i);
+            makeLayerGDS(t, met, String.valueOf(metal_layers[i]));
+
+            if (isComplexCase())
+            {
+                // Type is always 1
+                makeLayerGDS(t, dummyMetalLayers.get(i), metal_layers[i].value + "/1");
+                // exclusion always takes 150
+                makeLayerGDS(t, exclusionMetalLayers.get(i), "150/" + (i + 1));
+            }
+
+            if (i > num_metal_layers - 2) continue;
+
+            Xml.Layer via = viaLayers.get(i);
+            makeLayerGDS(t, via, String.valueOf(via_layers[i]));
+        }
+
+        //
+        // Writting Layer Rules
+        //
+        
+        // Simple spacing rules included here
+        for (int i = 0; i < num_metal_layers; i++) {
+            Xml.Layer met = metalLayers.get(i);
+            makeLayerRuleMinWid(t, met, metal_width[i]); 
+            makeLayersRule(t, met, DRCTemplate.DRCRuleType.SPACING, metal_spacing[i].rule, metal_spacing[i].value);
+
+            if (i >= num_metal_layers - 1) continue;
+            Xml.Layer via = viaLayers.get(i);
+            makeLayerRuleMinWid(t, via, via_size[i]);
+            makeLayersRule(t, via, DRCTemplate.DRCRuleType.SPACING, via_inline_spacing[i].rule, via_inline_spacing[i].value);
+        }
+        // wide metal rules
+        for (WideWizardField w : wide_metal_spacing)
+        {
+            for (String layerName : w.names)
+            {
+                Xml.Layer layer = t.findLayer(layerName);
+                assert(layer != null);
+                makeLayersWideRule(t, layer, DRCTemplate.DRCRuleType.SPACING, w.rule, w.value, w.maxW, w.minLen);
+            }
+        }
+        // spacing/min rules in extra layers
+        for (LayerInfo layer : extraLayers)
+        {
+            Xml.Layer l = t.findLayer(layer.name);
+            if (layer.minimum != null)
+                makeLayerRuleMinWid(t, l, layer.minimum);
+            if (layer.spacing != null)
+                makeLayersRule(t, l, DRCTemplate.DRCRuleType.SPACING, layer.spacing.rule, layer.spacing.value);
+        }
+
+        // Finish menu with Pure, Misc and Cell
+        List<Object> l = new ArrayList<Object>();
+        l.add(new String("Pure"));
+        t.menuPalette.menuBoxes.add(l);
+        l = new ArrayList<Object>();
+        l.add(new String("Misc."));
+        t.menuPalette.menuBoxes.add(l);
+        l = new ArrayList<Object>();
+        l.add(new String("Cell"));
+        t.menuPalette.menuBoxes.add(l);
+
+        // Sort before writing data. We might need to sort primitive nodes in group before...
+        Collections.sort(t.nodeGroups, primitiveNodeGroupSort);
+        for (Xml.PrimitiveNodeGroup nodeGroup: t.nodeGroups)
+        {
+            // sort NodeLayer before writing them
+            Collections.sort(nodeGroup.nodeLayers, nodeLayerSort);
+        }
+
+        // write finally the file
+        boolean includeDateAndVersion = User.isIncludeDateAndVersionInOutput();
+        String copyrightMessage = IOTool.isUseCopyrightMessage() ? IOTool.getCopyrightMessage() : null;
+        t.writeXml(fileName, includeDateAndVersion, copyrightMessage);
+    }
+
+    private PrimitiveNode.Function getWellContactFunction(int i)
+    {
+        if (i == Technology.P_TYPE)
+            return (pSubstrateProcess) ? PrimitiveNode.Function.SUBSTRATE : PrimitiveNode.Function.WELL;
+        return (pSubstrateProcess) ? PrimitiveNode.Function.WELL : PrimitiveNode.Function.SUBSTRATE;
+    }
+
+    private void prepareTransistor(double gateWidth, double gateLength, double polyEndcap, double diffPolyOverhang,
+                                   double gateContactSpacing, double contactSize,
+                                   Xml.Layer activeLayer, Xml.Layer polyLayer, Xml.Layer polyGateLayer,
+                                   List<Xml.NodeLayer> nodesList, List<Xml.PrimitivePort> nodePorts)
+    {
+        double impx = scaledValue((gateWidth)/2);
+        double impy = scaledValue((gateLength+diffPolyOverhang*2)/2);
+        double diffY = scaledValue(gateLength/2+gateContactSpacing+contactSize/2);  // impy
+        double diffX = 0;
+        double xSign = 1, ySign = -1;
+
+        // Active layers
+        nodesList.add(makeXmlNodeLayer(impx, impx, impy, impy, activeLayer, Poly.Type.FILLED, true, false, -1));
+        // electrical active layers
+        nodesList.add(makeXmlNodeLayer(impx, impx, impy, 0, activeLayer, Poly.Type.FILLED, false, true, 3));  // bottom
+        nodesList.add(makeXmlNodeLayer(impx, impx, 0, impy, activeLayer, Poly.Type.FILLED, false, true, 1));  // top
+
+        // Diff port
+        List<String> portNames = new ArrayList<String>();
+        portNames.add(activeLayer.name);
+
+        // top port
+        Xml.PrimitivePort diffTopPort = makeXmlPrimitivePort("diff-top", 90, 90, 1, null,
+            diffX, -1, diffX, 1, diffY, 1, diffY, 1, portNames);
+        // bottom port
+        Xml.PrimitivePort diffBottomPort = makeXmlPrimitivePort("diff-bottom", 270, 90, 2, null,
+            xSign*diffX, -1, xSign*diffX, 1, ySign*diffY, -1, ySign*diffY, -1, portNames);
+
+        // Electric layers
+        // Gate layer Electrical
+        double gatey = scaledValue(gateLength/2);
+        double gatex = impx;
+        double endPolyx = scaledValue((gateWidth+polyEndcap*2)/2);
+        double endPolyy = gatey;
+        double endLeftOrRight = -impx;
+        double endTopOrBotton = endPolyy;
+        double polyX = endPolyx;
+        double polyY = 0;
+        nodesList.add(makeXmlNodeLayer(gatex, gatex, gatey, gatey, polyGateLayer, Poly.Type.FILLED, false, true, -1));
+
+        // Poly layers
+        // left electrical
+        nodesList.add(makeXmlNodeLayer(endPolyx, endLeftOrRight, endPolyy, endTopOrBotton, polyLayer,
+            Poly.Type.FILLED, false, true, 0));
+        // right electrical
+        nodesList.add(makeXmlNodeLayer(endLeftOrRight, endPolyx, endTopOrBotton, endPolyy, polyLayer,
+            Poly.Type.FILLED, false, true, 2));
+
+        // non-electrical poly (just one poly layer)
+        nodesList.add(makeXmlNodeLayer(endPolyx, endPolyx, endPolyy, endPolyy, polyLayer, Poly.Type.FILLED, true, false, -1));
+
+        // Poly port
+        portNames.clear();
+        portNames.add(polyLayer.name);
+        Xml.PrimitivePort polyLeftPort = makeXmlPrimitivePort("poly-left", 180, 90, 0, null,
+            ySign*polyX, -1, ySign*polyX,
+            -1, xSign*polyY, -1, xSign*polyY, 1, portNames);
+        // right port
+        Xml.PrimitivePort polyRightPort = makeXmlPrimitivePort("poly-right", 0, 180, 0, null,
+            polyX, 1, polyX, 1, polyY, -1, polyY, 1, portNames);
+
+        nodePorts.clear();
+        nodePorts.add(polyLeftPort);
+        nodePorts.add(diffTopPort);
+        nodePorts.add(polyRightPort);
+        nodePorts.add(diffBottomPort);
+    }
+
+    private Xml.ArcLayer makeXmlArcLayer(Xml.Layer layer, WizardField ... flds) {
+        Xml.ArcLayer al = new Xml.ArcLayer();
+        al.layer = layer.name;
+        al.style = Poly.Type.FILLED;
+        for (int i = 0; i < flds.length; i++)
+            al.extend.addLambda(scaledValue(flds[i].value /2));
+        return al;
+    }
+
+//    private Technology.Distance makeXmlDistance(WizardField ... flds) {
+//        Technology.Distance dist = new Technology.Distance();
+//        dist.addRule(flds[0].rule, 0.5);
+//        for (int i = 1; i < flds.length; i++)
+//            dist.addRule(flds[i].rule, 1);
+//        return dist;
+//    }
+
+    private void makeLayerGDS(Xml.Technology t, Xml.Layer l, String gdsVal) {
+        for (Xml.Foundry f: t.foundries) {
+            f.layerGds.put(l.name, gdsVal);
+        }
+    }
+
+    private void makeLayerRuleMinWid(Xml.Technology t, Xml.Layer l, WizardField fld) {
+        for (Xml.Foundry f: t.foundries) {
+            f.rules.add(new DRCTemplate(fld.rule, DRCTemplate.DRCMode.ALL.mode(), DRCTemplate.DRCRuleType.MINWID,
+                l.name, null, new double[] {scaledValue(fld.value)}, null, null));
+        }
+    }
+
+    private void makeLayersWideRule(Xml.Technology t, Xml.Layer l, DRCTemplate.DRCRuleType ruleType, String ruleName, 
+                                    double ruleValue, double maxW, double minLen) {
+        for (Xml.Foundry f: t.foundries) {
+            f.rules.add(new DRCTemplate(ruleName, DRCTemplate.DRCMode.ALL.mode(), ruleType, maxW, minLen,
+                l.name, l.name, new double[] {scaledValue(ruleValue)}, -1));
+        }
+    }
+
+    private void makeLayersRule(Xml.Technology t, Xml.Layer l, DRCTemplate.DRCRuleType ruleType, String ruleName, double ruleValue) {
+        for (Xml.Foundry f: t.foundries) {
+            f.rules.add(new DRCTemplate(ruleName, DRCTemplate.DRCMode.ALL.mode(), ruleType,
+                l.name, l.name, new double[] {scaledValue(ruleValue)}, null, null));
+        }
+    }
+
+    private void makeLayersRuleSurround(Xml.Technology t, Xml.Layer l1, Xml.Layer l2, String ruleName, double ruleValue) {
+        double value = scaledValue(ruleValue);
+        for (Xml.Foundry f: t.foundries) {
+            f.rules.add(new DRCTemplate(ruleName, DRCTemplate.DRCMode.ALL.mode(), DRCTemplate.DRCRuleType.SURROUND,
+                l1.name, l2.name, new double[] {value, value}, null, null));
+        }
+    }
+
+    private double scaledValue(double val) { return DBMath.round(val / stepsize); }
+
+    /***************************************************************************************************
+     * Analog Elements
+     ***************************************************************************************************/
+
+    private void createSecondPolyElements(Xml.Technology t, Map<Xml.Layer,WizardField> layerMap,
+                                          List<PaletteGroup> polysGroup)
+    {
+        int[] nullPattern = new int[] {44975, 34952, 64250, 34952, 44975, 34952, 64250, 34952,
+            44975, 34952, 64250, 34952, 44975, 34952, 64250, 34952};
+        EGraphics graph = new EGraphics(true, true, null, 0, 255, 190, 6, 1, true, nullPattern);
+        Xml.Layer poly2Layer = makeXmlLayer(t.layers, layerMap, poly2_layer.name, Layer.Function.POLY2, 0, graph,
+            poly_width, true, true);
+
+        PaletteGroup poly2Group = new PaletteGroup();
+        double ant = (int)Math.round(poly_antenna_ratio) | 200;
+        // Arc
+        poly2Group.addArc(makeXmlArc(t, poly2Layer.name, ArcProto.Function.getPoly(2), ant,
+            makeXmlArcLayer(poly2Layer, poly_width)));
+        polysGroup.add(poly2Group);
+
+        // pin
+        double hla = scaledValue(poly_width.value / 2);
+        poly2Group.addPinOrResistor(makeXmlPrimitivePin(t, poly2Layer.name, hla, null, // new SizeOffset(hla, hla, hla, hla),
+            null, makeXmlNodeLayer(hla, hla, hla, hla, poly2Layer, Poly.Type.CROSSED)), null);
+    }
+
+    private void createAnalogElements(Xml.Technology t, List<Xml.Layer> metalLayers, List<PaletteGroup> polysGroup)
+    {
+        List<Xml.NodeLayer> nodesList = new ArrayList<Xml.NodeLayer>();
+        List<Xml.PrimitivePort> nodePorts = new ArrayList<Xml.PrimitivePort>();
+        Xml.Layer poly2Layer = t.findLayer(poly2_layer.name);
+
+        assert(poly2Layer != null);
+
+        Xml.Layer hiRestLayer = t.findLayer("Hi-Res");
+        Xml.Layer polyConLayer = t.findLayer(poly_layer.name+"-Cut");
+
+        PaletteGroup g = polysGroup.get(1); // second group in polys
+
+
+        /*************************************/
+        // Analog Capacitors
+        /*************************************/
+        for (Map.Entry<String,List<Contact>> e : capacitors.entrySet())
+        {
+            addContactsOrCapacitors(t, e.getValue(), metalLayers, null, null, g, true);
+        }
+
+        /*************************************/
+        // Analog Hi Poly Resistors
+        /*************************************/
+        WizardField polyRL = findWizardField("hi_poly_resistor_length");
+        WizardField poly2Overhang = findWizardField("contact_poly2_overhang");
+        WizardField hiRestOverhang = findWizardField("hi-res_overhang");
+
+        // using array value to guarantee proper spacing in nD cases
+        addMetalElements(t, polyConLayer, contact_array_spacing.value, polyRL, poly2Overhang, nodesList, nodePorts);
+
+        // poly
+        double polyNoScaled = 2 * (poly2Overhang.value) + contact_size.value;
+        double soxNoScaled = /*(hiRestOverhang.value) + */polyNoScaled;
+        double polyL = scaledValue(polyRL.value /2 + polyNoScaled);
+        double polyWNoScaled = scaledValue(contact_size.value/2 + poly2Overhang.value);
+        double polyW = scaledValue(polyWNoScaled);
+        nodesList.add(makeXmlNodeLayer(polyL, polyL, polyW, polyW, poly2Layer,
+            Poly.Type.FILLED, true, true, 0));
+        
+        // hi res
+        double hiresL = scaledValue(polyRL.value /2 + hiRestOverhang.value); // soxNoScaled);
+        double hiresW = scaledValue(polyWNoScaled + hiRestOverhang.value);
+        nodesList.add(makeXmlNodeLayer(hiresL, hiresL, hiresW, hiresW, hiRestLayer,
+            Poly.Type.FILLED, true, true, 0));
+
+        double sox = scaledValue(soxNoScaled);
+        double soy = scaledValue(hiRestOverhang.value);
+        Xml.PrimitiveNodeGroup n = makeXmlPrimitive(t.nodeGroups, "Hi-Res-Poly2-Resistor",
+            PrimitiveNode.Function.RESHIRESPOLY2, 0, 0, 0, 0,
+            new SizeOffset(sox, sox, soy, soy),
+            nodesList, nodePorts, null, false);
+        g.addElement(n, "Hi-RPoly2");
+
+        /*************************************/
+        // Analog Active Resistors
+        /*************************************/
+        WizardField activeRL = findWizardField("active_resistor_length");  //
+        String[] diffNames = {"P", "N"};
+        Xml.Layer activeConLayer = t.findLayer(diff_layer.name+"-Cut");
+
+        for (int i = 0; i < 2; i++)
+        {
+            // active resistors
+            Xml.Layer activeLayer = t.findLayer(diffNames[i]+"-"+diff_layer.name);   //$nplus_overhang_diff
+            Xml.Layer selectLayer, wellLayer;
+            WizardField selectWF;
+            PrimitiveNode.Function func;
+
+            nodesList.clear();
+            nodePorts.clear();
+
+            if (i==Technology.P_TYPE)
+            {
+                selectLayer = t.findLayer(pplus_layer.name);
+                selectWF = pplus_overhang_diff;
+                wellLayer = t.findLayer(nwell_layer.name);
+                func = PrimitiveNode.Function.RESPACTIVE;
+            }
+            else
+            {
+                selectLayer = t.findLayer(nplus_layer.name);
+                selectWF = nplus_overhang_diff;
+                wellLayer = t.findLayer("P-Well");
+                func = PrimitiveNode.Function.RESNACTIVE;
+            }
+
+            // active layer
+            double activeNoScaled = 2 * (diff_contact_overhang.value) + contact_size.value;
+            double activeL = scaledValue(activeRL.value /2 + activeNoScaled);
+            double activeWNoScaled = contact_size.value/2 + diff_contact_overhang.value;
+            double activeW = scaledValue(activeWNoScaled);
+            nodesList.add(makeXmlNodeLayer(activeL, activeL, activeW, activeW, activeLayer, Poly.Type.FILLED, true, true, 0));
+
+            // select layer
+            double selectOverhang = scaledValue(selectWF.value);
+            double selectL = selectOverhang + activeL;
+            double selectW = selectOverhang + activeW;
+            nodesList.add(makeXmlNodeLayer(selectL, selectL, selectW, selectW, selectLayer, Poly.Type.FILLED, true, true, 0));
+
+            // well layer
+            Xml.NodeLayer wellNodeLayer = null;
+            if (!getPSubstratelProcess())
+            {
+                double wellOverhang = scaledValue(nwell_overhang_diff_p.value - selectWF.value);
+                double wellL = wellOverhang + selectL;
+                double wellW = wellOverhang + selectW;
+                wellNodeLayer = makeXmlNodeLayer(wellL, wellL, wellW, wellW, wellLayer, Poly.Type.FILLED, true, true, 0);
+                nodesList.add(wellNodeLayer);
+            }
+
+            addMetalElements(t, activeConLayer, contact_array_spacing.value, activeRL, diff_contact_overhang, nodesList, nodePorts);
+
+            sox = scaledValue(nwell_overhang_diff_p.value + activeNoScaled);
+            soy = scaledValue(nwell_overhang_diff_p.value);
+            n = makeXmlPrimitive(t.nodeGroups, diffNames[i]+"-Active-Resistor", func, 0, 0, 0, 0,
+                new SizeOffset(sox, sox, soy, soy),
+                nodesList, nodePorts, null, false);
+            g.addElement(n, diffNames[i]+"-RActive");
+        }
+
+        /*************************************/
+        // Analog Well Resistors
+        /*************************************/
+        WizardField wellRL = findWizardField("well_resistor_length");
+
+        for (int i = 0; i < 2; i++)
+        {
+            Xml.Layer activeLayer = t.findLayer(diffNames[i]+"-"+diff_layer.name);   //$nplus_overhang_diff
+            Xml.Layer selectLayer, wellLayer;
+            WizardField selectWF;
+            PrimitiveNode.Function func;
+
+            nodesList.clear();
+            nodePorts.clear();
+
+            if (i==Technology.P_TYPE)
+            {
+                selectLayer = t.findLayer(pplus_layer.name);
+                selectWF = pplus_overhang_diff;
+                wellLayer = t.findLayer("P-Well");
+                func = PrimitiveNode.Function.RESPWELL;
+            }
+            else
+            {
+                selectLayer = t.findLayer(nplus_layer.name);
+                selectWF = nplus_overhang_diff;
+                wellLayer = t.findLayer(nwell_layer.name);
+                func = PrimitiveNode.Function.RESNWELL;
+            }
+
+            // active layer
+            double activeNoScaled = 2 * (diff_contact_overhang.value) + contact_size.value;
+            double activeDistance = scaledValue(wellRL.value /2);
+            double activeX = scaledValue(2 * (diff_contact_overhang.value) + contact_size.value);
+            double activeL = scaledValue(wellRL.value /2 + activeNoScaled);
+            double activeWNoScaled = contact_size.value/2 + diff_contact_overhang.value;
+            double activeW = scaledValue(activeWNoScaled);
+            nodesList.add(makeXmlNodeLayer((activeDistance + activeX), -1, -activeDistance, -1, activeW, -1, activeW, 1, activeLayer,
+                Poly.Type.FILLED, true, true, 0));
+            // right metal
+            nodesList.add(makeXmlNodeLayer(-activeDistance, 1, (activeDistance + activeX), 1, activeW, -1, activeW, 1, activeLayer,
+                Poly.Type.FILLED, true, true, 1));
+
+            // select layer
+            double selectOverhang = scaledValue(selectWF.value);
+            double selectL = selectOverhang + activeL;
+            double selectW = selectOverhang + activeW;
+            double selectDistance = activeDistance - scaledValue(selectWF.value);
+            double selectX = activeX + 2 * (selectWF.value);
+            nodesList.add(makeXmlNodeLayer((selectDistance + selectX), -1, -selectDistance, -1, selectW, -1, selectW, 1, selectLayer,
+                Poly.Type.FILLED, true, true, 0));
+            // right metal
+            nodesList.add(makeXmlNodeLayer(-selectDistance, 1, (selectDistance + selectX), 1, selectW, -1, selectW, 1, selectLayer,
+                Poly.Type.FILLED, true, true, 1));
+
+            // well layer
+            Xml.NodeLayer wellNodeLayer = null;
+            if (!getPSubstratelProcess())
+            {
+                double wellOverhang = scaledValue(nwell_overhang_diff_n.value - selectWF.value);
+                double wellL = wellOverhang + selectL;
+                double wellW = wellOverhang + selectW;
+                wellNodeLayer = makeXmlNodeLayer(wellL, wellL, wellW, wellW, wellLayer, Poly.Type.FILLED, true, true, 0);
+                nodesList.add(wellNodeLayer);
+            }
+
+            addMetalElements(t, activeConLayer, contact_array_spacing.value, wellRL, diff_contact_overhang, nodesList, nodePorts);
+
+            sox = scaledValue(nwell_overhang_diff_n.value) + activeX + selectOverhang;
+            soy = 0; // scaledValue(nwell_overhang_diff_n.value);
+            n = makeXmlPrimitive(t.nodeGroups, diffNames[i]+"-Well-Resistor", func, 0, 0, 0, 0,
+                new SizeOffset(sox, sox, soy, soy),
+                nodesList, nodePorts, null, false);
+            g.addElement(n, diffNames[i]+"-RWell");
+        }
+
+        /*************************************/
+        // Analog Poly Resistors (no hi res)
+        /*************************************/
+        polyRL = findWizardField("poly_resistor_length");
+        Xml.Layer polyLayer = t.findLayer(poly_layer.name);
+
+        for (int i = 0; i < 2; i++)
+        {
+            Xml.Layer selectLayer;
+            WizardField selectWF;
+            PrimitiveNode.Function func;
+
+            nodesList.clear();
+            nodePorts.clear();
+
+            if (i==Technology.P_TYPE)
+            {
+                selectLayer = t.findLayer(pplus_layer.name);
+                selectWF = pplus_overhang_diff;
+                func = PrimitiveNode.Function.RESPPOLY;
+            }
+            else
+            {
+                selectLayer = t.findLayer(nplus_layer.name);
+                selectWF = nplus_overhang_diff;
+                func = PrimitiveNode.Function.RESNPOLY;
+            }
+
+            // poly layer
+            polyNoScaled = 2 * (contact_poly_overhang.value) + contact_size.value;
+            polyL = scaledValue(polyRL.value /2 + polyNoScaled);
+            polyWNoScaled = contact_size.value/2 + diff_contact_overhang.value;
+            polyW = scaledValue(polyWNoScaled);
+            nodesList.add(makeXmlNodeLayer(polyL, polyL, polyW, polyW, polyLayer, Poly.Type.FILLED, true, true, 0));
+
+            // select layer
+            double selectOverhang = scaledValue(selectWF.value);
+            double selectL = selectOverhang + polyL;
+            double selectW = selectOverhang + polyW;
+            nodesList.add(makeXmlNodeLayer(selectL, selectL, selectW, selectW, selectLayer, Poly.Type.FILLED, true, true, 0));
+
+            addMetalElements(t, polyConLayer, contact_array_spacing.value, polyRL, contact_poly_overhang, nodesList, nodePorts);
+
+            sox = scaledValue(selectWF.value + polyNoScaled);
+            soy = scaledValue(selectWF.value);
+            n = makeXmlPrimitive(t.nodeGroups, diffNames[i]+"-Poly-Resistor", func, 0, 0, 0, 0,
+                new SizeOffset(sox, sox, soy, soy),
+                nodesList, nodePorts, null, false);
+            g.addElement(n, diffNames[i]+"-RPoly");
+        }
+
+
+        /*************************************/
+        // Analog unsilicided Poly Resistors (no hi res)
+        /*************************************/
+        WizardField silicide_overhang = findWizardField("silicide_overhang");
+
+        for (int i = 0; i < 2; i++)
+        {
+            Xml.Layer selectLayer;
+            PrimitiveNode.Function func;
+            WizardField selectWF;
+
+            if (i==Technology.P_TYPE)
+            {
+                selectLayer = t.findLayer(pplus_layer.name);
+                selectWF = pplus_overhang_diff;
+                func = PrimitiveNode.Function.RESPNSPOLY;
+            }
+            else
+            {
+                selectLayer = t.findLayer(nplus_layer.name);
+                selectWF = nplus_overhang_diff;
+                func = PrimitiveNode.Function.RESNNSPOLY;
+            }
+            nodesList.clear();
+            nodePorts.clear();
+
+            // poly layer
+//            polyNoScaled = 2 * (contact_poly_overhang.value) + contact_size.value;
+            polyNoScaled = contact_poly_overhang.value + silicide_overhang.value + contact_size.value; // due to silicide block not covering cut
+            polyL = scaledValue(polyRL.value /2 + polyNoScaled);
+            polyWNoScaled = contact_size.value/2 + diff_contact_overhang.value;
+            polyW = scaledValue(polyWNoScaled);
+            nodesList.add(makeXmlNodeLayer(polyL, polyL, polyW, polyW, polyLayer, Poly.Type.FILLED, true, true, 0));
+
+            // select layer
+            double selectOverhang = scaledValue(selectWF.value);
+            double selectL = selectOverhang + polyL;
+            double selectW = selectOverhang + polyW;
+            nodesList.add(makeXmlNodeLayer(selectL, selectL, selectW, selectW, selectLayer, Poly.Type.FILLED, true, true, 0));
+            WizardField len = polyRL;
+
+            // fake WizardField to compensate  silicide_overhang.value - contact_poly_overhang.value
+            if (silicide_overhang.value > contact_poly_overhang.value)
+            {
+                len = new WizardField(polyRL.value + 2*(silicide_overhang.value - contact_poly_overhang.value), "modified polyRL");
+            }
+
+            // silicide_block layer
+            Xml.Layer silicideLayer = t.findLayer(marking_layer.name);
+            double silicideOverhang = scaledValue(silicide_overhang.value);
+            double silicideL = scaledValue(polyRL.value /2); // silicideOverhang + selectL;
+            double silicideW = silicideOverhang + selectW;
+            nodesList.add(makeXmlNodeLayer(silicideL, silicideL, silicideW, silicideW, silicideLayer, Poly.Type.FILLED, true, true, 0));
+
+            addMetalElements(t, polyConLayer, contact_array_spacing.value, len, contact_poly_overhang, nodesList, nodePorts);
+
+            sox = scaledValue(/*silicide_overhang.value + */selectWF.value + polyNoScaled);
+            soy = scaledValue(silicide_overhang.value + selectWF.value);
+            n = makeXmlPrimitive(t.nodeGroups, diffNames[i]+"-No-Silicide-Poly-Resistor",
+                func, 0, 0, 0, 0,
+                new SizeOffset(sox, sox, soy, soy),
+                nodesList, nodePorts, null, false);
+            g.addElement(n, diffNames[i]+"-RNSPoly");
+        }
+    }
+
+    private void addMetalElements(Xml.Technology t, Xml.Layer conLayer, double spacing, WizardField width, WizardField overhang,
+                                  List<Xml.NodeLayer> nodesList, List<Xml.PrimitivePort> nodePorts)
+    {
+        Xml.Layer m1Layer = t.findLayer("Metal-1");
+        List<String> portNames = new ArrayList<String>();
+        portNames.add(m1Layer.name);
+
+        // metal left
+        double m1Y = scaledValue(contact_metal_overhang_all_sides.value + contact_size.value/2);
+        double m1X = scaledValue(2*contact_metal_overhang_all_sides.value + contact_size.value);
+        double m1Distance = scaledValue(width.value/2 + overhang.value - contact_metal_overhang_all_sides.value);
+        nodesList.add(makeXmlNodeLayer((m1Distance + m1X), -1, -m1Distance, -1, m1Y, -1, m1Y, 1, m1Layer,
+            Poly.Type.FILLED, true, true, 0));
+        // right metal
+        nodesList.add(makeXmlNodeLayer(-m1Distance, 1, (m1Distance + m1X), 1, m1Y, -1, m1Y, 1, m1Layer,
+            Poly.Type.FILLED, true, true, 1));
+
+        // left port
+        double contSize = scaledValue(contact_size.value);
+        double cutSizeHalf = scaledValue(contact_size.value /2);
+        double cutStart = scaledValue(width.value /2 + overhang.value);
+        Xml.PrimitivePort port = makeXmlPrimitivePort("left", 0, 180, 0, null,
+            -(cutStart + contSize), -1, -cutStart, -1, -cutSizeHalf, -1, cutSizeHalf, 1, portNames);
+        nodePorts.add(port);
+        // right port
+        port = makeXmlPrimitivePort("right", 0, 180, 1, null,
+            cutStart, 1, (cutStart + contSize), 1, -cutSizeHalf, -1, cutSizeHalf, 1, portNames);
+        nodePorts.add(port);
+
+        // Cuts
+        double cutEnd = scaledValue(width.value/2 + overhang.value);
+        double cutEndY = 0; // not sure why has to be zero and not scaledValue(contact_size.value/2);
+        // left
+        nodesList.add(makeXmlMulticut(cutEnd+contSize, -1, -cutEnd, -1, cutEndY, -1, cutEndY, 1,
+            conLayer, contSize, spacing, spacing));
+        // right
+        nodesList.add(makeXmlMulticut(-cutEnd, 1, cutEnd+contSize, 1, cutEndY, -1, cutEndY, 1,
+            conLayer, contSize, spacing, spacing));
+    }
+
+    private void addStandardLayers(Xml.Technology t, Map<Xml.Layer, WizardField> layerMap,
+                                   int[] nullPattern, int[] dexclPattern)
+    {
+		Color contact_colour = new Color(100,100,100);   // darker gray
+        Color nplus_colour = new Color(224,238,224);
+		Color pplus_colour = new Color(224,224,120);
+		Color nwell_colour = new Color(140,140,140);
+
+        //
+        // Adding necessary layers
+        //
         // Poly
         EGraphics graph = new EGraphics(false, false, null, 1, 0, 0, 0, 1, true, nullPattern);
         Xml.Layer polyLayer = makeXmlLayer(t.layers, layerMap, poly_layer.name, Layer.Function.POLY1, 0, graph,
@@ -2362,7 +3186,7 @@ public class TechEditWizardData
         Xml.Layer polyGateLayer = makeXmlLayer(t.layers, layerMap, poly_layer.name+"Gate", Layer.Function.GATE, 0, graph,
             poly_width, true, false); // false for the port otherwise it won't find any type
 
-        if (getExtraInfoFlag())
+        if (isComplexCase())
         {
             // exclusion layer poly
             graph = new EGraphics(true, true, null, 1, 0, 0, 0, 1, true, dexclPattern);
@@ -2381,7 +3205,6 @@ public class TechEditWizardData
         Xml.Layer diffConLayer = makeXmlLayer(t.layers, layerMap, diff_layer.name+"-Cut", Layer.Function.CONTACT1,
             Layer.Function.CONDIFF, graph, contact_size, true, false);
 
-        List<String> portNames = new ArrayList<String>();
         // P-Diff and N-Diff
         graph = new EGraphics(false, false, null, 2, 0, 0, 0, 1, true, nullPattern);
         // N-Diff
@@ -2391,19 +3214,7 @@ public class TechEditWizardData
         Xml.Layer diffPLayer = makeXmlLayer(t.layers, layerMap, "P-"+ diff_layer.name, Layer.Function.DIFFP, 0, graph,
             diff_width, true, true, "P-"+ diff_layer.name, "P-Well", "S-P-Well");
 
-        if (getExtraInfoFlag())
-        {
-            // exclusion layer N/P diff
-            graph = new EGraphics(true, true, null, 2, 0, 0, 0, 1, true, dexclPattern);
-            Xml.Layer exclusionDiffPLayer = makeXmlLayer(t.layers, "DEXCL-P-"+ diff_layer.name, Layer.Function.DEXCLDIFF, 0, graph,
-                2*diff_width.value, true, false);
-            Xml.Layer exclusionDiffNLayer = makeXmlLayer(t.layers, "DEXCL-N-"+ diff_layer.name, Layer.Function.DEXCLDIFF, 0, graph,
-                2*diff_width.value, true, false);
-            makeLayerGDS(t, exclusionDiffPLayer, "150/20");
-            makeLayerGDS(t, exclusionDiffNLayer, "150/20");
-        }
-
-        // NPlus and PPlus
+                // NPlus and PPlus
         int [] patternSlash = new int[] { 0x1010,   //    X       X
                         0x2020,   //   X       X
                         0x4040,   //  X       X
@@ -2473,7 +3284,6 @@ public class TechEditWizardData
                         0x2020,   //   X       X
                         0x0000,   //
                         0x0202};   //       X       X
-
         // NPlus
         graph = new EGraphics(true, true, null, 0, nplus_colour.getRed(), nplus_colour.getGreen(),
             nplus_colour.getBlue(), 1, true, patternSlash);
@@ -2495,88 +3305,29 @@ public class TechEditWizardData
             nwell_colour.getBlue(), 1, true, patternBackSlash);
         Xml.Layer pwellLayer = makeXmlLayer(t.layers, layerMap, "P-Well", Layer.Function.WELLP, 0, graph,
             nwell_width, true, false);
+    }
 
-        // DeviceMark
-        graph = new EGraphics(false, false, null, 0, 255, 0, 0, 0.4, true, nullPattern);
-        Xml.Layer deviceMarkLayer = makeXmlLayer(t.layers, layerMap, marking_layer.name, Layer.Function.CONTROL, 0,
-            graph, nplus_width, true, false);
-
-        // Extra layers
-        List<PaletteGroup> extraPaletteList = new ArrayList<PaletteGroup>();
-        for (LayerInfo info : extraLayers)
-        {
-            graph = null;
-            // either color or template
-            assert (info.graphicsTemplate == null || info.graphicsColor == null);
-            if (info.graphicsTemplate != null)
-            {
-                // look for layer name and get its EGraphics
-                for (Xml.Layer l : t.layers)
-                {
-                    if (l.name.equals(info.graphicsTemplate))
-                    {
-                        graph = l.desc;
-                        break;
-                    }
-                }
-                if (graph == null)
-                    System.out.println("No template layer " + info.graphicsTemplate + " found");
-            }
-            else if (info.graphicsColor != null)
-            {
-                graph = new EGraphics(true, true, info.graphicsOutline, 0,
-                    info.graphicsColor.getRed(), info.graphicsColor.getGreen(), info.graphicsColor.getBlue(),
-                    1, true, info.graphicsPattern);
-            }
-            if (graph == null)
-                graph = new EGraphics(false, false, null, 0, 255, 0, 0, 0.4, true, nullPattern);
-
-            if (DBMath.areEquals(info.width, 0))
-                System.out.println("Adding pure layer node '" + info.name + "' with zero width");
-            WizardField wf = new WizardField(info.width, info.name); // name is irrelevant
-            Xml.Layer layer = makeXmlLayer(t.layers, layerMap, info.name, info.function, 0, graph,
-                wf, true, info.addArc, info.name);
-            if (info.cif != null) layer.cif = info.cif;
-            makeLayerGDS(t, layer, String.valueOf(info));
-
-            if (info.addArc)
-            {
-                PaletteGroup grp = new PaletteGroup();
-                grp.addArc(makeXmlArc(t, info.name, ArcProto.Function.UNKNOWN, 0,
-                    makeXmlArcLayer(layer, wf)));
-                double hla = scaledValue(info.width / 2);
-                grp.addPinOrResistor(makeXmlPrimitivePin(t, info.name, hla, null,
-                    null, makeXmlNodeLayer(hla, hla, hla, hla, layer, Poly.Type.CROSSED)), null);
-                extraPaletteList.add(grp);
-            }
-
-            // Adding 3D info
-            if (info.height > -1) // -1 is the default valuu
-                layer.height3D = info.height;
-            if (info.thickness > -1) // -1 is the default valuu
-                layer.thick3D = info.thickness;
-        }
-
-        // Palette elements should be added at the end so they will appear in groups
-        PaletteGroup[] metalPalette = new PaletteGroup[num_metal_layers];
-
-        // write arcs
-        // metal arcs
-        for(int i=1; i<=num_metal_layers; i++)
-        {
-            double ant = (int)Math.round(metal_antenna_ratio[i-1]) | 200;
-            PaletteGroup group = new PaletteGroup();
-            metalPalette[i-1] = group;
-            group.addArc(makeXmlArc(t, "Metal-"+i, ArcProto.Function.getContact(i), ant,
-                makeXmlArcLayer(metalLayers.get(i-1), metal_width[i-1])));
-        }
-
+    private void addStandardElements(Xml.Technology t, Map<Xml.Layer, WizardField> layerMap,
+                                     List<Xml.Layer> metalLayers, List<PaletteGroup> allGroups)
+    {
         /**************************** POLY Nodes/Arcs ***********************************************/
         // poly arc
         double ant = (int)Math.round(poly_antenna_ratio) | 200;
         List<PaletteGroup> polysGroup = new ArrayList<PaletteGroup>();
         PaletteGroup polyGroup = new PaletteGroup();
         polysGroup.add(polyGroup);
+
+        List<String> portNames = new ArrayList<String>();
+        Xml.Layer polyLayer = t.findLayer(poly_layer.name);
+        Xml.Layer polyGateLayer = t.findLayer(poly_layer.name+"Gate");
+        Xml.Layer polyConLayer = t.findLayer("Poly-Cut");
+        Xml.Layer diffConLayer = t.findLayer(diff_layer.name+"-Cut");
+        Xml.Layer nwellLayer = t.findLayer(nwell_layer.name);
+        Xml.Layer pwellLayer = t.findLayer("P-Well");
+        Xml.Layer nplusLayer = t.findLayer(nplus_layer.name);
+        Xml.Layer pplusLayer = t.findLayer(pplus_layer.name);
+        Xml.Layer diffNLayer = t.findLayer("N-"+ diff_layer.name);
+        Xml.Layer diffPLayer = t.findLayer("P-"+ diff_layer.name);
 
         polyGroup.addArc(makeXmlArc(t, polyLayer.name, ArcProto.Function.getPoly(1), ant,
                 makeXmlArcLayer(polyLayer, poly_width)));
@@ -2586,21 +3337,21 @@ public class TechEditWizardData
             null, makeXmlNodeLayer(hla, hla, hla, hla, polyLayer, Poly.Type.CROSSED)), null);
 
         if (getSecondPolyFlag()) createSecondPolyElements(t, layerMap, polysGroup);
-        if (getAnalogFlag()) createAnalogElements(t, polysGroup);
+        if (getAnalogFlag()) createAnalogElements(t, metalLayers, polysGroup);
 
+        Xml.Layer m1Layer = metalLayers.get(0);
         // poly contact
         portNames.clear();
         portNames.add(polyLayer.name);
-        portNames.add(metalLayers.get(0).name);
+        portNames.add(m1Layer.name);
         hla = scaledValue((contact_size.value /2 + contact_poly_overhang.value));
-        Xml.Layer m1Layer = metalLayers.get(0);
         double contSize = scaledValue(contact_size.value);
         double contSpacing = scaledValue(contact_spacing.value);
         double contArraySpacing = scaledValue(contact_array_spacing.value);
         double metal1Over = scaledValue(contact_size.value /2 + contact_metal_overhang_all_sides.value);
 
         // only for standard cases when getExtraInfoFlag() is false
-        if (!getExtraInfoFlag())
+        if (!isComplexCase())
         {
             if (via_overhang.length > 0)
                 polyGroup.addElement(makeContactSeries(t.nodeGroups, polyLayer.name, contSize, polyConLayer, contSpacing, contArraySpacing,
@@ -2631,135 +3382,135 @@ public class TechEditWizardData
         double[] sels = {psel, nsel};
         Xml.Layer[] diffLayers = {diffPLayer, diffNLayer};
         Xml.Layer[] plusLayers = {pplusLayer, nplusLayer};
-        Xml.Layer pol2yLayer = t.findLayer(poly2_layer.name);
+//        Xml.Layer pol2yLayer = t.findLayer(poly2_layer.name);
 
         // Active and poly contacts. They are defined first that the Full types
         for (Map.Entry<String,List<Contact>> e : otherContacts.entrySet())
         {
-            // generic contacts
-            String name = null;
-
-            for (Contact c : e.getValue())
-            {
-                Xml.Layer ly = null, lx = null;
-                Xml.Layer conLay = diffConLayer;
-                PaletteGroup g = null;
-                ContactNode metalLayer = c.layers.get(0);
-                ContactNode otherLayer = c.layers.get(1);
-                String extraName = "";
-
-                if (!TextUtils.isANumber(metalLayer.layer)) // horizontal must be!
-                {
-                    assert (TextUtils.isANumber(otherLayer.layer));
-                    metalLayer = c.layers.get(1);
-                    otherLayer = c.layers.get(0);
-                }
-
-                int m1 = Integer.valueOf(metalLayer.layer);
-                ly = metalLayers.get(m1-1);
-                String layerName = otherLayer.layer;
-                if (layerName.equals(diffLayers[0].name))
-                {
-                    lx = diffLayers[0];
-                    g = diffPalette[0];
-                    extraName = "P";
-                }
-                else if (layerName.equals(diffLayers[1].name))
-                {
-                    lx = diffLayers[1];
-                    g = diffPalette[1];
-                    extraName = "N";
-                }
-                else if (layerName.equals(polyLayer.name))
-                {
-                    lx = polyLayer;
-                    conLay = polyConLayer;
-                    g = polyGroup;
-                }
-                else if (getSecondPolyFlag() && layerName.equals(pol2yLayer.name))
-                {
-                    lx = pol2yLayer;
-                    conLay = polyConLayer;
-                    g = polyGroup;
-                }
-                else
-                    assert(false); // it should not happen
-                double h1x = scaledValue(contact_size.value /2 + metalLayer.overX.value);
-                double h1y = scaledValue(contact_size.value /2 + metalLayer.overY.value);
-                double h2x = scaledValue(contact_size.value /2 + otherLayer.overX.value);
-                double h2y = scaledValue(contact_size.value /2 + otherLayer.overY.value);
-                double longX = (Math.abs(metalLayer.overX.value - otherLayer.overX.value));
-                double longY = (Math.abs(metalLayer.overY.value - otherLayer.overY.value));
-
-                PrimitiveNode.Function func = PrimitiveNode.Function.CONTACT;
-//                Xml.NodeLayer extraN = null;
-                Xml.NodeLayer[] nodes = new Xml.NodeLayer[c.layers.size() + 1]; // all plus cut
-                int count = 0;
-
-                // cut
-                nodes[count++] = makeXmlMulticut(conLay, contSize, contSpacing, contArraySpacing);
-                // metal
-                nodes[count++] = makeXmlNodeLayer(h1x, h1x, h1y, h1y, ly, Poly.Type.FILLED); // layer1
-                // active or poly
-                nodes[count++] = makeXmlNodeLayer(h2x, h2x, h2y, h2y, lx, Poly.Type.FILLED); // layer2
-
-                Xml.Layer otherLayerPort = lx;
-
-                for (int i = 2; i < c.layers.size(); i++) // rest of layers. Either select or well.
-                {
-                    ContactNode node = c.layers.get(i);
-                    Xml.Layer lz = t.findLayer(node.layer);
-
-                    if ((lz == pwellLayer && lx == diffLayers[0]) ||
-                        (lz == nwellLayer && lx == diffLayers[1])) // well contact
-                    {
-                        otherLayerPort = lz;
-                        if (lz == pwellLayer)
-                        {
-                            g = wellPalette[0];
-                            func = getWellContactFunction(Technology.P_TYPE);
-                            extraName = "PW"; // W for well
-                        }
-                        else // nwell
-                        {
-                            g = wellPalette[1];
-                            func = getWellContactFunction(Technology.N_TYPE);
-                            extraName = "NW"; // W for well
-                        }
-                    }
-                    if (pSubstrateProcess && lz == pwellLayer)
-                        continue; // skip this layer
-
-                    double h3x = scaledValue(contact_size.value /2 + node.overX.value);
-                    double h3y = scaledValue(contact_size.value /2 + node.overY.value);
-                    nodes[count++] = makeXmlNodeLayer(h3x, h3x, h3y, h3y, lz, Poly.Type.FILLED);
-
-                    // This assumes no well is defined
-                    double longXLocal = (Math.abs(node.overX.value - otherLayer.overX.value));
-                    double longYLocal = (Math.abs(node.overY.value - otherLayer.overY.value));
-                    if (DBMath.isGreaterThan(longXLocal, longX))
-                        longX = longXLocal;
-                    if (DBMath.isGreaterThan(longYLocal, longY))
-                        longY = longYLocal;
-                }
-                longX = scaledValue(longX);
-                longY = scaledValue(longY);
-
-                // prt names now after determing wheter is a diff or well contact
-                portNames.clear();
-//                if (!pSubstrateProcess || otherLayerPort == pwellLayer)
-                    portNames.add(otherLayerPort.name);
-                portNames.add(ly.name); // always should represent the metal1
-                name = ly.name + "-" + otherLayerPort.name;
-
-
-                // some primitives might not have prefix. "-" should not be in the prefix to avoid
-                // being displayed in the palette
-                String p = (c.prefix == null || c.prefix.equals("")) ? "" : c.prefix + "-";
-                g.addElement(makeXmlPrimitiveCon(t.nodeGroups, p + name, func, -1, -1,
-                    new SizeOffset(longX, longX, longY, longY), portNames,
-                    nodes), p + extraName); // contact
-            }
+            addContactsOrCapacitors(t, e.getValue(), metalLayers, diffPalette, wellPalette, polyGroup, false);
+//            // generic contacts
+//            String name = null;
+//
+//            for (Contact c : e.getValue())
+//            {
+//                Xml.Layer ly = null, lx = null;
+//                Xml.Layer conLay = diffConLayer;
+//                PaletteGroup g = null;
+//                ContactNode metalLayer = c.layers.get(0);
+//                ContactNode otherLayer = c.layers.get(1);
+//                String extraName = "";
+//
+//                if (!TextUtils.isANumber(metalLayer.layer)) // horizontal must be!
+//                {
+//                    assert (TextUtils.isANumber(otherLayer.layer));
+//                    metalLayer = c.layers.get(1);
+//                    otherLayer = c.layers.get(0);
+//                }
+//
+//                int m1 = Integer.valueOf(metalLayer.layer);
+//                ly = metalLayers.get(m1-1);
+//                String layerName = otherLayer.layer;
+//                if (layerName.equals(diffLayers[0].name))
+//                {
+//                    lx = diffLayers[0];
+//                    g = diffPalette[0];
+//                    extraName = "P";
+//                }
+//                else if (layerName.equals(diffLayers[1].name))
+//                {
+//                    lx = diffLayers[1];
+//                    g = diffPalette[1];
+//                    extraName = "N";
+//                }
+//                else if (layerName.equals(polyLayer.name))
+//                {
+//                    lx = polyLayer;
+//                    conLay = polyConLayer;
+//                    g = polyGroup;
+//                }
+//                else if (getSecondPolyFlag() && layerName.equals(pol2yLayer.name))
+//                {
+//                    lx = pol2yLayer;
+//                    conLay = polyConLayer;
+//                    g = polyGroup;
+//                }
+//                else
+//                    assert(false); // it should not happen
+//                double h1x = scaledValue(contact_size.value /2 + metalLayer.valueX.value);
+//                double h1y = scaledValue(contact_size.value /2 + metalLayer.valueY.value);
+//                double h2x = scaledValue(contact_size.value /2 + otherLayer.valueX.value);
+//                double h2y = scaledValue(contact_size.value /2 + otherLayer.valueY.value);
+//                double longX = (Math.abs(metalLayer.valueX.value - otherLayer.valueX.value));
+//                double longY = (Math.abs(metalLayer.valueY.value - otherLayer.valueY.value));
+//
+//                PrimitiveNode.Function func = PrimitiveNode.Function.CONTACT;
+//                Xml.NodeLayer[] nodes = new Xml.NodeLayer[c.layers.size() + 1]; // all plus cut
+//                int count = 0;
+//
+//                // cut
+//                nodes[count++] = makeXmlMulticut(conLay, contSize, contSpacing, contArraySpacing);
+//                // metal
+//                nodes[count++] = makeXmlNodeLayer(h1x, h1x, h1y, h1y, ly, Poly.Type.FILLED); // layer1
+//                // active or poly
+//                nodes[count++] = makeXmlNodeLayer(h2x, h2x, h2y, h2y, lx, Poly.Type.FILLED); // layer2
+//
+//                Xml.Layer otherLayerPort = lx;
+//
+//                for (int i = 2; i < c.layers.size(); i++) // rest of layers. Either select or well.
+//                {
+//                    ContactNode node = c.layers.get(i);
+//                    Xml.Layer lz = t.findLayer(node.layer);
+//
+//                    if ((lz == pwellLayer && lx == diffLayers[0]) ||
+//                        (lz == nwellLayer && lx == diffLayers[1])) // well contact
+//                    {
+//                        otherLayerPort = lz;
+//                        if (lz == pwellLayer)
+//                        {
+//                            g = wellPalette[0];
+//                            func = getWellContactFunction(Technology.P_TYPE);
+//                            extraName = "PW"; // W for well
+//                        }
+//                        else // nwell
+//                        {
+//                            g = wellPalette[1];
+//                            func = getWellContactFunction(Technology.N_TYPE);
+//                            extraName = "NW"; // W for well
+//                        }
+//                    }
+//                    if (pSubstrateProcess && lz == pwellLayer)
+//                        continue; // skip this layer
+//
+//                    double h3x = scaledValue(contact_size.value /2 + node.valueX.value);
+//                    double h3y = scaledValue(contact_size.value /2 + node.valueY.value);
+//                    nodes[count++] = makeXmlNodeLayer(h3x, h3x, h3y, h3y, lz, Poly.Type.FILLED);
+//
+//                    // This assumes no well is defined
+//                    double longXLocal = (Math.abs(node.valueX.value - otherLayer.valueX.value));
+//                    double longYLocal = (Math.abs(node.valueY.value - otherLayer.valueY.value));
+//                    if (DBMath.isGreaterThan(longXLocal, longX))
+//                        longX = longXLocal;
+//                    if (DBMath.isGreaterThan(longYLocal, longY))
+//                        longY = longYLocal;
+//                }
+//                longX = scaledValue(longX);
+//                longY = scaledValue(longY);
+//
+//                // prt names now after determing wheter is a diff or well contact
+//                portNames.clear();
+////                if (!pSubstrateProcess || otherLayerPort == pwellLayer)
+//                    portNames.add(otherLayerPort.name);
+//                portNames.add(ly.name); // always should represent the metal1
+//                name = ly.name + "-" + otherLayerPort.name;
+//
+//
+//                // some primitives might not have prefix. "-" should not be in the prefix to avoid
+//                // being displayed in the palette
+//                String p = (c.prefix == null || c.prefix.equals("")) ? "" : c.prefix + "-";
+//                g.addElement(makeXmlPrimitiveCon(t.nodeGroups, p + name, func, -1, -1,
+//                    new SizeOffset(longX, longX, longY, longY), portNames,
+//                    nodes), p + extraName); // contact
+//            }
         }
 
         // ndiff/pdiff contact
@@ -2792,7 +3543,7 @@ public class TechEditWizardData
             }
 
             PaletteGroup diffG = diffPalette[i];
-            
+
             // active arc
             diffG.addArc(makeXmlArc(t, composeName, arcF, 0,
                 makeXmlArcLayer(diffLayers[i], diff_width),
@@ -2858,7 +3609,7 @@ public class TechEditWizardData
                 arcVal = nplus_overhang_diff;
             }
             portNames.add(m1Layer.name);
-                                                                 
+
             // three layers arcs. This is the first port defined so it will be the default in the palette
             g.addArc(makeXmlArc(t, composeName, ArcProto.Function.WELL, 0,
                     makeXmlArcLayer(diffLayers[i], diff_width),
@@ -2887,87 +3638,6 @@ public class TechEditWizardData
                 makeXmlNodeLayer(wellSels[i], wellSels[i], wellSels[i], wellSels[i], plusLayers[i], Poly.Type.FILLED), // select layer
                 wellNodeLayer, // well layer
                 makeXmlMulticut(diffConLayer, contSize, contSpacing, contArraySpacing)), "Full-"+diffNames[i] + "W"); // contact
-        }
-
-        /**************************** Metals Nodes/Arcs ***********************************************/
-
-        // Pins
-        for (int i = 0; i < num_metal_layers; i++)
-        {
-            hla = scaledValue(metal_width[i].value / 2);
-            Xml.Layer lt = metalLayers.get(i);
-            PaletteGroup group = metalPalette[i];  // structure created by the arc definition
-            group.addPinOrResistor(makeXmlPrimitivePin(t, lt.name, hla, null, //new SizeOffset(hla, hla, hla, hla),
-                null, makeXmlNodeLayer(hla, hla, hla, hla, lt, Poly.Type.CROSSED)), null);
-        }
-
-        // contacts
-        for(int i=1; i<num_metal_layers; i++)
-		{
-            Xml.Layer lb = metalLayers.get(i-1);
-            Xml.Layer lt = metalLayers.get(i);
-            PaletteGroup group = metalPalette[i-1];  // structure created by the arc definition
-
-            if (!getExtraInfoFlag())
-            {
-                // original contact Square
-                // via
-                Xml.Layer via = viaLayers.get(i-1);
-                double viaSize = scaledValue(via_size[i-1].value);
-                double viaSpacing = scaledValue(via_inline_spacing[i-1].value);
-                double viaArraySpacing = scaledValue(via_array_spacing[i-1].value);
-                String name = lb.name + "-" + lt.name;
-
-                double longDist = scaledValue(via_overhang[i-1].value);
-                group.addElement(makeContactSeries(t.nodeGroups, name, viaSize, via, viaSpacing, viaArraySpacing,
-                    longDist, lt, longDist, lb), null);
-            }
-        }
-
-        // metal contacts
-        for (Map.Entry<String,List<Contact>> e : metalContacts.entrySet())
-        {
-            // generic contacts
-            for (Contact c : e.getValue())
-            {
-                // We know those layer names are numbers!
-                assert(c.layers.size() == 2);
-                ContactNode verticalLayer = c.layers.get(0);
-                ContactNode horizontalLayer = c.layers.get(1);
-
-                int i = Integer.valueOf(verticalLayer.layer);
-                int j = Integer.valueOf(horizontalLayer.layer);
-                Xml.Layer ly = metalLayers.get(i-1);
-                Xml.Layer lx = metalLayers.get(j-1);
-                String name = (j>i)?ly.name + "-" + lx.name:lx.name + "-" + ly.name;
-                int via = (j>i)?i:j;
-                double metalContSize = scaledValue(via_size[via-1].value);
-                double spacing = scaledValue(via_inline_spacing[via-1].value);
-                double arraySpacing = scaledValue(via_array_spacing[via-1].value);
-                Xml.Layer metalConLayer = viaLayers.get(via-1);
-                double h1x = scaledValue(via_size[via-1].value /2 + verticalLayer.overX.value);
-                double h1y = scaledValue(via_size[via-1].value /2 + verticalLayer.overY.value);
-                double h2x = scaledValue(via_size[via-1].value /2 + horizontalLayer.overX.value);
-                double h2y = scaledValue(via_size[via-1].value /2 + horizontalLayer.overY.value);
-
-//                double longX = scaledValue(DBMath.isGreaterThan(verticalLayer.overX.v, horizontalLayer.overX.v) ? verticalLayer.overX.v : horizontalLayer.overX.v);
-//                double longY = scaledValue(DBMath.isGreaterThan(verticalLayer.overY.v, horizontalLayer.overY.v) ? verticalLayer.overY.v : horizontalLayer.overY.v);
-                double longX = scaledValue(Math.abs(verticalLayer.overX.value - horizontalLayer.overX.value));
-                double longY = scaledValue(Math.abs(verticalLayer.overY.value - horizontalLayer.overY.value));
-                portNames.clear();
-                portNames.add(lx.name);
-                portNames.add(ly.name);
-
-                // some primitives might not have prefix. "-" should not be in the prefix to avoid
-                // being displayed in the palette
-                String p = (c.prefix == null || c.prefix.equals("")) ? "" : c.prefix + "-";
-                metalPalette[via-1].addElement(makeXmlPrimitiveCon(t.nodeGroups, p + name, PrimitiveNode.Function.CONTACT, -1, -1,
-                    new SizeOffset(longX, longX, longY, longY),
-                    portNames,
-                    makeXmlNodeLayer(h1x, h1x, h1y, h1y, ly, Poly.Type.FILLED), // layer1
-                    makeXmlNodeLayer(h2x, h2x, h2y, h2y, lx, Poly.Type.FILLED), // layer2
-                    makeXmlMulticut(metalConLayer, metalContSize, spacing, arraySpacing)), c.prefix); // contact
-            }
         }
 
         /**************************** Transistors ***********************************************/
@@ -3155,7 +3825,7 @@ public class TechEditWizardData
 
             // Extra transistors which don't have select nor well
             // Extra protection poly. No ports are necessary.
-            if (getExtraInfoFlag())
+            if (isComplexCase())
             {
                 /*************************************/
                 // Short transistors
@@ -3405,7 +4075,7 @@ public class TechEditWizardData
                 n = makeXmlPrimitive(t.nodeGroups, name + "-Poly-RPO-Resistor", prFunc, 0, 0, 0, 0,
                     new SizeOffset(sox, sox, soy, soy), nodesList, nodePorts, null, false);
                 g.addPinOrResistor(n, name + "-RPoly");
-                
+
                 /*************************************/
                 // Well Resistors
                 nodesList.clear();
@@ -3430,7 +4100,7 @@ public class TechEditWizardData
                 halfTotalW = scaledValue(wellRW.value /2 + soyNoScaled);
                 double activeWX = scaledValue(wellRL.value /2 + activeXNoScaled);
                 double activeWY = scaledValue(wellRW.value /2 + /*D*/odNwrodO.value);
-                
+
                 // active
                 nodesList.add(makeXmlNodeLayer(activeWX, activeWX, activeWY, activeWY, activeLayer,
                     Poly.Type.FILLED, true, true, -1));
@@ -3525,57 +4195,24 @@ public class TechEditWizardData
             }
         }
 
-        // Aggregating all palette groups into one
-        List<PaletteGroup> allGroups = new ArrayList<PaletteGroup>();
-
+        /*** Palette Elements ***/
         allGroups.add(transPalette[0]); allGroups.add(transPalette[1]);
         allGroups.add(diffPalette[0]); allGroups.add(diffPalette[1]);
         allGroups.add(wellPalette[0]); allGroups.add(wellPalette[1]);
         allGroups.addAll(polysGroup);
-        for (PaletteGroup g : metalPalette)
-            allGroups.add(g);
-        // Extra layers with pins/arcs
-        allGroups.addAll(extraPaletteList);
 
-        // Adding elements in palette
-        for (PaletteGroup o : allGroups)
-        {
-            t.menuPalette.menuBoxes.add(o.arcs);  // arcs
-            t.menuPalette.menuBoxes.add(o.pins);  // pins
-            t.menuPalette.menuBoxes.add(o.elements);  // contacts
-        }
-
-        // Writting GDS values
+        /*** GDS Values ***/
         makeLayerGDS(t, diffPLayer, String.valueOf(diff_layer));
         makeLayerGDS(t, diffNLayer, String.valueOf(diff_layer));
         makeLayerGDS(t, pplusLayer, String.valueOf(pplus_layer));
         makeLayerGDS(t, nplusLayer, String.valueOf(nplus_layer));
         makeLayerGDS(t, nwellLayer, String.valueOf(nwell_layer));
-        makeLayerGDS(t, deviceMarkLayer, String.valueOf(marking_layer));
         makeLayerGDS(t, polyConLayer, String.valueOf(contact_layer));
         makeLayerGDS(t, diffConLayer, String.valueOf(contact_layer));
         makeLayerGDS(t, polyLayer, String.valueOf(poly_layer));
         makeLayerGDS(t, polyGateLayer, String.valueOf(poly_layer));
 
-        for (int i = 0; i < num_metal_layers; i++) {
-            Xml.Layer met = metalLayers.get(i);
-            makeLayerGDS(t, met, String.valueOf(metal_layers[i]));
-
-            if (getExtraInfoFlag())
-            {
-                // Type is always 1
-                makeLayerGDS(t, dummyMetalLayers.get(i), metal_layers[i].value + "/1");
-                // exclusion always takes 150
-                makeLayerGDS(t, exclusionMetalLayers.get(i), "150/" + (i + 1));
-            }
-
-            if (i > num_metal_layers - 2) continue;
-
-            Xml.Layer via = viaLayers.get(i);
-            makeLayerGDS(t, via, String.valueOf(via_layers[i]));
-        }
-
-        // Writting Layer Rules
+        /*** Layer Rules ***/
         for (Xml.Layer l : diffLayers)
         {
             makeLayerRuleMinWid(t, l, diff_width);
@@ -3609,556 +4246,226 @@ public class TechEditWizardData
             makeLayerRuleMinWid(t, w, poly_width);
             makeLayersRule(t, w, DRCTemplate.DRCRuleType.SPACING, poly_spacing.rule, poly_spacing.value);
         }
-
-        // Simple spacing rules included here
-        for (int i = 0; i < num_metal_layers; i++) {
-            Xml.Layer met = metalLayers.get(i);
-            makeLayerRuleMinWid(t, met, metal_width[i]); 
-            makeLayersRule(t, met, DRCTemplate.DRCRuleType.SPACING, metal_spacing[i].rule, metal_spacing[i].value);
-
-            if (i >= num_metal_layers - 1) continue;
-            Xml.Layer via = viaLayers.get(i);
-            makeLayerRuleMinWid(t, via, via_size[i]);
-            makeLayersRule(t, via, DRCTemplate.DRCRuleType.SPACING, via_inline_spacing[i].rule, via_inline_spacing[i].value);
-        }
-        // wide metal rules
-        for (WideWizardField w : wide_metal_spacing)
-        {
-            for (String layerName : w.names)
-            {
-                Xml.Layer layer = t.findLayer(layerName);
-                assert(layer != null);
-                makeLayersWideRule(t, layer, DRCTemplate.DRCRuleType.SPACING, w.rule, w.value, w.maxW, w.minLen);
-            }
-        }
-        // spacing/min rules in extra layers
-        for (LayerInfo layer : extraLayers)
-        {
-            Xml.Layer l = t.findLayer(layer.name);
-            if (layer.minimum != null)
-                makeLayerRuleMinWid(t, l, layer.minimum);
-            if (layer.spacing != null)
-                makeLayersRule(t, l, DRCTemplate.DRCRuleType.SPACING, layer.spacing.rule, layer.spacing.value);
-        }
-
-        // Finish menu with Pure, Misc and Cell
-        List<Object> l = new ArrayList<Object>();
-        l.add(new String("Pure"));
-        t.menuPalette.menuBoxes.add(l);
-        l = new ArrayList<Object>();
-        l.add(new String("Misc."));
-        t.menuPalette.menuBoxes.add(l);
-        l = new ArrayList<Object>();
-        l.add(new String("Cell"));
-        t.menuPalette.menuBoxes.add(l);
-
-        // Sort before writing data. We might need to sort primitive nodes in group before...
-        Collections.sort(t.nodeGroups, primitiveNodeGroupSort);
-        for (Xml.PrimitiveNodeGroup nodeGroup: t.nodeGroups)
-        {
-            // sort NodeLayer before writing them
-            Collections.sort(nodeGroup.nodeLayers, nodeLayerSort);
-        }
-
-        // write finally the file
-        boolean includeDateAndVersion = User.isIncludeDateAndVersionInOutput();
-        String copyrightMessage = IOTool.isUseCopyrightMessage() ? IOTool.getCopyrightMessage() : null;
-        t.writeXml(fileName, includeDateAndVersion, copyrightMessage);
     }
 
-    private PrimitiveNode.Function getWellContactFunction(int i)
+    private void addContactsOrCapacitors(Xml.Technology t, List<Contact> contacts, List<Xml.Layer> metalLayers,
+                                         PaletteGroup[] diffPalette, PaletteGroup[] wellPalette,
+                                         PaletteGroup polyGroup, boolean capacitor)
     {
-        if (i == Technology.P_TYPE)
-            return (pSubstrateProcess) ? PrimitiveNode.Function.SUBSTRATE : PrimitiveNode.Function.WELL;
-        return (pSubstrateProcess) ? PrimitiveNode.Function.WELL : PrimitiveNode.Function.SUBSTRATE;
-    }
+        List<String> portArcNames = new ArrayList<String>(0);
+        List<String> portNames = new ArrayList<String>(2);
 
-    private void prepareTransistor(double gateWidth, double gateLength, double polyEndcap, double diffPolyOverhang,
-                                   double gateContactSpacing, double contactSize,
-                                   Xml.Layer activeLayer, Xml.Layer polyLayer, Xml.Layer polyGateLayer,
-                                   List<Xml.NodeLayer> nodesList, List<Xml.PrimitivePort> nodePorts)
-    {
-        double impx = scaledValue((gateWidth)/2);
-        double impy = scaledValue((gateLength+diffPolyOverhang*2)/2);
-        double diffY = scaledValue(gateLength/2+gateContactSpacing+contactSize/2);  // impy
-        double diffX = 0;
-        double xSign = 1, ySign = -1;
+        // Typical port names in capacitors
+        portNames.add("a");
+        portNames.add("b");
 
-        // Active layers
-        nodesList.add(makeXmlNodeLayer(impx, impx, impy, impy, activeLayer, Poly.Type.FILLED, true, false, -1));
-        // electrical active layers
-        nodesList.add(makeXmlNodeLayer(impx, impx, impy, 0, activeLayer, Poly.Type.FILLED, false, true, 3));  // bottom
-        nodesList.add(makeXmlNodeLayer(impx, impx, 0, impy, activeLayer, Poly.Type.FILLED, false, true, 1));  // top
-
-        // Diff port
-        List<String> portNames = new ArrayList<String>();
-        portNames.add(activeLayer.name);
-
-        // top port
-        Xml.PrimitivePort diffTopPort = makeXmlPrimitivePort("diff-top", 90, 90, 1, null,
-            diffX, -1, diffX, 1, diffY, 1, diffY, 1, portNames);
-        // bottom port
-        Xml.PrimitivePort diffBottomPort = makeXmlPrimitivePort("diff-bottom", 270, 90, 2, null,
-            xSign*diffX, -1, xSign*diffX, 1, ySign*diffY, -1, ySign*diffY, -1, portNames);
-
-        // Electric layers
-        // Gate layer Electrical
-        double gatey = scaledValue(gateLength/2);
-        double gatex = impx;
-        double endPolyx = scaledValue((gateWidth+polyEndcap*2)/2);
-        double endPolyy = gatey;
-        double endLeftOrRight = -impx;
-        double endTopOrBotton = endPolyy;
-        double polyX = endPolyx;
-        double polyY = 0;
-        nodesList.add(makeXmlNodeLayer(gatex, gatex, gatey, gatey, polyGateLayer, Poly.Type.FILLED, false, true, -1));
-
-        // Poly layers
-        // left electrical
-        nodesList.add(makeXmlNodeLayer(endPolyx, endLeftOrRight, endPolyy, endTopOrBotton, polyLayer,
-            Poly.Type.FILLED, false, true, 0));
-        // right electrical
-        nodesList.add(makeXmlNodeLayer(endLeftOrRight, endPolyx, endTopOrBotton, endPolyy, polyLayer,
-            Poly.Type.FILLED, false, true, 2));
-
-        // non-electrical poly (just one poly layer)
-        nodesList.add(makeXmlNodeLayer(endPolyx, endPolyx, endPolyy, endPolyy, polyLayer, Poly.Type.FILLED, true, false, -1));
-
-        // Poly port
-        portNames.clear();
-        portNames.add(polyLayer.name);
-        Xml.PrimitivePort polyLeftPort = makeXmlPrimitivePort("poly-left", 180, 90, 0, null,
-            ySign*polyX, -1, ySign*polyX,
-            -1, xSign*polyY, -1, xSign*polyY, 1, portNames);
-        // right port
-        Xml.PrimitivePort polyRightPort = makeXmlPrimitivePort("poly-right", 0, 180, 0, null,
-            polyX, 1, polyX, 1, polyY, -1, polyY, 1, portNames);
-
-        nodePorts.clear();
-        nodePorts.add(polyLeftPort);
-        nodePorts.add(diffTopPort);
-        nodePorts.add(polyRightPort);
-        nodePorts.add(diffBottomPort);
-    }
-
-    private Xml.ArcLayer makeXmlArcLayer(Xml.Layer layer, WizardField ... flds) {
-        Xml.ArcLayer al = new Xml.ArcLayer();
-        al.layer = layer.name;
-        al.style = Poly.Type.FILLED;
-        for (int i = 0; i < flds.length; i++)
-            al.extend.addLambda(scaledValue(flds[i].value /2));
-        return al;
-    }
-
-//    private Technology.Distance makeXmlDistance(WizardField ... flds) {
-//        Technology.Distance dist = new Technology.Distance();
-//        dist.addRule(flds[0].rule, 0.5);
-//        for (int i = 1; i < flds.length; i++)
-//            dist.addRule(flds[i].rule, 1);
-//        return dist;
-//    }
-
-    private void makeLayerGDS(Xml.Technology t, Xml.Layer l, String gdsVal) {
-        for (Xml.Foundry f: t.foundries) {
-            f.layerGds.put(l.name, gdsVal);
-        }
-    }
-
-    private void makeLayerRuleMinWid(Xml.Technology t, Xml.Layer l, WizardField fld) {
-        for (Xml.Foundry f: t.foundries) {
-            f.rules.add(new DRCTemplate(fld.rule, DRCTemplate.DRCMode.ALL.mode(), DRCTemplate.DRCRuleType.MINWID,
-                l.name, null, new double[] {scaledValue(fld.value)}, null, null));
-        }
-    }
-
-    private void makeLayersWideRule(Xml.Technology t, Xml.Layer l, DRCTemplate.DRCRuleType ruleType, String ruleName, 
-                                    double ruleValue, double maxW, double minLen) {
-        for (Xml.Foundry f: t.foundries) {
-            f.rules.add(new DRCTemplate(ruleName, DRCTemplate.DRCMode.ALL.mode(), ruleType, maxW, minLen,
-                l.name, l.name, new double[] {scaledValue(ruleValue)}, -1));
-        }
-    }
-
-    private void makeLayersRule(Xml.Technology t, Xml.Layer l, DRCTemplate.DRCRuleType ruleType, String ruleName, double ruleValue) {
-        for (Xml.Foundry f: t.foundries) {
-            f.rules.add(new DRCTemplate(ruleName, DRCTemplate.DRCMode.ALL.mode(), ruleType,
-                l.name, l.name, new double[] {scaledValue(ruleValue)}, null, null));
-        }
-    }
-
-    private void makeLayersRuleSurround(Xml.Technology t, Xml.Layer l1, Xml.Layer l2, String ruleName, double ruleValue) {
-        double value = scaledValue(ruleValue);
-        for (Xml.Foundry f: t.foundries) {
-            f.rules.add(new DRCTemplate(ruleName, DRCTemplate.DRCMode.ALL.mode(), DRCTemplate.DRCRuleType.SURROUND,
-                l1.name, l2.name, new double[] {value, value}, null, null));
-        }
-    }
-
-    private double scaledValue(double val) { return DBMath.round(val / stepsize); }
-
-    /***************************************************************************************************
-     * Analog Elements
-     ***************************************************************************************************/
-
-    private void createSecondPolyElements(Xml.Technology t, Map<Xml.Layer,WizardField> layerMap,
-                                          List<PaletteGroup> polysGroup)
-    {
-        int[] nullPattern = new int[] {44975, 34952, 64250, 34952, 44975, 34952, 64250, 34952,
-            44975, 34952, 64250, 34952, 44975, 34952, 64250, 34952};
-        EGraphics graph = new EGraphics(true, true, null, 0, 255, 190, 6, 1, true, nullPattern);
-        Xml.Layer poly2Layer = makeXmlLayer(t.layers, layerMap, poly2_layer.name, Layer.Function.POLY2, 0, graph,
-            poly_width, true, true);
-
-        PaletteGroup poly2Group = new PaletteGroup();
-        double ant = (int)Math.round(poly_antenna_ratio) | 200;
-        // Arc
-        poly2Group.addArc(makeXmlArc(t, poly2Layer.name, ArcProto.Function.getPoly(2), ant,
-            makeXmlArcLayer(poly2Layer, poly_width)));
-        polysGroup.add(poly2Group);
-
-        // pin
-        double hla = scaledValue(poly_width.value / 2);
-        poly2Group.addPinOrResistor(makeXmlPrimitivePin(t, poly2Layer.name, hla, null, // new SizeOffset(hla, hla, hla, hla),
-            null, makeXmlNodeLayer(hla, hla, hla, hla, poly2Layer, Poly.Type.CROSSED)), null);
-    }
-
-    private void createAnalogElements(Xml.Technology t, List<PaletteGroup> polysGroup)
-    {
-        List<Xml.NodeLayer> nodesList = new ArrayList<Xml.NodeLayer>();
-        List<Xml.PrimitivePort> nodePorts = new ArrayList<Xml.PrimitivePort>();
-        Xml.Layer poly2Layer = t.findLayer(poly2_layer.name);
-
-        assert(poly2Layer != null);
-
-        Xml.Layer hiRestLayer = t.findLayer("Hi-Res");
-        Xml.Layer polyConLayer = t.findLayer(poly_layer.name+"-Cut");
-
-        PaletteGroup g = polysGroup.get(1); // second group in polys
-
-        /*************************************/
-        // Analog Hi Poly Resistors
-        /*************************************/
-        WizardField polyRL = findWizardField("hi_poly_resistor_length");
-        WizardField poly2Overhang = findWizardField("contact_poly2_overhang");
-        WizardField hiRestOverhang = findWizardField("hi-res_overhang");
-
-        // using array value to guarantee proper spacing in nD cases
-        addMetalElements(t, polyConLayer, contact_array_spacing.value, polyRL, poly2Overhang, nodesList, nodePorts);
-
-        // poly
-        double polyNoScaled = 2 * (poly2Overhang.value) + contact_size.value;
-        double soxNoScaled = (hiRestOverhang.value) + polyNoScaled;
-        double polyL = scaledValue(polyRL.value /2 + polyNoScaled);
-        double polyWNoScaled = scaledValue(contact_size.value/2 + poly2Overhang.value);
-        double polyW = scaledValue(polyWNoScaled);
-        nodesList.add(makeXmlNodeLayer(polyL, polyL, polyW, polyW, poly2Layer,
-            Poly.Type.FILLED, true, true, 0));
-        
-        // hi res
-        double hiresL = scaledValue(polyRL.value /2 + soxNoScaled);
-        double hiresW = scaledValue(polyWNoScaled + hiRestOverhang.value);
-        nodesList.add(makeXmlNodeLayer(hiresL, hiresL, hiresW, hiresW, hiRestLayer,
-            Poly.Type.FILLED, true, true, 0));
-
-        double sox = scaledValue(soxNoScaled);
-        double soy = scaledValue(hiRestOverhang.value);
-        Xml.PrimitiveNodeGroup n = makeXmlPrimitive(t.nodeGroups, "Hi-Res-Poly2-Resistor",
-            PrimitiveNode.Function.RESHIRESPOLY2, 0, 0, 0, 0,
-            new SizeOffset(sox, sox, soy, soy),
-            nodesList, nodePorts, null, false);
-        g.addElement(n, "Hi-RPoly2");
-
-        /*************************************/
-        // Analog Active Resistors
-        /*************************************/
-        WizardField activeRL = findWizardField("active_resistor_length");  //
-        String[] diffNames = {"P", "N"};
-        Xml.Layer activeConLayer = t.findLayer(diff_layer.name+"-Cut");
-
-        for (int i = 0; i < 2; i++)
-        {
-            // active resistors
-            Xml.Layer activeLayer = t.findLayer(diffNames[i]+"-"+diff_layer.name);   //$nplus_overhang_diff
-            Xml.Layer selectLayer, wellLayer;
-            WizardField selectWF;
-            PrimitiveNode.Function func;
-
-            nodesList.clear();
-            nodePorts.clear();
-
-            if (i==Technology.P_TYPE)
-            {
-                selectLayer = t.findLayer(pplus_layer.name);
-                selectWF = pplus_overhang_diff;
-                wellLayer = t.findLayer(nwell_layer.name);
-                func = PrimitiveNode.Function.RESPACTIVE;
-            }
-            else
-            {
-                selectLayer = t.findLayer(nplus_layer.name);
-                selectWF = nplus_overhang_diff;
-                wellLayer = t.findLayer("P-Well");
-                func = PrimitiveNode.Function.RESNACTIVE;
-            }
-
-            // active layer
-            double activeNoScaled = 2 * (diff_contact_overhang.value) + contact_size.value;
-            double activeL = scaledValue(activeRL.value /2 + activeNoScaled);
-            double activeWNoScaled = contact_size.value/2 + diff_contact_overhang.value;
-            double activeW = scaledValue(activeWNoScaled);
-            nodesList.add(makeXmlNodeLayer(activeL, activeL, activeW, activeW, activeLayer, Poly.Type.FILLED, true, true, 0));
-
-            // select layer
-            double selectOverhang = scaledValue(selectWF.value);
-            double selectL = selectOverhang + activeL;
-            double selectW = selectOverhang + activeW;
-            nodesList.add(makeXmlNodeLayer(selectL, selectL, selectW, selectW, selectLayer, Poly.Type.FILLED, true, true, 0));
-
-            // well layer
-            Xml.NodeLayer wellNodeLayer = null;
-            if (!getPSubstratelProcess())
-            {
-                double wellOverhang = scaledValue(nwell_overhang_diff_p.value - selectWF.value);
-                double wellL = wellOverhang + selectL;
-                double wellW = wellOverhang + selectW;
-                wellNodeLayer = makeXmlNodeLayer(wellL, wellL, wellW, wellW, wellLayer, Poly.Type.FILLED, true, true, 0);
-                nodesList.add(wellNodeLayer);
-            }
-
-            addMetalElements(t, activeConLayer, contact_array_spacing.value, activeRL, diff_contact_overhang, nodesList, nodePorts);
-
-            sox = scaledValue(nwell_overhang_diff_p.value + activeNoScaled);
-            soy = scaledValue(nwell_overhang_diff_p.value);
-            n = makeXmlPrimitive(t.nodeGroups, diffNames[i]+"-Active-Resistor", func, 0, 0, 0, 0,
-                new SizeOffset(sox, sox, soy, soy),
-                nodesList, nodePorts, null, false);
-            g.addElement(n, diffNames[i]+"-RActive");
-        }
-
-        /*************************************/
-        // Analog Well Resistors
-        /*************************************/
-        WizardField wellRL = findWizardField("well_resistor_length");
-
-        for (int i = 0; i < 2; i++)
-        {
-            Xml.Layer activeLayer = t.findLayer(diffNames[i]+"-"+diff_layer.name);   //$nplus_overhang_diff
-            Xml.Layer selectLayer, wellLayer;
-            WizardField selectWF;
-            PrimitiveNode.Function func;
-
-            nodesList.clear();
-            nodePorts.clear();
-
-            if (i==Technology.P_TYPE)
-            {
-                selectLayer = t.findLayer(pplus_layer.name);
-                selectWF = pplus_overhang_diff;
-                wellLayer = t.findLayer("P-Well");
-                func = PrimitiveNode.Function.RESPWELL;
-            }
-            else
-            {
-                selectLayer = t.findLayer(nplus_layer.name);
-                selectWF = nplus_overhang_diff;
-                wellLayer = t.findLayer(nwell_layer.name);
-                func = PrimitiveNode.Function.RESNWELL;
-            }
-
-            // active layer
-            double activeNoScaled = 2 * (diff_contact_overhang.value) + contact_size.value;
-            double activeDistance = scaledValue(wellRL.value /2);
-            double activeX = scaledValue(2 * (diff_contact_overhang.value) + contact_size.value);
-            double activeL = scaledValue(wellRL.value /2 + activeNoScaled);
-            double activeWNoScaled = contact_size.value/2 + diff_contact_overhang.value;
-            double activeW = scaledValue(activeWNoScaled);
-            nodesList.add(makeXmlNodeLayer((activeDistance + activeX), -1, -activeDistance, -1, activeW, -1, activeW, 1, activeLayer,
-                Poly.Type.FILLED, true, true, 0));
-            // right metal
-            nodesList.add(makeXmlNodeLayer(-activeDistance, 1, (activeDistance + activeX), 1, activeW, -1, activeW, 1, activeLayer,
-                Poly.Type.FILLED, true, true, 1));
-
-            // select layer
-            double selectOverhang = scaledValue(selectWF.value);
-            double selectL = selectOverhang + activeL;
-            double selectW = selectOverhang + activeW;
-            double selectDistance = activeDistance - scaledValue(selectWF.value);
-            double selectX = activeX + 2 * (selectWF.value);
-            nodesList.add(makeXmlNodeLayer((selectDistance + selectX), -1, -selectDistance, -1, selectW, -1, selectW, 1, selectLayer,
-                Poly.Type.FILLED, true, true, 0));
-            // right metal
-            nodesList.add(makeXmlNodeLayer(-selectDistance, 1, (selectDistance + selectX), 1, selectW, -1, selectW, 1, selectLayer,
-                Poly.Type.FILLED, true, true, 1));
-
-            // well layer
-            Xml.NodeLayer wellNodeLayer = null;
-            if (!getPSubstratelProcess())
-            {
-                double wellOverhang = scaledValue(nwell_overhang_diff_n.value - selectWF.value);
-                double wellL = wellOverhang + selectL;
-                double wellW = wellOverhang + selectW;
-                wellNodeLayer = makeXmlNodeLayer(wellL, wellL, wellW, wellW, wellLayer, Poly.Type.FILLED, true, true, 0);
-                nodesList.add(wellNodeLayer);
-            }
-
-            addMetalElements(t, activeConLayer, contact_array_spacing.value, wellRL, diff_contact_overhang, nodesList, nodePorts);
-
-            sox = scaledValue(nwell_overhang_diff_n.value) + activeX + selectOverhang;
-            soy = 0; // scaledValue(nwell_overhang_diff_n.value);
-            n = makeXmlPrimitive(t.nodeGroups, diffNames[i]+"-Well-Resistor", func, 0, 0, 0, 0,
-                new SizeOffset(sox, sox, soy, soy),
-                nodesList, nodePorts, null, false);
-            g.addElement(n, diffNames[i]+"-RWell");
-        }
-
-        /*************************************/
-        // Analog Poly Resistors (no hi res)
-        /*************************************/
-        polyRL = findWizardField("poly_resistor_length");
+        // generic contacts
+        String name = null;
         Xml.Layer polyLayer = t.findLayer(poly_layer.name);
+        Xml.Layer polyConLayer = t.findLayer("Poly-Cut");
+        Xml.Layer diffConLayer = t.findLayer(diff_layer.name+"-Cut");
+        Xml.Layer nwellLayer = t.findLayer(nwell_layer.name);
+        Xml.Layer pwellLayer = t.findLayer("P-Well");
+        Xml.Layer diffNLayer = t.findLayer("N-"+ diff_layer.name);
+        Xml.Layer diffPLayer = t.findLayer("P-"+ diff_layer.name);
+        Xml.Layer[] diffLayers = {diffPLayer, diffNLayer};
+        Xml.Layer pol2yLayer = t.findLayer(poly2_layer.name);
+        double contSize = scaledValue(contact_size.value);
+        double contSpacing = scaledValue(contact_spacing.value);
+        double contArraySpacing = scaledValue(contact_array_spacing.value);
 
-        for (int i = 0; i < 2; i++)
+        for (Contact c : contacts)
         {
-            Xml.Layer selectLayer;
-            WizardField selectWF;
-            PrimitiveNode.Function func;
+            Xml.Layer ly = null, lx = null;
+            Xml.Layer conLay = diffConLayer;
+            PaletteGroup g = null;
+            ContactNode metalLayer = c.layers.get(0);
+            ContactNode otherLayer = c.layers.get(1);
+            String extraName = "";
 
-            nodesList.clear();
-            nodePorts.clear();
-
-            if (i==Technology.P_TYPE)
+            if (!TextUtils.isANumber(metalLayer.layer)) // horizontal must be!
             {
-                selectLayer = t.findLayer(pplus_layer.name);
-                selectWF = pplus_overhang_diff;
-                func = PrimitiveNode.Function.RESPPOLY;
+                assert (TextUtils.isANumber(otherLayer.layer));
+                metalLayer = c.layers.get(1);
+                otherLayer = c.layers.get(0);
+            }
+
+            int m1 = Integer.valueOf(metalLayer.layer);
+            ly = metalLayers.get(m1-1);
+            String layerName = otherLayer.layer;
+            if (layerName.equals(diffLayers[0].name))
+            {
+                lx = diffLayers[0];
+                g = diffPalette[0];
+                extraName = "P";
+            }
+            else if (layerName.equals(diffLayers[1].name))
+            {
+                lx = diffLayers[1];
+                g = diffPalette[1];
+                extraName = "N";
+            }
+            else if (layerName.equals(polyLayer.name))
+            {
+                lx = polyLayer;
+                conLay = polyConLayer;
+                g = polyGroup;
+            }
+            else if (getSecondPolyFlag() && layerName.equals(pol2yLayer.name))
+            {
+                lx = pol2yLayer;
+                conLay = polyConLayer;
+                g = polyGroup;
             }
             else
+                assert(false); // it should not happen
+            double h1x = scaledValue(contact_size.value /2 + metalLayer.valueX.value);
+            double h1y = scaledValue(contact_size.value /2 + metalLayer.valueY.value);
+            double h2x = scaledValue(contact_size.value /2 + otherLayer.valueX.value);
+            double h2y = scaledValue(contact_size.value /2 + otherLayer.valueY.value);
+            double longX = (Math.abs(metalLayer.valueX.value - otherLayer.valueX.value));
+            double longY = (Math.abs(metalLayer.valueY.value - otherLayer.valueY.value));
+
+            PrimitiveNode.Function func = (!capacitor) ? PrimitiveNode.Function.CONTACT :
+                PrimitiveNode.Function.CAPAC;
+            Xml.NodeLayer[] nodes = new Xml.NodeLayer[c.layers.size() + 1]; // all plus cut
+            int count = 0;
+
+            // cut
+            nodes[count++] = makeXmlMulticut(conLay, contSize, contSpacing, contArraySpacing);
+            // metal
+            nodes[count++] = makeXmlNodeLayer(h1x, h1x, h1y, h1y, ly, Poly.Type.FILLED); // layer1
+            // active or poly
+            nodes[count++] = makeXmlNodeLayer(h2x, h2x, h2y, h2y, lx, Poly.Type.FILLED); // layer2
+
+            Xml.Layer otherLayerPort = lx;
+
+            for (int i = 2; i < c.layers.size(); i++) // rest of layers. Either select or well.
             {
-                selectLayer = t.findLayer(nplus_layer.name);
-                selectWF = nplus_overhang_diff;
-                func = PrimitiveNode.Function.RESNPOLY;
+                ContactNode node = c.layers.get(i);
+                Xml.Layer lz = t.findLayer(node.layer);
+
+                if ((lz == pwellLayer && lx == diffLayers[0]) ||
+                    (lz == nwellLayer && lx == diffLayers[1])) // well contact
+                {
+                    otherLayerPort = lz;
+                    if (lz == pwellLayer)
+                    {
+                        g = wellPalette[0];
+                        func = getWellContactFunction(Technology.P_TYPE);
+                        extraName = "PW"; // W for well
+                    }
+                    else // nwell
+                    {
+                        g = wellPalette[1];
+                        func = getWellContactFunction(Technology.N_TYPE);
+                        extraName = "NW"; // W for well
+                    }
+                }
+                if (pSubstrateProcess && lz == pwellLayer)
+                    continue; // skip this layer
+
+                double h3x = scaledValue(contact_size.value /2 + node.valueX.value);
+                double h3y = scaledValue(contact_size.value /2 + node.valueY.value);
+                nodes[count++] = makeXmlNodeLayer(h3x, h3x, h3y, h3y, lz, Poly.Type.FILLED);
+
+                // This assumes no well is defined
+                double longXLocal = (Math.abs(node.valueX.value - otherLayer.valueX.value));
+                double longYLocal = (Math.abs(node.valueY.value - otherLayer.valueY.value));
+                if (DBMath.isGreaterThan(longXLocal, longX))
+                    longX = longXLocal;
+                if (DBMath.isGreaterThan(longYLocal, longY))
+                    longY = longYLocal;
             }
+            longX = scaledValue(longX);
+            longY = scaledValue(longY);
 
-            // poly layer
-            polyNoScaled = 2 * (contact_poly_overhang.value) + contact_size.value;
-            polyL = scaledValue(polyRL.value /2 + polyNoScaled);
-            polyWNoScaled = contact_size.value/2 + diff_contact_overhang.value;
-            polyW = scaledValue(polyWNoScaled);
-            nodesList.add(makeXmlNodeLayer(polyL, polyL, polyW, polyW, polyLayer, Poly.Type.FILLED, true, true, 0));
+            // arc prt names now after determing wheter is a diff or well contact
+            portArcNames.clear();
+//                if (!pSubstrateProcess || otherLayerPort == pwellLayer)
+            portArcNames.add(otherLayerPort.name);
+            portArcNames.add(ly.name); // always should represent the metal1
+            name = ly.name + "-" + otherLayerPort.name;
 
-            // select layer
-            double selectOverhang = scaledValue(selectWF.value);
-            double selectL = selectOverhang + polyL;
-            double selectW = selectOverhang + polyW;
-            nodesList.add(makeXmlNodeLayer(selectL, selectL, selectW, selectW, selectLayer, Poly.Type.FILLED, true, true, 0));
-
-            addMetalElements(t, polyConLayer, contact_array_spacing.value, polyRL, contact_poly_overhang, nodesList, nodePorts);
-
-            sox = scaledValue(selectWF.value + polyNoScaled);
-            soy = scaledValue(selectWF.value);
-            n = makeXmlPrimitive(t.nodeGroups, diffNames[i]+"-Poly-Resistor", func, 0, 0, 0, 0,
-                new SizeOffset(sox, sox, soy, soy),
-                nodesList, nodePorts, null, false);
-            g.addElement(n, diffNames[i]+"-RPoly");
-        }
-
-
-        /*************************************/
-        // Analog unsilicided Poly Resistors (no hi res)
-        /*************************************/
-        WizardField silicide_overhang = findWizardField("silicide_overhang");
-
-        for (int i = 0; i < 2; i++)
-        {
-            Xml.Layer selectLayer;
-            PrimitiveNode.Function func;
-            WizardField selectWF;
-
-            if (i==Technology.P_TYPE)
-            {
-                selectLayer = t.findLayer(pplus_layer.name);
-                selectWF = pplus_overhang_diff;
-                func = PrimitiveNode.Function.RESPNSPOLY;
-            }
-            else
-            {
-                selectLayer = t.findLayer(nplus_layer.name);
-                selectWF = nplus_overhang_diff;
-                func = PrimitiveNode.Function.RESNNSPOLY;
-            }
-            nodesList.clear();
-            nodePorts.clear();
-
-            // poly layer
-            polyNoScaled = 2 * (contact_poly_overhang.value) + contact_size.value;
-            polyL = scaledValue(polyRL.value /2 + polyNoScaled);
-            polyWNoScaled = contact_size.value/2 + diff_contact_overhang.value;
-            polyW = scaledValue(polyWNoScaled);
-            nodesList.add(makeXmlNodeLayer(polyL, polyL, polyW, polyW, polyLayer, Poly.Type.FILLED, true, true, 0));
-
-            // select layer
-            double selectOverhang = scaledValue(selectWF.value);
-            double selectL = selectOverhang + polyL;
-            double selectW = selectOverhang + polyW;
-            nodesList.add(makeXmlNodeLayer(selectL, selectL, selectW, selectW, selectLayer, Poly.Type.FILLED, true, true, 0));
-
-            // silicide_block layer
-            Xml.Layer silicideLayer = t.findLayer(marking_layer.name);
-            double silicideOverhang = scaledValue(silicide_overhang.value);
-            double silicideL = silicideOverhang + selectL;
-            double silicideW = silicideOverhang + selectW;
-            nodesList.add(makeXmlNodeLayer(silicideL, silicideL, silicideW, silicideW, silicideLayer, Poly.Type.FILLED, true, true, 0));
-
-            addMetalElements(t, polyConLayer, contact_array_spacing.value, polyRL, contact_poly_overhang, nodesList, nodePorts);
-
-            sox = scaledValue(silicide_overhang.value + selectWF.value + polyNoScaled);
-            soy = scaledValue(silicide_overhang.value + selectWF.value);
-            n = makeXmlPrimitive(t.nodeGroups, diffNames[i]+"-No-Silicide-Poly-Resistor",
-                func, 0, 0, 0, 0,
-                new SizeOffset(sox, sox, soy, soy),
-                nodesList, nodePorts, null, false);
-            g.addElement(n, diffNames[i]+"-RNSPoly");
+            // some primitives might not have prefix. "-" should not be in the prefix to avoid
+            // being displayed in the palette
+            String p = (c.prefix == null || c.prefix.equals("")) ? "" : c.prefix + "-";
+            Xml.PrimitiveNodeGroup png = (!capacitor) ?
+                makeXmlPrimitiveCon(t.nodeGroups, p + name, func, -1, -1,
+                    new SizeOffset(longX, longX, longY, longY), portArcNames, nodes) :    // contact
+                makeXmlCapacitor(t.nodeGroups, p + name, func, -1, -1,
+                    new SizeOffset(longX, longX, longY, longY), portNames, portArcNames, nodes);    // capacitor
+            g.addElement(png, p + extraName);
         }
     }
-
-    private void addMetalElements(Xml.Technology t, Xml.Layer conLayer, double spacing, WizardField width, WizardField overhang,
-                                  List<Xml.NodeLayer> nodesList, List<Xml.PrimitivePort> nodePorts)
+    /***************************************************************************************************
+     * More Flexible Contacts, no multicuts
+     ***************************************************************************************************/
+    private void addGenericContacts(Xml.Technology t, Map<String,List<Contact>> contacts, List<PaletteGroup> extraPaletteList)
     {
-        Xml.Layer m1Layer = t.findLayer("Metal-1");
-        List<String> portNames = new ArrayList<String>();
-        portNames.add(m1Layer.name);
+        List<String> portNames = new ArrayList<String>(0);
 
-        // metal left
-        double m1Y = scaledValue(contact_metal_overhang_all_sides.value + contact_size.value/2);
-        double m1X = scaledValue(2*contact_metal_overhang_all_sides.value + contact_size.value);
-        double m1Distance = scaledValue(width.value/2 + overhang.value - contact_metal_overhang_all_sides.value);
-        nodesList.add(makeXmlNodeLayer((m1Distance + m1X), -1, -m1Distance, -1, m1Y, -1, m1Y, 1, m1Layer,
-            Poly.Type.FILLED, true, true, 0));
-        // right metal
-        nodesList.add(makeXmlNodeLayer(-m1Distance, 1, (m1Distance + m1X), 1, m1Y, -1, m1Y, 1, m1Layer,
-            Poly.Type.FILLED, true, true, 1));
+        for (Map.Entry<String,List<Contact>> e : contacts.entrySet())
+        {
+            // generic contacts
+            for (Contact c : e.getValue())
+            {
+                // Assuming is that the last layer is the cut layer
+                assert(c.layers.size() == 3);
+                ContactNode aLayer = c.layers.get(0);
+                ContactNode bLayer = c.layers.get(1);
+                ContactNode cutLayer = c.layers.get(2);
+                // Look for existing palette elemnent to place the contact in.
+                PaletteGroup grp = null;
+                for (ContactNode n : c.layers)
+                {
+                    for (LayerInfo info : extraLayers)
+                    {
+                        if (info.name.equals(n.layer))
+                        {
+                            grp = info.grp; break; // found
+                        }
+                        if (grp != null) break; // found
+                    }
+                    if (grp != null) break; // found
+                }
+                if (grp == null)
+                {
+                    grp = new PaletteGroup();
+                    extraPaletteList.add(grp);
+                }
+                Xml.Layer la = t.findLayer(aLayer.layer);
+                Xml.Layer lb = t.findLayer(bLayer.layer);
+                String name = la.name + "-" + lb.name;
+                double metalContSizeX = scaledValue(cutLayer.valueX.value/2);
+                double metalContSizeY = scaledValue(cutLayer.valueY.value/2);
+                Xml.Layer metalConLayer = t.findLayer(cutLayer.layer);
+                double h1x = scaledValue(cutLayer.valueX.value /2 + aLayer.valueX.value);
+                double h1y = scaledValue(cutLayer.valueY.value /2 + aLayer.valueY.value);
+                double h2x = scaledValue(cutLayer.valueX.value /2 + bLayer.valueX.value);
+                double h2y = scaledValue(cutLayer.valueY.value /2 + bLayer.valueY.value);
+                double longX = scaledValue(Math.abs(aLayer.valueX.value - bLayer.valueX.value));
+                double longY = scaledValue(Math.abs(aLayer.valueY.value - bLayer.valueY.value));
+                portNames.clear();
+                // only when it is zero or positive. Negative means no layer arc
+                if (bLayer.valueX.value >= 0)
+                    portNames.add(lb.name);
+                if (aLayer.valueX.value >= 0)
+                    portNames.add(la.name);
 
-        // left port
-        double contSize = scaledValue(contact_size.value);
-        double cutSizeHalf = scaledValue(contact_size.value /2);
-        double cutStart = scaledValue(width.value /2 + overhang.value);
-        Xml.PrimitivePort port = makeXmlPrimitivePort("left", 0, 180, 0, null,
-            -(cutStart + contSize), -1, -cutStart, -1, -cutSizeHalf, -1, cutSizeHalf, 1, portNames);
-        nodePorts.add(port);
-        // right port
-        port = makeXmlPrimitivePort("right", 0, 180, 1, null,
-            cutStart, 1, (cutStart + contSize), 1, -cutSizeHalf, -1, cutSizeHalf, 1, portNames);
-        nodePorts.add(port);
-
-        // Cuts
-        double cutEnd = scaledValue(width.value/2 + overhang.value);
-        double cutEndY = 0; // not sure why has to be zero and not scaledValue(contact_size.value/2);
-        // left
-        nodesList.add(makeXmlMulticut(cutEnd+contSize, -1, -cutEnd, -1, cutEndY, -1, cutEndY, 1,
-            conLayer, contSize, spacing, spacing));
-        // right
-        nodesList.add(makeXmlMulticut(-cutEnd, 1, cutEnd+contSize, 1, cutEndY, -1, cutEndY, 1,
-            conLayer, contSize, spacing, spacing));
+                // some primitives might not have prefix. "-" should not be in the prefix to avoid
+                // being displayed in the palette
+                String p = (c.prefix == null || c.prefix.equals("")) ? "" : c.prefix + "-";
+                grp.addElement(makeXmlPrimitiveCon(t.nodeGroups, p + name, PrimitiveNode.Function.CONTACT, -1, -1,
+                    /*new SizeOffset(longX, longX, longY, longY)*/null,
+                    portNames,
+                    makeXmlNodeLayer(h1x, h1x, h1y, h1y, la, Poly.Type.FILLED), // layer1
+                    makeXmlNodeLayer(h2x, h2x, h2y, h2y, lb, Poly.Type.FILLED), // layer2
+                    makeXmlNodeLayer(metalContSizeX, metalContSizeX, metalContSizeY, metalContSizeY,
+                        metalConLayer, Poly.Type.FILLED)), // cut
+                    c.prefix); // contact
+            }
+        }
     }
 
     /***************************************************************************************************

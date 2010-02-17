@@ -27,7 +27,6 @@ import com.sun.electric.database.id.CellUsage;
 import com.sun.electric.database.network.Global;
 import com.sun.electric.database.network.Netlist;
 import com.sun.electric.database.network.Network;
-import com.sun.electric.database.network.NetworkTool;
 import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.prototype.PortProto;
 import com.sun.electric.database.text.TextUtils;
@@ -36,7 +35,7 @@ import com.sun.electric.database.topology.PortInst;
 import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.Geometric;
 import com.sun.electric.database.variable.VarContext;
-import com.sun.electric.tool.generator.layout.LayoutLib;
+import com.sun.electric.tool.Job;
 import com.sun.electric.technology.technologies.Generic;
 
 import java.awt.geom.AffineTransform;
@@ -170,7 +169,7 @@ public final class HierarchyEnumerator {
     private HashMap<Cell, int[]> cellExternalIds = new HashMap<Cell, int[]>();
 
     private static void error(boolean pred, String msg) {
-        LayoutLib.error(pred, msg);
+        Job.error(pred, msg);
     }
 
     // Prevent anyone from instantiating HierarchyEnumerator.
@@ -868,7 +867,7 @@ public final class HierarchyEnumerator {
      * during the enumertion of the design hierarchy. */
 //	public static void enumerateCell(Cell root, VarContext context,
 //	                                 Netlist netlist, Visitor visitor) {
-//		if (netlist == null) netlist = NetworkTool.getUserNetlist(root);
+//		if (netlist == null) netlist = NetworkTool.getNetlist(root);
 //		(new HierarchyEnumerator()).doIt(root, context, netlist, visitor, false, false, false, false);
 //	}
     public static void enumerateCell(Cell root, VarContext context, Visitor visitor) {
@@ -941,7 +940,7 @@ public final class HierarchyEnumerator {
             pp = pi.getPortProto();
             for (i = 0; i < pp.getNameKey().busWidth(); i++) {
                 Network net = parentNetlist.getNetwork(childNodable, pp, i);
-//                Network net = childNodable.getParent().getUserNetlist().getNetwork(childNodable, pp, i);
+//                Network net = childNodable.getParent().getNetlist().getNetwork(childNodable, pp, i);
                 if (net == parentNet) {
                     found = true;
                     break;
@@ -960,7 +959,7 @@ public final class HierarchyEnumerator {
         }
         Export export = childCell.findExport(pp.getNameKey());
         Network childNet = childNetlist.getNetwork(export, i);
-//        Network childNet = childCell.getUserNetlist().getNetwork(export, i);
+//        Network childNet = childCell.getNetlist().getNetwork(export, i);
         return childNet;
     }
 
