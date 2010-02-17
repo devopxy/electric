@@ -61,6 +61,7 @@ import com.sun.electric.technology.Technology;
 import com.sun.electric.technology.technologies.Generic;
 import com.sun.electric.technology.technologies.Schematics;
 import com.sun.electric.tool.user.User;
+import com.sun.electric.tool.Job;
 
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -775,6 +776,7 @@ public class VectorCache {
 
         private void initTopOnlyShapes() {
             Cell cell = database.getCell(vcg.cellId);
+            if (cell == null) return;
             topOnlyShapes = new ArrayList<VectorBase>();
             // show cell variables
             Poly[] polys = cell.getDisplayableVariables(CENTERRECT, dummyWnd, true);
@@ -804,7 +806,8 @@ public class VectorCache {
                 Rectangle2D rect = (Rectangle2D) poly.getBounds2D().clone();
                 TextDescriptor descript = poly.getTextDescriptor();
                 Poly.Type style = descript.getPos().getPolyType();
-                style = Poly.rotateType(style, e.getOriginalPort().getNodeInst());
+//                style = Poly.rotateType(style, e.getOriginalPort().getNodeInst());
+                style = Poly.rotateType(style, e);
                 VectorText vt = new VectorText(poly.getBounds2D(), style, descript, e.getName(), VectorText.TEXTTYPEEXPORT, e, null);
                 topOnlyShapes.add(vt);
 
@@ -947,7 +950,11 @@ public class VectorCache {
         if (vc.vcg.isParameterized || !vc.valid) {
             varContext = vc.vcg.isParameterized ? context : null;
             curScale = scale; // Fix it later. Multiple Strings positioning shouldn't use scale.
-            vc.init(database.getCell(cellId));
+            Cell cell = database.getCell(cellId);
+            if (Job.getDebug() && cell == null)
+                System.out.println("Cell is null in VectorCell.drawCell"); // extra testing
+            if (cell != null && cell.isLinked())
+                vc.init(database.getCell(cellId));
         }
         return vc;
     }

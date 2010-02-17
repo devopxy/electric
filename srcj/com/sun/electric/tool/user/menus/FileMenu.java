@@ -70,12 +70,7 @@ import com.sun.electric.tool.project.HistoryDialog;
 import com.sun.electric.tool.project.LibraryDialog;
 import com.sun.electric.tool.project.UpdateJob;
 import com.sun.electric.tool.simulation.Simulation;
-import com.sun.electric.tool.user.ActivityLogger;
-import com.sun.electric.tool.user.CircuitChangeJobs;
-import com.sun.electric.tool.user.CircuitChanges;
-import com.sun.electric.tool.user.Clipboard;
-import com.sun.electric.tool.user.User;
-import com.sun.electric.tool.user.UserInterfaceMain;
+import com.sun.electric.tool.user.*;
 import com.sun.electric.tool.user.dialogs.ChangeCurrentLib;
 import com.sun.electric.tool.user.dialogs.OpenFile;
 import com.sun.electric.tool.user.dialogs.OptionReconcile;
@@ -199,7 +194,7 @@ public class FileMenu {
             new EMenuItem("Save All Libraries in _Format...") { public void run() {
                 if (checkInvariants()) saveAllLibrariesInFormatCommand(); }},
 
-		// mnemonic keys available:    D        M   Q   UVWVYZ
+		// mnemonic keys available:    D        M   Q   UVW YZ
             new EMenu("_Export",
                 new EMenuItem("_CIF (Caltech Intermediate Format)...") { public void run() {
                     exportCommand(FileType.CIF, false); }},
@@ -229,6 +224,8 @@ public class FileMenu {
                     exportCommand(FileType.POSTSCRIPT, false); }},
                 new EMenuItem("P_NG (Portable Network Graphics)...") { public void run() {
                     exportCommand(FileType.PNG, false); }},
+                new EMenuItem("S_VG...") { public void run() {
+                    exportCommand(FileType.SVG, false); }},
                 new EMenuItem("_HPGL...") { public void run() {
                     exportCommand(FileType.HPGL, false); }},
                 new EMenuItem("D_XF (AutoCAD)...") { public void run() {
@@ -508,6 +505,7 @@ public class FileMenu {
         private String cellName; // cell to view once the library is open
         private Library lib;
         private HashSet<Library> newLibs;
+        private IconParameters iconParameters = IconParameters.makeInstance(true);
 
 		public ReadLibrary(URL fileURL, FileType type, String cellName) {
             this(fileURL, type, null, null, null, cellName);
@@ -556,7 +554,7 @@ public class FileMenu {
             for (Iterator<Library> it = getDatabase().getLibraries(); it.hasNext(); )
                 oldLibs.add(it.next());
             Map<Setting,Object> projectSettings = new HashMap<Setting,Object>();
-            lib = LibraryFiles.readLibrary(fileURL, null, type, false, projectSettings);
+            lib = LibraryFiles.readLibrary(fileURL, null, type, false, projectSettings, iconParameters);
             for (Map.Entry<Setting,Object> e: getDatabase().getSettings().entrySet()) {
                 Setting setting = e.getKey();
                 Object oldVal = e.getValue();
@@ -1182,15 +1180,9 @@ public class FileMenu {
                 Output.writeLibrary(lib, type, compatibleWith6, false, false, backupScheme, deletedCellFiles, writtenCellFiles);
                 success = true;
             } catch (Exception e) {
-                if (Job.isThreadSafe()) {
-                     e.printStackTrace(System.out);
-                    throw new JobException("Exception caught when saving files: " +
-                            e.getMessage() + "Please check your disk libraries");
-                } else {
-                   // throwing a JobException here causes the UI to freeze...SMR
-                    System.out.println("Error saving files.  Please check your disk libraries");
-                    return null;
-                }
+                e.printStackTrace(System.out);
+                throw new JobException("Exception caught when saving files: "
+                        + e.getMessage() + "Please check your disk libraries");
             }
             if (!success)
                 throw new JobException("Error saving files.  Please check your disk libraries");
@@ -1610,7 +1602,8 @@ public class FileMenu {
 		public void run()
 		{
 			try {
-				pj.print(aset);
+                System.out.println("Printing '" + pj.getJobName() + "' ...");
+                pj.print(aset);
 			} catch (PrinterException pe)
 			{
 				System.out.println("Print aborted.");

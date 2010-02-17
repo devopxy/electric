@@ -54,6 +54,7 @@ import com.sun.electric.technology.technologies.Generic;
 import com.sun.electric.tool.Tool;
 import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.user.ErrorLogger;
+import com.sun.electric.tool.user.IconParameters;
 
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
@@ -68,12 +69,14 @@ public class JELIB extends LibraryFiles
 {
     private final FileType fileType;
     private final JelibParser parser;
+    private final IconParameters iconParameters;
 
-	JELIB(LibId libId, URL fileURL, FileType fileType) throws IOException
+    JELIB(LibId libId, URL fileURL, FileType type, IconParameters iconParams) throws IOException
 	{
-        this.fileType = fileType;
+        fileType = type;
         parser = JelibParser.parse(libId, fileURL, fileType, false, Input.errorLogger);
-	}
+        iconParameters = iconParams;
+    }
 
     public static Map<Setting,Object> readProjectSettings(URL fileURL, FileType fileType, TechPool techPool, ErrorLogger errorLogger) {
         JelibParser parser;
@@ -158,7 +161,7 @@ public class JELIB extends LibraryFiles
             LibId libId = e.getKey();
             String libFileName = e.getValue();
             if (Library.findLibrary(libId.libName) == null)
-                readExternalLibraryFromFilename(libFileName, fileType);
+                readExternalLibraryFromFilename(libFileName, fileType, iconParameters);
         }
 
         nodeProtoCount = parser.allCells.size();
@@ -230,6 +233,19 @@ public class JELIB extends LibraryFiles
 	{
         HashMap<Technology,Technology.SizeCorrector> sizeCorrectors = new HashMap<Technology,Technology.SizeCorrector>();
 
+//        boolean immutableInstantiateOK = true;
+//        for (int nodeId = 0; nodeId < cc.nodes.size(); nodeId++) {
+//            JelibParser.NodeContents n = cc.nodes.get(nodeId);
+//            try {
+//                n.n = ImmutableNodeInst.newInstance(nodeId, n.protoId, Name.findName(n.nodeName), n.nameTextDescriptor,
+//                        n.orient, n.anchor, n.size, n.flags, n.techBits, n.protoTextDescriptor);
+//            } catch (Exception e) {
+//                immutableInstantiateOK = false;
+//                System.out.println("Exception in immutable instantiate " + cell);
+//                break;
+//            }
+//        }
+        
 		// place all nodes
         for (JelibParser.NodeContents n: cc.nodes) {
             int line = n.line;
@@ -340,6 +356,10 @@ public class JELIB extends LibraryFiles
 					" (" + cell + ") cannot create node " + n.protoId, cell, -1);
 				continue;
 			}
+//            if (immutableInstantiateOK && !ni.getD().equalsExceptVariables(n.n)) {
+//                System.out.println("Difference between immutable and mutable nodes in " + cell);
+//                immutableInstantiateOK = false;
+//            }
 
 			// add variables
             realizeVariables(ni, n.vars);
@@ -381,7 +401,7 @@ public class JELIB extends LibraryFiles
                     ap = cell.getTechnology().convertOldArcName(a.arcProtoId.name);
                 if (ap == null)
                 {
-                    Input.errorLogger.logError(cc.fileName + ", line " + (cc.lineNumber + line) +
+                    Input.errorLogger.logError(cc.fileName + ", line " + line +
 					" (" + cell + ") cannot find arc " + a.arcProtoId, cell, -1);
 				    continue;
                 }
@@ -425,7 +445,8 @@ public class JELIB extends LibraryFiles
 	 * @param lineNumber the line number in the file being read (for error reporting).
 	 * @return the PortInst specified (null if none can be found).
 	 */
-	private PortInst figureOutPortInst(Cell cell, String portName, JelibParser.NodeContents n, Point2D pos, String fileName, int lineNumber)
+	private PortInst figureOutPortInst(Cell cell, String portName, JelibParser.NodeContents n, Point2D pos,
+                                       String fileName, int lineNumber)
 	{
 		NodeInst ni = n != null ? n.ni : null;
 		if (ni == null)
@@ -498,7 +519,7 @@ public class JELIB extends LibraryFiles
 			return null;
 		}
 		PortInst portPI = portNI.getOnlyPortInst();
-		Export export = Export.newInstance(subCell, portPI, name, null, false);
+		Export export = Export.newInstance(subCell, portPI, name, null, false, iconParameters);
 		if (export == null)
 		{
 			Input.errorLogger.logError(fileName + ", line " + lineNumber +

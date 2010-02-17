@@ -23,6 +23,7 @@
  */
 package com.sun.electric.tool.placement;
 
+import com.sun.electric.database.ImmutableArcInst;
 import com.sun.electric.database.geometry.EPoint;
 import com.sun.electric.database.geometry.ERectangle;
 import com.sun.electric.database.geometry.Orientation;
@@ -30,21 +31,29 @@ import com.sun.electric.database.geometry.Poly;
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.Export;
 import com.sun.electric.database.hierarchy.Library;
+import com.sun.electric.database.hierarchy.View;
 import com.sun.electric.database.network.Netlist;
 import com.sun.electric.database.network.Network;
 import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.prototype.PortCharacteristic;
 import com.sun.electric.database.prototype.PortProto;
+import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.NodeInst;
 import com.sun.electric.database.topology.PortInst;
 import com.sun.electric.database.variable.TextDescriptor;
 import com.sun.electric.database.variable.Variable;
 import com.sun.electric.database.variable.Variable.Key;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.technology.PrimitiveNode;
 import com.sun.electric.technology.technologies.Generic;
 import com.sun.electric.technology.technologies.Schematics;
+import com.sun.electric.tool.placement.forceDirected1.PlacementForceDirectedTeam5;
+import com.sun.electric.tool.placement.forceDirected2.PlacementForceDirectedStaged;
+import com.sun.electric.tool.placement.genetic1.g1.GeneticPlacement;
+import com.sun.electric.tool.placement.genetic2.PlacementGenetic;
+import com.sun.electric.tool.placement.simulatedAnnealing1.SimulatedAnnealing;
+import com.sun.electric.tool.placement.simulatedAnnealing2.PlacementSimulatedAnnealing;
+import com.sun.electric.tool.user.IconParameters;
 
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
@@ -88,12 +97,12 @@ public class PlacementFrame
 	 * When you create a new algorithm, add it to the following list.
 	 */
 	private static PlacementFrame [] placementAlgorithms = {
-//		new Team2SimulatedAnnealing(),
-//		new Team3GeneticPlacement(),
-//		new Team4Genetic(),
-//		new PlacementForceDirected(),
-//		new Team6SimulatedAnnealing(),
-//		new Team7ForceDirected(),
+		new SimulatedAnnealing(),				// team 2
+		new PlacementSimulatedAnnealing(),		// team 6
+		new GeneticPlacement(),					// team 3
+		new PlacementGenetic(),					// team 4
+		new PlacementForceDirectedTeam5(),		// team 5
+		new PlacementForceDirectedStaged(),		// team 7
 		new PlacementMinCut(),
 		new PlacementSimple(),
 		new PlacementRandom()
@@ -137,6 +146,10 @@ public class PlacementFrame
 		private double xPos, yPos;
 		private Orientation orient;
 		private Map<Key,Object> addedVariables;
+		private Object userObject;
+
+		public Object getUserObject() { return userObject; }
+		public void setUserObject(Object obj) { userObject = obj; }
 
 		/**
 		 * Method to create a PlacementNode object.
@@ -234,14 +247,14 @@ public class PlacementFrame
 		 * Method to return the NodeProto of this PlacementNode.
 		 * @return the NodeProto of this PlacementNode.
 		 */
-		NodeProto getType() { return original; }
+		public NodeProto getType() { return original; }
 
 		/**
 		 * Method to return the technology-specific information of this PlacementNode.
 		 * @return the technology-specific information of this PlacementNode
 		 * (typically 0 except for specialized Schematics components).
 		 */
-		int getTechBits() { return techBits; }
+		public int getTechBits() { return techBits; }
 
 		public String toString()
 		{
@@ -420,10 +433,10 @@ public class PlacementFrame
 	 * Objects in that Cell will be reorganized in and placed in a new Cell.
 	 * @return the new Cell with the placement results.
 	 */
-	public Cell doPlacement(Cell cell)
+	public Cell doPlacement(Cell cell, Placement.PlacementPreferences prefs)
 	{
 		// get network information for the Cell
-		Netlist netList = cell.acquireUserNetlist();
+		Netlist netList = cell.getNetlist();
 		if (netList == null)
 		{
 			System.out.println("Sorry, a deadlock aborted routing (network information unavailable).  Please try again");
@@ -498,7 +511,8 @@ public class PlacementFrame
 				// make the PlacementNode for this NodeInst
 				String name = ni.getName();
 				if (ni.getNameKey().isTempname()) name = null;
-				PlacementNode plNode = new PlacementNode(np, name, ni.getTechSpecific(), np.getDefWidth(), np.getDefHeight(), pl);
+				PlacementNode plNode = new PlacementNode(np, name, ni.getTechSpecific(), np.getDefWidth(),
+                    np.getDefHeight(), pl);
 				nodesToPlace.add(plNode);
 				for(PlacementPort plPort : pl)
 					plPort.setPlacementNode(plNode);
@@ -508,14 +522,23 @@ public class PlacementFrame
 		}
 
 		// gather connectivity information in a list of PlacementNetwork objects
+        Map<Network,PortInst[]> portInstsByNetwork = null;
+        if (cell.getView() != View.SCHEMATIC) portInstsByNetwork = netList.getPortInstsByNetwork();
 		List<PlacementNetwork> allNetworks = new ArrayList<PlacementNetwork>();
 		for(Iterator<Network> it = netList.getNetworks(); it.hasNext(); )
 		{
 			Network net = it.next();
 			List<PlacementPort> portsOnNet = new ArrayList<PlacementPort>();
-			for(Iterator<PortInst> pIt = net.getPorts(); pIt.hasNext(); )
+			PortInst[] portInsts = null;
+			if (portInstsByNetwork != null) portInsts = portInstsByNetwork.get(net); else
 			{
-				PortInst pi = pIt.next();
+				List<PortInst> portList = new ArrayList<PortInst>();
+				for(Iterator<PortInst> pIt = net.getPorts(); pIt.hasNext(); ) portList.add(pIt.next());
+				portInsts = portList.toArray(new PortInst[]{});
+			}
+			for(int i=0; i<portInsts.length; i++)
+	        {
+				PortInst pi = portInsts[i];
 				NodeInst ni = pi.getNodeInst();
 				PortProto pp = pi.getPortProto();
 				Map<PortProto,PlacementPort> convertedPorts = convertedNodes.get(ni);
@@ -533,7 +556,8 @@ public class PlacementFrame
 		}
 
 		// do the placement from the shadow objects
-		Cell newCell = doPlacement(cell.getLibrary(), cell.noLibDescribe(), nodesToPlace, allNetworks, exportsToPlace, iconToPlace);
+		Cell newCell = doPlacement(cell.getLibrary(), cell.noLibDescribe(), nodesToPlace, allNetworks, exportsToPlace,
+            iconToPlace, prefs.iconParameters);
 		return newCell;
 	}
 
@@ -549,18 +573,16 @@ public class PlacementFrame
 	 * @return the newly created Cell.
 	 */
 	public Cell doPlacement(Library lib, String cellName, List<PlacementNode> nodesToPlace, List<PlacementNetwork> allNetworks,
-		List<PlacementExport> exportsToPlace, NodeProto iconToPlace)
+                            List<PlacementExport> exportsToPlace, NodeProto iconToPlace, IconParameters iconParameters)
 	{
         long startTime = System.currentTimeMillis();
-        String newCellName = "placed" + cellName;
-        System.out.println("Running placement on cell '" + cellName + "' using the '" +
-        Placement.getAlgorithmName() + "' algorithm");
+        System.out.println("Running placement on cell '" + cellName + "' using the '" + getAlgorithmName() + "' algorithm");
 
         // do the real work of placement
 		runPlacement(nodesToPlace, allNetworks, cellName);
 
 		// create a new cell for the placement results
-		Cell newCell = Cell.makeInstance(lib, newCellName);
+		Cell newCell = Cell.makeInstance(lib, cellName); // newCellName
 
 		// place the nodes in the new cell
 		Map<PlacementNode,NodeInst> placedNodes = new HashMap<PlacementNode,NodeInst>();
@@ -626,29 +648,34 @@ public class PlacementFrame
 			NodeInst newNI = placedNodes.get(plNode);
 			if (newNI == null) continue;
 			PortInst portToExport = newNI.findPortInstFromProto(plPort.getPortProto());
-			Export.newInstance(newCell, portToExport, exportName, plExport.getCharacteristic());
+			Export.newInstance(newCell, portToExport, exportName, plExport.getCharacteristic(), iconParameters);
 		}
 
-		// add the connections in the new cell
+		ImmutableArcInst a = Generic.tech().unrouted_arc.getDefaultInst(newCell.getEditingPreferences());
+		long gridExtend = a.getGridExtendOverMin();
 		for(PlacementNetwork plNet : allNetworks)
 		{
-			List<PortInst> portsToConnect = new ArrayList<PortInst>();
+			PlacementPort lastPp = null;  PortInst lastPi = null;  EPoint lastPt = null;
 			for(PlacementPort plPort : plNet.getPortsOnNet())
 			{
-				NodeInst newNi = placedNodes.get(plPort.getPlacementNode());
+				PlacementNode plNode = plPort.getPlacementNode();
+				NodeInst newNi = placedNodes.get(plNode);
 				if (newNi != null)
 				{
-					PortInst newPi = newNi.findPortInstFromProto(plPort.getPortProto());
-					portsToConnect.add(newPi);
+					PlacementPort thisPp = plPort;
+					PortInst thisPi = newNi.findPortInstFromProto(thisPp.getPortProto());
+					EPoint thisPt = new EPoint(plNode.getPlacementX() + plPort.getRotatedOffX(),
+						plNode.getPlacementY() + plPort.getRotatedOffY());
+					if (lastPp != null)
+					{
+						// connect them
+						ArcInst.newInstance(newCell, Generic.tech().unrouted_arc, null, null,
+							lastPi, thisPi, lastPt, thisPt, gridExtend, 0, a.flags);						
+					}
+					lastPp = thisPp;
+					lastPi = thisPi;
+					lastPt = thisPt;
 				}
-			}
-
-			// make the connections
-			for(int i=1; i<portsToConnect.size(); i++)
-			{
-				PortInst lastPi = portsToConnect.get(i-1);
-				PortInst thisPi = portsToConnect.get(i);
-				ArcInst.makeInstance(Generic.tech().unrouted_arc, lastPi, thisPi);
 			}
 		}
 

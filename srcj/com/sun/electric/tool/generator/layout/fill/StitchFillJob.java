@@ -23,10 +23,12 @@
  */
 package com.sun.electric.tool.generator.layout.fill;
 
+import com.sun.electric.database.EditingPreferences;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.user.CellChangeJobs;
 import com.sun.electric.tool.user.ExportChanges;
+import com.sun.electric.tool.user.IconParameters;
 import com.sun.electric.tool.user.ui.WindowFrame;
 import com.sun.electric.tool.routing.*;
 import com.sun.electric.tool.routing.AutoStitch.AutoOptions;
@@ -62,6 +64,8 @@ public class StitchFillJob extends Job
     private Library outLibrary;
     private List<Cell> generatedCells = new ArrayList<Cell>();
     private boolean evenHorizontal = true; // even metal layers are horizontal. Basic assumption
+    private List<String> layersWithExports = new ArrayList<String>();
+    private IconParameters iconParameters = IconParameters.makeInstance(true);
 
 //    private static final boolean doFill = false;
 
@@ -202,9 +206,9 @@ public class StitchFillJob extends Job
                             break;
                         case 1:
                             if (value.toLowerCase().equals("odd"))
-                                this.evenHorizontal = false;
+                                evenHorizontal = false;
                             else if (value.toLowerCase().equals("even"))
-                                this.evenHorizontal = true;
+                                evenHorizontal = true;
                             else
                             {
                                 System.out.println("Invalid instruction '" + value + "' in stitch instructions doc.");
@@ -214,6 +218,19 @@ public class StitchFillJob extends Job
                             assert(false); // no case
                     }
                     count++;
+                }
+                continue;
+            }
+            else if (line.startsWith("@exports"))
+            {
+                int index = line.indexOf("=");
+                assert(index != -1);
+                // exports is the only command for now
+                StringTokenizer parse = new StringTokenizer(line.substring(index+1), " {,}", false);
+                while (parse.hasMoreTokens())
+                {
+                    String value = parse.nextToken();
+                    layersWithExports.add(value);
                 }
                 continue;
             }
@@ -343,17 +360,18 @@ public class StitchFillJob extends Job
      * @param job
      */
     private static void doTheJob(Cell newCell, String fillCellName, List<NodeInst> fillCells,
-                                 List<Geometric> fillGeoms, List<TileInfo> tileList, boolean wideOption, StitchFillJob job)
+                                 List<Geometric> fillGeoms, List<TileInfo> tileList,
+                                 boolean wideOption, StitchFillJob job)
     {
         // Re-exporting
-        ExportChanges.reExportNodes(newCell, fillGeoms, false, true, false, true, true);
+        ExportChanges.reExportNodes(newCell, fillGeoms, false, true, false, true, true, job.iconParameters);
 //        if (!doFill) return;
 
         // Flatting subcells
         new CellChangeJobs.ExtractCellInstances(newCell, fillCells, Integer.MAX_VALUE, true, true, true);
         
         // generation of master fill
-        generateFill(newCell, wideOption, job.evenHorizontal);
+        generateFill(newCell, wideOption, job.evenHorizontal, job.layersWithExports, job.iconParameters);
 
         // tiles generation. Flat generation for now
         generateTiles(newCell, fillCellName, tileList, job);
@@ -422,9 +440,11 @@ public class StitchFillJob extends Job
      * @param evenHor
      * @return True if auto-stitch ran without errors
      */
-    private static boolean generateFill(Cell theCell, boolean wideOption, boolean evenHor)
+    private static boolean generateFill(Cell theCell, boolean wideOption, boolean evenHor, List<String> exportNames,
+                                        IconParameters iconParameters)
     {
-        InteractiveRouter router  = new SimpleWirer();
+        EditingPreferences ep = theCell.getEditingPreferences();
+        InteractiveRouter router  = new SimpleWirer(ep.fatWires);
         List<Layer> listOfLayers = new ArrayList<Layer>(12);
 
         for (Iterator<Layer> itL = theCell.getTechnology().getLayers(); itL.hasNext(); )
@@ -645,7 +665,7 @@ public class StitchFillJob extends Job
             // Checking if there are exports overlapping with the arc
             List<String> doneExports = new ArrayList<String>();
             routeList.clear();
-            SimpleWirer niRouter = new SimpleWirer();
+            SimpleWirer niRouter = new SimpleWirer(ep.fatWires);
 
             Netlist netlist = theCell.getNetlist();
             for (Iterator<Export> itE = ni.getExports(); itE.hasNext(); )
@@ -759,55 +779,6 @@ public class StitchFillJob extends Job
 
                 }
 
-//                if (false)
-//                for (Network jNet : netList)
-//                {
-//                    for (Iterator<ArcInst> itA = jNet.getArcs(); itA.hasNext();)
-//                    {
-//                        ArcInst ai = itA.next();
-//                        Layer l = ai.getProto().getLayer(0);
-//
-//                        if (l == layer)
-//                            System.out.println("found in same layer");
-//                        else if (Layer.layerSortByFunctionLevel.areNeightborLayers(l, layer)) // Math.abs(l.getIndex() - layer.getIndex()) <=1)
-//                        {
-//                            // Not selecting the closest element yet
-//                            Area bnd = new Area(ai.getBounds());
-//                            bnd.intersect(expA);
-//                            if (!bnd.isEmpty())
-//                            {
-//                                // To get single cuts from the area.
-//                                Rectangle2D cut = bnd.getBounds2D();
-//                                Point2D center = new EPoint(cut.getCenterX(), cut.getCenterY());
-//                                boolean horOrVer = DBMath.areEquals(center.getX(), exportCenter.getX()) ||
-//                                        DBMath.areEquals(center.getY(), exportCenter.getY());
-//                                if (!horOrVer)
-//                                {
-//                                    System.out.println("Ignoring this case");
-//                                    continue;
-//                                }
-//                                if (getAllPossibleConnection)
-//                                {
-//                                    Route r = niRouter.planRoute(theCell, ai, pi, center, null, true, true, cut, null);
-//                                    routeList.add(r);
-//                                    doneExports.add(rootName);
-//                                }
-//                                else
-//                                {
-//                                    double dist = DBMath.distBetweenPoints(center, exportCenter);
-//                                    if (bestCenter == null || DBMath.isLessThan(dist, bestDistance))
-//                                    {
-//                                        // first time or the new distance is shorter
-//                                        bestCenter = center;
-//                                        bestCut = cut;
-//                                        bestArc = ai;
-//                                        bestDistance = dist;
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
                 if (!getAllPossibleConnection && bestCut != null) // best location found
                 {
                     Route r = niRouter.planRoute(theCell,  bestArc, pi, bestCenter, null, true, true, bestCut, null);
@@ -815,7 +786,6 @@ public class StitchFillJob extends Job
                     doneExports.add(rootName);
                 }
             }
-
 
             for (Route r : routeList)
             {
@@ -861,8 +831,12 @@ public class StitchFillJob extends Job
             for (Iterator<Layer> itL = n.getLayerIterator(); itL.hasNext();)
             {
                 Layer l = itL.next();
+                // default case, two top layers
                 int level = l.getFunction().getLevel();
-                if (level == levelMax || level == (levelMax-1)) {
+                boolean exportOnLayer = exportNames.isEmpty() ? (level == levelMax || level == (levelMax-1)) : // old condition
+                    exportNames.contains(l.getName());
+
+                if (exportOnLayer) {
                     found = true;
                 } else {
                     inBottomLayer.put(rootName, exp); // put the last one in the network.
@@ -919,7 +893,8 @@ public class StitchFillJob extends Job
                 for (PinsArcPair pair : pairs)
                 {
                     SplitContainter split = splitArcAtPoint(pair.topArc, pair.insert);
-                    Export.newInstance(theCell, split.splitPin.getPortInst(0), e.getKey(), PortCharacteristic.UNKNOWN);
+                    Export.newInstance(theCell, split.splitPin.getPortInst(0), e.getKey(),
+                        PortCharacteristic.UNKNOWN, iconParameters);
                 }
             }
         }
@@ -934,14 +909,22 @@ public class StitchFillJob extends Job
         List<Network> nets = new ArrayList<Network>();
         for (Iterator<Network> itN = theCell.getNetlist().getNetworks(); itN.hasNext(); )
             nets.add(itN.next());
+
+        // Collect the data to modify to avoid concurrency issues
+        Map<Export, String> map = new HashMap<Export, String>();
         for (Network net: nets) {
             if (!net.isExported()) continue;
             String name = net.getName();
             String rootName = extractRootName(name);
             if (!name.equals(rootName)) {
                 Export exp = net.getExports().next();
-                exp.rename(rootName);
+                map.put(exp, rootName);
             }
+        }
+        // Do the actual change now
+        for (Map.Entry<Export,String> e : map.entrySet())
+        {
+            e.getKey().rename(e.getValue());
         }
         return true;
     }

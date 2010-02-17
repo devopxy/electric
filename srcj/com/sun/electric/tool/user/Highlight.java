@@ -90,7 +90,7 @@ public abstract class Highlight implements Cloneable{
 
 	public Cell getCell() { return cell; }
 
-	boolean isValid()
+	public boolean isValid()
 	{
 		if (cell != null)
 			if (!cell.isLinked()) return false;
@@ -394,6 +394,8 @@ public abstract class Highlight implements Cloneable{
 //			cY = lp.y;
 //		}
 
+		Point p = new Point(0, 0);
+		Point2D ptXF = new Point2D.Double(0, 0);
 		for(int i=0; i<points.length; i++)
 		{
 			int lastI = i-1;
@@ -402,9 +404,23 @@ public abstract class Highlight implements Cloneable{
 				if (opened) continue;
 				lastI = points.length - 1;
 			}
-			Point lp = wnd.databaseToScreen(points[lastI].getX(), points[lastI].getY());
-			Point p = wnd.databaseToScreen(points[i].getX(), points[i].getY());
-			int fX = lp.x + offX;   int fY = lp.y + offY;
+			Point2D pt = points[lastI];
+			if (wnd.isInPlaceEdit())
+			{
+		   		wnd.getInPlaceTransformOut().transform(pt, ptXF);
+		   		pt = ptXF;
+			}
+//			Point p = wnd.databaseToScreen(pt.getX(), pt.getY());
+			wnd.gridToScreen((int)DBMath.lambdaToGrid(pt.getX()), (int)DBMath.lambdaToGrid(pt.getY()), p);
+			int fX = p.x + offX;   int fY = p.y + offY;
+			pt = points[i];
+			if (wnd.isInPlaceEdit())
+			{
+		   		wnd.getInPlaceTransformOut().transform(pt, ptXF);
+		   		pt = ptXF;
+			}
+//			p = wnd.databaseToScreen(pt.getX(), pt.getY());
+			wnd.gridToScreen((int)DBMath.lambdaToGrid(pt.getX()), (int)DBMath.lambdaToGrid(pt.getY()), p);
 			int tX = p.x + offX;    int tY = p.y + offY;
 			drawLine(g, wnd, fX, fY, tX, tY);
 			if (thickLine)
@@ -418,7 +434,7 @@ public abstract class Highlight implements Cloneable{
 		}
 	}
 
-    void internalDescribe(StringBuffer desc) {;}
+	void internalDescribe(StringBuffer desc) {;}
 
     /**
      * Describe the Highlight
@@ -872,12 +888,12 @@ class HighlightEOBJ extends Highlight
 	public void setPoint(int p) { point = p;}
 	public int getPoint() { return point; }
 
-	boolean isValid()
+	public boolean isValid()
 	{
 		if (!super.isValid()) return false;
 
-		if (eobj instanceof PortInst)
-			return ((PortInst)eobj).getNodeInst().isLinked();
+//		if (eobj instanceof PortInst)
+//			return ((PortInst)eobj).getNodeInst().isLinked();
 		return eobj.isLinked();
 	}
 
@@ -1231,7 +1247,7 @@ class HighlightEOBJ extends Highlight
                 // it figures out what's connected and adds them manually. Because they are added
                 // in addNetwork, we shouldn't try and add connected objects here.
                 if (highlightConnected && onlyHighlight) {
-                    Netlist netlist = cell.acquireUserNetlist();
+                    Netlist netlist = cell.getNetlist();
 					if (netlist == null) return;
 					NodeInst originalNI = ni;
 		            if (ni.isIconOfParent())
@@ -1552,7 +1568,7 @@ class HighlightText extends Highlight
 
     public Variable.Key getVarKey() { return varKey; }
 
-    boolean isValid()
+    public boolean isValid()
     {
         if (!super.isValid()) return false;
         if (eobj == null || varKey == null) return false;

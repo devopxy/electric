@@ -35,13 +35,16 @@ import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.IconNodeInst;
 import com.sun.electric.database.topology.PortInst;
 import com.sun.electric.database.topology.NodeInst;
-
 import com.sun.electric.tool.Job;
+import com.sun.electric.tool.user.ActivityLogger;
+
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * This is the Netlist class. It contains information about electric
@@ -482,6 +485,31 @@ public abstract class Netlist {
             return -1;
         }
         int netMapIndex = netCell.getNetMapOffset(export, busIndex);
+        int netIndex = netMapIndex >= 0 ? nm_net[netMapIndex] : -1;
+        if (Job.getDebug()) {
+            Name exportName = export.getNameKey().subname(busIndex);
+            if (netIndex != getNetIndex(exportName)) {
+                String msg = "Export Name network mismatch in Cell " + netCell.cell.libDescribe()+
+                        ": getNetIndex("+export+","+busIndex+")="+netIndex+
+                        " getNetIndex("+exportName+")"+"="+getNetIndex(exportName);
+                System.out.println(msg);
+                ActivityLogger.logException(new AssertionError(msg));
+            }
+        }
+        return netIndex;
+    }
+
+    /**
+     * Get net index of signal in export name.
+     * @param exportName given Export name.
+     * @return net index.
+     */
+    int getNetIndex(Name exportName) {
+        checkForModification();
+        if (exportName.isBus()) {
+            throw new IllegalArgumentException("Scalar export name expected");
+        }
+        int netMapIndex = netCell.getNetMapOffset(exportName);
         if (netMapIndex < 0) {
             return -1;
         }
@@ -607,6 +635,91 @@ public abstract class Netlist {
     }
 
     /**
+     * Return a map from Networks to array of their PortInsts.
+     * Works only for layout cells.
+     * @return a map from Networks to array of their PortInsts.
+     * @throws IllegalArgumentException for schematic Netlists
+     */
+    public Map<Network, PortInst[]> getPortInstsByNetwork() {
+        if (netCell instanceof NetSchem) {
+            throw new IllegalArgumentException();
+        }
+        Cell cell = netCell.cell;
+        int[] networkCounts = new int[getNumNetworks()];
+        for (Iterator<NodeInst> nit = cell.getNodes(); nit.hasNext();) {
+            NodeInst ni = nit.next();
+            for (Iterator<PortInst> pit = ni.getPortInsts(); pit.hasNext();) {
+                PortInst pi = pit.next();
+                Network net = getNetwork(pi);
+                if (net == null) {
+                    continue;
+                }
+                networkCounts[net.getNetIndex()]++;
+            }
+        }
+        LinkedHashMap<Network, PortInst[]> map = new LinkedHashMap<Network, PortInst[]>();
+        PortInst[][] portInsts = new PortInst[getNumNetworks()][];
+        for (int netIndex = 0; netIndex < getNumNetworks(); netIndex++) {
+            map.put(getNetwork(netIndex), portInsts[netIndex] = new PortInst[networkCounts[netIndex]]);
+        }
+        Arrays.fill(networkCounts, 0);
+        for (Iterator<NodeInst> nit = cell.getNodes(); nit.hasNext();) {
+            NodeInst ni = nit.next();
+            for (Iterator<PortInst> pit = ni.getPortInsts(); pit.hasNext();) {
+                PortInst pi = pit.next();
+                Network net = getNetwork(pi);
+                if (net == null) {
+                    continue;
+                }
+                int netIndex = net.getNetIndex();
+                portInsts[netIndex][networkCounts[netIndex]++] = pi;
+            }
+        }
+        return map;
+    }
+
+    /**
+     * Return a map from Networks to array of their ArcInsts.
+     * Works only for layout cells.
+     * @return a map from Networks to array of their ArcInsts.
+     * @throws IllegalArgumentException for schematic Netlists
+     */
+    public Map<Network, ArcInst[]> getArcInstsByNetwork() {
+        if (netCell instanceof NetSchem) {
+            throw new IllegalArgumentException();
+        }
+        Cell cell = netCell.cell;
+        int[] networkCounts = new int[getNumNetworks()];
+        for (Iterator<ArcInst> ait = cell.getArcs(); ait.hasNext();) {
+            ArcInst ai = ait.next();
+            Network net = getNetwork(ai, 0);
+            if (net == null) {
+                continue;
+            }
+            networkCounts[net.getNetIndex()]++;
+        }
+        LinkedHashMap<Network, ArcInst[]> map = new LinkedHashMap<Network, ArcInst[]>();
+        ArcInst[][] arcInsts = new ArcInst[getNumNetworks()][];
+        for (int netIndex = 0; netIndex < getNumNetworks(); netIndex++) {
+            int numArcs = networkCounts[netIndex];
+            ArcInst[] arcs = numArcs > 0 ? new ArcInst[numArcs] : ArcInst.NULL_ARRAY;
+            map.put(getNetwork(netIndex), arcs);
+            arcInsts[netIndex] = arcs;
+        }
+        Arrays.fill(networkCounts, 0);
+        for (Iterator<ArcInst> ait = cell.getArcs(); ait.hasNext();) {
+            ArcInst ai = ait.next();
+            Network net = getNetwork(ai, 0);
+            if (net == null) {
+                continue;
+            }
+            int netIndex = net.getNetIndex();
+            arcInsts[netIndex][networkCounts[netIndex]++] = ai;
+        }
+        return map;
+    }
+
+    /**
      * Get network of signal in export.
      * @param export given Export.
      * @param busIndex index of signal in a bus or zero.
@@ -617,6 +730,15 @@ public abstract class Netlist {
             return null;
         }
         return getNetworkRaw(getNetIndex(export, busIndex));
+    }
+
+    /**
+     * Get network of signal in export name.
+     * @param exportName given Export name.
+     * @return network.
+     */
+    public Network getNetwork(Name exportName) {
+        return getNetworkRaw(getNetIndex(exportName));
     }
 
     /**

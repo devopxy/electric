@@ -79,8 +79,6 @@ public class FileType implements Serializable {
 	/** Describes ALS decks. */				public static final FileType ALS          = makeFileType("ALS", new String[] {"als"}, "ALS Simulation Deck (als)", BUILTINSIMGRP);
 	/** Describes ALS vector decks. */		public static final FileType ALSVECTOR    = makeFileType("ALS Vectors", new String[] {"vec"}, "ALS Vector Deck (vec)", BUILTINSIMGRP);
 	/** Describes Applicon 860 decks. */	public static final FileType APPLICON860  = makeFileType("Applicon 860", new String[] {"apl"}, "Applicon 860 Deck (apl)");
-	/** Describes ArchSim decks.*/			public static final FileType ARCHSIM      = makeFileType("ArchSim", new String[] {"xml"}, "ArchSim Deck (xml)", OTHERSIMGRP);
-	/** Describes ArchSim output.*/			public static final FileType ARCHSIMOUT   = makeFileType("ArchSim Output", new String[] {"asj"}, "ArchSim Journal (asj)", OTHERSIMGRP);
 	/** Describes CDL decks.*/				public static final FileType CDL          = makeFileType("CDL", new String[] {"cdl"}, "CDL Deck (cdl)", SPICESIMGRP);
 	/** Describes CIF files. */				public static final FileType CIF          = makeFileType("CIF", new String[] {"cif"}, "CIF File (cif)", EXPORTIMPORTGRP);
 	/** Describes COSMOS output. */			public static final FileType COSMOS       = makeFileType("COSMOS", new String[] {"sim"}, "COSMOS File (sim)", OTHERSIMGRP);
@@ -140,6 +138,7 @@ public class FileType implements Serializable {
 	/** Describes Spice decks.*/			public static final FileType SPICE        = makeFileType("Spice", new String[] {"spi", "sp"}, "Spice Deck (spi, sp)", SPICESIMGRP);
 	/** Describes Spice standard output.*/	public static final FileType SPICEOUT     = makeFileType("Spice Output", new String[] {"spo"}, "Spice/GNUCap Output File (spo)", SPICESIMGRP);
 	/** Describes Sue files.*/				public static final FileType SUE          = makeFileType("Sue", new String[] {"sue"}, "Sue File (sue)", EXPORTIMPORTGRP);
+	/** Describes SVG files.*/				public static final FileType SVG          = makeFileType("SVG", new String[] {"svg"}, "Scalable Vector Graphics (svg)");
 	/** Describes Tegas files. */			public static final FileType TEGAS        = makeFileType("Tegas", new String[] {"tdl"}, "Tegas File (tdl)", OTHERSIMGRP);
 	/** Describes text files. */			public static final FileType TEXT         = makeFileType("Text", new String[] {"txt"}, "Text File (txt)");
 	/** Describes Verilog decks. */			public static final FileType VERILOG      = makeFileType("Verilog", new String[] {"v", "vL"}, "Verilog Deck (v)", VERILOGSIMGRP);

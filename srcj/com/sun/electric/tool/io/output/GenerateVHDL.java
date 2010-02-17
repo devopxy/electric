@@ -173,7 +173,7 @@ public class GenerateVHDL extends Topology
 	/**
 	 * Method to write one level of hierarchy.
 	 */
-	protected void writeCellTopology(Cell cell, CellNetInfo cni, VarContext context, Topology.MyCellInfo info)
+	protected void writeCellTopology(Cell cell, String cellName, CellNetInfo cni, VarContext context, Topology.MyCellInfo info)
 	{
 		// write the header
 		writeWidthLimited("\n");
@@ -478,7 +478,7 @@ public class GenerateVHDL extends Topology
 
 					// write connection
 					String sigName = addString(net.getName(), null);
-					if (!net.getExports().hasNext() && !net.getArcs().hasNext()) sigName = "open";
+					if (!net.isExported() && !net.getArcs().hasNext()) sigName = "open";
 					if (first) infstr.append(", ");   first = true;
 					infstr.append(sigName);
 				}

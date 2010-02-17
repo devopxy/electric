@@ -766,6 +766,7 @@ public class PolyBase implements Shape, PolyNodeMerge
 	 */
 	public static Poly.Type rotateType(Poly.Type origType, ElectricObject eObj)
 	{
+if (Poly.NEWTEXTTREATMENT) return origType;
 		// centered text does not rotate its anchor
 		if (origType == Poly.Type.TEXTCENT || origType == Poly.Type.TEXTBOX) return origType;
 

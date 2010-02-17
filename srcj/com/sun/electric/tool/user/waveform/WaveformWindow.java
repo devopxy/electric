@@ -46,7 +46,6 @@ import com.sun.electric.technology.technologies.Generic;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.io.input.EpicAnalysis;
-import com.sun.electric.tool.io.input.NewEpicAnalysis;
 import com.sun.electric.tool.io.input.Simulate;
 import com.sun.electric.tool.io.output.PNG;
 import com.sun.electric.tool.io.output.Spice;
@@ -974,28 +973,62 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
             String commands = "";
             double min = Double.MAX_VALUE;
             double max = Double.MIN_VALUE;
-            double sr = 1;
+            //double sr = 1;
+            int numPanels = 0;
+            int maxWidth = 0;
+            int height = 0;
             for(Panel wp : ww.wavePanels) {
+                numPanels++;
                 min = Math.min(min, wp.convertXScreenToData(0));
                 max = Math.max(max, wp.convertXScreenToData(wp.getSz().width));
-                sr  = Math.min(sr, ((double)wp.getSz().height)/((double)wp.getSz().width));
+                maxWidth =  Math.max(wp.getSz().width, maxWidth);
+                height   += wp.getSz().height;
             }
+            System.out.println("plotting: maxWidth="+maxWidth+", height="+height);
             if (file!=null) {
-                commands += "set terminal "+format+"; ";
+                commands += "set terminal "+format+" size 9 , "+(((double)height*9)/maxWidth)+"; ";
                 commands += "set output \""+file+"\"; ";
+            } else {
+                commands += "set terminal aqua size "+(maxWidth+100)+" "+(height+100)+"; ";
             }
-            commands += "set size ratio "+sr+"; ";
+            commands += "unset colorbox; ";
+            commands += "set multiplot; ";
             commands += "set xrange [\""+min+"\":\""+max+"\"]; ";
-            commands += "plot \"-\" with lines; ";
-            System.out.println("Running: gnuplot -e \""+commands+"\"");
-            ExecProcess ep = new ExecProcess(new String[] { "gnuplot", "-e", commands }, null);
+            commands += "set format x \"\"; ";
+            System.out.println("Running: gnuplot for "+numPanels+" panels");
+            ExecProcess ep = new ExecProcess(new String[] { "gnuplot" }, null);
             ep.redirectStdout(System.out);
             ep.redirectStderr(System.out);
             ep.start();
-            PrintWriter pw = new PrintWriter(new OutputStreamWriter(ep.getStdin()));
-            for(Panel wp : ww.wavePanels)
-                wp.dumpDataForGnuplot(pw);
+            PrintWriter pw = new PrintWriter(new OutputStreamWriter(new ExecProcess.MultiOutputStream(new OutputStream[] { System.out, ep.getStdin() })));
+            pw.println(commands);
+            pw.println("set label 1 \"Voltage (Volts)\" at 1,1 left");
+            pw.println();
+            int whichPanel = 0;
+            double ypos = 1.0;
+            for(Panel wp : ww.wavePanels) {
+                if (whichPanel==numPanels-1) {
+                    pw.println("set xlabel \"time (in seconds)\"; ");
+                    pw.println("unset format; ");
+                }
+                pw.println("set size "+
+                           (((double)wp.getSz().width)/maxWidth)+
+                           ","+
+                           (((double)wp.getSz().height)/height)+"; ");
+                ypos -= (((double)wp.getSz().height)/height);
+                pw.println("set origin 0, "+ypos);
+                pw.flush();
+                pw.print("plot ");
+                wp.dumpDataForGnuplot(pw, min, max, ",");
+                pw.println();
+                pw.flush();
+                whichPanel++;
+            }
+            pw.println("unset multiplot; ");
+            pw.println("quit;");
+            pw.flush();
             pw.close();
+            System.out.println("gnuplot finished.");
         } catch (Exception e) {
         	System.out.println("ERROR: Unable to run 'gnuplot': " + e);
         }
@@ -2051,7 +2084,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		// if no cell in the window, stop now
 		Cell cell = sd.getCell();
 		if (cell == null) return nets;
-		Netlist netlist = cell.acquireUserNetlist();
+		Netlist netlist = cell.getNetlist();
 		if (netlist == null)
 		{
 			System.out.println("Sorry, a deadlock aborted crossprobing (network information unavailable).  Please try again");
@@ -2189,14 +2222,9 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 	{
 		List<Signal> signals = an.getSignals();
 		if (signals.size() == 0) return null;
-		if (an instanceof EpicAnalysis)
-		{
-			DefaultMutableTreeNode analysisNode = ((EpicAnalysis)an).getSignalsForExplorer(analysis);
-			treePathFromAnalysis.put(an, parentPath.pathByAddingChild(analysisNode));
-			return analysisNode;
-		} else if (an instanceof NewEpicAnalysis)
+        if (an instanceof EpicAnalysis)
         {
-			DefaultMutableTreeNode analysisNode = ((NewEpicAnalysis)an).getSignalsForExplorer(analysis);
+			DefaultMutableTreeNode analysisNode = ((EpicAnalysis)an).getSignalsForExplorer(analysis);
 			treePathFromAnalysis.put(an, parentPath.pathByAddingChild(analysisNode));
 			return analysisNode;
         }
@@ -2571,7 +2599,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		{
 			export = (Export)it.next();
 			for (i=0; i<export.getNameKey().busWidth(); i++) {
-				Netlist netlist = childCell.acquireUserNetlist();
+				Netlist netlist = childCell.getNetlist();
 				if (netlist == null)
 				{
 					System.out.println("Sorry, a deadlock aborted crossprobing (network information unavailable).  Please try again");
@@ -2590,7 +2618,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		// find corresponding network in parent
 		Cell parentCell = childNodable.getParent();
 		//if (childNodable instanceof NodeInst) childNodable = Netlist.getNodableFor((NodeInst)childNodable, 0);
-		Netlist netlist = parentCell.acquireUserNetlist();
+		Netlist netlist = parentCell.getNetlist();
 		if (netlist == null)
 		{
 			System.out.println("Sorry, a deadlock aborted crossprobing (network information unavailable).  Please try again");
@@ -3063,7 +3091,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 			Cell cell = wnd.getCell();
 			if (cell == null) continue;
 			Highlighter hl = wnd.getHighlighter();
-			Netlist netlist = cell.acquireUserNetlist();
+			Netlist netlist = cell.getNetlist();
 			if (netlist == null)
 			{
 				System.out.println("Sorry, a deadlock aborted crossprobing (network information unavailable).  Please try again");
@@ -3208,7 +3236,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		schemWnd.clearCrossProbeLevels();
 
 		Cell cell = getCell();
-		Netlist netlist = cell.acquireUserNetlist();
+		Netlist netlist = cell.getNetlist();
 		if (netlist == null)
 		{
 			System.out.println("Sorry, a deadlock aborted crossprobing (network information unavailable).  Please try again");

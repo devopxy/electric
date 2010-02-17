@@ -38,9 +38,9 @@ import com.sun.electric.database.hierarchy.Nodable;
 import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.variable.VarContext;
 import com.sun.electric.database.variable.Variable;
-import com.sun.electric.tool.generator.layout.LayoutLib;
 import com.sun.electric.tool.logicaleffort.LENetlister;
 import com.sun.electric.tool.ncc.netlist.NccNetlist;
+import com.sun.electric.tool.Job;
 
 /** Find all Cells used in the design. Collect information about Cell usage. */
 class CellUsage extends HierarchyEnumerator.Visitor {
@@ -228,23 +228,8 @@ class CellUsage extends HierarchyEnumerator.Visitor {
 	public boolean cellIsUsed(Cell cell) {return cellsInUse.containsKey(cell);}
 	/** Cell has only one size in the design */
 	public boolean cellHasOnlyOneSize(Cell cell) {
-		final boolean NEW_ALGORITHM = true;
-
-//		//debug
-//		String cellNm = cell.getName();
-//		if (cellNm.indexOf("rxSlice")!=-1) {
-//			prln(" Testing rxSlice");
-//			prln("    Single use: "+singleUseCells.contains(cell));
-//			prln("    LE Gates: "+cellsWithLeGates.contains(cell));
-//			prln("    Parameterized: "+cellIsParameterized(cell));
-//		}
-
-		if (NEW_ALGORITHM) {
-			return singleUseCells.contains(cell) ||
-		       (!cellsWithLeGates.contains(cell)) && !cellIsParameterized(cell);
-		} else {
-			return singleUseCells.contains(cell);
-		}
+        return singleUseCells.contains(cell) ||
+           (!cellsWithLeGates.contains(cell)) && !cellIsParameterized(cell);
 	}
 	/** Get an iterator over a list of all the cells used in the design. The
 	 * list is sorted in reverse topological order.
@@ -260,7 +245,7 @@ class CellUsage extends HierarchyEnumerator.Visitor {
 	 * @return a CellContext for the instance of Cell cell
 	 */
 	public CellContext getCellContext(Cell cell) {
-		LayoutLib.error(!cellsInUse.containsKey(cell), "cell not found");
+		Job.error(!cellsInUse.containsKey(cell), "cell not found");
 		return cellsInUse.get(cell);
 	}
 	/** A joinGroup annotation indicates that NCC should treat a Cell

@@ -27,6 +27,7 @@ package com.sun.electric.tool.project;
 
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.Library;
+import com.sun.electric.database.id.CellId;
 import com.sun.electric.database.network.NetworkTool;
 import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.text.TextUtils;
@@ -35,6 +36,8 @@ import com.sun.electric.database.variable.Variable;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.io.input.LibraryFiles;
+import com.sun.electric.tool.user.CellChangeJobs;
+import com.sun.electric.tool.user.IconParameters;
 import com.sun.electric.tool.user.ui.WindowFrame;
 
 import java.io.File;
@@ -43,6 +46,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -52,8 +56,10 @@ public class UpdateJob extends Job
 {
 	private ProjectDB pdb;
 	private DisplayedCells displayedCells;
+    private Map<CellId,Cell> newCells = new HashMap<CellId,Cell>();
+    private IconParameters iconParameters = IconParameters.makeInstance(true);
 
-	/**
+    /**
 	 * Method to update the project libraries from the repository.
 	 */
 	public static void updateProject()
@@ -151,6 +157,9 @@ public class UpdateJob extends Job
 
     public void terminateOK()
     {
+    	// update cell expansion information
+    	CellChangeJobs.copyExpandedStatus(newCells);
+
     	// take the new version of the project database from the server
     	Project.projectDB = pdb;
 
@@ -211,7 +220,7 @@ public class UpdateJob extends Job
 			pc.getView().getFullName() + "." + pc.getLibExtension();
 		String tempLibName = Project.getTempLibraryName();
 		NetworkTool.setInformationOutput(false);
-		Library fLib = LibraryFiles.readLibrary(TextUtils.makeURLToFile(libName), tempLibName, pc.getLibType(), true);
+		Library fLib = LibraryFiles.readLibrary(TextUtils.makeURLToFile(libName), tempLibName, pc.getLibType(), true, iconParameters);
 		NetworkTool.setInformationOutput(true);
 		if (fLib == null) System.out.println("Cannot read library " + libName); else
 		{
@@ -367,6 +376,7 @@ public class UpdateJob extends Job
 							Project.setChangeStatus(false);
 							continue;
 						}
+						newCells.put(oldCell.getId(), newVers);
 
 						// replace former usage with new version
 						if (Project.useNewestVersion(oldCell, newVers))		// CHANGES DATABASE
