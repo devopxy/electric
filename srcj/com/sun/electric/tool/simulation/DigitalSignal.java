@@ -30,7 +30,7 @@ import java.util.List;
 /**
  * Class to define a digital signal in the simulation waveform window.
  */
-public class DigitalSignal extends Signal
+public class DigitalSignal extends Signal<ScalarSample>
 {
 	/** the DigitalAnalysis object in which this DigitalSignal resides. */		private DigitalAnalysis an;
 	/** a list of signals on this bussed signal */					private List<DigitalSignal> bussedSignals;
@@ -42,32 +42,11 @@ public class DigitalSignal extends Signal
 	 * Constructor for a digital signal.
 	 * @param an the DigitalAnalysis object in which this signal will reside.
 	 */
-	public DigitalSignal(DigitalAnalysis an) {
+	public DigitalSignal(DigitalAnalysis an, String signalName, String signalContext) {
+        super(an, signalName, signalContext);
 		this.an = an;
 		an.addSignal(this);
 	}
-
-	@Override
-	public void finished()
-	{
-		super.finished();
-		if (bussedSignals != null)
-		{
-			for (Signal s : bussedSignals)
-				s.finished();
-			bussedSignals.clear();
-		}
-		busCount = 0;
-		time = null;
-		state = null;
-	}
-
-	/**
-	 * Method to return the DigitalAnalysis in which this signal resides.
-	 * @return the DigitalAnalysis in which this signal resides.
-	 */
-	@Override
-	public DigitalAnalysis getAnalysis() { return an; }
 
 	/**
 	 * Method to request that this signal be a bus.
@@ -214,17 +193,6 @@ public class DigitalSignal extends Signal
 	}
 
 	/**
-	 * Method to return the number of events in this signal.
-	 * This is the number of events along the horizontal axis, usually "time".
-	 * @return the number of events in this signal.
-	 */
-	public int getNumEvents()
-	{
-		if (state == null) return 0;
-		return state.length;
-	}
-
-	/**
 	 * Method to compute the low and high range of time value on this signal.
 	 * The result is stored in the "bounds", "leftEdge", and "rightEdge" field variables.
 	 */
@@ -232,6 +200,7 @@ public class DigitalSignal extends Signal
 	{
 		boolean first = true;
 		double lowTime = 0, highTime = 0;
+        double leftEdge = 0, rightEdge = 0;
 		if (state != null)
 		{
 			for(int i=0; i<state.length; i++)
@@ -252,4 +221,47 @@ public class DigitalSignal extends Signal
 		}
 		bounds = new Rectangle2D.Double(lowTime, 0, highTime-lowTime, 1);
 	}
+
+    protected Rectangle2D bounds;
+	public double getMinTime() {
+		if (bounds == null) calcBounds();
+		return bounds.getMinX();
+	}
+	public double getMaxTime() {
+		if (bounds == null) calcBounds();
+		return bounds.getMaxX();
+	}
+	public double getMinValue() {
+		if (bounds == null) calcBounds();
+		return bounds.getMinY();
+	}
+	public double getMaxValue() {
+		if (bounds == null) calcBounds();
+		return bounds.getMaxY();
+	}
+
+    public Signal.View<ScalarSample>
+        getApproximation(double t0, double t1, int numEvents,
+                         ScalarSample     v0, ScalarSample     v1, int valueResolution) {
+        throw new RuntimeException("not implemented");
+    }
+    public Signal.View<RangeSample<ScalarSample>> getRasterView(double t0, double t1, int numPixels) {
+        return new DumbRasterView<ScalarSample>(getExactView());
+    }
+    public Signal.View<ScalarSample> getExactView() {
+        throw new RuntimeException("not implemented");
+    }
+
+    private abstract class DigitalSignalApproximation implements Signal.View<ScalarSample> {
+        /**
+         * Method to return the number of events in this signal.
+         * This is the number of events along the horizontal axis, usually "time".
+         * @return the number of events in this signal.
+         */
+        public int getNumEvents()
+        {
+            if (state == null) return 0;
+            return state.length;
+        }
+    }
 }

@@ -26,106 +26,109 @@ package com.sun.electric.tool.simulation;
 import java.awt.geom.Rectangle2D;
 
 /**
- * Class to define the basic parts of a signal in the simulation waveform window.
- * This is a superclass for specific signal types: Measurement and TimedSignal
- * (which has under it DigitalSignal and AnalogSignal).
+ * A Signal represents simulation data captured for a particular node
+ * over a stretch of time.  Internally, it associates Samples to
+ * points in time (measured by a double).  Each Signal also belongs to
+ * an Analysis, and has a Name and a Context (which are both Strings).
+ *
+ * Because the simulation data set may be extremely large, one does
+ * not access the data directly through the Signal class.  Instead,
+ * one asks for a View of the signal.  Views offer access to the
+ * simulation data in various summarized forms.
+ *
+ * Subsequent enhancements are likely to include the
+ * ability to invoke methods on the class while the streaming
+ * conversion is taking place; attempts to invoke methods which
+ * require data not yet read will simply block until that part of the
+ * stream is processed.
  */
-public abstract class Signal {
-	/** the name of this signal */									private String signalName;
-	/** the context of this signal (qualifications to name) */		private String signalContext;
-	/** the range of values in the X and Y axes */					protected Rectangle2D bounds;
-	/** the left and right X values */								protected double leftEdge, rightEdge;
+public abstract class Signal<SS extends Sample> {
 
-	public void finished()
-	{
-	}
-
-	/**
-	 * Method to return the Analysis in which this signal resides.
-	 * @return the Analysis in which this signal resides.
-	 */
-	public abstract Analysis getAnalysis();
-
-	/**
-	 * Method to set the name and context of this simulation signal.
-	 * The name does not include any hierarchical path information: it is just a simple name.
-	 * The context is the hierarchical path to the signal, and it usually contains
-	 * instance names of cells farther up the hierarchy, all separated by dots.
-	 * @param signalName the name of this simulation signal.
-	 * @param signalContext the context of this simulation signal.
-	 */
-	public final void setSignalName(String signalName, String signalContext) {
+    public Signal(Analysis analysis, String signalName, String signalContext) {
+        this.analysis = analysis;
 		this.signalName = signalName;
 		this.signalContext = signalContext;
-		getAnalysis().nameSignal(this, getFullName());
-	}
+		if (analysis!=null) analysis.nameSignal(this, getFullName());
+    }
 
-	/**
-	 * Method to return the name of this simulation signal.
-	 * The name does not include any hierarchical path information: it is just a simple name.
-	 * @return the name of this simulation signal.
-	 */
+	/** the name of this signal */									private final String signalName;
+	/** the context of this signal (qualifications to name) */		private final String signalContext;
+    /** the Analysis to which this signal belongs */                private final Analysis analysis;
+
+	/** the Analysis in which this signal resides. */
+	public final Analysis getAnalysis() { return analysis; }
+
+	/** The name of this simulation signal, not including hierarchical path information */
 	public final String getSignalName() { return signalName; }
 
-	/**
-	 * Method to return the context of this simulation signal.
-	 * The context is the hierarchical path to the signal, and it usually contains
-	 * instance names of cells farther up the hierarchy, all separated by dots.
-	 * @param signalContext the context of this simulation signal.
-	 */
-	public final void setSignalContext(String signalContext) { this.signalContext = signalContext; }
-
-	/**
-	 * Method to return the context of this simulation signal.
-	 * The context is the hierarchical path to the signal, and it usually contains
-	 * instance names of cells farther up the hierarchy, all separated by dots.
-	 * @return the context of this simulation signal.
-	 * If there is no context, this returns null.
-	 */
+	/** Return the context (hierarchical path information) of the signal, or null if none */
 	public final String getSignalContext() { return signalContext; }
 
-	/**
-	 * Method to return the full name of this simulation signal.
-	 * The full name includes the context, if any.
-	 * @return the full name of this simulation signal.
-	 */
-	public final String getFullName() {
-		if (signalContext != null) return signalContext + getAnalysis().getStimuli().getSeparatorChar() + signalName;
-		return signalName;
-	}
+	/** Return the full name (context+signalName) */
+	public final String getFullName() { return signalContext==null ? signalName : signalContext + getAnalysis().getStimuli().getSeparatorChar() + signalName; }
 
-	/**
-	 * Method to compute the time and value bounds of this simulation signal.
-	 * @return a Rectangle2D that has time bounds in the X part and
-	 * value bounds in the Y part.
-	 * For digital signals, the Y part is simply 0 to 1.
-	 */
-	public Rectangle2D getBounds() {
-		if (bounds == null) calcBounds();
-		return bounds;
-	}
+    /**
+     *  An Approximation is a collection of events indexed by natural
+     *  numbers.  An event is an ordered pair of a rational number for
+     *  the time and an SS for the value.  All times share a common
+     *  denominator.  Times are guaranteed to be monotonic.
+     *
+     *  The following is true except for rounding errors:
+     *
+     *    getTime(i)  = getTime(0)  + getTimeNumerator(i)/getTimeDenominator()
+     *
+     *  The time-distance between events is NOT guaranteed to be
+     *  uniform.  However, the instances of Approximation returned by
+     *  getApproximation(DDIDDI) <i>do</i> make this guarantee --
+     *  in particular, those instances promise that for all x,
+     *  getTimeNumerator(i)==i.  Instances returned by other methods
+     *  do not offer this guarantee.
+     */
+    public static interface View<SS extends Sample> {
+        /** the number of indices ("events") in this approximation */   int    getNumEvents();
+        /** the absolute time of the event in question */               double getTime(int event);
+        /** the absolute value of the event in question */              SS     getSample(int event);
+        /** the numerator of the time of the specified event */         int    getTimeNumerator(int event);
+        /** the common denominator of all times */                      int    getTimeDenominator();
+        /** returns the index of the event having the least value */    int    getEventWithMinValue();
+        /** returns the index of the event having the greatest value */ int    getEventWithMaxValue();
+    }
 
-	/**
-	 * Method to return the leftmost X coordinate of this simulation signal.
-	 * This value may not be the same as the minimum-x of the bounds, because
-	 * the data may not be monotonically increasing (may run backwards, for example).
-	 * @return the leftmost X coordinate of this simulation signal.
-	 */
-	public double getLeftEdge() {
-		if (bounds == null) calcBounds();
-		return leftEdge;
-	}
+    /**
+     *  Returns a View appropriate for rasterization, including data
+     *  from time t0 to time t1, optimized for rasterization on a
+     *  display region numPixels wide.  Note that the View returned is
+     *  of type View<RangeSample<SS>> -- this means that getSample(i)
+     *  will give a CONSERVATIVE approximation of the true value of
+     *  the signal between getTime(i) and getTime(i+1).  In other
+     *  words, the signal is guaranteed not to exceed
+     *  getSample(i).getMax() in that window, but the actual value
+     *  returned by getMax() might be much larger than the true
+     *  maximum over that range.
+     */
+    public abstract Signal.View<RangeSample<SS>> getRasterView(double t0, double t1, int numPixels);
 
-	/**
-	 * Method to return the rightmost X coordinate of this simulation signal.
-	 * This value may not be the same as the maximum-x of the bounds, because
-	 * the data may not be monotonically increasing (may run backwards, for example).
-	 * @return the rightmost X coordinate of this simulation signal.
-	 */
-	public double getRightEdge() {
-		if (bounds == null) calcBounds();
-		return rightEdge;
-	}
+    /** Returns a view with all the data, no loss in fidelity. */
+    public abstract Signal.View<SS> getExactView();
 
-	protected void calcBounds() {}
+	public double getMinTime()  { return getExactView().getTime(0); }
+	public double getMaxTime()  { return getExactView().getTime(getExactView().getNumEvents()-1); }
+	public double getMinValue() { return ((ScalarSample)getExactView().getSample(getExactView().getEventWithMinValue())).getValue(); }
+	public double getMaxValue() { return ((ScalarSample)getExactView().getSample(getExactView().getEventWithMaxValue())).getValue(); }
+
+    protected static class DumbRasterView<SS extends Sample> implements Signal.View<RangeSample<SS>> {
+        private final Signal.View<SS> exactView;
+        public DumbRasterView(Signal.View<SS> exactView) { this.exactView = exactView; }
+        public int getNumEvents() { return exactView.getNumEvents(); }
+        public double getTime(int index) { return exactView.getTime(index); }
+        public RangeSample<SS> getSample(int index) {
+            SS ss = exactView.getSample(index);
+            return new RangeSample(ss, ss);
+        }
+        public int getTimeNumerator(int index) { return exactView.getTimeNumerator(index); }
+        public int getTimeDenominator() { return exactView.getTimeDenominator(); }
+        public int getEventWithMaxValue() { return exactView.getEventWithMaxValue(); }
+        public int getEventWithMinValue() { return exactView.getEventWithMinValue(); }
+    }
+
 }

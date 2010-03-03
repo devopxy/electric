@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: NewSignal.java
+ * File: Signal.java
  *
  * Copyright (c) 2009 Sun Microsystems and Static Free Software
  *
@@ -25,10 +25,10 @@ package com.sun.electric.tool.simulation;
 import java.io.*;
 
 /**
- *  An implementation of SimulationSample for scalar data.  Holds a
+ *  An implementation of Sample for scalar data.  Holds a
  *  double internally.
  */
-public class ScalarSample implements SimulationSample {
+public class ScalarSample implements Sample, Comparable {
 
     private double value;
 
@@ -40,7 +40,7 @@ public class ScalarSample implements SimulationSample {
     }
 
     public boolean equals(Object o) {
-        if (o==null || !(o instanceof SimulationSample)) return false;
+        if (o==null || !(o instanceof ScalarSample)) return false;
         ScalarSample ss = (ScalarSample)o;
         return ss.value == value;
     }
@@ -51,7 +51,7 @@ public class ScalarSample implements SimulationSample {
     }
 
     public int compareTo(Object o) {
-        if (o==null || !(o instanceof SimulationSample))
+        if (o==null || !(o instanceof ScalarSample))
             throw new RuntimeException("impossible!");
         ScalarSample ss = (ScalarSample)o;
         return Double.compare(value, ss.value);

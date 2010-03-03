@@ -28,7 +28,7 @@ import java.awt.geom.Rectangle2D;
 /**
  * Class to define an analog signal in the simulation waveform window.
  */
-public class AnalogSignal extends Signal implements MultiSweepSignal
+public class AnalogSignal extends Signal<ScalarSample> implements MultiSweepSignal
 {
 	/** the Analysis object in which this DigitalSignal resides. */		private final AnalogAnalysis an;
 	/** index of this signal in its AnalogAnalysis */					private final int index;
@@ -37,19 +37,13 @@ public class AnalogSignal extends Signal implements MultiSweepSignal
 	 * Constructor for an analog signal.
 	 * @param an the AnalogAnalysis object in which this signal will reside.
 	 */
-	protected AnalogSignal(AnalogAnalysis an)
+	protected AnalogSignal(AnalogAnalysis an, String signalName, String signalContext)
 	{
+        super(an, signalName, signalContext);
 		this.an = an;
 		index = an.getSignals().size();
 		an.addSignal(this);
 	}
-
-	/**
-	 * Method to return the AnalogAnalysis in which this signal resides.
-	 * @return the AnalogAnalysis in which this signal resides.
-	 */
-	@Override
-	public AnalogAnalysis getAnalysis() { return an; }
 
 	/**
 	 * Method to return the index of this AnalogSignal in its AnalogAnalysis.
@@ -62,12 +56,12 @@ public class AnalogSignal extends Signal implements MultiSweepSignal
 	 * @param sweep sweep index
 	 * @return the waveform of this signal in specified sweep.
 	 */
-	public Waveform getWaveform(int sweep) {
+	public Signal getWaveform(int sweep) {
 		return an.getWaveform(this, sweep);
 	}
 
-    public NewSignal<ScalarSample> getSweep(int sweep) {
-        return an.getWaveform(this, sweep);
+    public Signal<ScalarSample> getSweep(int sweep) {
+        return (Signal<ScalarSample>)an.getWaveform(this, sweep);
     }
 
 	/**
@@ -89,14 +83,15 @@ public class AnalogSignal extends Signal implements MultiSweepSignal
 		// determine extent of the data
 		double lowTime=0, highTime=0, lowValue=0, highValue=0;
 		boolean first = true;
+        double leftEdge=0, rightEdge=0;
 		double[] result = new double[3];
 		for (int sweep = 0, numSweeps = getNumSweeps(); sweep < numSweeps; sweep++)
 		{
-			Waveform waveform = getWaveform(sweep);
-            if (waveform instanceof BTreeNewSignal) {
+			Signal waveform = getWaveform(sweep);
+            if (waveform instanceof BTreeSignal) {
                 // Hack
-                BTreeNewSignal btns = (BTreeNewSignal)waveform;
-                NewSignal.Approximation<ScalarSample> approx = btns.getPreferredApproximation();
+                BTreeSignal btns = (BTreeSignal)waveform;
+                Signal.View<ScalarSample> approx = btns.getExactView();
                 if (approx.getTime(0) < lowTime)
                     lowTime = approx.getTime(0);
                 if (approx.getTime(approx.getNumEvents()-1) > highTime)
@@ -108,9 +103,11 @@ public class AnalogSignal extends Signal implements MultiSweepSignal
                 continue;
             }
 
-			for(int i=0, numEvents = waveform.getNumEvents(); i<numEvents; i++)
+			for(int i=0, numEvents = waveform.getExactView().getNumEvents(); i<numEvents; i++)
 			{
-				waveform.getEvent(i, result);
+                result[0] = waveform.getExactView().getTime(i);
+                result[1] = result[2] = ((ScalarSample)waveform.getExactView().getSample(i)).getValue();
+
 				double time = result[0];
 				if (sweep == 0)
 				{
@@ -136,4 +133,34 @@ public class AnalogSignal extends Signal implements MultiSweepSignal
 		}
 		bounds = new Rectangle2D.Double(lowTime, lowValue, highTime-lowTime, highValue-lowValue);
 	}
+
+    protected Rectangle2D bounds;
+	public double getMinTime() {
+		if (bounds == null) calcBounds();
+		return bounds.getMinX();
+	}
+	public double getMaxTime() {
+		if (bounds == null) calcBounds();
+		return bounds.getMaxX();
+	}
+	public double getMinValue() {
+		if (bounds == null) calcBounds();
+		return bounds.getMinY();
+	}
+	public double getMaxValue() {
+		if (bounds == null) calcBounds();
+		return bounds.getMaxY();
+	}
+
+    public Signal.View<ScalarSample>
+        getApproximation(double t0, double t1, int numEvents,
+                         ScalarSample     v0, ScalarSample     v1, int valueResolution) {
+        throw new RuntimeException("not implemented");
+    }
+    public Signal.View<RangeSample<ScalarSample>> getRasterView(double t0, double t1, int numPixels) {
+        return new DumbRasterView<ScalarSample>(getExactView());
+    }
+    public Signal.View<ScalarSample> getExactView() {
+        throw new RuntimeException("not implemented");
+    }
 }
