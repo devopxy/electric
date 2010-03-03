@@ -28,8 +28,7 @@ import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.tool.simulation.AnalogAnalysis;
 import com.sun.electric.tool.simulation.AnalogSignal;
 import com.sun.electric.tool.simulation.Stimuli;
-import com.sun.electric.tool.simulation.Waveform;
-import com.sun.electric.tool.simulation.WaveformImpl;
+import com.sun.electric.tool.simulation.Signal;
 import com.sun.electric.tool.user.ActivityLogger;
 
 import com.sun.electric.tool.simulation.*;
@@ -373,20 +372,33 @@ public class EpicAnalysis extends AnalogAnalysis {
         return new BTree<Double,Double,Serializable>
             (ps, UnboxedHalfDouble.instance, UnboxedHalfDouble.instance, null, null);
     }
-
-    HashMap<Integer, Waveform> loadWaveformCache =
-        new HashMap<Integer, Waveform>();
-
-    @Override
-        protected Waveform[] loadWaveforms(AnalogSignal signal) {
-        int index = ((EpicSignal)signal).sigNum;
-        Waveform wave = loadWaveformCache.get(new Integer(index));
-        if (wave == null)
-            return new Waveform[] { new WaveformImpl(new double[0], new double[0]) };
-        return new Waveform[] { wave };
+    public static BTree<Double,Pair<Double,Double>,Serializable> getComplexTree() {
+        if (ps==null)
+            try {
+                long highWaterMarkInBytes = 50 * 1024 * 1024;
+                PageStorage fps = FilePageStorage.create();
+                PageStorage ops = new OverflowPageStorage(new MemoryPageStorage(fps.getPageSize()), fps, highWaterMarkInBytes);
+                ps = new CachingPageStorageWrapper(ops, 16 * 1024, false);
+                //ps = new MemoryPageStorage(256);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        return new BTree<Double,Pair<Double,Double>,Serializable>
+            (ps, UnboxedHalfDouble.instance, new UnboxedPair(UnboxedHalfDouble.instance, UnboxedHalfDouble.instance), null, null);
     }
 
-    void putWaveform(int signum, Waveform w) {
+    HashMap<Integer, Signal> loadWaveformCache =
+        new HashMap<Integer, Signal>();
+
+    @Override
+        protected Signal[] loadWaveforms(AnalogSignal signal) {
+        int index = ((EpicSignal)signal).sigNum;
+        Signal wave = loadWaveformCache.get(new Integer(index));
+        if (wave == null) return new Signal[] { };
+        return new Signal[] { wave };
+    }
+
+    void putWaveform(int signum, Signal w) {
         loadWaveformCache.put(new Integer(signum), w);
     }
     
@@ -742,8 +754,8 @@ public class EpicAnalysis extends AnalogAnalysis {
     static class EpicSignal extends AnalogSignal {
         int sigNum;
         
-        EpicSignal(EpicAnalysis an, byte type, int index, int sigNum) {
-            super(an);
+        EpicSignal(EpicAnalysis an, String signalName, String signalContext, byte type, int index, int sigNum) {
+            super(an, signalName, signalContext);
             assert getIndexInAnalysis() == index;
             if (type == VOLTAGE_TYPE)
                 an.voltageSignals.set(index);
@@ -753,13 +765,13 @@ public class EpicAnalysis extends AnalogAnalysis {
         }
 
         public void calcBounds() {
-            Waveform wave = getWaveform(0);
-            if (!(wave instanceof BTreeNewSignal)) { super.calcBounds(); return; }
-            BTreeNewSignal btns = (BTreeNewSignal)wave;
-            this.bounds = new Rectangle2D.Double(btns.getPreferredApproximation().getTime(0),
-                                                 (btns.getPreferredApproximation().getSample(btns.eventWithMinValue)).getValue(),
-                                                 btns.getPreferredApproximation().getTime(btns.getNumEvents()-1),
-                                                 (btns.getPreferredApproximation().getSample(btns.eventWithMaxValue)).getValue());
+            Signal wave = getWaveform(0);
+            if (!(wave instanceof BTreeSignal)) { super.calcBounds(); return; }
+            BTreeSignal btns = (BTreeSignal)wave;
+            this.bounds = new Rectangle2D.Double(btns.getExactView().getTime(0),
+                                                 (btns.getExactView().getSample(btns.eventWithMinValue)).getValue(),
+                                                 btns.getExactView().getTime(btns.getExactView().getNumEvents()-1),
+                                                 (btns.getExactView().getSample(btns.eventWithMaxValue)).getValue());
         }
         /*
         void setBounds(int minV, int maxV) {

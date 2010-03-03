@@ -7,11 +7,62 @@ NOTE: Please place changes under the version that will be released next.
 BUG: (3/2/10, DN) "Fat mode" option can't be turn off in Arcs pref (Bug #2672).
 FIX: Temorary solution: Remove "final" attribute from annotaeted fileds of EditingPreferences.
 
+BUG: (3/2/10, SMR) ALS cannot simulate transistors (Bug #2674).
+FIX: Redid "GenerateVHDL.java" to handle layout transistors correctly.
+
+IMP/MAN: (3/1/10, SMR) Placement preferences now allows algorithm-specific
+     parameters (Bug #2673).
+
+BUG: (2/26/10, GVG) DRC fails when transistor has more than 1 active layer (Bug #2669)
+FIX: Condition removed for carbon-nanotube transistors.
+
+BUG: (2/26/10, GVG) 3D View doesn't allow transistors with more than 2 active regions (Bug #2670)
+FIX: Detecting CN transistors now whose active layers are not merged
+
+IMP/MAN: (2/26/10, GVG) -debug and -regression don't work very well (Bug #2668)
+
 BUG: (2/25/10, DN) Icon vs sch ports (Bug #2533).
 FIX: In NetSchem connect exports by Name instead of by portImplementation.
 
 BUG: (2/25/10, GVG) NPE in Preferences -> Technology -> Icon
 FIX: Switch IconTab from Frame to PreferencesFrame constructor
+
+IMP: (2/24/10, AM) Rename Approximation->View, add
+     Signal.getRasterView() which returns a RangeSample
+
+IMP: (2/24/10, AM) Add RangeSample.
+
+IMP: (2/24/10, AM) Sample does not implement Comparable (but
+     ScalarSample does).
+
+IMP: (2/24/10, AM) Remove old Waveform.java methods.
+
+IMP: (2/24/10, AM) Remove "using old/new code" marker on waveform window.
+
+IMP: (2/24/10, AM) Merge Waveform.java into Signal.java.
+
+BUG: (2/18/10, GVG) Electric litters files in my home directory without
+     my permission (Bug #2613)
+FIX: Not using File.createTempFile for now.
+
+IMP: (2/17/10, AM) Remove SignalSimpleImpl.
+
+IMP: (2/17/10, AM) Rename SimulationSample to Sample.
+
+IMP: (2/17/10, AM) Remove WaveformImpl and ComplexWaveform, add ComplexSample.
+
+BUG: (2/17/10, AM) Plotting Spice output from the cell (not a file) fails (Bug #2665).
+FIX: Try all file types.
+
+BUG: (2/17/10, SMR) Plotting Spice output from the cell (not a file) fails (Bug #2665).
+FIX: When doing this, use the Spice Preference to determine the engine.
+
+BUG: (2/17/10, SMR) SVG output not right (Bug #2664).
+FIX: Now handles underline, centers on page, and has a test.
+
+IMP: (2/16/10, AM) Merge NewSignal.java and Signal.java
+
+IMP: (2/16/10, AM) Remove ArchSimOut.java
 
 IMP: (2/16/10, AM) Separate "Signal" from "Stimuli".
 

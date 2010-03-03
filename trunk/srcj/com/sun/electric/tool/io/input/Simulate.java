@@ -147,15 +147,26 @@ public abstract class Simulate extends Input
 		{
 			if (fileURL == null)
 			{
-//                String [] extensions = type.getFirstExtension();
+                if (type == FileType.SPICE) {
+                    if      (new File(type.getGroupPath(), cell.getName()+".raw").exists()) type = FileType.RAWLTSPICEOUT;
+                    else if (new File(type.getGroupPath(), cell.getName()+".dump").exists()) type = FileType.RAWSPICEOUT;
+                    else if (new File(type.getGroupPath(), cell.getName()+".spo").exists()) type = FileType.SPICEOUT;
+                    else if (new File(type.getGroupPath(), cell.getName()+".out").exists()) type = FileType.EPIC;
+                    else if (new File(type.getGroupPath(), cell.getName()+".tr0").exists()) type = FileType.HSPICEOUT;
+                    else if (new File(type.getGroupPath(), cell.getName()+".txt").exists()) type = FileType.PSPICEOUT;
+                }
+
                 String fileName = cell.getName() + "." + type.getFirstExtension();
+
                 // look for file in library path
                 String filePath = TextUtils.getFilePath(cell.getLibrary().getLibFile());
                 File file = new File(filePath, fileName);
-                if (!file.exists()) {
+                if (!file.exists())
+                {
                     // look for file in spice working directory
                     String dir = type.getGroupPath();
-                    file = new File(dir, fileName);
+                    File altFile = new File(dir, fileName);
+                    if (altFile.exists()) file = altFile;
                 }
                 fileURL = TextUtils.makeURLToFile(file.getPath());
 			}

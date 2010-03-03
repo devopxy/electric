@@ -34,7 +34,7 @@ import java.io.*;
 public class AnalogAnalysis extends Analysis<AnalogSignal> {
 	/** all sweeps in this Analysis */							private List<Object> sweeps;
 	/** the common time array (if there is common time) */		private double [] commonTime;
-	/** the common time array (if there is common time) */		private HashMap<AnalogSignal,Waveform[]> waveformCache = new HashMap<AnalogSignal,Waveform[]>();
+	/** the common time array (if there is common time) */		private HashMap<AnalogSignal,Signal[]> waveformCache = new HashMap<AnalogSignal,Signal[]>();
 
 	/**
 	 * Constructor for a collection of analog simulation data.
@@ -134,24 +134,18 @@ public class AnalogAnalysis extends Analysis<AnalogSignal> {
 	public AnalogSignal addSignal(String signalName, String signalContext, double[] values)
 	{
 		AnalogSignal as = addEmptySignal(signalName, signalContext);
-        if (!isUseLegacySimulationCode()) {
-            BTree<Double,Double,Serializable> tree = EpicAnalysis.getTree();
-            int evmax = 0;
-            int evmin = 0;
-            double valmax = Double.MIN_VALUE;
-            double valmin = Double.MAX_VALUE;
-            for(int i=0; i<commonTime.length; i++) {
-                tree.insert(new Double(commonTime[i]), new Double(values[i]));
-                if (values[i] > valmax) { evmax = i; valmax = values[i]; }
-                if (values[i] < valmin) { evmin = i; valmin = values[i]; }
-            }
-            Waveform[] waveforms = { new BTreeNewSignal(evmin, evmax, tree) };
-            waveformCache.put(as, waveforms);
-//            System.err.println("put a btree");
-        } else {
-            Waveform[] waveforms = { new WaveformImpl(getCommonTimeArray(), values) };
-            waveformCache.put(as, waveforms);
+        BTree<Double,Double,Serializable> tree = EpicAnalysis.getTree();
+        int evmax = 0;
+        int evmin = 0;
+        double valmax = Double.MIN_VALUE;
+        double valmin = Double.MAX_VALUE;
+        for(int i=0; i<commonTime.length; i++) {
+            tree.insert(new Double(commonTime[i]), new Double(values[i]));
+            if (values[i] > valmax) { evmax = i; valmax = values[i]; }
+            if (values[i] < valmin) { evmin = i; valmin = values[i]; }
         }
+        Signal[] waveforms = { new BTreeSignal(this, signalName, signalContext, evmin, evmax, tree) };
+        waveformCache.put(as, waveforms);
 		return as;
 	}
 
@@ -179,8 +173,7 @@ public class AnalogAnalysis extends Analysis<AnalogSignal> {
 	 */
 	private AnalogSignal addEmptySignal(String signalName, String signalContext)
 	{
-		AnalogSignal as = new AnalogSignal(this);
-		as.setSignalName(signalName, signalContext);
+		AnalogSignal as = new AnalogSignal(this, signalName, signalContext);
 		return as;
 	}
 
@@ -190,9 +183,9 @@ public class AnalogAnalysis extends Analysis<AnalogSignal> {
 	 * @param sweep sweep index
 	 * @return the waveform of this signal in specified sweep.
 	 */
-	public Waveform getWaveform(AnalogSignal signal, int sweep)
+	public Signal getWaveform(AnalogSignal signal, int sweep)
 	{
-		Waveform[] waveforms = waveformCache.get(signal);
+		Signal[] waveforms = waveformCache.get(signal);
 		if (waveforms == null)
 		{
 			if (signal.getAnalysis() != this)
@@ -204,7 +197,7 @@ public class AnalogAnalysis extends Analysis<AnalogSignal> {
 		return waveforms[sweep];
 	}
 
-	protected Waveform[] loadWaveforms(AnalogSignal signal)
+	protected Signal[] loadWaveforms(AnalogSignal signal)
 	{
 		throw new UnsupportedOperationException();
 	}

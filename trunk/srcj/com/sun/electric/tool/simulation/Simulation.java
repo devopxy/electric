@@ -875,8 +875,7 @@ public class Simulation extends Tool
 			if (numSignals <= 1) continue;
 
 			// found a bus of signals: create the bus for it
-			DigitalSignal busSig = new DigitalSignal(an);
-			busSig.setSignalName(prefix, sSig.getSignalContext());
+			DigitalSignal busSig = new DigitalSignal(an, prefix, sSig.getSignalContext());
 			busSig.buildBussedSignalList();
 			for(int k=i; k<j; k++)
 			{
@@ -2131,8 +2130,4 @@ public class Simulation extends Tool
     public static void setSpiceExtractedNetDelimiter(String s) { cacheSpiceExtractedNetDelimiter.setString(s); }
 	public static String getFactorySpiceExtractedNetDelimiter() { return cacheSpiceExtractedNetDelimiter.getStringFactoryValue(); }
 
-	private static Pref cachedUseLegacySimulationCode = Pref.makeBooleanPref("UseLegacySimulationCode", tool.prefs, false);
-	public static boolean isUseLegacySimulationCode() { return cachedUseLegacySimulationCode.getBoolean(); }
-	public static void setUseLegacySimulationCode(boolean b) { cachedUseLegacySimulationCode.setBoolean(b); }
-	public static boolean isFactoryUseLegacySimulationCode() { return cachedUseLegacySimulationCode.getBooleanFactoryValue(); }
 }
