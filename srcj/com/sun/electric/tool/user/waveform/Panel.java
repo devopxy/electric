@@ -33,7 +33,6 @@ import com.sun.electric.tool.Job;
 import com.sun.electric.tool.simulation.AnalogAnalysis;
 import com.sun.electric.tool.simulation.AnalogSignal;
 import com.sun.electric.tool.simulation.Analysis;
-import com.sun.electric.tool.simulation.BTreeSignal;
 import com.sun.electric.tool.simulation.DigitalAnalysis;
 import com.sun.electric.tool.simulation.DigitalSignal;
 import com.sun.electric.tool.simulation.Signal;
@@ -846,8 +845,8 @@ public class Panel extends JPanel
 		if (sSig instanceof AnalogSignal)
 		{
 			AnalogSignal as = (AnalogSignal)sSig;
-			double lowValue = as.getMinValue();
-			double highValue = as.getMaxValue();
+			double lowValue = as.getMinValue().getValue();
+			double highValue = as.getMaxValue().getValue();
 			double range = highValue - lowValue;
 			if (range == 0) range = 2;
 			double rangeExtra = range / 10;
@@ -1740,7 +1739,7 @@ public class Panel extends JPanel
 				// a simple digital signal
 				int lastx = vertAxisPos;
 				int lastState = 0;
-				if (ds.getStateVector() == null) continue;
+				//if (ds.getStateVector() == null) continue;
 				int numEvents = ds.getExactView().getNumEvents();
 				int lastLowy = 0, lastHighy = 0;
 				for(int i=0; i<numEvents; i++)

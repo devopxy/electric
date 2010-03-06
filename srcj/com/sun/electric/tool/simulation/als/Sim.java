@@ -28,6 +28,7 @@ package com.sun.electric.tool.simulation.als;
 
 import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.tool.simulation.DigitalSignal;
+import com.sun.electric.tool.simulation.DigitalSample;
 import com.sun.electric.tool.simulation.Signal;
 import com.sun.electric.tool.simulation.Simulation;
 import com.sun.electric.tool.simulation.Stimuli;
@@ -128,8 +129,9 @@ public class Sim
 			System.out.print("Simulating...");
 
 			// determine highest time to simulate
-			Rectangle2D bounds = als.an.getBounds();
-			double tMax = bounds.getMaxX();
+            double tMax = 0;
+            for(Signal sig : als.an.getSignals())
+                tMax = Math.max(tMax, sig.getMaxTime());
 			for(Iterator<Panel> it = als.ww.getPanels(); it.hasNext(); )
 			{
 				Panel wp = it.next();
@@ -169,15 +171,8 @@ public class Sim
 			int [] stateVector = new int[count+1];
 			timeVector[0] = 0;
 			stateVector[0] = Stimuli.LOGIC_LOW | Stimuli.OFF_STRENGTH;
-			int j=1;
 			for(ALS.Trak trakHead : trakHeads)
-			{
-				timeVector[j] = trakHead.time;
-				stateVector[j] = trakHead.state;
-				j++;
-			}
-			sig.setTimeVector(timeVector);
-			sig.setStateVector(stateVector);
+                sig.addSample(trakHead.time, DigitalSample.fromOldStyle(trakHead.state&Stimuli.LOGIC));
 			sigsChanged.add(sig);
 		}
 
@@ -186,12 +181,10 @@ public class Sim
 		stateVector[0] = 0;
 		double [] timeVector = new double[1];
 		timeVector[0] = 0;
-		for(Signal s : als.an.getSignals())
-		{
+		for(Signal s : als.an.getSignals()) {
 			DigitalSignal sig = (DigitalSignal)s;
 			if (sigsChanged.contains(sig)) continue;
-			sig.setTimeVector(timeVector);
-			sig.setStateVector(stateVector);
+            sig.reset();
 		}
 		
 		als.ww.repaint();
