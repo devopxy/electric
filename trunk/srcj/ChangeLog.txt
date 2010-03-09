@@ -4,6 +4,25 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.00b: ******************************
 
+IMP: (3/8/10, GVG) Add OD18ud15 Transitors to the 40nm tech (Bug #2680)
+
+IMP: (3/8/10, AM) Finish implementation of MinMaxOperation.
+
+IMP: (3/7/10, AM) Start using MinMaxOperation.
+
+IMP: (3/7/10, AM) Add skeleton for MinMaxOperation.
+
+IMP: (3/7/10, AM) Re-enable summary update on BTree.insert()
+
+IMP: (3/7/10, AM) Re-enable LeafNodeCursor.getSummary().
+
+IMP: (3/7/10, AM) BTree.java: let REPLACE specify the old value;
+     enables one-pass replacements.
+
+IMP: (3/7/10, AM) Add InvertibleOperation.
+
+IMP: (3/6/10, AM) DigitalSignal: add support for varying drive strength.
+
 ************************* Version 9.00a: ******************************
 
 IMP/MAN: (3/3/10, GVG) Ability to define exports per cell in Stitch fill gen (Bug #2677)
