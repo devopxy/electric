@@ -2,9 +2,9 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: UnboxedFunction.java
+ * File: Invertible.java
  *
- * Copyright (c) 2009 Sun Microsystems and Static Free Software
+ * Copyright (c) 2010 Sun Microsystems and Static Free Software
  *
  * Electric(tm) is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,15 +26,17 @@ package com.sun.electric.database.geometry.btree.unboxed;
 import java.io.*;
 
 /**
- *  A function from one Unboxed to another.
+ *  An invertible operation on unboxed values.
+ *
+ *  http://en.wikipedia.org/wiki/Group
  */
-public interface UnboxedFunction<A extends Serializable, B extends Serializable> {
+public interface InvertibleOperation<S extends Serializable>
+    extends Unboxed<S> {
 
     /**
-     *  The function <b>MUST</b> support situations where the argument
-     *  and return buffers overlap.
+     *  Compute (buf,ofs)^-1 and write it to (buf_dest,ofs_dest).
+     *  MUST support the case where (buf,ofs)==(buf_dest,ofs_dest).
      */
-    public void call(byte[] buf_arg, int ofs_arg,
-                     byte[] buf_result, int ofs_result);
-
+    public void invert(byte[] buf, int ofs,
+                       byte[] buf_dest, int ofs_dest);
 }
