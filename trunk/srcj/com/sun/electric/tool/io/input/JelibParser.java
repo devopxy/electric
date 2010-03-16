@@ -57,14 +57,19 @@ import com.sun.electric.tool.user.ErrorLogger;
 
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.LineNumberReader;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -157,7 +162,7 @@ public class JelibParser
     Version version;
     Variable[] libVars;
 
-    final LinkedHashMap<LibId,String> externalLibIds = new LinkedHashMap<LibId,String>();
+    public final LinkedHashMap<LibId,String> externalLibIds = new LinkedHashMap<LibId,String>();
 	final LinkedHashMap<CellId,Rectangle2D> externalCells = new LinkedHashMap<CellId,Rectangle2D>();
 	final LinkedHashMap<ExportId,EPoint> externalExports = new LinkedHashMap<ExportId,EPoint>();
     final LinkedHashMap<TechId,Variable[]> techIds = new LinkedHashMap<TechId,Variable[]>();

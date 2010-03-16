@@ -286,6 +286,9 @@ public class TextWindow implements WindowContent
         return wf.loadDefaultExplorerTree();
 	}
 
+    public void loadTechnologies() {
+    }
+
 	/**
 	 * Method to return the top-level JPanel for this TextWindow.
 	 * @return the top-level JPanel for this TextWindow.
