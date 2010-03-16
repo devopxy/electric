@@ -1621,6 +1621,9 @@ public class TextUtils {
      * @return the extension of the file ("" if none).
      */
     public static String getExtension(String fileName) {
+        if (fileName.endsWith("/")) { // to handle "XXX.delib/"
+            fileName = fileName.substring(0, fileName.length() - 1);
+        }
         int dotPos = fileName.lastIndexOf('.');
         if (dotPos < 0) {
             return "";
@@ -1671,11 +1674,11 @@ public class TextUtils {
     /**
      * Method to tell whether a given URL exists.
      * @param url the URL in question.
-     * @param errorMsg a string buffer in which to print any error message.
+     * @param errorMsg a string builder in which to print any error message.
      * If null, errors are not printed.
      * @return true if the file exists.
      */
-    public static boolean URLExists(URL url, StringBuffer errorMsg) {
+    public static boolean URLExists(URL url, StringBuilder errorMsg) {
         if (url == null) {
             return false;
         }

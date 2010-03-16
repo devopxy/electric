@@ -329,7 +329,6 @@ public class LibToTech
 	   			tcr.showError();
 				System.out.println("Failed to convert the library to a technology");
 	   		}
-			WindowFrame.updateTechnologyLists();
 		}
 	}
 
@@ -430,7 +429,14 @@ public class LibToTech
 				xap.name = aList[i].name;
 				arcs.add(xap);
 			}
-			gi.menuPalette = Xml.parseComponentMenuXMLTechEdit(compMenuXML, nodeGroups, arcs);
+			List<Xml.PrimitiveNode> pureLayerNodes = new ArrayList<Xml.PrimitiveNode>();
+			for(int i=0; i<lList.length; i++)
+			{
+	            Xml.PrimitiveNode pln = new Xml.PrimitiveNode();
+	            pln.name = "node-" + lList[i].name;
+	            pureLayerNodes.add(pln);
+			}
+			gi.menuPalette = Xml.parseComponentMenuXMLTechEdit(compMenuXML, nodeGroups, arcs, pureLayerNodes);
 		}
 
 		Xml.Technology t = makeXml(newTechName, gi, lList, nList, aList);
