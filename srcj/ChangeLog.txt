@@ -4,6 +4,21 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.00b: ******************************
 
+BUG: (3/18/10, GVG) NPE after re-exporting an ErrorLogger that contains invalid cells (Bug #2691)
+FIX: Detecting case when cellId is null. Adding stack trace in debug mode.
+
+IMP/MAN: (3/18/10, SMR) When pasting cell instances, should convert the view
+     so that layout instances become icons when pasting into a schematic cell
+     and icon instances become layout instances when pasting into a layout
+     cell (Bug #2381).
+FIX: Added new Node Preference to do this.  "Convert between schematic and
+     layout when pasting" is on by default.
+
+BUG: (3/18/10, DN) CIF/GDS output doesn't merge boxes (Bug #2689).
+FIX: In io.output.Geometry.Visitor.exitCell add "gMerge.postProcess(true);".
+
+IMP: (3/17/10, AM) Finish range query support.  Still a few bugs.
+
 BUG: (3/17/10, DN) "-client" option doesn't work.
 FIX: Add Main.InitClient Job.
 
