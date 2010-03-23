@@ -132,18 +132,9 @@ class LeafNodeCursor
         // This tacitly relies on the fact that Pair<A,B> lays the values out adjacently, and so
         // does the internal layout of a leaf node page.  Probably not such a great idea, but it
         // works for now.
-        bt.summarize.call(getBuf(), LEAF_HEADER_SIZE + LEAF_ENTRY_SIZE*bucket, buf, ofs);
+        bt.summary.call(getBuf(), LEAF_HEADER_SIZE + LEAF_ENTRY_SIZE*bucket, buf, ofs);
     }
 
     public K getKey(int bucket) { return bt.uk.deserialize(getBuf(), LEAF_HEADER_SIZE + LEAF_ENTRY_SIZE*bucket); }
 
-
-    private static byte[] hack = new byte[1000];
-    public void getSummaryAndMultiply(int idx, byte[] buf, int ofs) {
-        bt.summarize.call(getBuf(), LEAF_HEADER_SIZE + LEAF_ENTRY_SIZE*idx,
-                          hack, 0);
-        bt.mergeSummaries.multiply(buf, ofs,
-                                   hack, 0,
-                                   buf, ofs);
-    }
 }
