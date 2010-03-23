@@ -4,10 +4,36 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.00c: ******************************
 
+BUG: (3/22/10, DN) Copy crashes when from old schematic view (Bug #2694).
+FIX: In Snapshot.reuseSchemId allow null oldSchemEq in groups with many schematic cells.
+
+BUG: (3/22/10, AM) Implement SignalDifference(Signal,Signal) (Bug #2476)
+FIX: Add DerivedSignal.  See DebugMenuAdam for example code.
+
+IMP: (3/22/10, AM) Remove special-case handling of AnalogSignal in Panel.java
+
+BUG: (3/22/10, SMR) Crash when referenced library is missing (Bug #2693).
+FIX: In LibraryFiles.readExternalLibraryFromFilename() do not call
+     getOpenFileType() if the file is not valid.
+
+BUG: (3/22/10, SMR) Showing errors while editing down-in-place may shift
+     the window (Bug #2690).
+FIX: In UserInterfaceMain.reportLog() handle down-in-place transformation when
+     checking for error visibility.
+
+BUG: (3/22/10, SMR) Assertion error when primitive port does not connect (Bug #2692).
+FIX: Removed assertion in User.getArcNamesSorted().
+
 BUG: (3/21/10, DN) Project settings / external technology (Bug #2124, #2687).
 FIX: Move initialization of SoftTechnologies to Environment.implementSettingsChanges.
 
 ************************* Version 9.00b: ******************************
+
+IMP: (3/21/10, AM) Use monoid min/max code for waveform rendering.
+     See demo at http://www.youtube.com/watch?v=0-5h60nOOzQ
+
+IMP: (3/21/10, AM) Fixed many bugs in monoid summary code.  Appears to
+     work now.
 
 BUG: (3/18/10, GVG) NPE after re-exporting an ErrorLogger that contains invalid cells (Bug #2691)
 FIX: Detecting case when cellId is null. Adding stack trace in debug mode.

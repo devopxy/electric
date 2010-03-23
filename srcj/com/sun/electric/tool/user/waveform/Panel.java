@@ -1533,12 +1533,15 @@ public class Panel extends JPanel
 		Collection<WaveSignal> sigs = waveSignals.values();
 
 		int sigIndex = 0;
+        Color light = null;
 		for(WaveSignal ws : sigs)
 		{
 			if (g != null)
 			{
 				if (waveWindow.getPrintingMode() == 2) g.setColor(Color.BLACK); else
 					g.setColor(ws.getColor());
+                Color c = ws.getColor();
+                light = new Color(c.getRed(), c.getGreen(), c.getBlue(), 0x55);
 			}
 
 			if (forPs != null)
@@ -1558,17 +1561,20 @@ public class Panel extends JPanel
 				forPs.add(poly);
 			}
 			sigIndex++;
-			if (ws.getSignal() instanceof AnalogSignal)
-			{
+			if (!(ws.getSignal() instanceof DigitalSignal)) {
 				// draw analog trace
-				AnalogSignal as = (AnalogSignal)ws.getSignal();
-				AnalogAnalysis an = (AnalogAnalysis)as.getAnalysis();
+				Signal as = ws.getSignal();
+				Analysis an = as.getAnalysis();
+                int s = 0;
+                /*
 				for (int s = 0, numSweeps = as.getNumSweeps(); s < numSweeps; s++)
 				{
 					boolean included = waveWindow.isSweepSignalIncluded(an, s);
 					if (!included)
 						continue;
 					Signal wave = as.getWaveform(s);
+                */
+                Signal wave = (as instanceof AnalogSignal) ? ((AnalogSignal)as).getWaveform(0) : as;
                     Signal.View<RangeSample<ScalarSample>> waveform =
                         ((Signal<ScalarSample>)wave).getRasterView(convertXScreenToData(0),
                                                                    convertXScreenToData(sz.width),
@@ -1581,8 +1587,11 @@ public class Panel extends JPanel
 					for(int i=0; i<numEvents; i++)
 					{
                         int x = convertXDataToScreen(waveform.getTime(i));
-                        int lowY = convertYDataToScreen(waveform.getSample(i).getMin().getValue());
-                        int highY = convertYDataToScreen(waveform.getSample(i).getMax().getValue());
+                        RangeSample<ScalarSample> samp =
+                            (RangeSample<ScalarSample>)waveform.getSample(i);
+                        if (samp==null) continue;
+                        int lowY = convertYDataToScreen(samp.getMin().getValue());
+                        int highY = convertYDataToScreen(samp.getMax().getValue());
 						if (xWaveform != null)
 						{
 							x = convertXDataToScreen(((ScalarSample)xWaveform.getExactView().getSample(i)).getValue());
@@ -1594,13 +1603,17 @@ public class Panel extends JPanel
 	                        if (i != 0)
 	                        {
                         		// drawing has lines
-	                            if (processALine(g, lastX, lastLY, x, lowY, bounds, forPs, selectedObjects, ws, s)) break;
 	                            if (lastLY != lastHY || lowY != highY)
 	                            {
+                                    if (g!=null) g.setColor(light);
+	        						if (processALine(g, lastX, lastHY, lastX, lastLY, bounds, forPs, selectedObjects, ws, s)) break;
+	        						if (processALine(g, x, highY, x, lowY, bounds, forPs, selectedObjects, ws, s)) break;
+                                    if (g!=null) g.setColor(ws.getColor());
 	        						if (processALine(g, lastX, lastHY, x, highY, bounds, forPs, selectedObjects, ws, s)) break;
-	        						if (processALine(g, lastX, lastHY, x, lowY, bounds, forPs, selectedObjects, ws, s)) break;
-	        						if (processALine(g, lastX, lastLY, x, highY, bounds, forPs, selectedObjects, ws, s)) break;
+	        						//if (processALine(g, lastX, lastHY, x, lowY, bounds, forPs, selectedObjects, ws, s)) break;
+	        						//if (processALine(g, lastX, lastLY, x, highY, bounds, forPs, selectedObjects, ws, s)) break;
 	                            }
+	                            if (processALine(g, lastX, lastLY, x, lowY, bounds, forPs, selectedObjects, ws, s)) break;
 							}
 	                        if (an.extrapolateValues() && i == numEvents-1)
 	                    	{
@@ -1632,11 +1645,9 @@ public class Panel extends JPanel
                     com.sun.electric.tool.simulation.BTreeSignal.steps=0;
                     com.sun.electric.tool.simulation.BTreeSignal.numLookups=0;
                     */
-				}
+                    //}
 				continue;
-            }
-			if (ws.getSignal() instanceof DigitalSignal)
-			{
+            } else {
 				// draw digital traces
 				DigitalSignal ds = (DigitalSignal)ws.getSignal();
 				DigitalAnalysis an = (DigitalAnalysis)ds.getAnalysis();
