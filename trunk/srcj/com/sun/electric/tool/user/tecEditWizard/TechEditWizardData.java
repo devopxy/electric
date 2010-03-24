@@ -51,6 +51,8 @@ import java.util.*;
  */
 public class TechEditWizardData
 {
+    private static final boolean POLY_CONTACT_SAME_AS_DIFF_CONTACT = false;
+    
 	/************************************** THE DATA **************************************/
 
 	private String tech_name;
@@ -434,6 +436,13 @@ public class TechEditWizardData
 	{
 		stepsize = 100;
         num_metal_layers = 2;
+        allocateVariables();
+    }
+    
+    private void allocateVariables()
+    {
+    	// Garbage collector will deal with previouly allocated variables.
+    	// Not worth it to clear them
 		metal_width = new WizardField[num_metal_layers];
 		metal_spacing = new WizardField[num_metal_layers];
 		via_size = new WizardField[num_metal_layers-1];
@@ -750,6 +759,9 @@ public class TechEditWizardData
     {
         URL url = TextUtils.makeURLToFile(fileName);
 
+        // clean containers before reading the next txt file
+        allocateVariables();
+        
         try
 		{
 			URLConnection urlCon = url.openConnection();
@@ -3353,12 +3365,18 @@ public class TechEditWizardData
         // only for standard cases when getExtraInfoFlag() is false
         if (!isComplexCase())
         {
-            if (via_overhang.length > 0)
+            if (POLY_CONTACT_SAME_AS_DIFF_CONTACT) {
                 polyGroup.addElement(makeContactSeries(t.nodeGroups, polyLayer.name, contSize, polyConLayer, contSpacing, contArraySpacing,
                         scaledValue(contact_poly_overhang.value), polyLayer,
-                        scaledValue(via_overhang[0].value), m1Layer), null);
-            else
-                System.out.println("Not via 0 layer");
+                        scaledValue(contact_metal_overhang_all_sides.value), m1Layer), null);
+            } else {
+                if (via_overhang.length > 0)
+                    polyGroup.addElement(makeContactSeries(t.nodeGroups, polyLayer.name, contSize, polyConLayer, contSpacing, contArraySpacing,
+                            scaledValue(contact_poly_overhang.value), polyLayer,
+                            scaledValue(via_overhang[0].value), m1Layer), null);
+                else
+                    System.out.println("Not via 0 layer");
+            }
         }
 
         /**************************** N/P-Diff Nodes/Arcs/Group ***********************************************/
