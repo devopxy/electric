@@ -1,20 +1,24 @@
 package com.sun.electric.tool.generator.layout;
 
+import com.sun.electric.database.geometry.DBMath;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.util.HashMap;
 import java.util.Iterator;
 
 import com.sun.electric.database.hierarchy.Cell;
-import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.prototype.PortProto;
 import com.sun.electric.database.topology.NodeInst;
 import com.sun.electric.database.topology.PortInst;
 import com.sun.electric.database.variable.Variable;
 import com.sun.electric.technology.ArcProto;
+import com.sun.electric.technology.DRCTemplate;
+import com.sun.electric.technology.DRCTemplate.DRCRuleType;
+import com.sun.electric.technology.Layer;
 import com.sun.electric.technology.PrimitiveNode;
-import com.sun.electric.technology.SizeOffset;
+import com.sun.electric.technology.PrimitivePort;
 import com.sun.electric.technology.Technology;
+import com.sun.electric.technology.XMLRules;
 import com.sun.electric.tool.Job;
 
 /** The TechType class holds technology dependent information for the layout
@@ -44,6 +48,56 @@ public abstract class TechType implements Serializable {
         @Override
         public int hashCode() {return arc1.hashCode()*arc2.hashCode();}
     }
+
+    private class Transistor {
+        private final PrimitiveNode pn;
+        private PrimitivePort topPoly, bottomPoly, leftDiff, rightDiff;
+
+        private Transistor(PrimitiveNode pn) {
+            this.pn = pn;
+            Technology.NodeLayer nmos_gate = findNodeLayer(pn, lgate);
+            if (nmos_gate == null) {
+                nmos_gate = findNodeLayer(pn, lp1);
+            }
+            boolean rotate = nmos_gate.getTopEdge().getGridAdder() - nmos_gate.getBottomEdge().getGridAdder() <
+                    nmos_gate.getRightEdge().getGridAdder() - nmos_gate.getLeftEdge().getGridAdder();
+            for (Iterator<PrimitivePort> it = pn.getPrimitivePorts(); it.hasNext(); ) {
+                PrimitivePort pp = it.next();
+                if (pp.getConnection().getFunction().isPoly()) {
+                    if (rotate) {
+                        if (pp.getRight().getGridAdder() > 0) {
+                            topPoly = pp;
+                        }  else {
+                            bottomPoly = pp;
+                        }
+                    } else {
+                        if (pp.getBottom().getGridAdder() > 0) {
+                            topPoly = pp;
+                        }  else {
+                            bottomPoly = pp;
+                        }
+                    }
+                } else if (pp.getConnection().getFunction().isDiffusion()) {
+                    if (rotate) {
+                        if (pp.getTop().getGridAdder() > 0) {
+                            leftDiff = pp;
+                        }  else {
+                            rightDiff = pp;
+                        }
+                    } else {
+                        if (pp.getRight().getGridAdder() > 0) {
+                            rightDiff = pp;
+                        }  else {
+                            leftDiff = pp;
+                        }
+                    }
+
+                }
+            }
+            assert topPoly != null && bottomPoly != null && leftDiff != null && rightDiff != null;
+        }
+    }
+
 	//----------------------------- public data ----------------------------------
 	private static final Variable.Key ATTR_X = Variable.newKey("ATTR_X");
 	private static final Variable.Key ATTR_S = Variable.newKey("ATTR_S");
@@ -52,13 +106,17 @@ public abstract class TechType implements Serializable {
 
     private final Technology generic = Technology.findTechnology("generic");
     private final Technology technology;
+    private final XMLRules drcRules;
     private final PrimitiveNode essentialBounds =
         generic.findNodeProto("Essential-Bounds");
     private final PrimitiveNode facetCenter =
         generic.findNodeProto("Facet-Center");
 
     private final int nbLay;
-    private final ArcProto[] layers;
+    private Layer lgate;
+    private final Layer lp1;
+    private final Layer[] lmets;
+    private final ArcProto[] arcs;
     private final PrimitiveNode[] vias;
     private final HashMap<ArcPair,PrimitiveNode> viaMap = new HashMap<ArcPair,PrimitiveNode>();
 
@@ -83,7 +141,8 @@ public abstract class TechType implements Serializable {
         m1m2, m2m3, m3m4, m4m5, m5m6, m6m7, m7m8, m8m9;
 
     /** Transistors */
-    private final PrimitiveNode nmos, pmos, nmos18, pmos18, nmos25, pmos25,
+    private final boolean rotateTransistors;
+    private final Transistor nmos, pmos, nmos18, pmos18, nmos25, pmos25,
         nmos33, pmos33;
     // nvth, pvth, nvtl, pvtl, nnat, pnat;
 
@@ -92,14 +151,14 @@ public abstract class TechType implements Serializable {
         pmos25contact, nmos33contact, pmos33contact;
 
     /** Pure layer nodes for Well and Select */
-    private final PrimitiveNode nwell, pwell;
+    private final PrimitiveNode nwellNode, pwellNode;
 
     /** Layer nodes are sometimes used to patch notches */
     private final PrimitiveNode m1Node, m2Node, m3Node, m4Node, m5Node, m6Node,
         m7Node, m8Node, m9Node, p1Node, pdNode, ndNode, pselNode, nselNode;
 
     /** Transistor layer nodes */
-    private final PrimitiveNode od18, od25, od33, vth, vtl;
+    private final PrimitiveNode od18Node, od25Node, od33Node, vthNode, vtlNode;
 
     //-------------------- Technology dependent dimensions  -------------------
     protected double
@@ -127,8 +186,12 @@ public abstract class TechType implements Serializable {
         gateToGateSpace,
         gateToDiffContSpace,
         gateToDiffContSpaceDogBone,
+        selectSurroundDiffInWellContact,	// select surround in well contacts
         selectSurroundDiffInActiveContact,	// select surround in active contacts
         m1MinArea, 							// min area rules, sq lambda
+        polyContWidth,                      // width of poly of min size poly contact
+        wellContWidth,                      // width of diff of min sized well contact
+        diffContWidth,                      // width of diff of min sized diff contact
         diffCont_m1Width,					// width of m1 of min sized diff contact  
         diffContIncr;						// when diff cont increases by diffContIncr,
                                             // we get an additional cut
@@ -137,9 +200,71 @@ public abstract class TechType implements Serializable {
     private static void error(boolean pred, String msg) {
         Job.error(pred, msg);
     }
-    private ArcProto getLayer(int n) {
-        return n>(layers.length-1) ? null : layers[n];
+    private Layer getMetalLayer(int l) {
+        return l <= lmets.length ? lmets[l-1] : null;
     }
+    private double getSpacing(Layer layer1, Layer layer2) {
+        return drcRules.getSpacingRule(layer1, null, layer2, null, false, -1, -1.0, -1.0).getValue(0);
+    }
+    private ArcProto getArc(int n) {
+        return n>(arcs.length-1) ? null : arcs[n];
+    }
+    private ArcProto findArc(Layer... layers) {
+        for (Iterator<ArcProto> it = technology.getArcs(); it.hasNext(); ) {
+            ArcProto ap = it.next();
+            boolean allLayersFound = true;
+            for (Layer layer: layers) {
+                if (ap.indexOf(layer) < 0) {
+                    allLayersFound = false;
+                }
+            }
+            if (allLayersFound) {
+                return ap;
+            }
+        }
+        return null;
+    }
+//    private double getArcLayerGridExtend(ArcProto ap, Layer layer1, Layer layer2) {
+//        if (ap == null) {
+//            return Double.NaN;
+//        }
+//        int arcIndex1 = ap.indexOf(layer1);
+//        int arcIndex2 = ap.indexOf(layer2);
+//        if (arcIndex1 < 0 || arcIndex2 < 0) {
+//            return Double.NaN;
+//        }
+//        return DBMath.gridToLambda((ap.getLayerGridExtend(arcIndex1) - ap.getLayerGridExtend(arcIndex2)));
+//    }
+    private PrimitiveNode findPureNode(Layer layer) {
+        return layer != null ? layer.getPureLayerNode() : null;
+    }
+
+    private Technology.NodeLayer findNodeLayer(PrimitiveNode pn, Layer l) {
+        if (pn == null) {
+            return null;
+        }
+        Technology.NodeLayer[] nls = pn.getNodeLayers();
+        for (Technology.NodeLayer nl: nls) {
+            if (nl.getLayer() == l) {
+                return nl;
+            }
+        }
+        return null;
+    }
+
+    private Technology.NodeLayer findMulticut(PrimitiveNode pn) {
+        if (pn == null) {
+            return null;
+        }
+        Technology.NodeLayer[] nls = pn.getNodeLayers();
+        for (Technology.NodeLayer nl: nls) {
+            if (nl.getRepresentation() == Technology.NodeLayer.MULTICUTBOX) {
+                return nl;
+            }
+        }
+        return null;
+    }
+
     private PrimitiveNode getVia(int n) {
         return n>(vias.length-1) ? null : vias[n];
     }
@@ -147,9 +272,8 @@ public abstract class TechType implements Serializable {
      * get the PrimitiveNode of a particular type that connects to the
      * complete set of wires given
      */
-    private PrimitiveNode findNode(PrimitiveNode.Function type,
-                                   ArcProto[] arcs, Technology tech) {
-        for (Iterator<PrimitiveNode> it=tech.getNodes(); it.hasNext();) {
+    private PrimitiveNode findNode(PrimitiveNode.Function type, ArcProto... arcs) {
+        for (Iterator<PrimitiveNode> it=technology.getNodes(); it.hasNext();) {
             PrimitiveNode pn = it.next();
             boolean found = true;
             if (pn.getFunction() == type) {
@@ -163,6 +287,13 @@ public abstract class TechType implements Serializable {
             }
         }
         return null;
+    }
+    private Transistor findTransistor(PrimitiveNode.Function type) {
+        PrimitiveNode pn = findNode(type);
+        if (pn == null) {
+            return null;
+        }
+        return new Transistor(pn);
     }
 
     private PrimitiveNode findPin(ArcProto arc) {
@@ -191,56 +322,81 @@ public abstract class TechType implements Serializable {
         putViaMap(p1, m1, p1m1);
     }
 
-    protected TechType(Technology techy, String[] layerNms) {
+    protected TechType(Technology techy) {
         // This error could happen when there are XML errors while uploading the technologies.
         error((techy==null), "Null technology in TechType constructor");
         
         // I can't break this into subroutines because most data members are
         // final.
-        nbLay = layerNms.length;
+        lmets = new Layer[techy.getNumMetals()];
+        nbLay = 1 + lmets.length;
         technology = techy;
+        drcRules = technology.getFactoryDesignRules();
 
         //--------------------------- initialize layers -----------------------
-        layers = new ArcProto[nbLay];
-        for (int i=0; i<nbLay; i++) {
-            layers[i] = techy.findArcProto(layerNms[i]);
-            error(layers[i]==null, "No such layer: " + layerNms[i] + " in technology " + techy.getTechName());
+        arcs = new ArcProto[nbLay];
+        lp1 = techy.findLayerFromFunction(Layer.Function.POLY1, -1);
+        lgate = techy.findLayerFromFunction(Layer.Function.GATE, -1);
+        arcs[0] = findArc(lp1);
+        for (int i=1; i<nbLay; i++) {
+            Layer lm = techy.findLayerFromFunction(Layer.Function.getMetal(i), -1);
+            lmets[i - 1] = lm;
+            arcs[i] = findArc(lm);
+            error(arcs[i]==null, "No such arc: " + Layer.Function.getMetal(i) + " in technology " + techy.getTechName());
         }
-        p1 = getLayer(0);
-        m1 = getLayer(1);
-        m2 = getLayer(2);
-        m3 = getLayer(3);
-        m4 = getLayer(4);
-        m5 = getLayer(5);
-        m6 = getLayer(6);
-        m7 = getLayer(7);
-        m8 = getLayer(8);
-        m9 = getLayer(9);
+        Layer lnwell = techy.findLayerFromFunction(Layer.Function.WELLN, 0);
+        Layer lpwell = techy.findLayerFromFunction(Layer.Function.WELLP, 0);
+        Layer lnd = techy.findLayerFromFunction(Layer.Function.DIFFN, 0);
+        Layer lpd = techy.findLayerFromFunction(Layer.Function.DIFFP, 0);
+        Layer lnsel = techy.findLayerFromFunction(Layer.Function.IMPLANTN, 0);
+        Layer lpsel = techy.findLayerFromFunction(Layer.Function.IMPLANTP, 0);
+        Layer lod18 = techy.findLayer("OD18");
+        Layer lod25 = techy.findLayer("OD25");
+        Layer lod33 = techy.findLayer("OD33");
 
-        pdiff = techy.findArcProto("P-Active");
-        ndiff = techy.findArcProto("N-Active");
-        ndiff18 = techy.findArcProto("thick-OD18-N-Active");
-        pdiff18 = techy.findArcProto("thick-OD18-P-Active");
-        ndiff25 = techy.findArcProto("thick-OD25-N-Active");
-        pdiff25 = techy.findArcProto("thick-OD25-P-Active");
-        ndiff33 = techy.findArcProto("thick-OD33-N-Active");
-        pdiff33 = techy.findArcProto("thick-OD33-P-Active");
+        p1 = getArc(0);
+        m1 = getArc(1);
+        m2 = getArc(2);
+        m3 = getArc(3);
+        m4 = getArc(4);
+        m5 = getArc(5);
+        m6 = getArc(6);
+        m7 = getArc(7);
+        m8 = getArc(8);
+        m9 = getArc(9);
+
+        ndiff = findArc(lnd);
+        pdiff = findArc(lpd);
+        ndiff18 = findArc(lnd, lod18);
+        pdiff18 = findArc(lpd, lod18);
+        ndiff25 = findArc(lnd, lod25);
+        pdiff25 = findArc(lpd, lod25);
+        ndiff33 = findArc(lnd, lod33);
+        pdiff33 = findArc(lpd, lod33);
 
         // Layer Nodes
-        m1Node = techy.findNodeProto("Metal-1-Node");
-        m2Node = techy.findNodeProto("Metal-2-Node");
-        m3Node = techy.findNodeProto("Metal-3-Node");
-        m4Node = techy.findNodeProto("Metal-4-Node");
-        m5Node = techy.findNodeProto("Metal-5-Node");
-        m6Node = techy.findNodeProto("Metal-6-Node");
-        m7Node = techy.findNodeProto("Metal-7-Node");
-        m8Node = techy.findNodeProto("Metal-8-Node");
-        m9Node = techy.findNodeProto("Metal-9-Node");
-        p1Node = techy.findNodeProto("Polysilicon-1-Node");
-        pdNode = techy.findNodeProto("P-Active-Node");
-        ndNode = techy.findNodeProto("N-Active-Node");
-        nselNode = techy.findNodeProto("N-Select-Node");
-        pselNode = techy.findNodeProto("P-Select-Node");
+        nwellNode = findPureNode(lnwell);
+        pwellNode = findPureNode(lpwell);
+        m1Node = findPureNode(getMetalLayer(1));
+        m2Node = findPureNode(getMetalLayer(2));
+        m3Node = findPureNode(getMetalLayer(3));
+        m4Node = findPureNode(getMetalLayer(4));
+        m5Node = findPureNode(getMetalLayer(5));
+        m6Node = findPureNode(getMetalLayer(6));
+        m7Node = findPureNode(getMetalLayer(7));
+        m8Node = findPureNode(getMetalLayer(8));
+        m9Node = findPureNode(getMetalLayer(9));
+        p1Node = findPureNode(lp1);
+        pdNode = findPureNode(lpd);
+        ndNode = findPureNode(lnd);
+        nselNode = findPureNode(lnsel);
+        pselNode = findPureNode(lpsel);
+        // transistor layers
+        od18Node = findPureNode(lod18);
+        od25Node = findPureNode(lod25);
+        od33Node = findPureNode(lod33);
+        vthNode = null;
+        vtlNode = null;
 
         //--------------------------- initialize pins -------------------------
         pdpin = findPin(pdiff);
@@ -259,10 +415,8 @@ public abstract class TechType implements Serializable {
         //--------------------------- initialize vias -------------------------
         vias = new PrimitiveNode[nbLay - 1];
         for (int i = 0; i < nbLay - 1; i++) {
-            vias[i] = findNode(PrimitiveNode.Function.CONTACT,
-                               new ArcProto[] {layers[i], layers[i+1]},
-                               techy);
-            error(vias[i] == null, "No via for layer: " + layerNms[i]);
+            vias[i] = findNode(PrimitiveNode.Function.CONTACT, arcs[i], arcs[i+1]);
+            error(vias[i] == null, "No via for layer: " + arcs[i]);
         }
 
         p1m1 = getVia(0);
@@ -275,43 +429,97 @@ public abstract class TechType implements Serializable {
         m7m8 = getVia(7);
         m8m9 = getVia(8);
 
-        ndm1 = techy.findNodeProto("Metal-1-N-Active-Con");
-        pdm1 = techy.findNodeProto("Metal-1-P-Active-Con");
-        nwm1 = techy.findNodeProto("Metal-1-N-Well-Con");
-        pwm1 = techy.findNodeProto("Metal-1-P-Well-Con");
+        ndm1 = findNode(PrimitiveNode.Function.CONTACT, ndiff, arcs[1]);
+        pdm1 = findNode(PrimitiveNode.Function.CONTACT, pdiff, arcs[1]);
+        nwm1 = findNode(PrimitiveNode.Function.WELL, arcs[1]);//techy.findNodeProto("Metal-1-N-Well-Con");
+        pwm1 = findNode(PrimitiveNode.Function.SUBSTRATE, arcs[1]);//techy.findNodeProto("Metal-1-P-Well-Con");
         nwm1Y = techy.findNodeProto("Y-Metal-1-N-Well-Con");
         pwm1Y = techy.findNodeProto("Y-Metal-1-P-Well-Con");
 
         // initialize special threshold transistor contacts
-        nmos18contact = techy.findNodeProto("thick-OD18-Metal-1-N-Active-Con");
-        pmos18contact = techy.findNodeProto("thick-OD18-Metal-1-P-Active-Con");
-        nmos25contact = techy.findNodeProto("thick-OD25-Metal-1-N-Active-Con");
-        pmos25contact = techy.findNodeProto("thick-OD25-Metal-1-P-Active-Con");
-        nmos33contact = techy.findNodeProto("thick-OD33-Metal-1-N-Active-Con");
-        pmos33contact = techy.findNodeProto("thick-OD33-Metal-1-P-Active-Con");
+        nmos18contact = findNode(PrimitiveNode.Function.CONTACT, ndiff18, arcs[1]);
+        pmos18contact = findNode(PrimitiveNode.Function.CONTACT, pdiff18, arcs[1]);
+        nmos25contact = findNode(PrimitiveNode.Function.CONTACT, ndiff25, arcs[1]);
+        pmos25contact = findNode(PrimitiveNode.Function.CONTACT, pdiff25, arcs[1]);
+        nmos33contact = findNode(PrimitiveNode.Function.CONTACT, ndiff33, arcs[1]);
+        pmos33contact = findNode(PrimitiveNode.Function.CONTACT, pdiff33, arcs[1]);
 
         initViaMap();
 
         //------------------------ initialize transistors ---------------------
-        nmos = techy.findNodeProto("N-Transistor");
-        pmos = techy.findNodeProto("P-Transistor");
-        nmos18 = techy.findNodeProto("OD18-N-Transistor");
-        pmos18 = techy.findNodeProto("OD18-P-Transistor");
-        nmos25 = techy.findNodeProto("OD25-N-Transistor");
-        pmos25 = techy.findNodeProto("OD25-P-Transistor");
-        nmos33 = techy.findNodeProto("OD33-N-Transistor");
-        pmos33 = techy.findNodeProto("OD33-P-Transistor");
+        nmos = findTransistor(PrimitiveNode.Function.TRANMOS);//techy.findNodeProto("N-Transistor");
+        pmos = findTransistor(PrimitiveNode.Function.TRAPMOS);//techy.findNodeProto("P-Transistor");
+        nmos18 = findTransistor(PrimitiveNode.Function.TRANMOSHV1);//techy.findNodeProto("OD18-N-Transistor");
+        pmos18 = findTransistor(PrimitiveNode.Function.TRAPMOSHV1);//techy.findNodeProto("OD18-P-Transistor");
+        nmos25 = findTransistor(PrimitiveNode.Function.TRANMOSHV2);//techy.findNodeProto("OD25-N-Transistor");
+        pmos25 = findTransistor(PrimitiveNode.Function.TRAPMOSHV2);//techy.findNodeProto("OD25-P-Transistor");
+        nmos33 = findTransistor(PrimitiveNode.Function.TRANMOSHV3);//techy.findNodeProto("OD33-N-Transistor");
+        pmos33 = findTransistor(PrimitiveNode.Function.TRAPMOSHV3);//techy.findNodeProto("OD33-P-Transistor");
 
-        // transistor layers
-        od18 = techy.findNodeProto("OD18-Node");
-        od25 = techy.findNodeProto("OD25-Node");
-        od33 = techy.findNodeProto("OD33-Node");
-        vth = techy.findNodeProto("VTH-Node");
-        vtl = techy.findNodeProto("VTL-Node");
+        Technology.NodeLayer nmos_gate = findNodeLayer(nmos.pn, lgate);
+        if (nmos_gate == null) {
+            nmos_gate = findNodeLayer(nmos.pn, lp1);
+        }
+        Technology.NodeLayer nmos_nd = findNodeLayer(nmos.pn, lnd);
+        Technology.NodeLayer nmos_nsel = findNodeLayer(nmos.pn, lnsel);
+        rotateTransistors = nmos_gate.getTopEdge().getGridAdder() - nmos_gate.getBottomEdge().getGridAdder() <
+                nmos_gate.getRightEdge().getGridAdder() - nmos_gate.getLeftEdge().getGridAdder();
+        double diffExtendAlongMos;
+        if (rotateTransistors) {
+            p1Width = gateLength = DBMath.gridToLambda(nmos_gate.getTopEdge().getGridAdder() - nmos_gate.getBottomEdge().getGridAdder());
+            gateExtendPastMOS = DBMath.gridToLambda(nmos_gate.getRightEdge().getGridAdder() - nmos_nd.getRightEdge().getGridAdder());
+            diffExtendAlongMos = DBMath.gridToLambda(nmos_nd.getTopEdge().getGridAdder() - nmos_gate.getTopEdge().getGridAdder());
+            selectSurroundDiffInTrans = DBMath.gridToLambda(nmos_nsel.getTopEdge().getGridAdder() - nmos_nd.getTopEdge().getGridAdder());
+            selectSurroundDiffAlongGateInTrans = DBMath.gridToLambda(nmos_nsel.getRightEdge().getGridAdder() - nmos_nd.getRightEdge().getGridAdder());
+        } else {
+            p1Width = gateLength = DBMath.gridToLambda(nmos_gate.getRightEdge().getGridAdder() - nmos_gate.getLeftEdge().getGridAdder());
+            gateExtendPastMOS = DBMath.gridToLambda(nmos_gate.getTopEdge().getGridAdder() - nmos_nd.getTopEdge().getGridAdder());
+            diffExtendAlongMos = DBMath.gridToLambda(nmos_nd.getRightEdge().getGridAdder() - nmos_gate.getRightEdge().getGridAdder());
+            selectSurroundDiffInTrans = DBMath.gridToLambda(nmos_nsel.getRightEdge().getGridAdder() - nmos_nd.getRightEdge().getGridAdder());
+            selectSurroundDiffAlongGateInTrans = DBMath.gridToLambda(nmos_nsel.getTopEdge().getGridAdder() - nmos_nd.getTopEdge().getGridAdder());
+        }
 
-        //--------------------------- initialize well -------------------------
-        nwell = techy.findNodeProto("N-Well-Node");
-        pwell = techy.findNodeProto("P-Well-Node");
+        wellContWidth = Double.NaN;
+        selectSurroundDiffInWellContact = Double.NaN;
+        wellSurroundDiff = Double.NaN;
+        if (nwm1Y == null) {
+            Technology.NodeLayer nwm1_nwell = findNodeLayer(nwm1, lnwell);
+            Technology.NodeLayer nwm1_nsel = findNodeLayer(nwm1, lnsel);
+            Technology.NodeLayer nwm1_nd = findNodeLayer(nwm1, lnd);
+            if (nwm1_nwell != null && nwm1_nd != null) {
+                wellContWidth = DBMath.gridToLambda(nwm1_nd.getTopEdge().getGridAdder() - nwm1_nd.getBottomEdge().getGridAdder());
+                selectSurroundDiffInWellContact = DBMath.gridToLambda(nwm1_nsel.getTopEdge().getGridAdder() - nwm1_nd.getTopEdge().getGridAdder());
+                wellSurroundDiff = DBMath.gridToLambda(nwm1_nwell.getTopEdge().getGridAdder() - nwm1_nd.getTopEdge().getGridAdder());
+            }
+        }
+
+        p1ToP1Space = getSpacing(lp1, lp1);
+        gateToGateSpace = Math.max(getSpacing(lgate, lgate), diffExtendAlongMos);
+        selectSpace = getSpacing(lnsel, lnsel);
+        DRCTemplate m1MinAreaRule = drcRules.getMinValue(lmets[0], DRCRuleType.MINAREA);
+        m1MinArea = m1MinAreaRule != null ? m1MinAreaRule.getValue(0) : 0.0;
+
+        Technology.NodeLayer ndm1_nd = findNodeLayer(ndm1, lnd);
+        Technology.NodeLayer ndm1_nsel = findNodeLayer(ndm1, lnsel);
+        Technology.NodeLayer ndm1_m1 = findNodeLayer(ndm1, lmets[0]);
+        Technology.NodeLayer ndm1_multicut = findMulticut(ndm1);
+        diffContWidth = DBMath.gridToLambda(ndm1_nd.getRightEdge().getGridAdder() - ndm1_nd.getLeftEdge().getGridAdder());
+        diffCont_m1Width = DBMath.gridToLambda(ndm1_m1.getRightEdge().getGridAdder() - ndm1_m1.getLeftEdge().getGridAdder());
+        selectSurroundDiffInActiveContact = DBMath.gridToLambda(ndm1_nsel.getRightEdge().getGridAdder() - ndm1_nd.getRightEdge().getGridAdder());
+        diffContIncr = DBMath.gridToLambda(ndm1_multicut.getGridMulticutSizeX() + ndm1_multicut.getGridMulticutSep1D());
+        if (drcRules.isAnySpacingRule(ndm1_multicut.getLayer(), lgate)) {
+            gateToDiffContSpace = gateToDiffContSpaceDogBone = DBMath.round(getSpacing(ndm1_multicut.getLayer(), lgate)
+                - 0.5*(diffContWidth - ndm1_multicut.getMulticutSizeX()));
+        } else {
+            gateToDiffContSpace = gateToDiffContSpaceDogBone = 0;
+        }
+
+        Technology.NodeLayer p1m1_p1 = findNodeLayer(p1m1, lp1);
+        polyContWidth = DBMath.gridToLambda(p1m1_p1.getRightEdge().getGridAdder() - p1m1_p1.getLeftEdge().getGridAdder());
+        offsetLShapePolyContact = DBMath.gridToLambda(p1m1_p1.getRightEdge().getGridAdder() - p1.getLayerGridExtend(lp1));
+        offsetTShapePolyContact = DBMath.gridToLambda(p1m1_p1.getRightEdge().getGridAdder() + p1.getLayerGridExtend(lp1));
+
+        selectSurround = Double.NaN;
     }
 
     //---------------------------- public classes -----------------------------
@@ -323,18 +531,18 @@ public abstract class TechType implements Serializable {
         private static void error(boolean pred, String msg) {
             Job.error(pred, msg);
         }
-        private MosInst(char np, double x, double y, double xSize, double ySize,
-                        double angle,
-                        String leftDiff, String rightDiff,
-                        String topPoly, String botPoly,
-                        TechType tech,
-                        Cell parent) {
-            NodeProto npr = np=='n' ? tech.nmos() : tech.pmos();
-            this.leftDiff = leftDiff;
-            this.rightDiff = rightDiff;
-            this.topPoly = topPoly;
-            this.botPoly = botPoly;
-            mos = LayoutLib.newNodeInst(npr, x, y, xSize, ySize, angle, parent);
+        private MosInst(char np, double x, double y, double width, double length,
+                        TechType tech, Cell parent) {
+            Transistor t = np=='n' ? tech.nmos : tech.pmos;
+            this.leftDiff = t.leftDiff.getName();
+            this.rightDiff = t.rightDiff.getName();
+            this.topPoly = t.topPoly.getName();
+            this.botPoly = t.bottomPoly.getName();
+            if (tech.rotateTransistors) {
+                mos = LayoutLib.newNodeInst(t.pn, x, y, width, length, 90, parent);
+            } else {
+                mos = LayoutLib.newNodeInst(t.pn, x, y, length, width, 0, parent);
+            }
         }
         private PortInst getPort(String portNm) {
             PortInst pi = mos.findPortInst(portNm);
@@ -345,33 +553,6 @@ public abstract class TechType implements Serializable {
         public PortInst rightDiff() {return getPort(rightDiff);}
         public PortInst topPoly() {return getPort(topPoly);}
         public PortInst botPoly() {return getPort(botPoly);}
-
-        public static class MosInstV extends MosInst {
-            public MosInstV(char np, double x, double y, double w, double l,
-            		        TechType tech, Cell parent) {
-                super(np, x, y, l, w, 0,
-                      "diff-left", "diff-right", "poly-top", "poly-bottom",
-                      tech, parent);
-            }
-        }
-        public static class MosInstH extends MosInst {
-            public MosInstH(char np, double x, double y, double w, double l,
-                            TechType tech, Cell parent) {
-                super(np, x, y, w, l, 90,
-                      np+"-trans-diff-top", np+"-trans-diff-bottom",
-                      np+"-trans-poly-right", np+"-trans-poly-left",
-                      tech, parent);
-            }
-        }
-        public static class MosInstH1 extends MosInst {
-            public MosInstH1(char np, double x, double y, double w, double l,
-                            TechType tech, Cell parent) {
-                super(np, x, y, w, l, 90,
-                      "diff-top", "diff-bottom",
-                      "poly-right", "poly-left",
-                      tech, parent);
-            }
-        }
     }
 
     //------------------------------ public data ------------------------------
@@ -384,8 +565,9 @@ public abstract class TechType implements Serializable {
         } else if (technology == Technology.getCMOS90Technology()) {
             return getCMOS90();
         } else {
-            System.out.println("Invalid TechTypeEnum");
-            throw new AssertionError();
+            return new TechTypeWizard(technology);
+//            System.out.println("Invalid TechTypeEnum");
+//            throw new AssertionError();
         }
     }
 
@@ -432,7 +614,7 @@ public abstract class TechType implements Serializable {
 
     //----------------------------- public methods ----------------------------
 
-    public abstract int getNumMetals();
+    public int getNumMetals() { return lmets.length; }
     public Technology getTechnology() {return technology;}
 
     /** layers */
@@ -487,14 +669,14 @@ public abstract class TechType implements Serializable {
     public PrimitiveNode m8m9() {return m8m9;}
 
     /** Transistors */
-    public PrimitiveNode nmos() {return nmos;}
-    public PrimitiveNode pmos() {return pmos;}
-    public PrimitiveNode nmos18() {return nmos18;}
-    public PrimitiveNode pmos18() {return pmos18;}
-    public PrimitiveNode nmos25() {return nmos25;}
-    public PrimitiveNode pmos25() {return pmos25;}
-    public PrimitiveNode nmos33() {return nmos33;}
-    public PrimitiveNode pmos33() {return pmos33;}
+    public PrimitiveNode nmos() {return nmos != null ? nmos.pn : null;}
+    public PrimitiveNode pmos() {return pmos != null ? pmos.pn : null;}
+    public PrimitiveNode nmos18() {return nmos18 != null ? nmos18.pn : null;}
+    public PrimitiveNode pmos18() {return pmos18 != null ? pmos18.pn : null;}
+    public PrimitiveNode nmos25() {return nmos25 != null ? nmos25.pn : null;}
+    public PrimitiveNode pmos25() {return pmos25 != null ? pmos25.pn : null;}
+    public PrimitiveNode nmos33() {return nmos33 != null ? nmos33.pn : null;}
+    public PrimitiveNode pmos33() {return pmos33 != null ? pmos33.pn : null;}
 
     /** special threshold transistor contacts */
     public PrimitiveNode nmos18contact() {return nmos18contact;}
@@ -505,8 +687,8 @@ public abstract class TechType implements Serializable {
     public PrimitiveNode pmos33contact() {return pmos33contact;}
 
     /** Well */
-    public PrimitiveNode nwell() {return nwell;}
-    public PrimitiveNode pwell() {return pwell;}
+    public PrimitiveNode nwell() {return nwellNode;}
+    public PrimitiveNode pwell() {return pwellNode;}
 
     /** Layer nodes are sometimes used to patch notches */
     public PrimitiveNode m1Node() {return m1Node;}
@@ -525,11 +707,11 @@ public abstract class TechType implements Serializable {
     public PrimitiveNode nselNode() {return nselNode;}
 
     /** Transistor layer nodes */
-    public PrimitiveNode od18() {return od18;}
-    public PrimitiveNode od25() {return od25;}
-    public PrimitiveNode od33() {return od33;}
-    public PrimitiveNode vth() {return vth;}
-    public PrimitiveNode vtl() {return vtl;}
+    public PrimitiveNode od18() {return od18Node;}
+    public PrimitiveNode od25() {return od25Node;}
+    public PrimitiveNode od33() {return od33Node;}
+    public PrimitiveNode vth() {return vthNode;}
+    public PrimitiveNode vtl() {return vtlNode;}
 
     /** Essential-Bounds */
     public PrimitiveNode essentialBounds() {return essentialBounds;}
@@ -543,7 +725,7 @@ public abstract class TechType implements Serializable {
 
     public int layerHeight(ArcProto p) {
         for (int i = 0; i < nbLay; i++) {
-            if (layers[i] == p)
+            if (arcs[i] == p)
                 return i;
         }
         error(true, "Can't find layer: " + p);
@@ -571,26 +753,32 @@ public abstract class TechType implements Serializable {
     }
     
     public ArcProto highestLayer(PortProto port) {
-    	for (int h=layers.length-1; h>=0; h--) {
-    		if (port.connectsTo(layers[h])) return layers[h];
+    	for (int h=arcs.length-1; h>=0; h--) {
+    		if (port.connectsTo(arcs[h])) return arcs[h];
     	}
     	error(true, "port can't connect to any layer?!!");
     	return null;
     }
     
-    public ArcProto layerAtHeight(int layHeight) {return layers[layHeight];	}
+    public ArcProto layerAtHeight(int layHeight) {return arcs[layHeight];	}
 
     public PrimitiveNode viaAbove(int layHeight) {return vias[layHeight];}
 
     public PrimitiveNode viaBelow(int layHeight) {return vias[layHeight - 1];}
 
     /** round to avoid MOCMOS CIF resolution errors */
-    public abstract double roundToGrid(double x);
+    public double roundToGrid(double x) {
+        return x;
+    }
 
-    public abstract MosInst newNmosInst(double x, double y,
-                                        double w, double l, Cell parent);
-    public abstract MosInst newPmosInst(double x, double y,
-                                        double w, double l, Cell parent);
+	public MosInst newNmosInst(double x, double y,
+							   double w, double l, Cell parent) {
+		return new MosInst('n', x, y, w, l, this, parent);
+	}
+	public MosInst newPmosInst(double x, double y,
+							   double w, double l, Cell parent) {
+		return new MosInst('p', x, y, w, l, this, parent);
+	}
     public abstract String name();
 
     public abstract double reservedToLambda(int layer, double nbTracks);
@@ -598,7 +786,7 @@ public abstract class TechType implements Serializable {
 	/** @return min width of Well */
 	public double getWellWidth() {return nwm1.getMinSizeRule().getWidth();}
 	/** @return amount that well surrounds diffusion */
-	public double getWellSurroundDiff() {return wellSurroundDiff;}
+	public double getWellSurroundDiffInWellContact() {return wellSurroundDiff;}
 	/** @return MOS edge to gate edge */
     public double getGateExtendPastMOS() {return gateExtendPastMOS;}
     /** @return min width of polysilicon 1 */
@@ -612,20 +800,24 @@ public abstract class TechType implements Serializable {
     /** @return min spacing between MOS gate and diffusion edge of diff contact
      * when the diffusion width is larger than the gate width */
     public double getGateToDiffContSpaceDogBone() {return gateToDiffContSpaceDogBone;}
+    /** @return min width of diffusion surrounding well contact */
+    public double getWellContWidth() { return wellContWidth; }
     /** @return min width of diffusion surrounding diff contact */
-    public double getDiffContWidth() {
-        SizeOffset so = ndm1().getProtoSizeOffset();
-        return (ndm1().getMinSizeRule().getHeight() - so.getHighYOffset() - so.getLowYOffset());
-    }
+    public double getDiffContWidth() { return diffContWidth; }
+//        SizeOffset so = ndm1().getProtoSizeOffset();
+//        return (ndm1().getMinSizeRule().getHeight() - so.getHighYOffset() - so.getLowYOffset());
+//    }
     /** @return min width of poly contact */
-    public double getP1M1Width() {
-        SizeOffset so = p1m1().getProtoSizeOffset();
-        return (p1m1().getMinSizeRule().getHeight() - so.getHighYOffset() - so.getLowYOffset());
-    }
+    public double getP1M1Width() { return polyContWidth; }
+//        SizeOffset so = p1m1().getProtoSizeOffset();
+//        return (p1m1().getMinSizeRule().getHeight() - so.getHighYOffset() - so.getLowYOffset());
+//    }
     /** @return gate length that depends on foundry */
     public double getGateLength() {return gateLength;}
     /** @return amount that select surrounds diffusion in well? */
-    public double selectSurroundDiffInActiveContact() {return selectSurroundDiffInActiveContact;}
+    public double selectSurroundDiffInWellContact() {return selectSurroundDiffInWellContact;}
+    /** @return amount that select surrounds diffusion in well? */
+    public double selectSurroundDiffInDiffContact() {return selectSurroundDiffInActiveContact;}
     /** @return amount that Select surrounds MOS, along gate width dimension */
     public double selectSurroundDiffAlongGateInTrans() {return selectSurroundDiffAlongGateInTrans;}
     /** @return y offset of poly arc connecting poly contact and gate in a L-Shape case */
