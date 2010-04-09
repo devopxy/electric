@@ -24,15 +24,19 @@
 package com.sun.electric.tool.user.ui;
 
 import com.sun.electric.database.geometry.Dimension2D;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.hierarchy.Cell;
+import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.technology.Technology;
 import com.sun.electric.tool.Client;
 import com.sun.electric.tool.user.Highlight;
 import com.sun.electric.tool.user.Highlighter;
+import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.waveform.Panel;
 import com.sun.electric.tool.user.waveform.WaveformWindow;
 
+import java.awt.AWTException;
+import java.awt.Point;
+import java.awt.Robot;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
@@ -199,6 +203,7 @@ public class MeasureListener implements MouseListener, MouseMotionListener, Mous
 
 	public void mouseDragged(MouseEvent evt)
 	{
+		gridMouse(evt);
 		boolean ctrl = (evt.getModifiersEx() & MouseEvent.CTRL_DOWN_MASK) != 0;
 
 		if (evt.getSource() instanceof EditWindow)
@@ -216,9 +221,35 @@ public class MeasureListener implements MouseListener, MouseMotionListener, Mous
 		}
 	}
 
+	int gridOffX = 0, gridOffY = 0;
+
 	public void mouseMoved(MouseEvent evt)
 	{
 		mouseDragged(evt);
+	}
+	
+	private void gridMouse(MouseEvent evt)
+	{
+		// snap the cursor to the grid
+		if (User.isGridAlignMeasurementCursor() && evt.getSource() instanceof EditWindow)
+		{
+			EditWindow wnd = (EditWindow)evt.getSource();
+	        int mouseX = evt.getX() + gridOffX;
+	        int mouseY = evt.getY() + gridOffY;
+	        Point2D dbMouse = wnd.screenToDatabase(mouseX, mouseY);
+	        Point2D align = new Point2D.Double(dbMouse.getX(), dbMouse.getY());
+			EditWindow.gridAlign(align);
+			Point newPos = wnd.databaseToScreen(align);
+			try {
+				Robot r = new Robot();
+				Point offset = wnd.getLocationOnScreen();
+System.out.println("MOVING MOUSE FROM ("+evt.getX()+","+evt.getY()+") TO ("+newPos.x+","+newPos.y+") WITH WINDOW OFFSET ("+
+	offset.x+","+offset.y+")");
+				r.mouseMove(offset.x+newPos.x, offset.y+newPos.y);
+				gridOffX = mouseX - newPos.x;
+				gridOffY = mouseY - newPos.y;
+			} catch(AWTException e) {}
+		}
 	}
 
 	public void mouseClicked(MouseEvent evt) {}
