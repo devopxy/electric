@@ -309,10 +309,14 @@ public class Verilog extends Topology
         // do not netlist contents of standard cells
         // also, if writing a standard cell netlist, ignore all verilog views, verilog templates, etc.
         if (localPrefs.stopAtStandardCells) {
-            if (localPrefs.netlistNonstandardCells || standardCells.containsStandardCell(cell)) {
-                return false;
-            } else {
+            if (SCLibraryGen.isStandardCell(cell))
                 return true;
+
+            if (!localPrefs.netlistNonstandardCells) {
+                if (standardCells.containsStandardCell(cell))
+                    return false;
+                else
+                    return true;
             }
         }
 
@@ -833,7 +837,7 @@ public class Verilog extends Topology
 		}
 
 		// add in any user-specified declarations and code
-        if (!localPrefs.stopAtStandardCells) {
+        if (!localPrefs.stopAtStandardCells || localPrefs.netlistNonstandardCells) {
             // STA does not like general verilog code (like and #delay out ina inb etc)
             first = includeTypedCode(cell, VERILOG_DECLARATION_KEY, "declarations");
 		    first |= includeTypedCode(cell, VERILOG_CODE_KEY, "code");
