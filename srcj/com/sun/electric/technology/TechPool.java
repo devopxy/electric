@@ -55,6 +55,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -292,14 +293,31 @@ public class TechPool extends AbstractMap<TechId, Technology> {
         assert generic != null;
         Map<TechFactory.Param,Object> emptyParams = Collections.emptyMap();
         TechPool newTechPool = this;
+        Set<String> softTechNames = new HashSet<String>();
         for(String softTechFile: softTechnologies.split(";")) {
 			if (softTechFile.length() == 0) continue;
         	URL url = TextUtils.makeURLToFile(softTechFile);
         	if (TextUtils.URLExists(url))
         	{
-	        	String softTechName = TextUtils.getFileNameWithoutExtension(url);
+//	        	String softTechName = TextUtils.getFileNameWithoutExtension(url);
                 TechFactory techFactory = TechFactory.fromXml(url, null);
                 Technology tech = techFactory.newInstance(generic, emptyParams);
+
+                // make sure the name is unique . Tech is null if there is a pre-defined xml tech with
+                // the same nanme like mocmos.
+                if (tech == null)
+                {
+                    System.out.println("ERROR: Same name as a pre-defined technology. Ignoring new definition of " + softTechFile);
+                	continue;
+                }
+                else if (softTechNames.contains(tech.getTechName()))
+                {
+                	System.out.println("ERROR: Multiple added technologies named '" + tech.getTechName() +
+                		"'.  Ignoring " + softTechFile);
+                	continue;
+                }
+                softTechNames.add(tech.getTechName());
+
                 if (tech != null)
                     newTechPool = newTechPool.withTech(tech);
         	} else
