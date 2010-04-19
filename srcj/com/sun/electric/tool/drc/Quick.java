@@ -3721,10 +3721,10 @@ public class Quick
 
             // Enough with checking if the transistor active covers 100% the union region
 //            boolean newStrategy = nodeBounds.contains(bounds);
-          
+
             double cX = nodeBounds.getCenterX();
             double cY = nodeBounds.getCenterY();
-            
+
 //            if (Job.getDebug())
 //            {
 //                boolean oldS = !((cX < bounds.getMinX() || cX > bounds.getMaxX() ||
