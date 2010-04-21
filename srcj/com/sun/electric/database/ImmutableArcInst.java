@@ -331,8 +331,20 @@ public class ImmutableArcInst extends ImmutableElectricObject {
      * Method to return the rotation angle of this ImmutableArcInst.
      * This is an angle of direction from tailLocation to headLocation.
      * @return the rotation angle of this ImmutableArcInst (in tenth-degrees).
+     * Undefined-angle arcs return -1;
      */
     public int getAngle() {
+        return angle;
+    }
+
+    /**
+     * Method to return the rotation angle of this ImmutableArcInst.
+     * This is an angle of direction from tailLocation to headLocation.
+     * @return the rotation angle of this ImmutableArcInst (in tenth-degrees).
+     * Undefined-angle arcs return 0;
+     */
+    public int getDefinedAngle() {
+    	if (angle == -1) return 0;
         return angle;
     }
 
@@ -594,13 +606,16 @@ public class ImmutableArcInst extends ImmutableElectricObject {
         int intGridExtendOverMin = (int) gridExtendOverMin;
 
         // the value -1 indicates an undefined angle
-        if (angle != -1)
-        {
-	        angle %= 3600;
-	        if (angle < 0) {
-	            angle += 3600;
-	        }
+        if (angle < -1 || angle >= 3600) {
+            throw new IllegalArgumentException("angle");
         }
+//        if (angle != -1)
+//        {
+//	        angle %= 3600;
+//	        if (angle < 0) {
+//	            angle += 3600;
+//	        }
+//        }
         short shortAngle = updateAngle((short) angle, tailLocation, headLocation);
         flags &= DATABASE_FLAGS;
         if (!(tailPortId instanceof PrimitivePortId)) {
@@ -711,10 +726,16 @@ public class ImmutableArcInst extends ImmutableElectricObject {
         if (!tailLocation.equals(headLocation)) {
             return this;
         }
-        angle %= 3600;
-        if (angle < 0) {
-            angle += 3600;
+        if (angle < -1 || angle >= 3600) {
+            throw new IllegalArgumentException("angle");
         }
+//        if (angle != -1)
+//        {
+//	        angle %= 3600;
+//	        if (angle < 0) {
+//	            angle += 3600;
+//	        }
+//        }
         if (this.angle == angle) {
             return this;
         }
