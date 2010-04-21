@@ -400,7 +400,6 @@ public class ImmutableArcInstTest {
 
         ImmutableArcInst a2 = ImmutableArcInst.newInstance(0, apId, nameA0, null, 0, ppId, n0.anchor, 0, ppId, n0.anchor, apExtend, -1, ImmutableArcInst.DEFAULT_FLAGS);
         a2.check();
-if (a2.getAngle() != -1) System.out.println("DEBUG! ZERO-LENGTH ARC ANGLE IS "+a2.getAngle());
         assertEquals(-1, a2.getAngle());
 
         ImmutableArcInst a3 = ImmutableArcInst.newInstance(0, apId, nameA0, null, 1, ppId, n1.anchor, 0, ppId, n0.anchor, apExtend, 0, ImmutableArcInst.DEFAULT_FLAGS);
@@ -713,8 +712,8 @@ if (a2.getAngle() != -1) System.out.println("DEBUG! ZERO-LENGTH ARC ANGLE IS "+a
 
         ImmutableArcInst a2 = a1.withAngle(-1);
         a2.check();
-        assertEquals(3599, a2.getAngle());
-        assertFalse(isEasyShape(a2));
+        assertEquals(-1, a2.getAngle());
+        assertTrue(isEasyShape(a2));
     }
 
     /**
