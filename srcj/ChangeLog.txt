@@ -4,6 +4,27 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.00e: ******************************
 
+IMP: (4/26/10, AM) Waveform viewer Panel no longer has a hardwired
+     analysis type (will accept a Signal from any Analysis).
+
+IMP: (4/26/10, JKG) Set netlist nonstandard cells to false for runSTA command.
+Changed verilogA option to false for STA runs when writing verilog netlist.
+
+BUG: (4/26/10, GVG) Exception when running STA (Bug #2738)
+FIX: Caching Verilog Preference in RunPrimeTime constructor now.
+
+BUG: (4/26/10, SMR) PostScript output does not handle background color (Bug #2735).
+FIX: In color mode, fill background color.
+
+BUG: (4/25/10, AM) Spice input crashes (Bug #2727)
+FIX: Remove special-purpose code in HSpiceOut, use general-purpose code
+     from BTreeSignal.
+
+IMP: (4/25/10, AM) AnalogSignal extends ScalarSignal.
+
+IMP: (4/25/10, AM) Allow null keys in getSummaryFromKeys() when one or
+     both ends of a range are unbounded.
+
 IMP/MAN: (4/19/10, SMR) Added Design Summary code contributed by GNU users.
      The command is "Cell|Cell Info|Summarize Cell Contents" (Bug #2734).
 
