@@ -58,6 +58,7 @@ import com.sun.electric.tool.simulation.DigitalSignal;
 import com.sun.electric.tool.simulation.Signal;
 import com.sun.electric.tool.simulation.Simulation;
 import com.sun.electric.tool.simulation.ScalarSample;
+import com.sun.electric.tool.simulation.ScalarSignal;
 import com.sun.electric.tool.simulation.Stimuli;
 import com.sun.electric.tool.user.ActivityLogger;
 import com.sun.electric.tool.user.HighlightListener;
@@ -1432,7 +1433,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		}
 
 		// create the new panel
-		Panel panel = new Panel(this, sd.isAnalog(), analysisType);
+		Panel panel = new Panel(this, sd.isAnalog());
 
 		// set the X and Y ranges
 		panel.setXAxisRange(leftEdge, rightEdge);
@@ -2481,7 +2482,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 					for(Iterator<Panel> pIt = getPanels(); pIt.hasNext(); )
 					{
 						Panel wp = pIt.next();
-						if (wp.getAnalysisType() != an.getAnalysisType()) continue;
+						//if (wp.getAnalysisType() != an.getAnalysisType()) continue;
 						for(WaveSignal ws : wp.getSignals())
 						{
 							if (ws.getSignal() != sSig) continue;
@@ -3425,7 +3426,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 			panelList.add(wp);
 		for(Panel wp : panelList)
 		{
-			Analysis<Signal> an = sd.findAnalysis(wp.getAnalysisType());
+			//Analysis<Signal> an = sd.findAnalysis(wp.getAnalysisType());
 			boolean redoPanel = false;
 
 			// adjust the panel's X axis signal (if it is not time)
@@ -3433,6 +3434,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 			{
 				String oldSigName = wp.getXAxisSignal().getFullName();
 				wp.setXAxisSignal(null);
+                /*
 				for(Signal newSs : an.getSignals())
 				{
 					String newSigName = newSs.getFullName();
@@ -3440,6 +3442,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 					wp.setXAxisSignal(newSs);
 					break;
 				}
+                */
 				if (wp.getXAxisSignal() == null)
 				{
 					System.out.println("Could not find X axis signal " + oldSigName + " in the new data");
@@ -3447,6 +3450,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 				}
 			}
 
+            /*
 			if (oldXAxisSignalAllName != null)
 			{
 				for(Signal newSs : an.getSignals())
@@ -3457,6 +3461,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 					break;
 				}
 			}
+            */
 
 			// adjust all signals inside the panel
 			for(WaveSignal ws : wp.getSignals())
@@ -3470,6 +3475,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 						DigitalSignal subDS = inBus.get(b);
 						String oldSigName = subDS.getFullName();
 						DigitalSignal newBus = null;
+                        /*
 						for(Signal newSs :  an.getSignals() )
 						{
 							String newSigName = newSs.getFullName();
@@ -3477,6 +3483,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 							newBus = (DigitalSignal)newSs;
 							break;
 						}
+                        */
 						if (newBus == null)
 						{
 							inBus.remove(b);
@@ -3492,6 +3499,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 					// single signal: find the name in the new list
 					String oldSigName = ss.getFullName();
 					ws.setSignal(null);
+                    /*
 					for(Signal newSs : an.getSignals())
 					{
 						String newSigName = newSs.getFullName();
@@ -3499,6 +3507,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 						ws.setSignal(newSs);
 						break;
 					}
+                    */
 					if (ws.getSignal() == null)
 					{
 						System.out.println("Could not find signal " + oldSigName + " in the new data");
@@ -3799,7 +3808,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 						// header
 						first = false;
 						String analysisName = "";
-						if (wp.getAnalysisType() != null) analysisName = " " + wp.getAnalysisType();
+						//if (wp.getAnalysisType() != null) analysisName = " " + wp.getAnalysisType();
 						String log = "";
 						if (wp.isPanelLogarithmicHorizontally()) log = " xlog";
 						if (wp.isPanelLogarithmicVertically()) log += " ylog";
@@ -3876,7 +3885,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 							}
 						}
 					}
-					curPanel = new Panel(ww, ww.getSimData().isAnalog(), analysisType);
+					curPanel = new Panel(ww, ww.getSimData().isAnalog());
 					if (xLog)
 					{
 						if (ww.isXAxisLocked()) ww.togglePanelXAxisLock();
@@ -3902,7 +3911,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 					if (curPanel == null) continue;
 					Stimuli sd = ww.getSimData();
 					Analysis an = sd.getAnalyses().next();
-					if (curPanel.getAnalysisType() != null) an = sd.findAnalysis(curPanel.getAnalysisType());
+					//if (curPanel.getAnalysisType() != null) an = sd.findAnalysis(curPanel.getAnalysisType());
 					if (an == null) continue;
 					Signal sig = an.findSignalForNetwork(keywords[1]);
 					if (sig == null) continue;
@@ -3915,7 +3924,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 					if (curPanel == null) continue;
 					Stimuli sd = ww.getSimData();
 					Analysis an = sd.getAnalyses().next();
-					if (curPanel.getAnalysisType() != null) an = sd.findAnalysis(curPanel.getAnalysisType());
+					//if (curPanel.getAnalysisType() != null) an = sd.findAnalysis(curPanel.getAnalysisType());
 					if (an == null) continue;
 					Signal sig = an.findSignalForNetwork(keywords[1]);
 					if (sig == null) continue;
@@ -3961,7 +3970,8 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 				if (first)
 				{
 					// header begins with a tab
-					sb.append("\t" + wp.getAnalysisType());
+					//sb.append("\t" + wp.getAnalysisType());
+					sb.append("\t");
 					Signal signalInX = xAxisSignalAll;
 					if (!xAxisLocked) signalInX = wp.getXAxisSignal();
 					first = false;
@@ -4161,7 +4171,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 					}
 				}
 			}
-			if (wp.getAnalysisType() != null && !removedSingleStimuli) deleteSignalFromPanel(wp);
+			if (/*wp.getAnalysisType() != null &&*/ !removedSingleStimuli) deleteSignalFromPanel(wp);
 			break;
 		}
 	}
@@ -4261,6 +4271,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 			{
 				if (!wp.isSelected()) continue;
 
+                /*
 				// when time is not locked, compute bounds for this panel only
 				Analysis an = sd.findAnalysis(wp.getAnalysisType());
 				leftEdge = an.getMinTime();
@@ -4270,32 +4281,27 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 					leftEdge = wp.getXAxisSignal().getMinTime();
 					rightEdge = wp.getXAxisSignal().getMaxTime();
 				}
+                */
 			}
 
-			Rectangle2D yBounds = null;
-			for(WaveSignal ws : wp.getSignals())
-			{
-				Rectangle2D sigBounds =
-                    ws.getSignal() instanceof DigitalSignal
-                    ? new Rectangle2D.Double(ws.getSignal().getMinTime(),
-                                             0,
-                                             ws.getSignal().getMaxTime()-ws.getSignal().getMinTime(),
-                                             1)
-                    : new Rectangle2D.Double(ws.getSignal().getMinTime(),
-                                             ((Signal<ScalarSample>)ws.getSignal()).getMinValue().getValue(),
-                                             ws.getSignal().getMaxTime()-ws.getSignal().getMinTime(),
-                                             ((Signal<ScalarSample>)ws.getSignal()).getMaxValue().getValue()-
-                                             ((Signal<ScalarSample>)ws.getSignal()).getMinValue().getValue());
-				if (yBounds == null) yBounds = sigBounds;
-                else Rectangle2D.union(yBounds, sigBounds, yBounds);
-			}
-			if (yBounds == null)
-			{
-				Analysis an = sd.findAnalysis(wp.getAnalysisType());
-				Rectangle2D anBounds = an.getBounds();
-				if (anBounds != null)
-					yBounds = new Rectangle2D.Double(anBounds.getMinX(), anBounds.getMinY(), anBounds.getWidth(), anBounds.getHeight());
-			}
+            double minX = Double.MAX_VALUE;
+            double maxX = Double.MIN_VALUE;
+            double minY = Double.MAX_VALUE;
+            double maxY = Double.MIN_VALUE;
+			for(WaveSignal ws : wp.getSignals()) {
+                Signal sig = ws.getSignal();
+                if (sig instanceof DigitalSignal) {
+                    minY = Math.min(minY, 0);
+                    maxY = Math.max(maxY, 1);
+                } else if (sig instanceof ScalarSignal) {
+                    ScalarSignal ssig = (ScalarSignal)sig;
+                    minY = ssig.getMinValue()==null ? minY : Math.min(minY, ssig.getMinValue().getValue());
+                    maxY = ssig.getMaxValue()==null ? maxY : Math.max(maxY, ssig.getMaxValue().getValue());
+                }
+                minX = Math.min(minX, sig.getMinTime());
+                maxX = Math.max(maxX, sig.getMaxTime());
+            }
+			Rectangle2D yBounds = new Rectangle2D.Double(minX, minY, maxX-minX, maxY-minY);
 			boolean repaint = false;
 			if (leftEdge != rightEdge)
 			{
@@ -4553,7 +4559,6 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 						// dragging from waveform window signal to horizontal ruler
 						int panelNumber = TextUtils.atoi(sigNames[0].substring(6));
 						Panel sourcePanel = ww.getPanelFromNumber(panelNumber);
-						analysisType = sourcePanel.getAnalysisType();
 						String signalName = sigNames[0].substring(sigPos + 11);
 						for(WaveSignal ws : sourcePanel.getSignals())
 						{
@@ -4561,6 +4566,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 							sSig = ws.getSignal();
 							break;
 						}
+						analysisType = sSig.getAnalysis().getAnalysisType();
 					}
 				} else
 				{
@@ -4579,6 +4585,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 					{
 						// dropped signal onto main time ruler: make sure it is the right type
 						boolean warn = false;
+                        /*
 						for(Panel wp : ww.wavePanels)
 						{
 							if (wp.getAnalysisType() != analysisType && wp.getNumSignals() > 0) warn = true;
@@ -4596,15 +4603,17 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 							for(Panel wp : ww.wavePanels)
 								ww.deleteAllSignalsFromPanel(wp);
 						}
+                        */
 						ww.xAxisSignalAll = sSig;
 						for(Panel wp : ww.wavePanels)
 						{
-							wp.setAnalysisType(analysisType);
+							//wp.setAnalysisType(analysisType);
 							wp.setXAxisRange(sSig.getMinTime(), sSig.getMaxTime());
 						}
 						ww.redrawAllPanels();
 					} else
 					{
+                        /*
 						// dropped signal onto a single panel's time ruler
 						if (panel.getAnalysisType() != analysisType)
 						{
@@ -4616,6 +4625,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 							dtde.dropComplete(true);
 							return;
 						}
+                        */
 						panel.setXAxisSignal(sSig);
 						panel.setXAxisRange(sSig.getMinTime(), sSig.getMaxTime());
 						panel.repaintContents();
