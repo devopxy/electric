@@ -37,7 +37,7 @@ import com.sun.electric.tool.cvspm.Log;
 import com.sun.electric.tool.cvspm.State;
 import com.sun.electric.tool.cvspm.Update;
 import com.sun.electric.tool.io.FileType;
-import com.sun.electric.tool.io.input.EpicAnalysis;
+import com.sun.electric.tool.io.input.EpicOut.EpicAnalysis;
 import com.sun.electric.tool.project.AddCellJob;
 import com.sun.electric.tool.project.AddLibraryJob;
 import com.sun.electric.tool.project.CancelCheckOutJob;
@@ -892,11 +892,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 					String sigName = sSig.getFullName();
 					if (sSig instanceof AnalogSignal)
 					{
-						AnalogSignal as = (AnalogSignal)sSig;
-						if (as.getAnalysis().getAnalysisType() == Analysis.ANALYSIS_TRANS) sigName = "TRANS " + sigName; else
-							if (as.getAnalysis().getAnalysisType() == Analysis.ANALYSIS_AC) sigName = "AC " + sigName; else
-								if (as.getAnalysis().getAnalysisType() == Analysis.ANALYSIS_DC) sigName = "DC " + sigName; else
-									if (as.getAnalysis().getAnalysisType() == Analysis.ANALYSIS_MEAS) sigName = "MEASUREMENT " + sigName;
+						if (sSig.getAnalysisType() == Analysis.ANALYSIS_TRANS) sigName = "TRANS " + sigName; else
+							if (sSig.getAnalysisType() == Analysis.ANALYSIS_AC) sigName = "AC " + sigName; else
+								if (sSig.getAnalysisType() == Analysis.ANALYSIS_DC) sigName = "DC " + sigName; else
+									if (sSig.getAnalysisType() == Analysis.ANALYSIS_MEAS) sigName = "MEASUREMENT " + sigName;
 					}
 					buf.append(sigName);
 					buf.append("\n");

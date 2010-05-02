@@ -708,7 +708,7 @@ public class Panel extends JPanel
 			for(Signal subSig : bussedSignals)
 			{
 				DigitalSignal subDS = (DigitalSignal)subSig;
-				Panel wp = waveWindow.makeNewPanel(null);
+				Panel wp = waveWindow.makeNewPanel();
 				WaveSignal wsig = new WaveSignal(wp, subDS);
 
 				if (WaveformWindow.USETABLES)
@@ -1393,9 +1393,9 @@ public class Panel extends JPanel
 			if (ws.getSignal() instanceof AnalogSignal) {
 				AnalogSignal as = (AnalogSignal)ws.getSignal();
 //				AnalogAnalysis an = as.getAnalysis();
-				for (int s = 0, numSweeps = as.getNumSweeps(); s < numSweeps; s++) {
+				for (int s = 0, numSweeps = /*as.getNumSweeps()*/1; s < numSweeps; s++) {
                     pw.println();
-					Signal wave = as.getWaveform(s);
+					Signal wave = as;
                     Signal.View pref = ((Signal)wave).getExactView();
                     Signal.View waveform = pref /* FIXME */;
 					int numEvents = waveform.getNumEvents();
@@ -1417,7 +1417,7 @@ public class Panel extends JPanel
             boolean used = false;
 			if (ws.getSignal() instanceof AnalogSignal) {
 				AnalogSignal as = (AnalogSignal)ws.getSignal();
-				for (int s = 0, numSweeps = as.getNumSweeps(); s < numSweeps; s++) {
+				for (int s = 0, numSweeps = /*as.getNumSweeps()*/1; s < numSweeps; s++) {
                     if (!first) pw.print(sep);
                     pw.print(" \'-\' with lines ");
                     Color c = ws.getColor();
@@ -1437,9 +1437,9 @@ public class Panel extends JPanel
 		for(WaveSignal ws : waveSignals.values()) {
 			if (ws.getSignal() instanceof AnalogSignal) {
 				AnalogSignal as = (AnalogSignal)ws.getSignal();
-				for (int s = 0, numSweeps = as.getNumSweeps(); s < numSweeps; s++) {
+				for (int s = 0, numSweeps = /*as.getNumSweeps()*/1; s < numSweeps; s++) {
                     pw.println();
-					Signal wave = as.getWaveform(s);
+					Signal wave = as;//as.getWaveform(s);
                     Signal.View pref = ((Signal)wave).getExactView();
                     Signal.View waveform = pref /* FIXME */;
 					int numEvents = waveform.getNumEvents();
@@ -1499,7 +1499,6 @@ public class Panel extends JPanel
 			if (!(ws.getSignal() instanceof DigitalSignal)) {
 				// draw analog trace
 				Signal as = ws.getSignal();
-				Analysis an = as.getAnalysis();
                 int s = 0;
                 /*
 				for (int s = 0, numSweeps = as.getNumSweeps(); s < numSweeps; s++)
@@ -1509,14 +1508,14 @@ public class Panel extends JPanel
 						continue;
 					Signal wave = as.getWaveform(s);
                 */
-                Signal wave = (as instanceof AnalogSignal) ? ((AnalogSignal)as).getWaveform(0) : as;
+                Signal wave = as;
                     Signal.View<RangeSample<ScalarSample>> waveform =
                         ((Signal<ScalarSample>)wave).getRasterView(convertXScreenToData(0),
                                                                    convertXScreenToData(sz.width),
                                                                    sz.width);
                     Signal xWaveform = null;
                     if (xSignal != null)
-                        xWaveform = ((AnalogSignal)xSignal).getWaveform(s);
+                        xWaveform = xSignal;
 					int lastX = 0, lastLY = 0, lastHY = 0;
 					int numEvents = waveform.getNumEvents();
 					for(int i=0; i<numEvents; i++)
@@ -1550,7 +1549,7 @@ public class Panel extends JPanel
 	                            }
 	                            if (processALine(g, lastX, lastLY, x, lowY, bounds, forPs, selectedObjects, ws, s)) break;
 							}
-	                        if (an.extrapolateValues() && i == numEvents-1)
+	                        if (as.extrapolateValues() && i == numEvents-1)
 	                    	{
 	                    		if (getMinXAxis() < getMaxXAxis())
 	                    		{
@@ -1585,7 +1584,6 @@ public class Panel extends JPanel
             } else {
 				// draw digital traces
 				DigitalSignal ds = (DigitalSignal)ws.getSignal();
-				DigitalAnalysis an = (DigitalAnalysis)ds.getAnalysis();
 				List<DigitalSignal> bussedSignals = ds.getBussedSignals();
 				if (bussedSignals != null)
 				{
@@ -1669,7 +1667,7 @@ public class Panel extends JPanel
 						lastX = x;
 						if (nextXValue == Double.MAX_VALUE) break;
 					}
-					if (an.extrapolateValues())
+					if (ds.extrapolateValues())
 					{
 						int wid = sz.width;
 						if (lastX+5 < wid)
@@ -1741,7 +1739,7 @@ public class Panel extends JPanel
 					{
 						if (processABox(g, lastx, lastLowy, x, lastHighy, bounds, forPs, selectedObjects, ws, false, 0)) return selectedObjects;
 					}
-					if (an.extrapolateValues())
+					if (ds.extrapolateValues())
 					{
 						if (i >= numEvents-1)
 						{
@@ -2194,10 +2192,10 @@ public class Panel extends JPanel
             double[] result = new double[3];
             AnalogAnalysis an = (AnalogAnalysis)as.getAnalysis();
 
-			for(int s=0, numSweeps = as.getNumSweeps(); s<numSweeps; s++)
+			for(int s=0, numSweeps = 1/*as.getNumSweeps()*/; s<numSweeps; s++)
 			{
                 if (!waveWindow.isSweepSignalIncluded(an, s)) continue;
-                Signal waveform = as.getWaveform(s);
+                Signal waveform = as;//as.getWaveform(s);
 				int numEvents = waveform.getExactView().getNumEvents();
 				for(int i=0; i<numEvents; i++)
 				{
@@ -2228,10 +2226,10 @@ public class Panel extends JPanel
             double[] lastResult = new double[3];
             AnalogAnalysis an = (AnalogAnalysis)as.getAnalysis();
 
-			for(int s=0, numSweeps = as.getNumSweeps(); s<numSweeps; s++)
+			for(int s=0, numSweeps = /*as.getNumSweeps()*/1; s<numSweeps; s++)
 			{
                 if (!waveWindow.isSweepSignalIncluded(an, s)) continue;
-                Signal waveform = as.getWaveform(s);
+                Signal waveform = as;//as.getWaveform(s);
 				int numEvents = waveform.getExactView().getNumEvents();
                 result[0] = waveform.getExactView().getTime(0);                                            
                 result[1] = result[2] = ((ScalarSample)waveform.getExactView().getSample(0)).getValue();   
