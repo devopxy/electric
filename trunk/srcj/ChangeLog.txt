@@ -2,7 +2,45 @@
 
 NOTE: Please place changes under the version that will be released next.
 
+************************* Version 9.00f: ******************************
+
+IMP: (5/01/10, AM) Merge EpicOutProcess and EpicAnalysis into
+     EpicOut.java (which follows the same naming convention as the
+     rest of the simulation output readers).
+
+IMP: (5/01/10, AM) Add Signal.extrapolateToRight to avoid more calls
+     to Signal.getAnalysis().
+
+IMP: (5/01/10, AM) Turn WaveformWindow.treePathFromAnalysis into
+     treePathFromSignal.
+
+IMP: (5/01/10, AM) Add Signal.getAnalysisType(), first step towards
+     removing Signal.getAnalysis().
+
 ************************* Version 9.00e: ******************************
+
+BUG: (4/30/10, SMR) Interactive resizing of multiple nodes doesn't work right
+     when they are different size (Bug #2732).
+FIX: Fixed SizeListener.getNewNodeSize().
+
+IMP: (4/29/10, SMR) Component menu now remembers the which variation of a node
+     is selected (Bug #2741).
+
+BUG: (4/28/10, SMR) Constraint system does not keep alignment between nodes
+     and moves too much (Bug #2736).
+FIX: In LayoutCell.java, scale sizes more uniformly (in transformByPort())
+     and allow nodes to stay where they are if slidability can be done.
+
+BUG: (4/28/10, SMR) Autostitch makes arcs that are not grid-aligned (Bug #2740).
+FIX: Added alignment to AutoStitch.AutoStitchJob constructor and fixed bug
+     in InteractiveRouter.getClosestValue().
+
+IMP: (4/27/10, AM) Remove AnalogSignal.getIndexInAnalysis().
+
+IMP: (4/27/10, AM) Remove MultiSweepSignal.
+
+BUG: (4/27/10, SMR) Bean Shell cannot access currently highlighted objects (Bug #2739).
+FIX: Added EvalJavaBsh.getHighlighted() to access the list from inside a Job.
 
 IMP: (4/26/10, AM) Waveform viewer Panel no longer has a hardwired
      analysis type (will accept a Signal from any Analysis).

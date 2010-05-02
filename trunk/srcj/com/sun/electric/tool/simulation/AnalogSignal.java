@@ -23,34 +23,14 @@
  */
 package com.sun.electric.tool.simulation;
 
-import java.awt.geom.Rectangle2D;
-
 /**
  * Class to define an analog signal in the simulation waveform window.
  */
-public final class AnalogSignal extends ScalarSignal implements MultiSweepSignal {
-	/** the Analysis object in which this DigitalSignal resides. */		private final AnalogAnalysis an;
-	/** index of this signal in its AnalogAnalysis */					private final int index;
+public final class AnalogSignal extends ScalarSignal {
 
-	/**
-	 * Constructor for an analog signal.
-	 * @param an the AnalogAnalysis object in which this signal will reside.
-	 */
 	public AnalogSignal(AnalogAnalysis an, String signalName, String signalContext) {
         super(an, signalName, signalContext);
-		this.an = an;
-		index = an.getSignals().size();
 		an.addSignal(this);
 	}
-
-	/**
-	 * Method to return the index of this AnalogSignal in its AnalogAnalysis.
-	 * @return the index of this AnalogSignal in its AnalogAnalysis.
-	 */
-	public int getIndexInAnalysis() { return index; }
-
-	public Signal getWaveform(int sweep) { return this; }
-    public Signal<ScalarSample> getSweep(int sweep) { return this; }
-	public int getNumSweeps() { return 1; }
 
 }
