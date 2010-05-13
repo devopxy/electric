@@ -337,7 +337,8 @@ public abstract class InteractiveRouter extends Router {
         double startArcWidth = 0;
         double endArcWidth = 0;
 
-        if (!fatWires) {
+//        if (!fatWires)
+        {
             // if not using fat wiring mode, determine arc sizes now, and
             // start and end points based off of arc sizes and startObj and endObj port sizes
             startArcWidth = getArcWidthToUse(startObj, startArc, 0, true, fatWires);
@@ -348,7 +349,7 @@ public abstract class InteractiveRouter extends Router {
             }
         }
 
-        // if extension not supressed, use defaults from arcs
+        // if extension not suppressed, use defaults from arcs
         if (extendArcHead) extendArcHead = startArc.getDefaultInst(ep).isHeadExtended() || endArc.getDefaultInst(ep).isHeadExtended();
         if (extendArcTail) extendArcTail = startArc.getDefaultInst(ep).isTailExtended() || endArc.getDefaultInst(ep).isTailExtended();
 
@@ -698,8 +699,12 @@ public abstract class InteractiveRouter extends Router {
         boolean overlapY = lowerBoundY <= upperBoundY;
 
         if (fatWiringMode) {
-            Rectangle2D startObjBounds = getBounds(startObj);
-            Rectangle2D endObjBounds = getBounds(endObj);
+            Rectangle2D startObjBounds = new Rectangle2D.Double(startPoly.getBounds2D().getX(), startPoly.getBounds2D().getY(),
+                                                             startPoly.getBounds2D().getWidth(), startPoly.getBounds2D().getHeight());
+            Rectangle2D endObjBounds = new Rectangle2D.Double(endPoly.getBounds2D().getX(), endPoly.getBounds2D().getY(),
+                                                           endPoly.getBounds2D().getWidth(), endPoly.getBounds2D().getHeight());
+            //Rectangle2D startObjBounds = getBounds(startObj);
+            //Rectangle2D endObjBounds = getBounds(endObj);
             boolean objsOverlap = false;
             if (startObjBounds != null && endObjBounds != null) {
                 if (startArc == endArc && startObjBounds.intersects(endObjBounds))
@@ -711,23 +716,42 @@ public abstract class InteractiveRouter extends Router {
             gridAlignWithinBounds(startCenter, startBounds, alignment);
             gridAlignWithinBounds(endCenter, endBounds, alignment);
 
+            boolean startObjInEndObjInX = false;
+            boolean startObjInEndObjInY = false;
+            boolean endObjInStartObjInX = false;
+            boolean endObjInStartObjInY = false;
+            // special case: start obj is completely inside end obj in one dimension
+            if (startObjBounds.getMinX() >= endObjBounds.getMinX() && startObjBounds.getMaxX() <= endObjBounds.getMaxX()) {
+                startObjInEndObjInX = true;
+            }
+            if (startObjBounds.getMinY() >= endObjBounds.getMinY() && startObjBounds.getMaxY() <= endObjBounds.getMaxY()) {
+                startObjInEndObjInY = true;
+            }
+            // special case: end obj is completely inside start obj in one dimension
+            if (endObjBounds.getMinX() >= startObjBounds.getMinX() && endObjBounds.getMaxX() <= startObjBounds.getMaxX()) {
+                endObjInStartObjInX = true;
+            }
+            if (endObjBounds.getMinY() >= startObjBounds.getMinY() && endObjBounds.getMaxY() <= startObjBounds.getMaxY()) {
+                endObjInStartObjInY = true;
+            }
+
             // normally we route center to center (for PortInsts) in fat wiring mode,
             // but if the objects overlap (both ports and objects themselves, then we will route directly
             if (!objsOverlap || !overlapX) {
                 // center X on both objects (if they are port insts)
-                if (startObj instanceof PortInst) {
+                if ((startObj instanceof PortInst) && !endObjInStartObjInX) {
                     startBounds.setRect(startCenter.getX(), startBounds.getY(), 0, startBounds.getHeight());
                 }
-                if (endObj instanceof PortInst) {
+                if ((endObj instanceof PortInst) && !startObjInEndObjInX) {
                     endBounds.setRect(endCenter.getX(), endBounds.getY(), 0, endBounds.getHeight());
                 }
             }
             if (!objsOverlap || !overlapY) {
                 // center Y on both objects (if they are port insts)
-                if (startObj instanceof PortInst) {
+                if ((startObj instanceof PortInst) && !endObjInStartObjInY) {
                     startBounds.setRect(startBounds.getX(), startCenter.getY(), startBounds.getWidth(), 0);
                 }
-                if (endObj instanceof PortInst) {
+                if ((endObj instanceof PortInst) && !startObjInEndObjInY) {
                     endBounds.setRect(endBounds.getX(), endCenter.getY(), endBounds.getWidth(), 0);
                 }
             }

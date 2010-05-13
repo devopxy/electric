@@ -4,6 +4,35 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.00f: ******************************
 
+IMP: (5/13/10, DN) Minor changes in Added Design Summary code from GNU user (Bug #2734).
+   - Skip icon of parent and Generic primitives
+   - Better diagnostics when library has no fileURL
+   - Clean comments
+
+BUG: (5/12/10, FS) Bug #2746
+FIX: Fixed for small chips
+
+BUG/MAN: (5/7/10, SMR) Schematic DRC missing wire and bus arcs connected
+     at a bus pin but not really connected (Bug #2748).
+FIX: Now reported.
+
+BUG/MAN: (5/7/10, SMR) Schematic DRC missing arcs touching if they are labeled (Bug #2748).
+FIX: Also check for unconnected pins laying on an arc.
+
+IMP: (5/5/10, AM) Add skeleton of RadixTrie (a Map<String,V> that
+     maintains the statistics needed to detect the hierarchy
+     separator).
+
+IMP: (5/5/10, AM) Finally remove Signal.getAnalysis() for good.
+
+BUG: (5/4/10, SMR) AutoStitch gives errors and fails to correctly route bus ports (Bug #2745).
+FIX: AutoStitch.testPoly() handles busses separately when deciding whether or not ports
+     are already connected.  It also has a bug in which it fails to report that it has made
+     a connection.  Other fixes in InteractiveRouter.planRoute(), RouteElementArc.doAction().
+
+BUG: (5/3/10, GVG) Autostitch creating 2 arcs when connecting bus ports in icons (Bug #2745)
+FIX: Calling getNetwork(Nodable no, Name portName) in case of busses (temp fix)
+
 IMP: (5/01/10, AM) Merge EpicOutProcess and EpicAnalysis into
      EpicOut.java (which follows the same naming convention as the
      rest of the simulation output readers).
@@ -16,6 +45,11 @@ IMP: (5/01/10, AM) Turn WaveformWindow.treePathFromAnalysis into
 
 IMP: (5/01/10, AM) Add Signal.getAnalysisType(), first step towards
      removing Signal.getAnalysis().
+
+IMP/MAN: (4/30/10, JKG) Removed spacebar toggle of fat wiring mode, as it is now a preference.
+Substrate and well contacts included in as contacts for finding width of connecting wire.
+Ignore default-sized arcs when choosing arc size to connect to portinst,
+as RouteElementArc.doAction creates default-sized arcs for 0 length connections.
 
 ************************* Version 9.00e: ******************************
 
@@ -35,9 +69,8 @@ BUG: (4/28/10, SMR) Autostitch makes arcs that are not grid-aligned (Bug #2740).
 FIX: Added alignment to AutoStitch.AutoStitchJob constructor and fixed bug
      in InteractiveRouter.getClosestValue().
 
-IMP: (4/27/10, AM) Remove AnalogSignal.getIndexInAnalysis().
-
 IMP: (4/27/10, AM) Remove MultiSweepSignal.
+IMP: (4/27/10, AM) Remove AnalogSignal.getIndexInAnalysis()
 
 BUG: (4/27/10, SMR) Bean Shell cannot access currently highlighted objects (Bug #2739).
 FIX: Added EvalJavaBsh.getHighlighted() to access the list from inside a Job.
