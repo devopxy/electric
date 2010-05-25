@@ -596,7 +596,7 @@ public class PixelDrawing
 		} else
 		{
 			drawing.vd.render(this, scale, new Point2D.Double(drawing.da.offX, drawing.da.offY), cell, fullInstantiate,
-				inPlaceNodePath, wnd.getCell(), renderBounds, varContext, greekSizeLimit, greekCellSizeLimit);
+				inPlaceNodePath, wnd.getCell(), renderBounds, varContext, greekSizeLimit, greekCellSizeLimit, lv);
 		}
 
 		// merge transparent image into opaque one
@@ -692,7 +692,7 @@ public class PixelDrawing
 		{
             VectorDrawing vd = new VectorDrawing(ep.isUseCellGreekingImages());
 			vd.render(this, scale, offset, cell, false, null, null, null, varContext,
-                    ep.getGreekSizeLimit(), ep.getGreekCellSizeLimit());
+                    ep.getGreekSizeLimit(), ep.getGreekCellSizeLimit(), lv);
 		}
 
 		// merge transparent image into opaque one
@@ -2204,7 +2204,11 @@ public class PixelDrawing
 			databaseToScreen(center.getX(), center.getY(), tempPt1);
 			databaseToScreen(edge1.getX(), edge1.getY(), tempPt2);
 			databaseToScreen(edge2.getX(), edge2.getY(), tempPt3);
-			drawCircleArc(tempPt1, tempPt2, tempPt3, style == Poly.Type.THICKCIRCLEARC, layerBitMap, graphics, dimmed);
+			int startAngle = GenMath.figureAngle(center, edge1);
+			int endAngle = GenMath.figureAngle(center, edge2);
+			if (startAngle < endAngle) startAngle += 3600;
+			boolean bigArc = startAngle-endAngle > 1800;
+			drawCircleArc(tempPt1, tempPt2, tempPt3, style == Poly.Type.THICKCIRCLEARC, bigArc, layerBitMap, graphics, dimmed);
 			return;
 		}
 		if (style == Poly.Type.CROSS)
@@ -3927,7 +3931,7 @@ public class PixelDrawing
 	 * draws an arc centered at (centerx, centery), clockwise,
 	 * passing by (x1,y1) and (x2,y2)
 	 */
-	void drawCircleArc(Point center, Point p1, Point p2, boolean thick, byte [][] layerBitMap, EGraphics desc, boolean dimmed)
+	void drawCircleArc(Point center, Point p1, Point p2, boolean thick, boolean bigArc, byte [][] layerBitMap, EGraphics desc, boolean dimmed)
 	{
 		// ignore tiny arcs
 		if (p1.x == p2.x && p1.y == p2.y) return;
@@ -3967,7 +3971,7 @@ public class PixelDrawing
 
 		for(int i=1; i<9; i++) arcOctTable[i] = false;
 
-		if (start_oct == end_oct)
+		if (start_oct == end_oct && !bigArc)
 		{
 			arcOctTable[start_oct] = true;
 			Point pa = arcXformOctant(pa_x, pa_y, start_oct);
