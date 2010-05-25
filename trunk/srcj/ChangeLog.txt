@@ -2,7 +2,56 @@
 
 NOTE: Please place changes under the version that will be released next.
 
+************************* Version 9.00g: ******************************
+
+IMP (5/24/10, FS)
+     - Use new parallel infrastructure in ERC Well Check Tool
+     - Refactoring of ERC Well Check Tool
+
+BUG: (5/24/10, SMR) Merging LEF and GDS fails (Bug #2765).
+FIX: Do not copy node names when creating exports.
+
+BUG: (5/24/10, SMR) LEF input gives errors on some ANTENNA keywords (Bug #2764).
+FIX: Added these keywords to the ignore list.
+
+BUG: (5/24/10, SMR) Multi-object Properties crashes when in resize mode (Bug #2763).
+FIX: Fixed Highlight.HighlightSorting class to handle null returns from "getInfo()".
+
+IMP/MAN: (5/24/10, SMR) New "Display Control" preference "Shift window to show errors"
+     moves the window to focus on errors if they are not visible (Bug #2755).
+
+BUG: (5/24/10, SMR) Greeked cells are not re-evaluated when layer visibility changes (Bug #2756).
+FIX: Fixed VectorCache and VectorDrawing to recompute the cell color.
+
+IMP: (5/24/10, FS) First refactoring (improved interface) 
+     features: parallel (for|reduce), and simple task scheduler for own algorithms 
+
+IMP: (5/21/10, FS) First commit of a parallel infrastructure, 
+     com.sun.electric.tool.util.concurrent
+
 ************************* Version 9.00f: ******************************
+
+BUG: (5/21/10, GVG) False DRC errors on tsmcsun40gp poly resistors (Bug #2762)
+FIX: Special case to detect network associated to poly in resistors.
+
+IMP/MAN: (5/20/10, SMR) Initial version of Gerber reader.  Has Preferences panel for
+    some controls (Bug #2749).
+
+IMP/MAN: (5/20/10, GVG) Error window in TechEditorWizard in case of loading Parameters file that
+doesn't comply with format.
+
+BUG: (5/18/10, SMR) Small arcs of a circle may draw as full circles (Bug #2757).
+FIX: Fixed PixelDrawing.drawCircleArc().
+
+BUG: (5/18/10, GVG) Some layers have wrong default visibility settings for layer visibility groups (Bug #2753)
+FIX: Make sure top layers are defined as overglass in the 40nm tech
+
+BUG: (5/18/10, FS) Bug #2746
+IMP: - Cache networks and transistors for faster progress
+     - handle more then two transistors per network
+
+BUG: (5/17/10, GVG) Still null messages in jobs (Bug #2747)
+FIX: Pref values cached before ExternalScript is executed.
 
 IMP: (5/17/10, DN) Minor changes in Added Design Summary code from GNU user (Bug #2734).
    - Skip icon of parent and Generic primitives
