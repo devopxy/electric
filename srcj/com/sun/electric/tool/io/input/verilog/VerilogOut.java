@@ -27,12 +27,8 @@ package com.sun.electric.tool.io.input.verilog;
 
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.text.TextUtils;
-import com.sun.electric.tool.io.input.Simulate;
-import com.sun.electric.tool.simulation.DigitalAnalysis;
-import com.sun.electric.tool.simulation.DigitalSignal;
-import com.sun.electric.tool.simulation.DigitalSample;
-import com.sun.electric.tool.simulation.Signal;
-import com.sun.electric.tool.simulation.Stimuli;
+import com.sun.electric.tool.io.input.*;
+import com.sun.electric.tool.simulation.*;
 
 import java.io.IOException;
 import java.net.URL;
@@ -45,7 +41,7 @@ import java.util.Map;
  * Class for reading and displaying waveforms from Verilog output.
  * These are contained in .v files.
  */
-public class VerilogOut extends Simulate
+public class VerilogOut extends Input<Stimuli>
 {
 	private static class VerilogStimuli
 	{
@@ -64,11 +60,13 @@ public class VerilogOut extends Simulate
 	/**
 	 * Method to read an Verilog output file.
 	 */
-	protected void readSimulationOutput(Stimuli sd, URL fileURL, Cell cell)
+	protected Stimuli processInput(URL fileURL, Cell cell)
 		throws IOException
 	{
+        Stimuli sd = new Stimuli();
+
 		// open the file
-		if (openTextInput(fileURL)) return;
+		if (openTextInput(fileURL)) return sd;
 
 		// show progress reading .dump file
 		startProgressDialog("Verilog output", fileURL.getFile());
@@ -79,6 +77,8 @@ public class VerilogOut extends Simulate
 		// stop progress dialog, close the file
 		stopProgressDialog();
 		closeInput();
+
+        return sd;
 	}
 
 	private void readVerilogFile(Cell cell, Stimuli sd)
@@ -232,7 +232,7 @@ public class VerilogOut extends Simulate
 				double curTime = 0.0;
 				for(;;)
 				{
-					String currentLine = getLineFromSimulator();
+					String currentLine = getLineAndUpdateProgress();
 					if (currentLine == null) break;
 					char chr = currentLine.charAt(0);
 					String restOfLine = currentLine.substring(1);
@@ -468,7 +468,7 @@ public class VerilogOut extends Simulate
 		{
 			if (lastLine == null)
 			{
-				lastLine = getLineFromSimulator();
+				lastLine = getLineAndUpdateProgress();
 				if (lastLine == null) break;
 				lineLen = lastLine.length();
 				linePos = 0;

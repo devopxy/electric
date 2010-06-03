@@ -57,7 +57,7 @@ abstract class NodeCursor
         this.bt = bt;
         this.ps = bt.ps;
     }
-    public abstract void initBuf(CachedPage cp, boolean isRightMost);
+    public abstract void initBuf(CachedPage cp, int parent, boolean isRightMost);
     protected abstract void setNumBuckets(int num);
     public void setBuf(CachedPage cp) {
         assert !dirty;
@@ -69,6 +69,9 @@ abstract class NodeCursor
         dirty = false;
         cp.setDirty();
     }
+
+    public int getParent() { return UnboxedInt.instance.deserializeInt(cp.getBuf(), 0*SIZEOF_INT); }
+    public void setParent(int pageid) { bt.ui.serializeInt(pageid, getBuf(), 0*SIZEOF_INT); }
 
     /**
      *  This method writes back the first half of the node's contents,
@@ -97,7 +100,7 @@ abstract class NodeCursor
 
         // move the second half of our entries to the front of the block, and write back
         byte[] oldbuf = cp.getBuf();
-        initBuf(ps.getPage(ps.createPage(), false), wasRightMost);
+        initBuf(ps.getPage(ps.createPage(), false), getParent(), wasRightMost);
         setNumBuckets(getMaxBuckets()-splitPoint);
         scoot(oldbuf, endOfBuf, splitPoint);
         writeBack();
@@ -180,7 +183,8 @@ abstract class NodeCursor
     public abstract int  getNumValsBelowBucket(int bucket);
 
     public abstract void getSummary(int bucket, byte[] buf, int ofs);
+    public abstract void getSummary(byte[] buf, int ofs);
 
-    public boolean isRightMost() { return bt.ui.deserializeInt(getBuf(), 0*SIZEOF_INT)!=0; }
-    protected void setRightMost(boolean r) { bt.ui.serializeInt(r?1:0, getBuf(), 0*SIZEOF_INT); }
+    public boolean isRightMost() { return bt.ui.deserializeInt(getBuf(), 1*SIZEOF_INT)!=0; }
+    protected void setRightMost(boolean r) { bt.ui.serializeInt(r?1:0, getBuf(), 1*SIZEOF_INT); }
 }

@@ -4,9 +4,64 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.00g: ******************************
 
+IMP: (6/3/10, DN) The nameDescriptor of NodeInst can be non-displayble (Bug #2768).
+
+BUG: (6/2/10, AM) Adding panel to waveform window takes a long time (Bug #2776)
+FIX: cache bounds in Analysis.java.
+
+BUG: (6/2/10, AM) LT Spice stimuli not reading properly (Bug #2778)
+FIX: Be more permissive in parsing the analysis type.
+
+IMP: (6/2/10, AM) Merge LTSpiceOut with RawSpiceOut.
+
+BUG: (6/2/10, AM) Verilog simulation not working (Bug #2780)
+FIX: Fix DigitalSample.fromOldStyle().
+
+BUG: (6/2/10, AM) IRSIM is still broken (Bug #2679)
+FIX: Check for reinsertions in Analyzer.java
+
+BUG: (6/2/10, AM) SmartSpice not reading (Bug #2779)
+FIX: ".txt" is now handled by SmartSpiceOut
+
+BUG: (6/2/10, GVG) NPE while importing Cadence errors with no current cell (Bug #2781)
+FIX: Detecting the case when no current cell is selected.
+
+BUG: (6/2/10, AM) Crash reading simulation data (Bug #2775)
+FIX: Check for reinsertions in HSpiceOut.java.
+
+BUG: (6/2/10, AM) The command "Plot Spice for This Cell" no longer
+     works (Bug #2773)
+FIX: Total overhaul of Simulate.java.
+
+BUG: (6/1/10, AM) ALS needs Signal to be able to alter samples after
+     they have been added (Bug #2679)
+FIX: Add BTree.remove() and BTree.replace().
+
+IMP: (6/1/10, AM) Implement BTree.remove().
+
+IMP: (5/29/10, AM) Finish implementing hierarchical "undriven nets
+     check".  Marina full-chip schematics pass except for
+     arrays-of-cell-instances, which the netlister does not seem to
+     handle properly.
+
+IMP: (5/29/10, AM) Network.java: when determining connectivity, check
+     all wires of a bus instead of only using the 0th wire.
+
+IMP: (5/28/10, AM) Use EquivalenceClasses in undriven nodes check.
+
+IMP: (5/28/10, AM) Add EquivalenceClasses.
+
+IMP: (5/28/10, AM) Add ability to open simulation data from command line.
+
+BUG: (5/28/10, GVG) NPE in cross library copy (Bug #2771)
+FIX: Detecting when cell doesn't longer have a group.
+
+IMP: (/5/28/10, GVG) Unknown tag in Client.read() (Bug #2759)
+Added extra code to detect the source of the unknown tag
+
 IMP/MAN: (5/27/10, SMR) New EDIF Preference to hide arc or node names (Bug #2768).
 
-IMP: (5/27/10, DN) The nameDescriptor of ArcInst can be non-displayble.
+IMP: (5/27/10, DN) The nameDescriptor of ArcInst can be non-displayble (Bug #2768).
 
 IMP: (5/25/10, DN) Technologies are immutable - new Technology objects are used if technology parameters are changed.
    Can be disablesd by Tecyhnology.IMMUTABLE_TECHS = false;

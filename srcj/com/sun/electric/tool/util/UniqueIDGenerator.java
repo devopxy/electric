@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Thread safe unique id generator
- * @author fs239085
  *
  */
 public class UniqueIDGenerator {

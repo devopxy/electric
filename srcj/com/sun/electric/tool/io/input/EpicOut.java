@@ -98,7 +98,7 @@ public class EpicOut {
  * Class for reading and displaying waveforms from Epic output using
  * the new on-disk index.
  */
-public static class EpicOutProcess extends Simulate implements Runnable
+public static class EpicOutProcess extends Input<Stimuli> implements Runnable
 {
     private Thread readerProcess;
     private PipedInputStream pis;
@@ -119,9 +119,11 @@ public static class EpicOutProcess extends Simulate implements Runnable
     /**
      * Method to read an Spice output file.
      */
-    protected void readSimulationOutput(Stimuli sd, URL fileURL, Cell cell)
+    protected Stimuli processInput(URL fileURL, Cell cell)
         throws IOException
     {
+        Stimuli sd = new Stimuli();
+
         // show progress reading .spo file
         startProgressDialog("EPIC output", fileURL.getFile());
 
@@ -166,6 +168,7 @@ public static class EpicOutProcess extends Simulate implements Runnable
         stdOut.close();
         stdOut = null;
         readerProcess = null;
+        return sd;
     }
 
 
