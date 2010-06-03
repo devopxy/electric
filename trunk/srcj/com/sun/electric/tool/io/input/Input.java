@@ -57,8 +57,9 @@ import javax.swing.SwingUtilities;
 /**
  * This class manages reading files in different formats.
  * The class is subclassed by the different file readers.
+ * ResultType is the type of result produced by processInput()
  */
-public class Input
+public class Input<ResultType>
 {
 	protected static final int READ_BUFFER_SIZE = 65536;
 
@@ -79,6 +80,10 @@ public class Input
 	public Input() {}
 
 	// ----------------------- public methods -------------------------------
+
+    protected ResultType processInput(URL url, Cell cell) throws IOException {
+        return null;
+    }
 
 	/**
 	 * Method to tell if a new library was created for this import operation.
@@ -331,6 +336,27 @@ public class Input
 			if (c == '\n') break;
 			sb.append((char)c);
 		}
+		return sb.toString();
+	}
+
+	/**
+	 * Method to get the next line of text and updates the progress dialog.
+	 * Returns null at end of file.
+	 */
+	protected String getLineAndUpdateProgress()
+		throws IOException
+	{
+		StringBuffer sb = new StringBuffer();
+		int bytesRead = 0;
+		for(;;)
+		{
+			int ch = lineReader.read();
+			if (ch == -1) return null;
+			bytesRead++;
+			if (ch == '\n' || ch == '\r') break;
+			sb.append((char)ch);
+		}
+		updateProgressDialog(bytesRead);
 		return sb.toString();
 	}
 

@@ -44,18 +44,20 @@ import java.util.List;
  *  0.000000000000e+000  -1.326552010141e-003  0.000000000000e+000  7.693014595134e-006  1.152132987045e-003
  *  2.000000000000e-010  -1.327024307102e-003  -6.724173662320e-009  7.738638487353e-006  1.152158598416e-003
  */
-public class PSpiceOut extends Simulate
+public class PSpiceOut extends Input<Stimuli>
 {
 	PSpiceOut() {}
 
 	/**
 	 * Method to read an PSpice output file.
 	 */
-	protected void readSimulationOutput(Stimuli sd, URL fileURL, Cell cell)
+	protected Stimuli processInput(URL fileURL, Cell cell)
 		throws IOException
 	{
+        Stimuli sd = new Stimuli();
+
 		// open the file
-		if (openTextInput(fileURL)) return;
+		if (openTextInput(fileURL)) return sd;
 
 		// show progress reading .spo file
 		startProgressDialog("PSpice output", fileURL.getFile());
@@ -66,6 +68,7 @@ public class PSpiceOut extends Simulate
 		// stop progress dialog, close the file
 		stopProgressDialog();
 		closeInput();
+        return sd;
 	}
 
 	private void readPSpiceFile(Cell cell, Stimuli sd)

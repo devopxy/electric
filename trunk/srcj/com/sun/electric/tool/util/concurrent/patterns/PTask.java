@@ -26,7 +26,7 @@ package com.sun.electric.tool.util.concurrent.patterns;
 /**
  * 
  * Base task for task parallel programming
- *
+ * 
  */
 public abstract class PTask implements Cloneable {
 
@@ -37,12 +37,21 @@ public abstract class PTask implements Cloneable {
 		this.job = job;
 	}
 
+	/**
+	 * abstract method, body of a task
+	 */
 	public abstract void execute();
 
+	/**
+	 * do init work
+	 */
 	public void before() {
 
 	}
 
+	/**
+	 * do finalize work, this funtion has to be called on the super object
+	 */
 	public void after() {
 		this.job.finishTask();
 	}
@@ -50,13 +59,14 @@ public abstract class PTask implements Cloneable {
 	public void setThreadID(int id) {
 		this.threadId = id;
 	}
-	
-	/* (non-Javadoc)
+
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#clone()
 	 */
 	@Override
 	public Object clone() throws CloneNotSupportedException {
 		return super.clone();
 	}
-
 }

@@ -1245,10 +1245,10 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		if (wf == null) return;
 		String title = "";
 		if (sd.getEngine() != null) title = "Simulation of "; else title = "Waveforms of ";
-		if (sd != null && sd.getDataType() != null)
+		if (sd != null)
 		{
-			if (sd.getEngine() != null) title = sd.getDataType().getName() + " simulation of "; else
-				title = sd.getDataType().getName() + " of ";
+			if (sd.getEngine() != null) title = " simulation of "; else
+				title = " of ";
 		}
 		wf.setTitle(wf.composeTitle(sd.getCell(), title, 0));
 	}
@@ -3731,7 +3731,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		}
 
 		// there is no simulation engine (i.e. external Spice, Verilog) reload external data
-		Simulate.plotSimulationResults(sd.getDataType(), sd.getCell(), sd.getFileURL(), this);
+		Simulate.plot(sd.getCell(), sd.getFileURL(), this);
 	}
 
 	/**
@@ -4082,18 +4082,18 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 			{
 				// create a new panel for the signal
 				Panel wp = makeNewPanel();
-				double lowValue = as.getMinValue().getValue();
-				double highValue = as.getMaxValue().getValue();
-				double range = highValue - lowValue;
-				if (range == 0) range = 2;
-				double rangeExtra = range / 10;
-				wp.setYAxisRange(lowValue - rangeExtra, highValue + rangeExtra);
-				wp.makeSelectedPanel(-1, -1);
-				if (!xAxisLocked)
-					wp.setXAxisRange(as.getMinTime(), as.getMaxTime());
-				WaveSignal.addSignalToPanel(sig, wp, null);
-				if (getMainHorizRuler() != null)
-					getMainHorizRuler().repaint();
+                double lowValue = as.getMinValue()==null ? 0 : as.getMinValue().getValue();
+                double highValue = as.getMaxValue()==null ? 1 : as.getMaxValue().getValue();
+                double range = highValue - lowValue;
+                if (range == 0) range = 2;
+                double rangeExtra = range / 10;
+                wp.setYAxisRange(lowValue - rangeExtra, highValue + rangeExtra);
+                wp.makeSelectedPanel(-1, -1);
+                if (!xAxisLocked)
+                    wp.setXAxisRange(as.getMinTime(), as.getMaxTime());
+                WaveSignal.addSignalToPanel(sig, wp, null);
+                if (getMainHorizRuler() != null)
+                    getMainHorizRuler().repaint();
 			}
 		} else
 		{

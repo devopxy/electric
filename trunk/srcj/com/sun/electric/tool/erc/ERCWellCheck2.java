@@ -91,6 +91,7 @@ import com.sun.electric.tool.erc.wellcheck.ShortCircuitCheck;
 import com.sun.electric.tool.erc.wellcheck.Utils;
 import com.sun.electric.tool.erc.wellcheck.WellCheckAnalysisStrategy;
 import com.sun.electric.tool.erc.wellcheck.WellCon;
+import com.sun.electric.tool.erc.wellcheck.Utils.WorkDistributionStrategy;
 import com.sun.electric.tool.user.ErrorLogger;
 import com.sun.electric.tool.user.Highlighter;
 import com.sun.electric.tool.user.dialogs.EModelessDialog;
@@ -300,8 +301,7 @@ public class ERCWellCheck2 {
 		private WellCheckPreferences wellPrefs;
 
 		@Deprecated
-		private WellCheckJob(Cell cell, GeometryHandler.GHMode newAlgorithm,
-				WellCheckPreferences wellPrefs) {
+		private WellCheckJob(Cell cell, GeometryHandler.GHMode newAlgorithm, WellCheckPreferences wellPrefs) {
 			super("ERC Well Check on " + cell, ERC.tool, Job.Type.SERVER_EXAMINE, null, null,
 					Job.Priority.USER);
 			this.cell = cell;
@@ -329,8 +329,7 @@ public class ERCWellCheck2 {
 				fieldVariableChanged("worstPWellCon");
 			}
 			if (check.worstPWellEdge != null) {
-				worstPWellEdge = new EPoint(check.worstPWellEdge.getX(), check.worstPWellEdge
-						.getY());
+				worstPWellEdge = new EPoint(check.worstPWellEdge.getX(), check.worstPWellEdge.getY());
 				fieldVariableChanged("worstPWellEdge");
 			}
 			if (check.worstNWellCon != null) {
@@ -338,8 +337,7 @@ public class ERCWellCheck2 {
 				fieldVariableChanged("worstNWellCon");
 			}
 			if (check.worstNWellEdge != null) {
-				worstNWellEdge = new EPoint(check.worstNWellEdge.getX(), check.worstNWellEdge
-						.getY());
+				worstNWellEdge = new EPoint(check.worstNWellEdge.getX(), check.worstNWellEdge.getY());
 				fieldVariableChanged("worstNWellEdge");
 			}
 			return true;
@@ -353,13 +351,11 @@ public class ERCWellCheck2 {
 				wnd.clearHighlighting();
 				if (worstPWellDist > 0) {
 					wnd.addHighlightLine(worstPWellCon, worstPWellEdge, cell, false, false);
-					System.out.println("Farthest distance from a P-Well contact is "
-							+ worstPWellDist);
+					System.out.println("Farthest distance from a P-Well contact is " + worstPWellDist);
 				}
 				if (worstNWellDist > 0) {
 					wnd.addHighlightLine(worstNWellCon, worstNWellEdge, cell, false, false);
-					System.out.println("Farthest distance from an N-Well contact is "
-							+ worstNWellDist);
+					System.out.println("Farthest distance from an N-Well contact is " + worstNWellDist);
 				}
 				wnd.finishedHighlighting();
 			}
@@ -409,8 +405,8 @@ public class ERCWellCheck2 {
 		// report the number of errors found
 		long endTime = System.currentTimeMillis();
 		if (errorCount == 0) {
-			System.out.println("No Well errors found (took "
-					+ TextUtils.getElapsedTime(endTime - startTime) + ")");
+			System.out.println("No Well errors found (took " + TextUtils.getElapsedTime(endTime - startTime)
+					+ ")");
 		} else {
 			System.out.println("FOUND " + errorCount + " WELL ERRORS (took "
 					+ TextUtils.getElapsedTime(endTime - startTime) + ")");
@@ -419,9 +415,8 @@ public class ERCWellCheck2 {
 		return errorCount;
 	}
 
-	// XXX [felix] ugly style use concurrent data structure
 	private WellCon getNextWellCon(int threadIndex) {
-		synchronized (wellConIterator[threadIndex]) {
+		synchronized (wellConLists[threadIndex]) {
 			while (wellConIterator[threadIndex].hasNext()) {
 				WellCon wc = wellConIterator[threadIndex].next();
 				if (wc.getWellNum() == null)
@@ -433,7 +428,7 @@ public class ERCWellCheck2 {
 		int numLists = wellConIterator.length;
 		for (int i = 1; i < numLists; i++) {
 			int otherList = (threadIndex + i) % numLists;
-			synchronized (wellConIterator[otherList]) {
+			synchronized (wellConLists[otherList]) {
 				while (wellConIterator[otherList].hasNext()) {
 					WellCon wc = wellConIterator[otherList].next();
 					if (wc.getWellNum() == null)
@@ -447,12 +442,12 @@ public class ERCWellCheck2 {
 	private void spreadSeeds(int threadIndex) {
 		for (;;) {
 			WellCon wc = getNextWellCon(threadIndex);
+
 			if (wc == null)
 				break;
 
-			// see if this contact is in a marked well
-			Rectangle2D searchArea = new Rectangle2D.Double(wc.getCtr().getX(), wc.getCtr().getY(),
-					0, 0);
+			// see if this contact is a marked well
+			Rectangle2D searchArea = new Rectangle2D.Double(wc.getCtr().getX(), wc.getCtr().getY(), 0, 0);
 			RTNode topSearch = nWellRoot;
 			if (Utils.canBeSubstrateTap(wc.getFun()))
 				topSearch = pWellRoot;
@@ -476,21 +471,20 @@ public class ERCWellCheck2 {
 				String errorMsg = "N-Well contact is floating";
 				if (Utils.canBeSubstrateTap(wc.getFun()))
 					errorMsg = "P-Well contact is floating";
-				errorLogger.logError(errorMsg, new EPoint(wc.getCtr().getX(), wc.getCtr().getY()),
-						cell, 0);
+				errorLogger.logError(errorMsg, new EPoint(wc.getCtr().getX(), wc.getCtr().getY()), cell, 0);
 				continue;
 			}
 
 			// spread out through the well area
-			Utils.spreadWellSeed(wc.getCtr().getX(), wc.getCtr().getY(), wc.getWellNum(),
-					topSearch, threadIndex);
+			Utils.spreadWellSeed(wc.getCtr().getX(), wc.getCtr().getY(), wc.getWellNum(), topSearch,
+					threadIndex);
 		}
 	}
 
 	public class SpreadInThread extends PTask {
 		private int threadIndex;
 
-		public SpreadInThread(String name, int index, PJob job) {
+		public SpreadInThread(PJob job, int index) {
 			super(job);
 			threadIndex = index;
 		}
@@ -530,8 +524,8 @@ public class ERCWellCheck2 {
 		int numPRects = getTreeSize(pWellRoot);
 		int numNRects = getTreeSize(nWellRoot);
 		long endTime = System.currentTimeMillis();
-		System.out.println("   Geometry collection found " + (numPRects + numNRects)
-				+ " well pieces, took " + TextUtils.getElapsedTime(endTime - startTime));
+		System.out.println("   Geometry collection found " + (numPRects + numNRects) + " well pieces, took "
+				+ TextUtils.getElapsedTime(endTime - startTime));
 		startTime = endTime;
 
 		wcVisitor.clear();
@@ -547,7 +541,7 @@ public class ERCWellCheck2 {
 		else {
 			PJob spreadJob = new PJob();
 			for (int i = 0; i < numberOfThreads; i++)
-				spreadJob.add(new SpreadInThread("WellCheck propagate #" + (i + 1), i, spreadJob));
+				spreadJob.add(new SpreadInThread(spreadJob, i));
 			spreadJob.execute();
 		}
 
@@ -567,9 +561,8 @@ public class ERCWellCheck2 {
 		analysisParts.add(new OnRailCheck(parameter, networkExportAvailable, transistors));
 		analysisParts.add(new ConnectionCheck(parameter, hasPCon, hasNCon, pWellRoot, nWellRoot));
 		analysisParts.add(new DRCCheck(parameter, pWellLayer, nWellLayer, pWellRoot, nWellRoot));
-		analysisParts
-				.add(new DistanceCheck(parameter, worstPWellDist, worstPWellCon, worstPWellEdge,
-						worstNWellDist, worstNWellCon, worstNWellEdge, pWellRoot, nWellRoot));
+		analysisParts.add(new DistanceCheck(parameter, worstPWellDist, worstPWellCon, worstPWellEdge,
+				worstNWellDist, worstNWellCon, worstNWellEdge, pWellRoot, nWellRoot));
 
 		// execute analysis steps
 		for (WellCheckAnalysisStrategy strategy : analysisParts) {
@@ -577,8 +570,7 @@ public class ERCWellCheck2 {
 		}
 
 		endTime = System.currentTimeMillis();
-		System.out.println("   Additional analysis took "
-				+ TextUtils.getElapsedTime(endTime - startTime));
+		System.out.println("   Additional analysis took " + TextUtils.getElapsedTime(endTime - startTime));
 		startTime = endTime;
 
 		errorLogger.termLogging(true);
@@ -642,7 +634,7 @@ public class ERCWellCheck2 {
 			for (int i = 0; i < numberOfThreads; i++) {
 				wellConLists[i] = new ArrayList<WellCon>();
 			}
-			if (Utils.DISTANTSEEDS) {
+			if (Utils.WORKDISTRIBUTION == WorkDistributionStrategy.cluster) {
 				// the new way: cluster the well contacts together
 				Rectangle2D cellBounds = cell.getBounds();
 				Point2D ctr = new Point2D.Double(cellBounds.getCenterX(), cellBounds.getCenterY());
@@ -678,16 +670,31 @@ public class ERCWellCheck2 {
 					}
 					wellConLists[threadNum].add(wc);
 				}
-			} else {
+			} else if (Utils.WORKDISTRIBUTION == WorkDistributionStrategy.random) {
 				// old way where well contacts are analyzed in random order
 				for (int i = 0; i < wellCons.size(); i++)
 					wellConLists[i % numberOfThreads].add(wellCons.get(i));
+			} else if (Utils.WORKDISTRIBUTION == WorkDistributionStrategy.bucket) {
+
 			}
 		}
 
 		// create iterators over the lists
 		for (int i = 0; i < numberOfThreads; i++)
 			wellConIterator[i] = wellConLists[i].iterator();
+	}
+
+	private GridDim calculateGridDim(int numberOfThreads) {
+		GridDim result = new GridDim();
+
+		int sqrtThreads = (int) Math.sqrt(numberOfThreads);
+
+		return result;
+	}
+
+	private static class GridDim {
+		private int xDim;
+		private int yDim;
 	}
 
 	// provide this information in the rtree structure
@@ -856,21 +863,21 @@ public class ERCWellCheck2 {
 			List<Rectangle2D> pWellsInCell = essentialPWell.get(cell);
 			List<Rectangle2D> nWellsInCell = essentialNWell.get(cell);
 			for (Rectangle2D b : pWellsInCell) {
-				Rectangle2D bounds = new Rectangle2D.Double(b.getMinX(), b.getMinY(), b.getWidth(),
-						b.getHeight());
+				Rectangle2D bounds = new Rectangle2D.Double(b.getMinX(), b.getMinY(), b.getWidth(), b
+						.getHeight());
 				DBMath.transformRect(bounds, info.getTransformToRoot());
 				pWellRoot = RTNode.linkGeom(null, pWellRoot, new WellBound(bounds));
 			}
 			for (Rectangle2D b : nWellsInCell) {
-				Rectangle2D bounds = new Rectangle2D.Double(b.getMinX(), b.getMinY(), b.getWidth(),
-						b.getHeight());
+				Rectangle2D bounds = new Rectangle2D.Double(b.getMinX(), b.getMinY(), b.getWidth(), b
+						.getHeight());
 				DBMath.transformRect(bounds, info.getTransformToRoot());
 				nWellRoot = RTNode.linkGeom(null, nWellRoot, new WellBound(bounds));
 			}
 		}
 
-		private void addNetwork(Network net, AtomicInteger netNum,
-				HierarchyEnumerator.CellInfo cinfo, Transistor trans) {
+		private void addNetwork(Network net, AtomicInteger netNum, HierarchyEnumerator.CellInfo cinfo,
+				Transistor trans) {
 			if (net != null) {
 				Integer num = cinfo.getNetID(net);
 				netNum.set(num);
@@ -901,10 +908,8 @@ public class ERCWellCheck2 {
 
 			if ((fun.isNTypeTransistor() || fun.isPTypeTransistor())) {
 				Transistor trans = new Transistor();
-				addNetwork(netList.getNetwork(ni.getTransistorDrainPort()), trans.drainNet, info,
-						trans);
-				addNetwork(netList.getNetwork(ni.getTransistorSourcePort()), trans.sourceNet, info,
-						trans);
+				addNetwork(netList.getNetwork(ni.getTransistorDrainPort()), trans.drainNet, info, trans);
+				addNetwork(netList.getNetwork(ni.getTransistorSourcePort()), trans.sourceNet, info, trans);
 			} else if (Utils.canBeSubstrateTap(fun) || Utils.canBeWellTap(fun)) {
 				// Allowing more than one port for well resistors.
 				for (Iterator<PortInst> pIt = ni.getPortInsts(); pIt.hasNext();) {
@@ -918,8 +923,7 @@ public class ERCWellCheck2 {
 					else
 						tmpNetNum = info.getNetID(net);
 
-					WellCon wc = new WellCon(ni.getTrueCenter(), tmpNetNum, null, false, false,
-							fun, ni);
+					WellCon wc = new WellCon(ni.getTrueCenter(), tmpNetNum, null, false, false, fun, ni);
 					AffineTransform trans = ni.rotateOut();
 					trans.transform(wc.getCtr(), wc.getCtr());
 					info.getTransformToRoot().transform(wc.getCtr(), wc.getCtr());
@@ -991,8 +995,7 @@ public class ERCWellCheck2 {
 						continue;
 
 					// Getting only ercLayers
-					Poly[] nodeInstPolyList = pn.getTechnology().getShapeOfNode(ni, true, true,
-							ercLayers);
+					Poly[] nodeInstPolyList = pn.getTechnology().getShapeOfNode(ni, true, true, ercLayers);
 					int tot = nodeInstPolyList.length;
 					for (int i = 0; i < tot; i++) {
 						Poly poly = nodeInstPolyList[i];
@@ -1060,14 +1063,12 @@ public class ERCWellCheck2 {
 
 			neighborCache = null;
 			networkCache = null;
-
-			// System.out.println("visitor cleared ...");
 		}
 	}
 
-	private static final Layer.Function[] ercLayersArray = { Layer.Function.WELLP,
-			Layer.Function.WELL, Layer.Function.WELLN, Layer.Function.SUBSTRATE,
-			Layer.Function.IMPLANTP, Layer.Function.IMPLANT, Layer.Function.IMPLANTN };
+	private static final Layer.Function[] ercLayersArray = { Layer.Function.WELLP, Layer.Function.WELL,
+			Layer.Function.WELLN, Layer.Function.SUBSTRATE, Layer.Function.IMPLANTP, Layer.Function.IMPLANT,
+			Layer.Function.IMPLANTN };
 	private static final Layer.Function.Set ercLayers = new Layer.Function.Set(ercLayersArray);
 
 	/**
@@ -1092,8 +1093,7 @@ public class ERCWellCheck2 {
 	private void initStatistics() {
 		if (Utils.GATHERSTATISTICS) {
 			Utils.numObjSearches = 0;
-			Utils.wellBoundSearchOrder = Collections
-					.synchronizedList(new ArrayList<WellBoundRecord>());
+			Utils.wellBoundSearchOrder = Collections.synchronizedList(new ArrayList<WellBoundRecord>());
 		}
 	}
 

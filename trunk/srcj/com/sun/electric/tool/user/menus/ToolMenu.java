@@ -45,6 +45,7 @@ import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.prototype.PortCharacteristic;
 import com.sun.electric.database.prototype.PortProto;
 import com.sun.electric.database.text.TextUtils;
+import com.sun.electric.tool.user.dialogs.CellBrowser;
 import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.Connection;
 import com.sun.electric.database.topology.NodeInst;
@@ -55,8 +56,10 @@ import com.sun.electric.database.variable.ElectricObject;
 import com.sun.electric.database.variable.EvalJavaBsh;
 import com.sun.electric.database.variable.EvalJython;
 import com.sun.electric.database.variable.TextDescriptor;
+import com.sun.electric.database.variable.UserInterface;
 import com.sun.electric.database.variable.VarContext;
 import com.sun.electric.database.variable.Variable;
+import com.sun.electric.database.geometry.btree.EquivalenceClasses;
 import com.sun.electric.lib.LibFile;
 import com.sun.electric.technology.DRCTemplate;
 import com.sun.electric.technology.Foundry;
@@ -290,16 +293,19 @@ public class ToolMenu
 
 		//------------------- Simulation (SPICE)
 
-			// mnemonic keys available: AB      IJK  NO QR   VWXYZ
+			// mnemonic keys available: AB   F  IJKL N  QR   VWXYZ
             new EMenu("Simulation (_Spice)",
 		        new EMenuItem("Write Spice _Deck...") { public void run() {
                     FileMenu.exportCommand(FileType.SPICE, true); }},
 		        new EMenuItem("Write _CDL Deck...") { public void run() {
                     FileMenu.exportCommand(FileType.CDL, true); }},
-		        new EMenuItem("Plot Spice _Listing...") { public void run() {
-                    Simulate.plotSpiceResults(); }},
-		        new EMenuItem("Plot Spice _for This Cell") { public void run() {
-                    Simulate.plotSpiceResultsThisCell(); }},
+		        new EMenuItem("Plot Simulation _Output from Chosen File...") { public void run() {
+                    plotChosen(); }},
+		        new EMenuItem("Plot Simulation Output from _Guessed File") { public void run() {
+                    UserInterface ui = Job.getUserInterface();
+                    Cell cell = ui.needCurrentCell();
+                    if (cell == null) return;
+                    Simulate.plotGuessed(cell, null); }},
 		        new EMenuItem("Set Spice _Model...") { public void run() {
                     Simulation.setSpiceModel(); }},
 		        new EMenuItem("Add M_ultiplier") { public void run() {
@@ -319,7 +325,7 @@ public class ToolMenu
                     makeTemplate(Spice.SPICE_H_TEMPLATE_KEY); }},
 		        new EMenuItem("Set _PSpice Template") { public void run() {
                     makeTemplate(Spice.SPICE_P_TEMPLATE_KEY); }},
-		        new EMenuItem("Set _GnuCap Template") { public void run() {
+		        new EMenuItem("Set GnuCap Template") { public void run() {
                     makeTemplate(Spice.SPICE_GC_TEMPLATE_KEY); }},
 		        new EMenuItem("Set _SmartSpice Template") { public void run() {
                     makeTemplate(Spice.SPICE_SM_TEMPLATE_KEY); }},
@@ -332,7 +338,7 @@ public class ToolMenu
 
 		//------------------- Simulation (Verilog)
 
-			// mnemonic keys available:  B  EFGHIJKLMNO QR  U  XYZ
+			// mnemonic keys available:  BCDEF HIJKLMN  QR  U  XYZ
             new EMenu("Simulation (_Verilog)",
 		        new EMenuItem("Write _Verilog Deck...") { public void run() {
                     Simulation.setVerilogStopAtStandardCells(false);
@@ -341,10 +347,13 @@ public class ToolMenu
     		    new EMenuItem("Write Verilog_A Deck...") { public void run() {
     		    	Simulation.setVerilogStopAtStandardCells(false);
     		    	FileMenu.exportCommand(FileType.VERILOGA, true); }},    
-		        new EMenuItem("Plot Verilog VCD _Dump...") { public void run() {
-                    Simulate.plotVerilogResults(); }},
-		        new EMenuItem("Plot Verilog for This _Cell") { public void run() {
-                    Simulate.plotVerilogResultsThisCell(); }},
+		        new EMenuItem("Plot Simulation _Output from Chosen File...") { public void run() {
+                    plotChosen(); }},
+		        new EMenuItem("Plot Simulation Output from _Guessed File") { public void run() {
+                    UserInterface ui = Job.getUserInterface();
+                    Cell cell = ui.needCurrentCell();
+                    if (cell == null) return;
+                    Simulate.plotGuessed(cell, null); }},
                 SEPARATOR,
 		        new EMenuItem("Set Verilog _Template") { public void run() {
                     makeTemplate(Verilog.VERILOG_TEMPLATE_KEY); }},
@@ -1466,8 +1475,9 @@ public class ToolMenu
         // Consider integrating this into HierarchyEnumerator; it's useful.
         final HashSet<Cell> visited = new HashSet<Cell>();
 
-        // After a Cell is visited, all of its driven ports are added to this hashset.
-        final HashSet<PortProto> drivenPorts = new HashSet<PortProto>();
+        final Object DRIVEN = new Object();
+        // Equivalence classes for connected ports
+        final EquivalenceClasses<Object> protoConnections = new EquivalenceClasses<Object>();
 
         // We perform a bottom-up traversal, but never visit a Cell
         // twice (even if it has many instances)
@@ -1482,77 +1492,104 @@ public class ToolMenu
                 }
                 public void exitCell(CellInfo cellInfo) {
                     Cell cell = cellInfo.getCell();
-        			Map<Network,ArcInst[]> arcMap = null;
-        			Map<Network,PortInst[]> portMap = null;
-        			if (cell.getView() != View.SCHEMATIC)
-        			{
-        				arcMap = cell.getNetlist().getArcInstsByNetwork();
-                		portMap = cell.getNetlist().getPortInstsByNetwork();
-        			}
-                    for(Network net : i2i(cell.getNetlist().getNetworks())) {
-                        boolean driven = false;
-                        boolean hasInputExport = false;
+                    final EquivalenceClasses<Object> instanceConnections = new EquivalenceClasses<Object>();
 
-                        // because we're in exitCell, we know that we've already added any Ports to drivenPorts
+                    for(Network net : i2i(cell.getNetlist().getNetworks())) {
+
+                        // merge this Network with all Exports it touches
+                        for(Export e : i2i(net.getExports())) {
+                            instanceConnections.merge(net, e);
+                            if (e.isNamedGround() || e.isNamedPower() ||
+                                e.getCharacteristic()==PortCharacteristic.GND || e.getCharacteristic()==PortCharacteristic.PWR)
+                                instanceConnections.merge(e, DRIVEN);
+                        }
+
             			PortInst[] portsOnNet = null;
-            			if (portMap != null) portsOnNet = portMap.get(net); else
-            			{
+                        Map<Network,PortInst[]> portMap = null;
+                        if (cell.getView() != View.SCHEMATIC) portMap = cell.getNetlist().getPortInstsByNetwork();
+            			if (portMap != null) portsOnNet = portMap.get(net); else {
             				List<PortInst> portList = new ArrayList<PortInst>();
             				for(Iterator<PortInst> pIt = net.getPorts(); pIt.hasNext(); ) portList.add(pIt.next());
             				portsOnNet = portList.toArray(new PortInst[]{});
             			}
+
+                        // merge this Network with all PortInst's it touches
                         for(PortInst pi : portsOnNet) {
+                            // merge net with portinst
+                            instanceConnections.merge(net, pi);
+
                             NodeInst ni = pi.getNodeInst();
                             PortProto pp = pi.getPortProto();
                             if (ni.isCellInstance() && ((Cell)ni.getProto()).getView() == View.ICON)
                                 pp = ((Export)pp).findEquivalent(((Cell)ni.getProto()).contentsView());
-                            if (drivenPorts.contains(pp)) { driven = true; break; }
+
+                            // merge instances based on proto connectivity
+                            if (protoConnections.isEquivalent(pp, DRIVEN))
+                                instanceConnections.merge(pi, DRIVEN);
+                            for(PortInst pi2 : i2i(ni.getPortInsts())) {
+                                if (protoConnections.isEquivalent(pp, pi2.getPortProto()))
+                                    instanceConnections.merge(pi, pi2);
+                            }
+
                             if (ni.getProto() instanceof PrimitiveNode) {
                                 PrimitiveNode np = (PrimitiveNode)ni.getProto();
                                 if (np.getFunction().isResistor()) {
-                                    driven = true;
-                                    break;
+                                    for(PortInst pi2 : i2i(ni.getPortInsts()))
+                                        instanceConnections.merge(pi, pi2);
                                 } else if (np.getFunction().isTransistor()) {
-                                    if (pi == ni.getTransistorDrainPort() || pi == ni.getTransistorSourcePort()) {
-                                        driven = true;
-                                        break;
-                                    }
+                                    if (pi == ni.getTransistorDrainPort() || pi == ni.getTransistorSourcePort())
+                                        instanceConnections.merge(net, DRIVEN);
                                 }
                                 if (np.getFunction() == PrimitiveNode.Function.CONGROUND ||
-                                    np.getFunction() == PrimitiveNode.Function.CONPOWER) {
-                                    driven = true;
-                                    break;
-                                }
+                                    np.getFunction() == PrimitiveNode.Function.CONPOWER)
+                                    instanceConnections.merge(net, DRIVEN);
                             }
                         }
-                        for(Export e : i2i(net.getExports())) {
-                            if (e.isNamedGround() || e.isNamedPower()) driven = true;
-                            switch (e.getCharacteristic()) {
-                                case IN:  case BIDIR:    hasInputExport = true; break;
-                                case GND: case PWR:      driven = true;         break;
-                            }
+                    }
+
+                    // now check for Networks which are undriven and not connected to an input Export
+                    OUTER: for(Network net : i2i(cell.getNetlist().getNetworks())) {
+                        if (instanceConnections.isEquivalent(net, DRIVEN))
+                            continue;
+                        for(Export e : i2i(net.getExports()))
+                            if (e.getCharacteristic()==PortCharacteristic.IN || e.getCharacteristic()==PortCharacteristic.BIDIR)
+                                continue OUTER;
+                        // problem!
+                        List<ArcInst> arcsOnNet = null;
+                        Map<Network,ArcInst[]> arcMap = null;
+                        if (cell.getView() != View.SCHEMATIC)
+                            arcMap = cell.getNetlist().getArcInstsByNetwork();
+                        if (arcMap != null) arcsOnNet = new ArrayList<ArcInst>(Arrays.asList(arcMap.get(net))); else {
+                            arcsOnNet = new ArrayList<ArcInst>();
+                            for(Iterator<ArcInst> aIt = net.getArcs(); aIt.hasNext(); ) arcsOnNet.add(aIt.next());
                         }
-                        if (driven)
-                            for(Export e : i2i(net.getExports()))
-                                switch (e.getCharacteristic()) {
-                                    case OUT:  case BIDIR:    drivenPorts.add(e); break;
-                                }
-                        if (!driven && !hasInputExport) {
-                            // problem!
-            				List<ArcInst> arcsOnNet = null;
-                			if (arcMap != null) arcsOnNet = new ArrayList<ArcInst>(Arrays.asList(arcMap.get(net))); else
-                			{
-                				arcsOnNet = new ArrayList<ArcInst>();
-                				for(Iterator<ArcInst> aIt = net.getArcs(); aIt.hasNext(); ) arcsOnNet.add(aIt.next());
-                			}
-                            if (arcsOnNet.size() > 0)
-                                errorLogger.logMessage("Undriven network", arcsOnNet, cell, 0, true);
-                            else if (portsOnNet.length > 0) {
+                        if (arcsOnNet.size() > 0)
+                            errorLogger.logMessage("Undriven network", arcsOnNet, cell, 0, true);
+                        else {
+                            PortInst[] portsOnNet = null;
+                            Map<Network,PortInst[]> portMap = null;
+                            if (cell.getView() != View.SCHEMATIC) portMap = cell.getNetlist().getPortInstsByNetwork();
+                            if (portMap != null) portsOnNet = portMap.get(net); else {
+                                List<PortInst> portList = new ArrayList<PortInst>();
+                                for(Iterator<PortInst> pIt = net.getPorts(); pIt.hasNext(); ) portList.add(pIt.next());
+                                portsOnNet = portList.toArray(new PortInst[]{});
+                            }
+                            if (portsOnNet.length > 0) {
                                 PortInst pi = portsOnNet[0];
                                 errorLogger.logMessage("Undriven network on node " + pi.getNodeInst().describe(false) + ", port " +
                                                        pi.getPortProto().getName(), null, null, cell, 0, true);
                             }
                         }
+                    }
+
+                    // finally, use instanceConnections to update protoConnections
+                    for (Export e : i2i(cell.getExports())) {
+                        if (instanceConnections.isEquivalent(e, DRIVEN))
+                            protoConnections.merge(e, DRIVEN);
+                        // XXX: inefficient! n^2
+                        for (Export e2 : i2i(cell.getExports()))
+                            if (instanceConnections.isEquivalent(e, e2))
+                                protoConnections.merge(e, e2);
                     }
                 }
                 public boolean visitNodeInst(Nodable ni, CellInfo info) {
@@ -2364,8 +2401,17 @@ public class ToolMenu
         String fileName = OpenFile.chooseInputFile(FileType.DB, null);
         if (fileName == null) return;
         EditWindow wnd = EditWindow.needCurrent();
-        if (wnd == null) return;
+        if (wnd == null)
+        {
+            System.out.println("No current cell to import data in '" + fileName + "' to");
+            return;
+        }
         Cell cell = wnd.getCell();
+        if (cell == null)
+        {
+            System.out.println("No current cell to import data in '" + fileName + "' to");
+            return;
+        }
         HashMap<Cell,String> mangledNames = new HashMap<Cell,String>();
         com.sun.electric.tool.io.output.GDS.buildUniqueNames(cell, mangledNames,
         	IOTool.getGDSCellNameLenMax(), IOTool.isGDSOutUpperCase());
@@ -2456,4 +2502,19 @@ public class ToolMenu
 //        FillGeneratorTool.generateAutoFill(cell, hierarchy, binary, false);
 //    }
 
+	private static void plotChosen() {
+        String fileName = OpenFile.chooseInputFile(null, null);
+        if (fileName == null) return;
+        URL fileURL = TextUtils.makeURLToFile(fileName);
+        String cellName = TextUtils.getFileNameWithoutExtension(fileURL);
+        Library curLib = Library.getCurrent();
+        Cell cell = curLib.findNodeProto(cellName);
+        if (cell == null) {
+            CellBrowser dialog = new CellBrowser(TopLevel.getCurrentJFrame(), true, CellBrowser.DoAction.selectCellToAssoc);
+            dialog.setVisible(true);
+            cell = dialog.getSelectedCell();
+            if (cell == null) return;
+        }
+        Simulate.plot(cell, fileURL, null);
+    }
 }

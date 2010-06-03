@@ -66,7 +66,9 @@ import com.sun.electric.tool.io.input.spicenetlist.SpiceSubckt;
 import com.sun.electric.tool.ncc.basic.NccCellAnnotations;
 import com.sun.electric.tool.ncc.basic.NccCellAnnotations.NamePattern;
 import com.sun.electric.tool.simulation.Simulation;
+import com.sun.electric.database.variable.UserInterface;
 import com.sun.electric.tool.user.Exec;
+import com.sun.electric.tool.Job;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.dialogs.ExecDialog;
 import com.sun.electric.tool.user.ui.TopLevel;
@@ -337,7 +339,24 @@ public class Spice extends Topology
                 command = command.replaceAll("\\$\\{FILENAME_NO_EXT}", Matcher.quoteReplacement(filename_noext));
 
                 // set up run probe
-                FileType type = Simulate.getSpiceOutputType(outputFormat, engine);
+                FileType type = null;
+                if (outputFormat.equalsIgnoreCase("Standard")) {
+                    if (engine == Simulation.SpiceEngine.SPICE_ENGINE_H)
+                        type = FileType.HSPICEOUT;
+                    if (engine == Simulation.SpiceEngine.SPICE_ENGINE_3 || engine == Simulation.SpiceEngine.SPICE_ENGINE_P)
+                        type = FileType.PSPICEOUT;
+                    type = FileType.SPICEOUT;
+                } else if (outputFormat.equalsIgnoreCase("Raw"))
+                    type = FileType.RAWSPICEOUT;
+                else if (outputFormat.equalsIgnoreCase("RawSmart"))
+                    type = FileType.RAWSSPICEOUT;
+                else if (outputFormat.equalsIgnoreCase("RawLT"))
+                    type = FileType.RAWLTSPICEOUT;
+                else if (outputFormat.equalsIgnoreCase("Epic"))
+                    type = FileType.EPIC;
+                else
+                    type = null;
+
                 String outFile = rundir + File.separator + filename_noext + "." + type.getFirstExtension();
                 Exec.FinishedListener l = new SpiceFinishedListener(cell, type, outFile);
 
@@ -3153,7 +3172,10 @@ public class Spice extends Topology
 //
 //            Simulate.plotSimulationResults(type, cell, fileURL, ww);
             SwingUtilities.invokeLater(new Runnable() { public void run() {
-            	Simulate.plotSpiceResultsThisCell();
+                UserInterface ui = Job.getUserInterface();
+                Cell cell = ui.needCurrentCell();
+                if (cell == null) return;
+            	Simulate.plotGuessed(cell, null);
             }});
         }
     }

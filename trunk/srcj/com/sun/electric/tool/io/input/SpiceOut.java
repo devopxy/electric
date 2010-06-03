@@ -39,18 +39,20 @@ import java.util.List;
  * Class for reading and displaying waveforms from Spice2 or GNUCap output.
  * These are contained in .spo files.
  */
-public class SpiceOut extends Simulate
+public class SpiceOut extends Input<Stimuli>
 {
 	SpiceOut() {}
 
 	/**
 	 * Method to read an Spice output file.
 	 */
-	protected void readSimulationOutput(Stimuli sd, URL fileURL, Cell cell)
+	protected Stimuli processInput(URL fileURL, Cell cell)
 		throws IOException
 	{
+        Stimuli sd = new Stimuli();
+
 		// open the file
-		if (openTextInput(fileURL)) return;
+		if (openTextInput(fileURL)) return sd;
 
 		// show progress reading .spo file
 		startProgressDialog("Spice output", fileURL.getFile());
@@ -61,6 +63,7 @@ public class SpiceOut extends Simulate
 		// stop progress dialog, close the file
 		stopProgressDialog();
 		closeInput();
+        return sd;
 	}
 
 	private final static String CELLNAME_HEADER = "*** SPICE deck for cell ";
