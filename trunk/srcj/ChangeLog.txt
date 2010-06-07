@@ -2,9 +2,27 @@
 
 NOTE: Please place changes under the version that will be released next.
 
+************************* Version 9.00h: ******************************
+
+IMP: (6/3/10, DN) Remove Technology.State class to simplify things.
+   This class is not necessary because Technoplogies are immutable now.
+
 ************************* Version 9.00g: ******************************
 
+BUG (6/3/10, FS) Bug #2770 fixed through the new bucket work distribution 
+
+IMP: (6/3/10, SMR) Added code to ignore hidden node names and reset them
+     in the Properties dialog (Bug #2768).
+
+IMP: (6/3/10, FS) Add a new work distribution to ERCWellCheck2
+          - add a 2-dimensional view of threads
+          - overlay the current cell with an 2-dimensional grid
+          - each thread works on one cell of the grid (bucket)
+
 IMP: (6/3/10, DN) The nameDescriptor of NodeInst can be non-displayble (Bug #2768).
+
+BUG: (6/3/10, AM) Verilog simulation not working (Bug #2780)
+FIX: Assign ".dump" extension to VerilogOut per Steve's request.
 
 BUG: (6/2/10, AM) Adding panel to waveform window takes a long time (Bug #2776)
 FIX: cache bounds in Analysis.java.

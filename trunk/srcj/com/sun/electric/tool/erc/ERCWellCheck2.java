@@ -98,9 +98,14 @@ import com.sun.electric.tool.user.dialogs.EModelessDialog;
 import com.sun.electric.tool.user.ui.EditWindow;
 import com.sun.electric.tool.user.ui.TopLevel;
 import com.sun.electric.tool.util.CollectionFactory;
+import com.sun.electric.tool.util.concurrent.Parallel;
 import com.sun.electric.tool.util.concurrent.exceptions.PoolExistsException;
+import com.sun.electric.tool.util.concurrent.patterns.PForJob;
 import com.sun.electric.tool.util.concurrent.patterns.PJob;
 import com.sun.electric.tool.util.concurrent.patterns.PTask;
+import com.sun.electric.tool.util.concurrent.patterns.PForJob.BlockedRange;
+import com.sun.electric.tool.util.concurrent.patterns.PForJob.BlockedRange1D;
+import com.sun.electric.tool.util.concurrent.patterns.PForJob.PForTask;
 import com.sun.electric.tool.util.concurrent.runtime.ThreadPool;
 
 /**
@@ -513,6 +518,7 @@ public class ERCWellCheck2 {
 
 		hasNCon = false;
 		hasPCon = false;
+		NetValues.numberOfMerges = 0;
 
 		pWellRoot = RTNode.makeTopLevel();
 		nWellRoot = RTNode.makeTopLevel();
@@ -534,6 +540,15 @@ public class ERCWellCheck2 {
 		// make arrays of well contacts clustdered for each processor
 		assignWellContacts(numberOfThreads);
 
+		if (Job.getDebug()) {
+			endTime = System.currentTimeMillis();
+
+			System.out.println("   Assign well contacts took: "
+					+ TextUtils.getElapsedTime(endTime - startTime));
+
+			startTime = endTime;
+		}
+
 		// analyze the contacts
 		NetValues.reset();
 		if (numberOfThreads <= 1)
@@ -552,6 +567,10 @@ public class ERCWellCheck2 {
 		msg += "took ";
 		System.out.println(msg + TextUtils.getElapsedTime(endTime - startTime));
 		startTime = endTime;
+
+		if (Job.getDebug()) {
+			System.out.println("   Amount of merges: " + NetValues.numberOfMerges);
+		}
 
 		StrategyParameter parameter = new StrategyParameter(wellCons, wellPrefs, cell, errorLogger);
 
@@ -639,6 +658,7 @@ public class ERCWellCheck2 {
 				Rectangle2D cellBounds = cell.getBounds();
 				Point2D ctr = new Point2D.Double(cellBounds.getCenterX(), cellBounds.getCenterY());
 				Point2D[] farPoints = new Point2D[numberOfThreads];
+
 				for (int i = 0; i < numberOfThreads; i++) {
 					double farthest = 0;
 					farPoints[i] = new Point2D.Double(0, 0);
@@ -671,11 +691,19 @@ public class ERCWellCheck2 {
 					wellConLists[threadNum].add(wc);
 				}
 			} else if (Utils.WORKDISTRIBUTION == WorkDistributionStrategy.random) {
-				// old way where well contacts are analyzed in random order
+
 				for (int i = 0; i < wellCons.size(); i++)
 					wellConLists[i % numberOfThreads].add(wellCons.get(i));
+
 			} else if (Utils.WORKDISTRIBUTION == WorkDistributionStrategy.bucket) {
 
+				GridDim dim = calculateGridDim(numberOfThreads);
+
+				double sizeCellX = cell.getDefWidth() / (double) dim.xDim;
+				double sizeCellY = cell.getDefHeight() / (double) dim.yDim;
+
+				Parallel.For(new BlockedRange1D(0, wellCons.size(), wellCons.size() / numberOfThreads),
+						new WorkDistributionTask(sizeCellX, sizeCellY, dim));
 			}
 		}
 
@@ -684,12 +712,59 @@ public class ERCWellCheck2 {
 			wellConIterator[i] = wellConLists[i].iterator();
 	}
 
+	public class WorkDistributionTask extends PForTask {
+
+		private double sizeX;
+		private double sizeY;
+		private GridDim dim;
+
+		public WorkDistributionTask(double sizeX, double sizeY, GridDim dim) {
+			this.sizeX = sizeX;
+			this.sizeY = sizeY;
+			this.dim = dim;
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * com.sun.electric.tool.util.concurrent.patterns.PForJob.PForTask#execute
+		 * (com.sun.electric.tool.util.concurrent.patterns.PForJob.BlockedRange)
+		 */
+		@Override
+		public void execute(BlockedRange range) {
+			BlockedRange1D range1D = (BlockedRange1D) range;
+			for (int i = range1D.getStart(); i < range1D.getEnd(); i++) {
+				WellCon con = wellCons.get(i);
+				GridDim tmpDim = calculateBucket(con, sizeX, sizeY);
+				int threadId = tmpDim.xDim + tmpDim.yDim * dim.xDim;
+				CollectionFactory.threadSafeListAdd(con, wellConLists[threadId]);
+			}
+		}
+
+	}
+
+	private GridDim calculateBucket(WellCon con, double sizeX, double sizeY) {
+		GridDim result = new GridDim();
+
+		result.xDim = (int) ((con.getCtr().getX() - cell.getBounds().getMinX()) / sizeX);
+		result.yDim = (int) ((con.getCtr().getY() - cell.getBounds().getMinY()) / sizeY);
+
+		return result;
+	}
+
 	private GridDim calculateGridDim(int numberOfThreads) {
 		GridDim result = new GridDim();
 
-		int sqrtThreads = (int) Math.sqrt(numberOfThreads);
+		for (int i = (int) Math.sqrt(numberOfThreads); i >= 1; i--) {
+			if ((i * (int) (numberOfThreads / i)) == numberOfThreads) {
+				result.xDim = i;
+				result.yDim = (int) (numberOfThreads / i);
+				return result;
+			}
+		}
 
-		return result;
+		return null;
 	}
 
 	private static class GridDim {
@@ -887,15 +962,6 @@ public class ERCWellCheck2 {
 					transistors.put(num, tmpList);
 				}
 				transistors.get(num).add(trans);
-
-				// Transistor otherTrans = neighborCache.get(num);
-				//
-				// if (otherTrans != null) {
-				// trans.neighbors.add(otherTrans);
-				// otherTrans.neighbors.add(trans);
-				// }
-				//
-				// neighborCache.put(num, trans);
 			}
 		}
 
