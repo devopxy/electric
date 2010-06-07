@@ -23,6 +23,8 @@
  */
 package com.sun.electric.tool.util.concurrent.patterns;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.sun.electric.tool.util.concurrent.runtime.ThreadPool;
 
 /**
@@ -32,8 +34,10 @@ import com.sun.electric.tool.util.concurrent.runtime.ThreadPool;
  */
 public class PJob {
 
-	protected int numOfTasksTotal = 0;
-	protected int numOfTasksFinished = 0;
+	public static final int SERIAL = -1;
+
+	protected AtomicInteger numOfTasksTotal = new AtomicInteger(0);
+	protected AtomicInteger numOfTasksFinished = new AtomicInteger(0);
 	protected ThreadPool pool;
 
 	public PJob() {
@@ -45,7 +49,7 @@ public class PJob {
 	 * of this job is finished.
 	 */
 	public synchronized void finishTask() {
-		numOfTasksFinished++;
+		numOfTasksFinished.incrementAndGet();
 	}
 
 	/**
@@ -62,7 +66,7 @@ public class PJob {
 	 */
 	public void execute(boolean block) {
 
-		//pool.start();
+		// pool.start();
 
 		if (block) {
 			this.join();
@@ -73,7 +77,7 @@ public class PJob {
 	 * Wait for the job while not finishing.
 	 */
 	public void join() {
-		while (numOfTasksFinished != numOfTasksTotal) {
+		while (numOfTasksFinished.get() != numOfTasksTotal.get()) {
 			try {
 				Thread.sleep(100);
 			} catch (InterruptedException e) {
@@ -88,9 +92,19 @@ public class PJob {
 	 * 
 	 * @param task
 	 */
-	public void add(PTask task) {
-		numOfTasksTotal++;
+	public void add(PTask task, int threadID) {
+		numOfTasksTotal.incrementAndGet();
 		pool.add(task);
+	}
+
+	/**
+	 * Use this method to add tasks to this job. This will affect that the new
+	 * task is registered by this job.
+	 * 
+	 * @param task
+	 */
+	public void add(PTask task) {
+		this.add(task, SERIAL);
 	}
 
 }

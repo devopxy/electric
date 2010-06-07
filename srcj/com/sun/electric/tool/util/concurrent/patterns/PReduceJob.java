@@ -59,7 +59,7 @@ public class PReduceJob<T> extends PForJob {
 				result = tasks.get(0).reduce(null);
 			} else {
 				for (PReduceTask<T> task : tasks) {
-					if (oldTask != null) {
+					if (oldTask != null && task != null) {
 						result = task.reduce(oldTask);
 					}
 					oldTask = task;
@@ -99,8 +99,8 @@ public class PReduceJob<T> extends PForJob {
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public void add(PTask task) {
-		super.add(task);
+	public synchronized void add(PTask task, int threadID) {
+		super.add(task, threadID);
 		if (PForTaskWrapper.class.isInstance(task))
 			tasks.add((PReduceTask<T>) ((PForTaskWrapper) task).getTask());
 	}
