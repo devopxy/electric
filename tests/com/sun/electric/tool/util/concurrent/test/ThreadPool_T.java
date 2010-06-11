@@ -53,7 +53,7 @@ public class ThreadPool_T {
 
 		PJob job = new PJob();
 
-		job.add(new TestTask(-2, job));
+		job.add(new TestTask(-2, job), PJob.SERIAL);
 
 		job.execute();
 
@@ -61,17 +61,16 @@ public class ThreadPool_T {
 		System.out.println("time: " + (System.currentTimeMillis() - start));
 	}
 
-	@Ignore
 	@Test
 	public void testThreadPoolWorkStealing() throws PoolExistsException, InterruptedException {
 		long start = System.currentTimeMillis();
-		IStructure<PTask> taskPool = new WorkStealingStructure<PTask>(0);
-		ThreadPool pool = ThreadPool.initialize(taskPool);
-		
+		IStructure<PTask> taskPool = new WorkStealingStructure<PTask>(2, PTask.class);
+		ThreadPool pool = ThreadPool.initialize(taskPool, 2);
+
 		Thread.sleep(1000);
 
 		PJob job = new PJob();
-		job.add(new TestTask(-2, job));
+		job.add(new TestTask(-2, job), PJob.SERIAL);
 		job.execute();
 
 		pool.shutdown();
@@ -97,7 +96,7 @@ public class ThreadPool_T {
 		public void execute() {
 
 			PJob job = new PJob();
-			job.add(new TestTask(-2, job));
+			job.add(new TestTask(-2, job), PJob.SERIAL);
 			job.execute();
 
 		}
@@ -117,7 +116,7 @@ public class ThreadPool_T {
 		public void execute() {
 			System.out.println(this.threadId + ": " + n);
 			if (n + 1 <= 300)
-				job.add(new TestTask(n + 1, job));
+				job.add(new TestTask(n + 1, job), PJob.SERIAL);
 
 			try {
 				Thread.sleep(100);

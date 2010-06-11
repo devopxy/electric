@@ -34,6 +34,7 @@ import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.EDatabase;
 import com.sun.electric.database.hierarchy.Export;
 import com.sun.electric.database.hierarchy.HierarchyEnumerator;
+import com.sun.electric.tool.simulation.IRSIM;
 import com.sun.electric.database.hierarchy.Library;
 import com.sun.electric.database.hierarchy.Nodable;
 import com.sun.electric.database.hierarchy.View;
@@ -90,7 +91,7 @@ import com.sun.electric.tool.generator.layout.fill.StitchFillJob;
 import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.io.IOTool;
 import com.sun.electric.tool.io.input.LibraryFiles;
-import com.sun.electric.tool.io.input.Simulate;
+import com.sun.electric.tool.io.input.SimulationData;
 import com.sun.electric.tool.io.output.GenerateVHDL;
 import com.sun.electric.tool.io.output.Spice;
 import com.sun.electric.tool.io.output.Verilog;
@@ -241,21 +242,17 @@ public class ToolMenu
 
 			// mnemonic keys available:  B       JK  N PQ      XYZ
             new EMenu("Simulation (Built-in)",
-                Simulation.hasIRSIM() ? new EMenuItem("IRSI_M: Simulate Current Cell") { public void run() {
+                IRSIM.hasIRSIM() ? new EMenuItem("IRSI_M: Simulate Current Cell") { public void run() {
 				    Simulation.startSimulation(Simulation.IRSIM_ENGINE, false, null, null); }} : null,
-			    Simulation.hasIRSIM() ? new EMenuItem("IRSIM: _Write Deck...") { public void run() {
+			    IRSIM.hasIRSIM() ? new EMenuItem("IRSIM: _Write Deck...") { public void run() {
 				    FileMenu.exportCommand(FileType.IRSIM, true); }} : null,
-			    Simulation.hasIRSIM() ? new EMenuItem("_IRSIM: Simulate Deck...") { public void run() {
+			    IRSIM.hasIRSIM() ? new EMenuItem("_IRSIM: Simulate Deck...") { public void run() {
 				    Simulation.startSimulation(Simulation.IRSIM_ENGINE, true, null, null); }} : null,
 
-                Simulation.hasIRSIM() ? SEPARATOR : null,
+                IRSIM.hasIRSIM() ? SEPARATOR : null,
 
 		        new EMenuItem("_ALS: Simulate Current Cell") { public void run() {
                     Simulation.startSimulation(Simulation.ALS_ENGINE, false, null, null); }},
-
-                	Simulation.hasFLEET() ? SEPARATOR : null,
-
-                	Simulation.hasFLEET() ? Simulation.FLEETMenu() : null,
 
                 SEPARATOR,
 
@@ -305,7 +302,7 @@ public class ToolMenu
                     UserInterface ui = Job.getUserInterface();
                     Cell cell = ui.needCurrentCell();
                     if (cell == null) return;
-                    Simulate.plotGuessed(cell, null); }},
+                    SimulationData.plotGuessed(cell, null); }},
 		        new EMenuItem("Set Spice _Model...") { public void run() {
                     Simulation.setSpiceModel(); }},
 		        new EMenuItem("Add M_ultiplier") { public void run() {
@@ -353,7 +350,7 @@ public class ToolMenu
                     UserInterface ui = Job.getUserInterface();
                     Cell cell = ui.needCurrentCell();
                     if (cell == null) return;
-                    Simulate.plotGuessed(cell, null); }},
+                    SimulationData.plotGuessed(cell, null); }},
                 SEPARATOR,
 		        new EMenuItem("Set Verilog _Template") { public void run() {
                     makeTemplate(Verilog.VERILOG_TEMPLATE_KEY); }},
@@ -391,7 +388,7 @@ public class ToolMenu
 		        new EMenuItem("Write _PAL Deck...") { public void run() {
                     FileMenu.exportCommand(FileType.PAL, true); }},
                 SEPARATOR,
-                !Simulation.hasIRSIM() ? new EMenuItem("Write _IRSIM Deck...") { public void run() {
+                !IRSIM.hasIRSIM() ? new EMenuItem("Write _IRSIM Deck...") { public void run() {
 				    FileMenu.exportCommand(FileType.IRSIM, true); }} : null,
 		        new EMenuItem("Write _ESIM/RNL Deck...") { public void run() {
                     FileMenu.exportCommand(FileType.ESIM, true); }},
@@ -2515,6 +2512,6 @@ public class ToolMenu
             cell = dialog.getSelectedCell();
             if (cell == null) return;
         }
-        Simulate.plot(cell, fileURL, null);
+        SimulationData.plot(cell, fileURL, null);
     }
 }

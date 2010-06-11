@@ -53,7 +53,8 @@ import com.sun.electric.tool.user.ui.WindowContent;
 import com.sun.electric.tool.user.ui.WindowFrame;
 import com.sun.electric.tool.user.ui.ZoomAndPanListener;
 import com.sun.electric.tool.user.ui.ToolBar.CursorMode;
-import com.sun.electric.tool.user.waveform.WaveformWindow;
+import com.sun.electric.tool.user.waveform.*;
+import com.sun.electric.tool.simulation.*;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -336,7 +337,36 @@ public class WindowMenu {
                 new EMenuItem("Move Main X Axis Cursor Slower",
                               Resources.getResource(WaveformWindow.class, "ButtonVCRSlower.gif")) { public void run() {
                                   WaveformWindow.getCurrentWaveformWindow().vcrClickSlower();
-                    }}
+                    }},
+                SEPARATOR,
+                new EMenuItem("Generate Digital Signal from Analog Signal (0.5v Threshhold)") { public void run() {
+                    WindowFrame current = WindowFrame.getCurrentWindowFrame();
+                    WindowContent content = current.getContent();
+                    if (!(content instanceof WaveformWindow)) {
+                        System.out.println("Must select a Waveform window first");
+                        return;
+                    }
+                    WaveformWindow ww = (WaveformWindow)content;
+                    Panel panel = ww.getPanel(0);
+                    Stimuli stim = ww.getSimData();
+                    Signal s1 = panel.getSignals().get(0).getSignal();
+                    Analysis an = new Analysis(stim, Analysis.ANALYSIS_DC, false) { public boolean isAnalog() { return false; } };
+                    Signal derived = new DerivedSignal<DigitalSample,ScalarSample>
+                        (an,
+                         s1.getSignalName(),
+                         s1.getSignalContext(),
+                         new Signal[] { s1 }) {
+                        public boolean isDigital() { return true; }
+                        public RangeSample<DigitalSample> getDerivedRange(RangeSample<ScalarSample>[] s) {
+                            if (s[0]==null) return null;
+                            double min = s[0].getMin().getValue();
+                            double max = s[0].getMax().getValue();
+                            return new RangeSample<DigitalSample>(min <  0.5 ? DigitalSample.LOGIC_0 : DigitalSample.LOGIC_1,
+                                                                  max >= 0.5 ? DigitalSample.LOGIC_1 : DigitalSample.LOGIC_0);
+                        }
+                    };
+                    new WaveSignal(panel, derived);
+                } }
                 ),
 
 		// mnemonic keys available: AB DE GHIJKLMNOPQR  UVWXYZ
@@ -411,7 +441,7 @@ public class WindowMenu {
         for (EMenuBar.Instance menuBarInstance: TopLevel.getMenuBars())
         {
             JMenu menu = (JMenu)menuBarInstance.findMenuItem(visibleLayersMenu.getPath());
-            while (menu.getMenuComponentCount() > InvisibleLayerConfiguration.NumConfigs)
+            while (menu.getMenuComponentCount() > InvisibleLayerConfiguration.NUM_CONFIGS)
             	menu.remove(menu.getMenuComponentCount()-1);
             boolean hasMore = false;
             for (EMenuItem elem : list)
@@ -918,17 +948,17 @@ public class WindowMenu {
     {
         User.resetFactoryColor(User.ColorPrefType.BACKGROUND);
         User.resetFactoryColor(User.ColorPrefType.GRID);
+        User.resetFactoryColor(User.ColorPrefType.MEASUREMENT);   
         User.resetFactoryColor(User.ColorPrefType.HIGHLIGHT);
         User.resetFactoryColor(User.ColorPrefType.PORT_HIGHLIGHT);
         User.resetFactoryColor(User.ColorPrefType.TEXT);
         User.resetFactoryColor(User.ColorPrefType.INSTANCE);
-//        User.resetFactoryColor(User.ColorPrefType.ARTWORK);
 		User.resetFactoryColor(User.ColorPrefType.WAVE_BACKGROUND);
 		User.resetFactoryColor(User.ColorPrefType.WAVE_FOREGROUND);
 		User.resetFactoryColor(User.ColorPrefType.WAVE_STIMULI);
 
         EDatabase database = EDatabase.clientDatabase();
-        // change default Artowrk graphics color
+        // change default Artwork graphics color
         Layer layer = database.getArtwork().defaultLayer;
         layer.setGraphics(layer.getGraphics().withColor(Color.BLACK));
 		// change the colors in the "Generic" technology
@@ -945,17 +975,17 @@ public class WindowMenu {
     {
         User.setColor(User.ColorPrefType.BACKGROUND, Color.BLACK.getRGB());
         User.setColor(User.ColorPrefType.GRID, Color.WHITE.getRGB());
-        User.setColor(User.ColorPrefType.HIGHLIGHT, Color.RED.getRGB());
+        User.setColor(User.ColorPrefType.MEASUREMENT, Color.RED.getRGB());    
+        User.setColor(User.ColorPrefType.HIGHLIGHT, Color.RED.getRGB());    
         User.setColor(User.ColorPrefType.PORT_HIGHLIGHT, Color.YELLOW.getRGB());
         User.setColor(User.ColorPrefType.TEXT, Color.WHITE.getRGB());
         User.setColor(User.ColorPrefType.INSTANCE, Color.WHITE.getRGB());
-//        User.setColor(User.ColorPrefType.ARTWORK, Color.WHITE.getRGB());
 		User.setColor(User.ColorPrefType.WAVE_BACKGROUND, Color.BLACK.getRGB());
 		User.setColor(User.ColorPrefType.WAVE_FOREGROUND, Color.WHITE.getRGB());
 		User.setColor(User.ColorPrefType.WAVE_STIMULI, Color.RED.getRGB());
 
         EDatabase database = EDatabase.clientDatabase();
-        // change default Artowrk graphics color
+        // change default Artwork graphics color
         Layer layer = database.getArtwork().defaultLayer;
         layer.setGraphics(layer.getGraphics().withColor(Color.WHITE));
 		// change the colors in the "Generic" technology
@@ -972,17 +1002,17 @@ public class WindowMenu {
     {
         User.setColor(User.ColorPrefType.BACKGROUND, Color.WHITE.getRGB());
         User.setColor(User.ColorPrefType.GRID, Color.BLACK.getRGB());
+        User.setColor(User.ColorPrefType.MEASUREMENT, Color.RED.getRGB());    
         User.setColor(User.ColorPrefType.HIGHLIGHT, Color.RED.getRGB());
         User.setColor(User.ColorPrefType.PORT_HIGHLIGHT, Color.DARK_GRAY.getRGB());
         User.setColor(User.ColorPrefType.TEXT, Color.BLACK.getRGB());
         User.setColor(User.ColorPrefType.INSTANCE, Color.BLACK.getRGB());
-//        User.setColor(User.ColorPrefType.ARTWORK, Color.BLACK.getRGB());
 		User.setColor(User.ColorPrefType.WAVE_BACKGROUND, Color.WHITE.getRGB());
 		User.setColor(User.ColorPrefType.WAVE_FOREGROUND, Color.BLACK.getRGB());
 		User.setColor(User.ColorPrefType.WAVE_STIMULI, Color.RED.getRGB());
 
         EDatabase database = EDatabase.clientDatabase();
-        // change default Artowrk graphics color
+        // change default Artwork graphics color
         Layer layer = database.getArtwork().defaultLayer;
         layer.setGraphics(layer.getGraphics().withColor(Color.BLACK));
 		// change the colors in the "Generic" technology

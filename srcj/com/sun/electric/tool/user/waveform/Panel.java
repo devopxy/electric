@@ -34,7 +34,7 @@ import com.sun.electric.tool.simulation.AnalogAnalysis;
 import com.sun.electric.tool.simulation.AnalogSignal;
 import com.sun.electric.tool.simulation.Analysis;
 import com.sun.electric.tool.simulation.DigitalAnalysis;
-import com.sun.electric.tool.simulation.DigitalSignal;
+import com.sun.electric.tool.simulation.DigitalSample;
 import com.sun.electric.tool.simulation.Signal;
 import com.sun.electric.tool.simulation.ScalarSample;
 import com.sun.electric.tool.simulation.RangeSample;
@@ -658,18 +658,18 @@ public class Panel extends JPanel
 
 		// the only signal must be digital
 		WaveSignal ws = theSignals.iterator().next();
-		if (!(ws.getSignal() instanceof DigitalSignal)) return;
+		if (!(ws.getSignal() .isDigital())) return;
 
 		// the digital signal must be a bus
-		DigitalSignal sDSig = (DigitalSignal)ws.getSignal();
-		List<DigitalSignal> bussedSignals = sDSig.getBussedSignals();
+		Signal<DigitalSample> sDSig = (Signal<DigitalSample>)ws.getSignal();
+		List<Signal<DigitalSample>> bussedSignals = DigitalAnalysis.getBussedSignals(sDSig);
 		if (bussedSignals == null) return;
 
 		// see if any of the bussed signals are displayed
 		boolean opened = false;
 		for(Signal subSig : bussedSignals)
 		{
-			DigitalSignal subDS = (DigitalSignal)subSig;
+			Signal<DigitalSample> subDS = (Signal<DigitalSample>)subSig;
 			WaveSignal subWs = waveWindow.findDisplayedSignal(subDS);
 			if (subWs != null)
 			{
@@ -688,7 +688,7 @@ public class Panel extends JPanel
 
 			for(Signal subSig : bussedSignals)
 			{
-				DigitalSignal subDS = (DigitalSignal)subSig;
+				Signal<DigitalSample> subDS = (Signal<DigitalSample>)subSig;
 				WaveSignal subWs = waveWindow.findDisplayedSignal(subDS);
 				if (subWs != null)
 				{
@@ -707,7 +707,7 @@ public class Panel extends JPanel
 			}
 			for(Signal subSig : bussedSignals)
 			{
-				DigitalSignal subDS = (DigitalSignal)subSig;
+				Signal<DigitalSample> subDS = (Signal<DigitalSample>)subSig;
 				Panel wp = waveWindow.makeNewPanel();
 				WaveSignal wsig = new WaveSignal(wp, subDS);
 
@@ -1496,7 +1496,7 @@ public class Panel extends JPanel
 				forPs.add(poly);
 			}
 			sigIndex++;
-			if (!(ws.getSignal() instanceof DigitalSignal)) {
+			if (!(ws.getSignal() .isDigital())) {
 				// draw analog trace
 				Signal as = ws.getSignal();
                 int s = 0;
@@ -1583,8 +1583,8 @@ public class Panel extends JPanel
 				continue;
             } else {
 				// draw digital traces
-				DigitalSignal ds = (DigitalSignal)ws.getSignal();
-				List<DigitalSignal> bussedSignals = ds.getBussedSignals();
+				Signal<DigitalSample> ds = (Signal<DigitalSample>)ws.getSignal();
+				List<Signal<DigitalSample>> bussedSignals = DigitalAnalysis.getBussedSignals(ds);
 				if (bussedSignals != null)
 				{
 					// a digital bus trace
@@ -1598,15 +1598,15 @@ public class Panel extends JPanel
 						boolean curDefined = true;
 						for(Signal subSig : bussedSignals)
 						{
-							DigitalSignal subDS = (DigitalSignal)subSig;
+							Signal<DigitalSample> subDS = (Signal<DigitalSample>)subSig;
 							int numEvents = subDS.getExactView().getNumEvents();
 							boolean undefined = false;
 							for(int i=0; i<numEvents; i++)
 							{
-								double xValue = subDS.getTime(i);
+								double xValue = subDS.getExactView().getTime(i);
 								if (xValue <= curXValue)
 								{
-									switch (subDS.getState(i) & Stimuli.LOGIC)
+									switch (WaveformWindow.getState(subDS, i) & Stimuli.LOGIC)
 									{
 										case Stimuli.LOGIC_LOW:  curYValue &= ~(1<<bit);   undefined = false;   break;
 										case Stimuli.LOGIC_HIGH: curYValue |= (1<<bit);    undefined = false;   break;
@@ -1688,13 +1688,13 @@ public class Panel extends JPanel
 				int lastLowy = 0, lastHighy = 0;
 				for(int i=0; i<numEvents; i++)
 				{
-					double xValue = ds.getTime(i);
+					double xValue = ds.getExactView().getTime(i);
 					int x = convertXDataToScreen(xValue);
 					if (Simulation.isWaveformDisplayMultiState() && g != null)
 					{
 						if (waveWindow.getPrintingMode() == 2) g.setColor(Color.BLACK); else
 						{
-							switch (ds.getState(i) & Stimuli.STRENGTH)
+							switch (WaveformWindow.getState(ds, i) & Stimuli.STRENGTH)
 							{
 								case Stimuli.OFF_STRENGTH:  g.setColor(waveWindow.getOffStrengthColor());    break;
 								case Stimuli.NODE_STRENGTH: g.setColor(waveWindow.getNodeStrengthColor());   break;
@@ -1703,7 +1703,7 @@ public class Panel extends JPanel
 							}
 						}
 					}
-					int state = ds.getState(i) & Stimuli.LOGIC;
+					int state = WaveformWindow.getState(ds, i) & Stimuli.LOGIC;
 					int lowy = 0, highy = 0;
 					switch (state)
 					{
