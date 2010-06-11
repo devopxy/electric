@@ -80,8 +80,7 @@ import javax.swing.JTextField;
 /**
  * This is the Simulation Interface tool.
  */
-public class Simulation extends Tool
-{
+public class Simulation extends Tool {
 	/** the Simulation tool. */							private static Simulation tool = new Simulation();
 
 	/** key of Variable holding rise time. */			public static final Variable.Key RISE_DELAY_KEY = Variable.newKey("SIM_rise_delay");
@@ -92,39 +91,13 @@ public class Simulation extends Tool
 	/** constant for ALS simulation */					public static final int ALS_ENGINE = 0;
 	/** constant for IRSIM simulation */				public static final int IRSIM_ENGINE = 1;
 
-	private static boolean irsimChecked = false;
-	private static Class<?> irsimClass = null;
-	private static Method irsimSimulateMethod;
+	private Simulation() { super("simulation"); }
 
-	private static boolean fleetChecked = false;
-	private static Class<?> fleetClass = null;
-	private static EMenu fleetSimMenu = null;
+	public void init() { }
 
-	/**
-	 * The constructor sets up the Simulation tool.
-	 */
-	private Simulation()
-	{
-		super("simulation");
-	}
-
-	/**
-	 * Method to initialize the Simulation tool.
-	 */
-	public void init()
-	{
-	}
-
-	/**
-	 * Method to retrieve the singleton associated with the Simulation tool.
-	 * @return the Simulation tool.
-	 */
 	public static Simulation getSimulationTool() { return tool; }
 
 	/****************************** CONTROL OF SIMULATION ENGINES ******************************/
-
-	private static final int CONVERT_TO_VHDL	  =  1;
-	private static final int COMPILE_VHDL_FOR_SIM =  4;
 
 	/**
 	 * Method to invoke a simulation engine.
@@ -133,8 +106,7 @@ public class Simulation extends Tool
 	 * @param prevCell the previous cell being simulated (null for a new simulation).
 	 * @param prevEngine the previous simulation engine running (null for a new simulation).
 	 */
-	public static void startSimulation(int engine, boolean forceDeck, Cell prevCell, Engine prevEngine)
-	{
+	public static void startSimulation(int engine, boolean forceDeck, Cell prevCell, Engine prevEngine) {
 		Cell cell = null;
 		VarContext context = null;
 		String fileName = null;
@@ -159,244 +131,40 @@ public class Simulation extends Tool
 			case ALS_ENGINE:
 				// see if the current cell needs to be compiled
 				Cell originalCell = cell;
-				int activities = 0;
+                boolean convert = false;
+                boolean compile = false;
 				if (cell.getView() != View.NETLISTALS)
 				{
 					if (cell.isSchematic() || cell.getView() == View.LAYOUT)
 					{
 						// current cell is Schematic.  See if there is a more recent netlist or VHDL
 						Cell vhdlCell = cell.otherView(View.VHDL);
-						if (vhdlCell != null && vhdlCell.getRevisionDate().after(cell.getRevisionDate())) cell = vhdlCell; else
-							activities |= CONVERT_TO_VHDL | COMPILE_VHDL_FOR_SIM;
+						if (vhdlCell != null && vhdlCell.getRevisionDate().after(cell.getRevisionDate())) cell = vhdlCell; else {
+                            convert = true;
+                            compile = true;
+                        }
 					}
 					if (cell.getView() == View.VHDL)
 					{
 						// current cell is VHDL.  See if there is a more recent netlist
 						Cell netListCell = cell.otherView(View.NETLISTQUISC);
 						if (netListCell != null && netListCell.getRevisionDate().after(cell.getRevisionDate())) cell = netListCell; else
-							activities |= COMPILE_VHDL_FOR_SIM;
+                            compile = true;
 					}
 				}
 
 				// now schedule the simulation work
-				new DoALSActivity(cell, activities, originalCell, prevEngine);
+				new ALS.DoALSActivity(cell, convert, compile, originalCell, prevEngine, tool);
 				break;
 
 			case IRSIM_ENGINE:
-				if (!hasIRSIM()) return;
+				if (!IRSIM.hasIRSIM()) return;
 //                if (!cell.isSchematic()) // not valid cell
 //                    System.out.println("Can't run IRSIM on a non-schematic cell: " + cell);
 //                else
-                    runIRSIM(cell, context, fileName);
+                IRSIM.runIRSIM(cell, context, fileName);
 				break;
 		}
-	}
-
-	/**
-	 * Class to do the next silicon-compilation activity in a new thread.
-	 */
-	private static class DoALSActivity extends Job
-	{
-		private Cell cell, originalCell;
-		private int activities;
-		private transient Engine prevEngine;
-		private List<Cell> textCellsToRedraw;
-        private GenerateVHDL.VHDLPreferences vp = new GenerateVHDL.VHDLPreferences(false);
-
-		private DoALSActivity(Cell cell, int activities, Cell originalCell, Engine prevEngine)
-		{
-			super("ALS Simulation", tool, Job.Type.CHANGE, null, null, Job.Priority.USER);
-			this.cell = cell;
-			this.activities = activities;
-			this.originalCell = originalCell;
-			this.prevEngine = prevEngine;
-			startJob();
-		}
-
-		public boolean doIt() throws JobException
-		{
-			Library destLib = cell.getLibrary();
-			textCellsToRedraw = new ArrayList<Cell>();
-			fieldVariableChanged("textCellsToRedraw");
-			if ((activities&CONVERT_TO_VHDL) != 0)
-			{
-				// convert Schematic to VHDL
-				System.out.print("Generating VHDL from '" + cell + "' ...");
-				List<String> vhdlStrings = GenerateVHDL.convertCell(cell, vp);
-				if (vhdlStrings == null)
-				{
-					throw new JobException("No VHDL produced");
-				}
-
-				String cellName = cell.getName() + "{vhdl}";
-				Cell vhdlCell = cell.getLibrary().findNodeProto(cellName);
-				if (vhdlCell == null)
-				{
-					vhdlCell = Cell.makeInstance(cell.getLibrary(), cellName);
-					if (vhdlCell == null) return false;
-				}
-				String [] array = new String[vhdlStrings.size()];
-				for(int i=0; i<vhdlStrings.size(); i++) array[i] = vhdlStrings.get(i);
-				vhdlCell.setTextViewContents(array);
-				textCellsToRedraw.add(vhdlCell);
-				System.out.println(" Done, created " + vhdlCell);
-				cell = vhdlCell;
-				fieldVariableChanged("cell");
-			}
-
-			if ((activities&COMPILE_VHDL_FOR_SIM) != 0)
-			{
-				// compile the VHDL to a netlist
-				System.out.print("Compiling VHDL in " + cell + " ...");
-				CompileVHDL c = new CompileVHDL(cell);
-				if (c.hasErrors())
-				{
-					throw new JobException("ERRORS during compilation, no netlist produced");
-				}
-				List<String> netlistStrings = c.getALSNetlist(destLib);
-				if (netlistStrings == null)
-				{
-					throw new JobException("No netlist produced");
-				}
-
-				// store the ALS netlist
-				String cellName = cell.getName() + "{net.als}";
-				Cell netlistCell = cell.getLibrary().findNodeProto(cellName);
-				if (netlistCell == null)
-				{
-					netlistCell = Cell.makeInstance(cell.getLibrary(), cellName);
-					if (netlistCell == null) return false;
-				}
-				String [] array = new String[netlistStrings.size()];
-				for(int i=0; i<netlistStrings.size(); i++) array[i] = netlistStrings.get(i);
-				netlistCell.setTextViewContents(array);
-				textCellsToRedraw.add(netlistCell);
-				System.out.println(" Done, created " + netlistCell);
-				cell = netlistCell;
-				fieldVariableChanged("cell");
-			}
-			return true;
-		}
-
-		public void terminateOK()
-		{
-			for(Cell cell : textCellsToRedraw) {
-				TextWindow.updateText(cell);
-			}
-			if (prevEngine != null)
-			{
-				ALS.restartSimulation(cell, originalCell, (ALS)prevEngine);
-			} else
-			{
-				ALS.simulateNetlist(cell, originalCell);
-			}
-		}
-	}
-
-	/**
-	 * Method to tell whether the IRSIM simulator is available.
-	 * IRSIM is packaged separately because it is from Stanford University.
-	 * This method dynamically figures out whether the IRSIM module is present by using reflection.
-	 * @return true if the IRSIM simulator is available.
-	 */
-	public static boolean hasIRSIM()
-	{
-		if (!irsimChecked)
-		{
-			irsimChecked = true;
-
-			// find the IRSIM class
-			try
-			{
-				irsimClass = Class.forName("com.sun.electric.plugins.irsim.Analyzer");
-			} catch (ClassNotFoundException e)
-			{
-				irsimClass = null;
-				return false;
-			}
-
-			// find the necessary methods on the IRSIM class
-			try
-			{
-				irsimSimulateMethod = irsimClass.getMethod("simulateCell", new Class[] {Cell.class, VarContext.class, String.class});
-			} catch (NoSuchMethodException e)
-			{
-				irsimClass = null;
-				return false;
-			}
-		}
-
-		// if already initialized, return
-		if (irsimClass == null) return false;
-	 	return true;
-	}
-
-	/**
-	 * Method to run the IRSIM simulator on a given cell, context or file.
-	 * Uses reflection to find the IRSIM simulator (if it exists).
-	 * @param cell the Cell to simulate.
-	 * @param context the context to the cell to simulate.
-	 * @param fileName the name of the file with the netlist.  If this is null, simulate the cell.
-	 * If this is not null, ignore the cell and simulate the file.
-	 */
-	public static void runIRSIM(Cell cell, VarContext context, String fileName)
-	{
-		try
-		{
-			irsimSimulateMethod.invoke(irsimClass, new Object[] {cell, context, fileName});
-			return;
-		} catch (Exception e)
-		{
-			System.out.println("Unable to run the IRSIM simulator");
-			e.printStackTrace(System.out);
-		}
-	}
-
-	/**
-	 * Method to tell whether the FLEET simulator is available.
-	 * This method dynamically figures out whether the FLEET module is present by using reflection.
-	 * @return true if the FLEET simulator is available.
-	 */
-	public static boolean hasFLEET()
-	{
-		if (!fleetChecked)
-		{
-			fleetChecked = true;
-
-			// find the FLEET class
-			try
-			{
-				fleetClass = Class.forName("com.sunlabs.fleetsim.electricPlugin.FleetSimElectricPlugin");
-			} catch (ClassNotFoundException e)
-			{
-				fleetClass = null;
-				return false;
-			}
-
-			// find the necessary methods on the FLEET class
-			try
-			{
-				Method fleetMenuMethod = fleetClass.getMethod("fleetSimMenu", new Class[] {});
-				fleetSimMenu= (EMenu)(fleetMenuMethod.invoke(fleetClass, new Object[]{}));
-			} catch (NoSuchMethodException e)
-			{
-				fleetClass = null;
-				return false;
-			}
-			catch (Exception e) {
-				System.out.println("Unable to get FleetSimMenu");
-				e.printStackTrace(System.out);
-			}
-		}
-
-		// if already initialized, return
-		if (fleetClass == null) return false;
-	 	return true;
-	}
-
-	public static EMenu FLEETMenu()
-	{
-		return fleetSimMenu;
 	}
 
 	/**
@@ -677,212 +445,6 @@ public class Simulation extends Tool
 					ni.delVar(WEAK_NODE_KEY);
 			}
 			return true;
-		}
-	}
-
-	/**
-	 * Method to display simulation data in a waveform window.
-	 * @param sd the simulation data to display.
-	 * @param ww the waveform window to load.
-	 * If null, create a new waveform window.
-	 */
-	public static void showSimulationData(Stimuli sd, WaveformWindow ww)
-	{
-		// if the window already exists, update the data
-		if (ww != null)
-		{
-			ww.setSimData(sd);
-			return;
-		}
-		Iterator<Analysis> anIt = sd.getAnalyses();
-		if (!anIt.hasNext())
-		{
-			System.out.println("ERROR: No simulation data found: waveform window not shown");
-			return;
-		}
-		Analysis an = anIt.next();
-
-		// create a waveform window
-		WindowFrame wf = WindowFrame.createWaveformWindow(sd);
-		ww = (WaveformWindow)wf.getContent();
-
-		// if the data has an associated cell, see if that cell remembers the signals that were in the waveform window
-		if (sd.getCell() != null)
-		{
-			String [] signalNames = WaveformWindow.getSignalOrder(sd.getCell());
-			boolean showedSomething = false;
-			boolean wantUnlockedTime = false;
-			Analysis.AnalysisType onlyType = null;
-			for(int i=0; i<signalNames.length; i++)
-			{
-				String signalName = signalNames[i];
-				Signal xAxisSignal = null;
-				int start = 0;
-				if (signalName.startsWith("\t"))
-				{
-					// has panel type and X axis information
-					int openPos = signalName.indexOf('(');
-					int tabPos = signalName.indexOf('\t', 1);
-					start = tabPos+1;
-					if (openPos >= 0) tabPos = openPos;
-					String analysisName = signalName.substring(1, tabPos);
-					Analysis.AnalysisType analysisType = Analysis.AnalysisType.findAnalysisType(analysisName);
-					if (analysisType == null) continue;
-					an = sd.findAnalysis(analysisType);
-					if (an == null) continue;
-					if (openPos >= 0)
-					{
-						int closePos = signalName.indexOf(')');
-						String sigName = signalName.substring(openPos+1, closePos);
-						xAxisSignal = an.findSignalForNetwork(sigName);
-						wantUnlockedTime = true;
-					}
-				}
-				if (onlyType == null) onlyType = an.getAnalysisType();
-				if (an.getAnalysisType() != onlyType) wantUnlockedTime = true;
-				Panel wp = null;
-				boolean firstSignal = true;
-
-				// add signals to the panel
-				for(;;)
-				{
-					int tabPos = signalName.indexOf('\t', start);
-					String sigName = null;
-					if (tabPos < 0) sigName = signalName.substring(start); else
-					{
-						sigName = signalName.substring(start, tabPos);
-						start = tabPos+1;
-					}
-					Color sigColor = null;
-					int colorPos = sigName.indexOf(" {");
-					if (colorPos >= 0)
-					{
-						String [] colorNames = sigName.substring(colorPos+2).split(",");
-						int red = TextUtils.atoi(colorNames[0]);
-						int green = TextUtils.atoi(colorNames[1]);
-						int blue = TextUtils.atoi(colorNames[2]);
-						sigColor = new Color(red, green, blue);
-						sigName = sigName.substring(0, colorPos);
-					}
-					Signal sSig = an.findSignalForNetwork(sigName);
-					if (sSig != null)
-					{
-						if (firstSignal)
-						{
-							firstSignal = false;
-							wp = new Panel(ww, sd.isAnalog());
-							if (xAxisSignal != null)
-								wp.setXAxisSignal(xAxisSignal);
-							wp.makeSelectedPanel(-1, -1);
-							showedSomething = true;
-						}
-						WaveSignal ws = new WaveSignal(wp, sSig);
-						if (sigColor != null)
-							ws.setColor(sigColor);
-					}
-					if (tabPos < 0) break;
-				}
-			}
-			if (showedSomething)
-			{
-				if (wantUnlockedTime)
-				{
-					ww.togglePanelXAxisLock();
-					for(Iterator<Panel> it = ww.getPanels(); it.hasNext(); )
-					{
-						Panel panel = it.next();
-						panel.makeSelectedPanel(-1, -1);
-						ww.fillScreen();
-					}
-				} else
-				{
-					ww.fillScreen();
-				}
-				return;
-			}
-		}
-
-		if (an == null) // wrong format?
-		{
-			System.out.println("ERROR: No simulation data found: waveform window not shown");
-			return;
-		}
-
-		// nothing saved, so show a default set of signals (if it even exists)
-		if (sd.isAnalog())
-		{
-			Panel wp = new Panel(ww, sd.isAnalog());
-			Rectangle2D bounds = an.getBounds();
-			double lowValue = bounds.getMinY();
-			double highValue = bounds.getMaxY();
-			wp.setYAxisRange(lowValue, highValue);
-			wp.makeSelectedPanel(-1, -1);
-		} else
-		{
-			// put all top-level signals in, up to a limit
-			int numSignals = 0;
-			List<Signal> allSignals = an.getSignals();
-			makeBussedSignals((DigitalAnalysis)an);
-			for(int i=0; i<allSignals.size(); i++)
-			{
-				DigitalSignal sDSig = (DigitalSignal)allSignals.get(i);
-				if (sDSig.getSignalContext() != null) continue;
-				if (sDSig.isInBus()) continue;
-				if (sDSig.getSignalName().indexOf('@') >= 0) continue;
-				Panel wp = new Panel(ww, sd.isAnalog());
-				wp.makeSelectedPanel(-1, -1);
-				new WaveSignal(wp, sDSig);
-				numSignals++;
-				if (numSignals > 15) break;
-			}
-		}
-		ww.getPanel().validate();
-		ww.fillScreen();
-	}
-
-	private static void makeBussedSignals(DigitalAnalysis an)
-	{
-		List<DigitalSignal> signals = an.getSignals();
-		for(int i=0; i<signals.size(); i++)
-		{
-			Signal sSig = signals.get(i);
-			int thisBracketPos = sSig.getSignalName().indexOf('[');
-			if (thisBracketPos < 0) continue;
-			String prefix = sSig.getSignalName().substring(0, thisBracketPos);
-
-			// see how many of the following signals are part of the bus
-			int j = i+1;
-			for( ; j<signals.size(); j++)
-			{
-				Signal nextSig = signals.get(j);
-
-				// other signal must have the same root
-				int nextBracketPos = nextSig.getSignalName().indexOf('[');
-				if (nextBracketPos < 0) break;
-				if (thisBracketPos != nextBracketPos) break;
-				if (!prefix.equals(nextSig.getSignalName().substring(0, nextBracketPos))) break;
-
-				// other signal must have the same context
-				if (sSig.getSignalContext() == null ^ nextSig.getSignalContext() == null) break;
-				if (sSig.getSignalContext() != null)
-				{
-					if (!sSig.getSignalContext().equals(nextSig.getSignalContext())) break;
-				}
-			}
-
-			// see how many signals are part of the bus
-			int numSignals = j - i;
-			if (numSignals <= 1) continue;
-
-			// found a bus of signals: create the bus for it
-			DigitalSignal busSig = new DigitalSignal(an, prefix, sSig.getSignalContext());
-			busSig.buildBussedSignalList();
-			for(int k=i; k<j; k++)
-			{
-				DigitalSignal subSig = signals.get(k);
-				busSig.addToBussedSignalList(subSig);
-			}
-			i = j - 1;
 		}
 	}
 

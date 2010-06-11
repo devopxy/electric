@@ -23,11 +23,16 @@
  */
 package com.sun.electric.tool.util.concurrent.patterns;
 
+import java.util.List;
+
+import com.sun.electric.tool.util.CollectionFactory;
 import com.sun.electric.tool.util.concurrent.runtime.ThreadPool;
 
 /**
  * 
  * Runtime for parallel for
+ * 
+ * @author Felix Schmidt
  * 
  */
 public class PForJob extends PJob {
@@ -135,14 +140,17 @@ public class PForJob extends PJob {
 		 */
 		@Override
 		public void execute() {
-			BlockedRange tmpRange;
+			List<BlockedRange> tmpRange;
 
-			while ((tmpRange = range.splitBlockedRange()) != null) {
-				try {
-					PForTaskWrapper taskObj = new PForTaskWrapper(job, (PForTask) task.clone(), tmpRange);
-					job.add(taskObj, PJob.SERIAL);
-				} catch (Exception e) {
-					e.printStackTrace();
+			int step = ThreadPool.getThreadPool().getPoolSize();
+			while (((tmpRange = range.splitBlockedRange(step))) != null) {
+				for (BlockedRange tr : tmpRange) {
+					try {
+						PForTaskWrapper taskObj = new PForTaskWrapper(job, (PForTask) task.clone(), tr);
+						job.add(taskObj, PJob.SERIAL);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
 				}
 			}
 		}
@@ -219,7 +227,7 @@ public class PForJob extends PJob {
 	 * 
 	 */
 	public interface BlockedRange {
-		public BlockedRange splitBlockedRange();
+		public List<BlockedRange> splitBlockedRange(int step);
 	}
 
 	/**
@@ -252,16 +260,22 @@ public class PForJob extends PJob {
 		 * split the current block range into smaller pieces according to step
 		 * width
 		 */
-		public synchronized BlockedRange1D splitBlockedRange() {
+		public synchronized List<BlockedRange> splitBlockedRange(int step) {
 
-			if (current == null)
-				current = range.start;
-			if (current >= range.end)
+			if (current != null && current >= range.end)
 				return null;
 
-			BlockedRange1D result = new BlockedRange1D(current, Math
-					.min(current + range.step, this.range.end), range.step);
-			current += range.step;
+			List<BlockedRange> result = CollectionFactory.createArrayList();
+			for (int i = 0; i < step; i++) {
+				if (current == null)
+					current = range.start;
+				if (current >= range.end)
+					return result;
+
+				result.add(new BlockedRange1D(current, Math.min(current + range.step, this.range.end),
+						range.step));
+				current += range.step;
+			}
 			return result;
 		}
 
@@ -297,30 +311,37 @@ public class PForJob extends PJob {
 		 * split current 2-dimensional blocked range into smaller pieces
 		 * according to both step widths
 		 */
-		public synchronized BlockedRange2D splitBlockedRange() {
+		public synchronized List<BlockedRange> splitBlockedRange(int step) {
 
-			if (currentRow == null) {
-				currentRow = row.start;
+			if (currentRow != null && currentRow >= row.end) {
+				return null;
 			}
 
-			if (currentCol == null) {
-				currentCol = col.start;
-			}
-
-			if (currentCol >= col.end) {
-				currentCol = col.start;
-				currentRow += row.step;
-
-				if (currentRow >= row.end) {
-					return null;
+			List<BlockedRange> result = CollectionFactory.createArrayList();
+			for (int i = 0; i < step; i++) {
+				if (currentRow == null) {
+					currentRow = row.start;
 				}
+
+				if (currentCol == null) {
+					currentCol = col.start;
+				}
+
+				if (currentCol >= col.end) {
+					currentCol = col.start;
+					currentRow += row.step;
+
+					if (currentRow >= row.end) {
+						return result;
+					}
+				}
+
+				result.add(new BlockedRange2D(currentRow, Math.min(currentRow + row.step, row.end), row.step,
+						currentCol, Math.min(currentCol + col.step, col.end), col.step));
+
+				currentCol += col.step;
+
 			}
-
-			BlockedRange2D result = new BlockedRange2D(currentRow, Math.min(currentRow + row.step, row.end),
-					row.step, currentCol, Math.min(currentCol + col.step, col.end), col.step);
-
-			currentCol += col.step;
-
 			return result;
 		}
 	}

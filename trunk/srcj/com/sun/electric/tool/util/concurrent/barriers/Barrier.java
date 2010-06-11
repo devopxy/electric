@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: WorkStealingWorker.java
+ * File: Barrier.java
  *
  * Copyright (c) 2010 Sun Microsystems and Static Free Software
  *
@@ -21,20 +21,14 @@
  * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, Mass 02111-1307, USA.
  */
-package com.sun.electric.tool.util.concurrent.runtime;
-
+package com.sun.electric.tool.util.concurrent.barriers;
 
 /**
+ * @author fs239085
  * 
- * Work stealing thread worker
- *
  */
-public class WorkStealingWorker extends PoolWorkerStrategy {
+public interface Barrier {
 
-	@Override
-	public void execute() {
-		// TODO Auto-generated method stub
-
-	}
+	public void await();
 
 }

@@ -27,7 +27,7 @@ import com.sun.electric.database.geometry.btree.*;
 import com.sun.electric.database.geometry.btree.unboxed.*;
 import com.sun.electric.tool.simulation.*;
 
-abstract class BTreeSignal<S extends Sample & Comparable> extends Signal<S> {
+abstract class BTreeSignal<S extends Sample & Comparable> extends MutableSignal<S> {
 
     private Signal.View<S> exactView = null;
     private final BTree<Double,S,Pair<Pair<Double,S>,Pair<Double,S>>> tree;
@@ -75,6 +75,16 @@ abstract class BTreeSignal<S extends Sample & Comparable> extends Signal<S> {
 
 	public double getMinTime()  { return tree.size()==0 ? 0 : getExactView().getTime(0); }
 	public double getMaxTime()  { return tree.size()==0 ? 0 : getExactView().getTime(getExactView().getNumEvents()-1); }
+	public S getMinValue() {
+        Pair<Pair<Double,S>,Pair<Double,S>> pk = getSummaryFromKeys(null, null);
+        if (pk==null) return null;
+        return pk.getKey().getValue();
+    }
+	public S getMaxValue() {
+        Pair<Pair<Double,S>,Pair<Double,S>> pk = getSummaryFromKeys(null, null);
+        if (pk==null) return null;
+        return pk.getValue().getValue();
+    }
 
     protected Pair<Pair<Double,S>,Pair<Double,S>> getSummaryFromKeys(Double t1, Double t2) {
         return tree.getSummaryFromKeys(t1, t2);

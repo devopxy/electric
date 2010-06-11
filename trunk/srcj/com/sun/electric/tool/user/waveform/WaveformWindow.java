@@ -46,7 +46,7 @@ import com.sun.electric.technology.technologies.Generic;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.io.input.EpicOut.EpicAnalysis;
-import com.sun.electric.tool.io.input.Simulate;
+import com.sun.electric.tool.io.input.SimulationData;
 import com.sun.electric.tool.io.output.PNG;
 import com.sun.electric.tool.io.output.Spice;
 import com.sun.electric.tool.ncc.NccCrossProbing;
@@ -54,7 +54,9 @@ import com.sun.electric.tool.ncc.result.NccResult;
 import com.sun.electric.tool.simulation.AnalogAnalysis;
 import com.sun.electric.tool.simulation.AnalogSignal;
 import com.sun.electric.tool.simulation.Analysis;
-import com.sun.electric.tool.simulation.DigitalSignal;
+import com.sun.electric.tool.simulation.DigitalSample;
+import com.sun.electric.tool.simulation.DigitalSample;
+import com.sun.electric.tool.simulation.DigitalAnalysis;
 import com.sun.electric.tool.simulation.Signal;
 import com.sun.electric.tool.simulation.Simulation;
 import com.sun.electric.tool.simulation.ScalarSample;
@@ -1245,11 +1247,6 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		if (wf == null) return;
 		String title = "";
 		if (sd.getEngine() != null) title = "Simulation of "; else title = "Waveforms of ";
-		if (sd != null)
-		{
-			if (sd.getEngine() != null) title = " simulation of "; else
-				title = " of ";
-		}
 		wf.setTitle(wf.composeTitle(sd.getCell(), title, 0));
 	}
 
@@ -3230,14 +3227,14 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 			if (wp.isHidden()) continue;
 			for(WaveSignal ws : wp.getSignals())
 			{
-				DigitalSignal ds = (DigitalSignal)ws.getSignal();
-				List<DigitalSignal> bussedSignals = ds.getBussedSignals();
+				Signal<DigitalSample> ds = (Signal<DigitalSample>)ws.getSignal();
+				List<Signal<DigitalSample>> bussedSignals = DigitalAnalysis.getBussedSignals(ds);
 				if (bussedSignals != null)
 				{
 					// a digital bus trace
 					for(Signal subSig : bussedSignals)
 					{
-						DigitalSignal subDS = (DigitalSignal)subSig;
+						Signal<DigitalSample> subDS = (Signal<DigitalSample>)subSig;
 						putValueOnTrace(subDS, cell, netValues, netlist);
 					}
 				} else
@@ -3311,7 +3308,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		return Color.RED;
 	}
 
-	private void putValueOnTrace(DigitalSignal ds, Cell cell, Map<Network,Integer> netValues, Netlist netlist)
+	private void putValueOnTrace(Signal<DigitalSample> ds, Cell cell, Map<Network,Integer> netValues, Netlist netlist)
 	{
 		// set simulation value on the network in the associated layout/schematic window
 		Network net = findNetwork(netlist, ds.getSignalName());
@@ -3322,10 +3319,10 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		int state = Stimuli.LOGIC_X;
 		for(int i=numEvents-1; i>=0; i--)
 		{
-			double xValue = ds.getTime(i);
+			double xValue = ds.getExactView().getTime(i);
 			if (xValue <= mainXPosition)
 			{
-				state = ds.getState(i) & Stimuli.LOGIC;
+				state = getState(ds, i) & Stimuli.LOGIC;
 				break;
 			}
 		}
@@ -3442,20 +3439,20 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 			for(WaveSignal ws : wp.getSignals())
 			{
 				Signal ss = ws.getSignal();
-				if (ss instanceof DigitalSignal && ((DigitalSignal)ss).getBussedSignals() != null)
+				if (ss .isDigital() && DigitalAnalysis.getBussedSignals(((Signal<DigitalSample>)ss)) != null)
 				{
-					List<DigitalSignal> inBus = ((DigitalSignal)ss).getBussedSignals();
+					List<Signal<DigitalSample>> inBus = DigitalAnalysis.getBussedSignals(((Signal<DigitalSample>)ss));
 					for(int b=0; b<inBus.size(); b++)
 					{
-						DigitalSignal subDS = inBus.get(b);
+						Signal<DigitalSample> subDS = inBus.get(b);
 						String oldSigName = subDS.getFullName();
-						DigitalSignal newBus = null;
+						Signal<DigitalSample> newBus = null;
                         /*
 						for(Signal newSs :  an.getSignals() )
 						{
 							String newSigName = newSs.getFullName();
 							if (!newSigName.equals(oldSigName)) continue;
-							newBus = (DigitalSignal)newSs;
+							newBus = (Signal<DigitalSample>)newSs;
 							break;
 						}
                         */
@@ -3497,9 +3494,9 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 				{
 					Signal s = ws.getSignal();
 					if (s == null ||
-						(s instanceof DigitalSignal &&
-						((DigitalSignal)s).getBussedSignals() != null &&
-						((DigitalSignal)s).getBussedSignals().size() == 0))
+						(s .isDigital() &&
+                         DigitalAnalysis.getBussedSignals(((Signal<DigitalSample>)s)) != null &&
+                         DigitalAnalysis.getBussedSignals(((Signal<DigitalSample>)s)).size() == 0))
 					{
 						redoPanel = true;
 						if (wp.getSignalButtons() != null)
@@ -3623,13 +3620,13 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 							entries[i] = "" + v;
 							haveData = true;
 						}
-					} else if (sig instanceof DigitalSignal)
+					} else if (sig .isDigital())
 					{
-						DigitalSignal ds = (DigitalSignal)sig;
+						Signal<DigitalSample> ds = (Signal<DigitalSample>)sig;
 						if (j < ds.getExactView().getNumEvents())
 						{
-							if (entries[0] == null) entries[0] = "" + ds.getTime(j);
-							entries[i] = "" + ds.getState(j);
+							if (entries[0] == null) entries[0] = "" + ds.getExactView().getTime(j);
+							entries[i] = "" + getState(ds, j);
 							haveData = true;
 						}
 					}
@@ -3731,7 +3728,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		}
 
 		// there is no simulation engine (i.e. external Spice, Verilog) reload external data
-		Simulate.plot(sd.getCell(), sd.getFileURL(), this);
+		SimulationData.plot(sd.getCell(), sd.getFileURL(), this);
 	}
 
 	/**
@@ -4248,7 +4245,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
             double maxY = Double.MIN_VALUE;
 			for(WaveSignal ws : wp.getSignals()) {
                 Signal sig = ws.getSignal();
-                if (sig instanceof DigitalSignal) {
+                if (sig .isDigital()) {
                     minY = Math.min(minY, 0);
                     maxY = Math.max(maxY, 1);
                 } else if (sig instanceof ScalarSignal) {
@@ -4726,7 +4723,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 				}
 
 				// digital signals are always added in new panels
-				if (sSig instanceof DigitalSignal) panel = null;
+				if (sSig .isDigital()) panel = null;
 				if (panel != null)
 				{
 					// overlay this signal onto an existing panel
@@ -4902,4 +4899,218 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 			}
 		}
 	}
+
+	/**
+	 * Method to display simulation data in a waveform window.
+	 * @param sd the simulation data to display.
+	 * @param ww the waveform window to load.
+	 * If null, create a new waveform window.
+	 */
+	public static void showSimulationData(Stimuli sd, WaveformWindow ww)
+	{
+		// if the window already exists, update the data
+		if (ww != null)
+		{
+			ww.setSimData(sd);
+			return;
+		}
+		Iterator<Analysis> anIt = sd.getAnalyses();
+		if (!anIt.hasNext())
+		{
+			System.out.println("ERROR: No simulation data found: waveform window not shown");
+			return;
+		}
+		Analysis an = anIt.next();
+
+		// create a waveform window
+		WindowFrame wf = WindowFrame.createWaveformWindow(sd);
+		ww = (WaveformWindow)wf.getContent();
+
+		// if the data has an associated cell, see if that cell remembers the signals that were in the waveform window
+		if (sd.getCell() != null)
+		{
+			String [] signalNames = WaveformWindow.getSignalOrder(sd.getCell());
+			boolean showedSomething = false;
+			boolean wantUnlockedTime = false;
+			Analysis.AnalysisType onlyType = null;
+			for(int i=0; i<signalNames.length; i++)
+			{
+				String signalName = signalNames[i];
+				Signal xAxisSignal = null;
+				int start = 0;
+				if (signalName.startsWith("\t"))
+				{
+					// has panel type and X axis information
+					int openPos = signalName.indexOf('(');
+					int tabPos = signalName.indexOf('\t', 1);
+					start = tabPos+1;
+					if (openPos >= 0) tabPos = openPos;
+					String analysisName = signalName.substring(1, tabPos);
+					Analysis.AnalysisType analysisType = Analysis.AnalysisType.findAnalysisType(analysisName);
+					if (analysisType == null) continue;
+					an = sd.findAnalysis(analysisType);
+					if (an == null) continue;
+					if (openPos >= 0)
+					{
+						int closePos = signalName.indexOf(')');
+						String sigName = signalName.substring(openPos+1, closePos);
+						xAxisSignal = an.findSignalForNetwork(sigName);
+						wantUnlockedTime = true;
+					}
+				}
+				if (onlyType == null) onlyType = an.getAnalysisType();
+				if (an.getAnalysisType() != onlyType) wantUnlockedTime = true;
+				Panel wp = null;
+				boolean firstSignal = true;
+
+				// add signals to the panel
+				for(;;)
+				{
+					int tabPos = signalName.indexOf('\t', start);
+					String sigName = null;
+					if (tabPos < 0) sigName = signalName.substring(start); else
+					{
+						sigName = signalName.substring(start, tabPos);
+						start = tabPos+1;
+					}
+					Color sigColor = null;
+					int colorPos = sigName.indexOf(" {");
+					if (colorPos >= 0)
+					{
+						String [] colorNames = sigName.substring(colorPos+2).split(",");
+						int red = TextUtils.atoi(colorNames[0]);
+						int green = TextUtils.atoi(colorNames[1]);
+						int blue = TextUtils.atoi(colorNames[2]);
+						sigColor = new Color(red, green, blue);
+						sigName = sigName.substring(0, colorPos);
+					}
+					Signal sSig = an.findSignalForNetwork(sigName);
+					if (sSig != null)
+					{
+						if (firstSignal)
+						{
+							firstSignal = false;
+							wp = new Panel(ww, sd.isAnalog());
+							if (xAxisSignal != null)
+								wp.setXAxisSignal(xAxisSignal);
+							wp.makeSelectedPanel(-1, -1);
+							showedSomething = true;
+						}
+						WaveSignal ws = new WaveSignal(wp, sSig);
+						if (sigColor != null)
+							ws.setColor(sigColor);
+					}
+					if (tabPos < 0) break;
+				}
+			}
+			if (showedSomething)
+			{
+				if (wantUnlockedTime)
+				{
+					ww.togglePanelXAxisLock();
+					for(Iterator<Panel> it = ww.getPanels(); it.hasNext(); )
+					{
+						Panel panel = it.next();
+						panel.makeSelectedPanel(-1, -1);
+						ww.fillScreen();
+					}
+				} else
+				{
+					ww.fillScreen();
+				}
+				return;
+			}
+		}
+
+		if (an == null) // wrong format?
+		{
+			System.out.println("ERROR: No simulation data found: waveform window not shown");
+			return;
+		}
+
+		// nothing saved, so show a default set of signals (if it even exists)
+		if (sd.isAnalog())
+		{
+			Panel wp = new Panel(ww, sd.isAnalog());
+			Rectangle2D bounds = an.getBounds();
+			double lowValue = bounds.getMinY();
+			double highValue = bounds.getMaxY();
+			wp.setYAxisRange(lowValue, highValue);
+			wp.makeSelectedPanel(-1, -1);
+		} else
+		{
+			// put all top-level signals in, up to a limit
+			int numSignals = 0;
+			List<Signal> allSignals = an.getSignals();
+			makeBussedSignals((DigitalAnalysis)an);
+			for(int i=0; i<allSignals.size(); i++)
+			{
+				Signal<DigitalSample> sDSig = (Signal<DigitalSample>)allSignals.get(i);
+				if (sDSig.getSignalContext() != null) continue;
+				if (DigitalAnalysis.isInBus(sDSig)) continue;
+				if (sDSig.getSignalName().indexOf('@') >= 0) continue;
+				Panel wp = new Panel(ww, sd.isAnalog());
+				wp.makeSelectedPanel(-1, -1);
+				new WaveSignal(wp, sDSig);
+				numSignals++;
+				if (numSignals > 15) break;
+			}
+		}
+		ww.getPanel().validate();
+		ww.fillScreen();
+	}
+
+	private static void makeBussedSignals(DigitalAnalysis an)
+	{
+		List<Signal<DigitalSample>> signals = an.getSignals();
+		for(int i=0; i<signals.size(); i++)
+		{
+			Signal sSig = signals.get(i);
+			int thisBracketPos = sSig.getSignalName().indexOf('[');
+			if (thisBracketPos < 0) continue;
+			String prefix = sSig.getSignalName().substring(0, thisBracketPos);
+
+			// see how many of the following signals are part of the bus
+			int j = i+1;
+			for( ; j<signals.size(); j++)
+			{
+				Signal nextSig = signals.get(j);
+
+				// other signal must have the same root
+				int nextBracketPos = nextSig.getSignalName().indexOf('[');
+				if (nextBracketPos < 0) break;
+				if (thisBracketPos != nextBracketPos) break;
+				if (!prefix.equals(nextSig.getSignalName().substring(0, nextBracketPos))) break;
+
+				// other signal must have the same context
+				if (sSig.getSignalContext() == null ^ nextSig.getSignalContext() == null) break;
+				if (sSig.getSignalContext() != null)
+				{
+					if (!sSig.getSignalContext().equals(nextSig.getSignalContext())) break;
+				}
+			}
+
+			// see how many signals are part of the bus
+			int numSignals = j - i;
+			if (numSignals <= 1) continue;
+
+			// found a bus of signals: create the bus for it
+			Signal<DigitalSample> busSig = DigitalSample.createSignal(an, prefix, sSig.getSignalContext());
+			an.buildBussedSignalList(busSig);
+			for(int k=i; k<j; k++)
+			{
+				Signal<DigitalSample> subSig = signals.get(k);
+				DigitalAnalysis.addToBussedSignalList(busSig, subSig);
+			}
+			i = j - 1;
+		}
+	}
+	static int getState(Signal<DigitalSample> dsig, int index) {
+        DigitalSample ds = dsig.getExactView().getSample(index);
+        if (ds.isLogic0()) return Stimuli.LOGIC_LOW;
+        if (ds.isLogic1()) return Stimuli.LOGIC_HIGH;
+        if (ds.isLogicX()) return Stimuli.LOGIC_X;
+        if (ds.isLogicZ()) return Stimuli.LOGIC_Z;
+        throw new RuntimeException("ack!");
+    }
 }

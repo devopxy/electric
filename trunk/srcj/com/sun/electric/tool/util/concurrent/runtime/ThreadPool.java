@@ -23,19 +23,23 @@
  */
 package com.sun.electric.tool.util.concurrent.runtime;
 
+import java.util.ArrayList;
+
 import com.sun.electric.database.Environment;
 import com.sun.electric.database.variable.UserInterface;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.util.CollectionFactory;
 import com.sun.electric.tool.util.IStructure;
 import com.sun.electric.tool.util.UniqueIDGenerator;
+import com.sun.electric.tool.util.concurrent.debug.LoadBalancing;
 import com.sun.electric.tool.util.concurrent.exceptions.PoolExistsException;
 import com.sun.electric.tool.util.concurrent.patterns.PTask;
-import java.util.ArrayList;
 
 /**
  * 
  * Magic thread pool
+ * 
+ * @author Felix Schmidt
  * 
  */
 public class ThreadPool {
@@ -54,6 +58,7 @@ public class ThreadPool {
 	private ThreadPoolState state;
 	private UniqueIDGenerator generator;
 	private UserInterface userInterface;
+	private boolean debug;
 
 	/**
 	 * prevent from creating thread pools via constructor
@@ -61,11 +66,15 @@ public class ThreadPool {
 	 * @param taskPool
 	 * @param numOfThreads
 	 */
-	private ThreadPool(IStructure<PTask> taskPool, int numOfThreads) {
+	private ThreadPool(IStructure<PTask> taskPool, int numOfThreads, boolean debug) {
 		state = ThreadPoolState.New;
 		this.taskPool = taskPool;
 		this.numOfThreads = numOfThreads;
 		this.generator = new UniqueIDGenerator(0);
+		this.debug = debug;
+
+		// reset thread id
+		ThreadID.reset();
 
 		workers = CollectionFactory.createArrayList();
 
@@ -99,6 +108,12 @@ public class ThreadPool {
 
 		this.join();
 		state = ThreadPoolState.Closed;
+
+		// print statistics in debug mode
+		if (this.debug) {
+			LoadBalancing.getInstance().printStatistics();
+			LoadBalancing.getInstance().reset();
+		}
 	}
 
 	/**
@@ -132,25 +147,29 @@ public class ThreadPool {
 	protected class Worker extends Thread {
 
 		private ThreadPool pool;
-		private int threadId;
 		private PoolWorkerStrategy strategy;
 
 		public Worker(ThreadPool pool) {
 			this.pool = pool;
-			threadId = generator.getUniqueId();
-			strategy = PoolWorkerStrategyFactory.createStrategy(threadId, taskPool);
+			ThreadID.set(generator.getUniqueId());
+			strategy = PoolWorkerStrategyFactory.createStrategy(taskPool);
+			if (pool.debug) {
+				LoadBalancing.getInstance().registerWorker(strategy);
+			}
 		}
 
 		@Override
 		public void run() {
+
+			pool.taskPool.registerThread();
+
 			try {
 				Job.setUserInterface(pool.getUserInterface());
-				Environment.setThreadEnvironment(Job.getUserInterface().getDatabase().getEnvironment());
+				Environment.setThreadEnvironment(Job.getUserInterface().getDatabase()
+						.getEnvironment());
 			} catch (Exception ex) {
 
 			}
-
-			pool.taskPool.registerThread();
 
 			strategy.execute();
 		}
@@ -165,8 +184,8 @@ public class ThreadPool {
 	 * Factory class for worker strategy
 	 */
 	private static class PoolWorkerStrategyFactory {
-		public static PoolWorkerStrategy createStrategy(int threadId, IStructure<PTask> taskPool) {
-			return new SimpleWorker(threadId, taskPool);
+		public static PoolWorkerStrategy createStrategy(IStructure<PTask> taskPool) {
+			return new SimpleWorker(taskPool);
 		}
 	}
 
@@ -179,7 +198,30 @@ public class ThreadPool {
 	 * @throws PoolExistsException
 	 */
 	public static ThreadPool initialize() throws PoolExistsException {
-		return ThreadPool.initialize(ThreadPool.getNumOfThreads());
+		return ThreadPool.initialize(false);
+	}
+
+	/**
+	 * initialize thread pool, default initialization
+	 * 
+	 * @return initialized thread pool
+	 * @throws PoolExistsException
+	 */
+	public static ThreadPool initialize(boolean debug) throws PoolExistsException {
+		return ThreadPool.initialize(ThreadPool.getNumOfThreads(), debug);
+	}
+
+	/**
+	 * initialize thread pool with number of threads
+	 * 
+	 * @param num
+	 *            of threads
+	 * @return initialized thread pool
+	 * @throws PoolExistsException
+	 */
+	public static ThreadPool initialize(int num, boolean debug) throws PoolExistsException {
+		IStructure<PTask> taskPool = CollectionFactory.createLockFreeQueue();
+		return ThreadPool.initialize(taskPool, num, debug);
 	}
 
 	/**
@@ -191,8 +233,21 @@ public class ThreadPool {
 	 * @throws PoolExistsException
 	 */
 	public static ThreadPool initialize(int num) throws PoolExistsException {
-		IStructure<PTask> taskPool = CollectionFactory.createLockFreeStack();
-		return ThreadPool.initialize(taskPool, num);
+		IStructure<PTask> taskPool = CollectionFactory.createLockFreeQueue();
+		return ThreadPool.initialize(taskPool, num, false);
+	}
+
+	/**
+	 * initialize thread pool with specific task pool
+	 * 
+	 * @param taskPool
+	 *            to be used
+	 * @return initialized thread pool
+	 * @throws PoolExistsException
+	 */
+	public static ThreadPool initialize(IStructure<PTask> taskPool, boolean debug)
+			throws PoolExistsException {
+		return ThreadPool.initialize(taskPool, ThreadPool.getNumOfThreads(), debug);
 	}
 
 	/**
@@ -204,7 +259,7 @@ public class ThreadPool {
 	 * @throws PoolExistsException
 	 */
 	public static ThreadPool initialize(IStructure<PTask> taskPool) throws PoolExistsException {
-		return ThreadPool.initialize(taskPool, ThreadPool.getNumOfThreads());
+		return ThreadPool.initialize(taskPool, false);
 	}
 
 	/**
@@ -218,8 +273,22 @@ public class ThreadPool {
 	 */
 	public static synchronized ThreadPool initialize(IStructure<PTask> taskPool, int numOfThreads)
 			throws PoolExistsException {
+		return ThreadPool.initialize(taskPool, numOfThreads, false);
+	}
+
+	/**
+	 * initialize thread pool with specific task pool and number of threads
+	 * 
+	 * @param taskPool
+	 *            to be used
+	 * @param numOfThreads
+	 * @return initialized thread pool
+	 * @throws PoolExistsException
+	 */
+	public static synchronized ThreadPool initialize(IStructure<PTask> taskPool, int numOfThreads,
+			boolean debug) throws PoolExistsException {
 		if (ThreadPool.instance == null || instance.state != ThreadPoolState.Started) {
-			instance = new ThreadPool(taskPool, numOfThreads);
+			instance = new ThreadPool(taskPool, numOfThreads, debug);
 			instance.start();
 		} else {
 			return instance;

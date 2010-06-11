@@ -52,6 +52,8 @@ public abstract class Signal<SS extends Sample> {
             : signalContext + (analysis==null ? '.' : analysis.getStimuli().getSeparatorChar()) + signalName;
 		if (analysis!=null) analysis.nameSignal(this, getFullName());
         this.stimuli = analysis==null ? null : analysis.getStimuli();
+        if (analysis!=null && analysis instanceof DigitalAnalysis)
+            analysis.addSignal(this);
     }
 
 	/** the name of this signal */									private final String signalName;
@@ -124,5 +126,10 @@ public abstract class Signal<SS extends Sample> {
 	public abstract double getMaxTime();
 	public abstract SS     getMinValue();
 	public abstract SS     getMaxValue();
+
+    public boolean isDigital() { return false; }
+    public void    addSample(double time, SS sample) {
+        throw new RuntimeException(getClass().getName()+" does not support adding new samples");
+    }
 
 }

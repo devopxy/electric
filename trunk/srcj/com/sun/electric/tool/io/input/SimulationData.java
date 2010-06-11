@@ -52,9 +52,9 @@ import javax.swing.SwingUtilities;
 /**
  * This class reads simulation output files and plots them.
  */
-public final class Simulate {
+public final class SimulationData {
 
-	private Simulate() {}
+	private SimulationData() {}
 
     private static final String[] known_extensions = new String[]
         { "raw", "dump", "spo", "out", "tr0", "ac0", "txt", "vcd" };
@@ -150,7 +150,7 @@ public final class Simulate {
                 final Stimuli sdx = sd;
                 SwingUtilities.invokeLater(new Runnable() {
                         public void run() {
-                            Simulation.showSimulationData(sdx, ReadSimulationOutput.this.ww);
+                            WaveformWindow.showSimulationData(sdx, ReadSimulationOutput.this.ww);
                         }});
 			} catch (IOException e) {
 				System.out.println("End of file reached while reading " + fileURL);
