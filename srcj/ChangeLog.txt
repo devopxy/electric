@@ -2,7 +2,141 @@
 
 NOTE: Please place changes under the version that will be released next.
 
+************************* Version 9.00i: ******************************
+
+BUG: (6/23/10, GVG) Missing text while editing text in MacOSX Snow Leopard (Bug #2819)
+FIX: Add extra width and height depending on the font size rather than fixed numbers (5).
+
+IMP: (6/23/10, FS) Split task parallel runtime classes and pipeline classes
+
+BUG: (6/23/10, SMR) Further improvements needed for LEF output (Bug #2764).
+FIX: Added extra LEF statements to output.
+
+BUG: (6/23/10, SMR) Verilog bus display is slow (Bug #2814).
+FIX: Optimized triple-nested loop in Panel.processSignals().
+
+BUG: (6/22/10, FS) Using the new version of ERC well check (bucket, path check) (Bug #2804)
+FIX: moved old ERC Version to ERCWellCheckOld
+
+BUG: (6/21/10, AM) PSpice not reading (Bug #2812)
+FIX: Assign "*.txt" to PSpiceOut.
+
+BUG: (6/21/10, AM) I want to favor HSpice so that it reads the TR0/PA0
+     file, even in the presence of the other files (Bug #2815)
+FIX: Change priority order in SimulationData.java.
+
+IMP: (6/21/10, FS) First fully draft of SeaOfGates router with new parallel 
+     infrastructure. Added a two way thread pool: Use this thread pool if you 
+     want to do two different jobs in parallel, where one job starts the other
+     one. 
+
+BUG: (6/21/10, AM) LTSpice import throws an exception
+FIX: Be more forgiving of bogus data supplied to ScalarSample.createSignal()
+
+BUG: (6/21/10, AM) RawSpiceOut reader complains "Unknown analysis:
+constants" (Bug #2811)
+FIX: Kludge around ridiculous text/binary nonsense in Input.java.
+
+BUG: (6/21/10, AM) ALS simulation throws an exception (Bug #2806)
+FIX: Get ALS.java to call the right method.
+
+BUG: (6/19/10, AM) HSimModel force/release doesn't do error checking
+     (Bug #2574)
+FIX: Add error checking in HsimModel.java.
+
+BUG: (6/19/10, AM) Electric throws UnsupportedOperationException when
+     run with EmptyPreferencesFactory.
+FIX: Do not attempt to set the working directory when running in batch
+     mode.
+
+IMP: (6/19/10, AM) Finish support for ComplexSample.
+
+BUG: (6/18/10, SMR) Control-key axis-gridding of placed instances fails
+     if mouse moving at release (Bug #2437).
+FIX: Do gridding on button release.
+
+IMP/MAN: (6/19/10, SMR) Added debugging for Karlsruhe parallel routers (Bug #2803).
+
+BUG: (6/18/10, SMR) Layer visibility tab crashes (Bug #2802).
+FIX: In LayerTab.setInvisibleLayerConfiguration() handle unset technologies.
+
+IMP: (6/18/10, FS) Experimental version of SeaOfGatesRouter: New parallel
+     infrastructure
+
 ************************* Version 9.00h: ******************************
+
+IMP: (6/18/10, FS) Refactored SeaOfGatesRouter to have the possibility to
+     create different versions 
+
+BUG: (6/18/10, FS) Use 1 evaluation step per minimum in placement tool
+     Genetic-2 (Bug #2801) 
+
+BUG: (6/16/10, AM) Simulation input file reads correctly but looks
+     wrong (Bug #2796)
+FIX: Correct the erroneous indexing in HSpiceOut.java.
+
+BUG: (6/16/10, AM) The waveform window comes up with no signals but it
+     should have remembered the last ones (Bug #2798).
+FIX: Fix longstanding confusion between
+     WaveformWindow.showSimulationData() by splitting it into
+     showSimulationDataInNewWindow() and refreshSimulationData().
+
+IMP/MAN: (6/17/10, SMR) When placing an instance of a cell, holding Control
+     forces the instance to be on one of the axes (Bug #2437).
+
+BUG: (6/17/10, SMR) Cannot select ports on layout resistors (Bug #2761).
+FIX: Generalized code in Highlighter.distToNode() to handle all layout resistors.
+
+BUG: (6/17/10, SMR) Interactive resizing grid-aligns too much when dragging an edge (Bug #2795).
+FIX: In SizeListener.getNewNodeSize() set grid direction if edge-dragging.
+
+IMP: (6/16/10, AM) Add BusSample.
+
+IMP: (6/16/10, AM) Add LatticeOperation (lub/glb), and use that
+     instead of min/max to compute summaries.  Complex numbers and
+     vectors (aka "buses") don't have a meaningful comparison
+     operation, but they do have lubs and glbs.
+
+IMP: (6/16/10, AM) Add Sample.lub() and Sample.glb().
+
+IMP: (6/16/10, FS) Modeling the load balancing of work stealing as a uniform distribution.
+     (only debug mode)
+
+BUG: (6/16/10, FS) Use a 1x1 grid as smallest in placement tool: Genetic-2 (Bug #2797)
+
+IMP: (6/15/10, AM) Remove AnalogAnalysis.
+
+BUG: (6/15/10, AM) Waveform window signals no longer saved correctly (Bug #2777)
+FIX: Ignore analysis stored in preferences.
+
+IMP: (6/15/10, AM) Remove AnalogSignal (use Signal<ScalarSample>).
+
+BUG: (6/15/10, AM) Various complex-valued simulation data were being
+     plotted incorrectly.
+FIX: Remember to do a Math.hypot() to compute the amplitude.
+
+IMP: (6/15/10, FS) Adding steal tracker debug to concurrent package
+     Add additional test cases for parallel infrastructure  
+
+IMP: (6/14/10, FS) Adding common metrics for all placement tools and calculate 
+     Bounding Box and Minimum Steiner Tree after a placement (only debug mode) 
+
+BUG: (6/14/10, AM) Reading HSpice output throws an exception (Bug #2793)
+FIX: Remember to update parent pointers after splitting a node.
+
+BUG: (6/14/10, AM) HSpice reader attempts to re-insert value that
+     already exists (Bug #2749)
+FIX: Check to see if the value has already been inserted.
+
+IMP: (6/12/10, AM) Add and document "Display / Display Control / Dock
+     messages window to each edit window" preference (off by default).
+
+IMP: (6/12/10, AM) Allow more than one instance of MessagesWindow.
+
+BUG: (6/11/10, GVG) UnsupportedOperationException while running Placement regression (Bug #2792)
+FIX: Don't call param.makeTempSettingReal if running in regression mode.
+
+IMP: (6/11/2010, FS) Add sleep and wake up to thread pool
 
 IMP/MAN: (6/10/10, AM) Can now view an analog signal as if it were
 digital via thresholding (Bug #2789).
@@ -22,7 +156,7 @@ IMP: (6/10/10, AM) Fix CachingPageStorage.fsync(int), remove
 
 IMP: (6/10/10, AM) Replace Infrastructure.waitSeconds() with Thread.sleep()
 
-IMP/MAN: (6/10/10) The Measurement display should have be able to show
+IMP/MAN: (6/10/10, SMR) The Measurement display should have be able to show
      in a user-specified color instead of using the highlight color (Bug #2787).
 FIX: Added User.ColorPrefType.MEASUREMENT.
 

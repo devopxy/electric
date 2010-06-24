@@ -53,10 +53,12 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.net.URL;
 import java.io.File;
+import java.util.*;
 import java.io.PrintWriter;
 
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JPanel;
 import javax.swing.JFrame;
 import javax.swing.JInternalFrame;
 import javax.swing.JLabel;
@@ -83,6 +85,25 @@ public class MessagesWindow
 	private Container contentFrame;
 	private Container jf;
 
+    private static boolean initialized = false;
+    private static Font currentFont = null;
+    private static final HashSet<MessagesWindow> messagesWindows = new HashSet<MessagesWindow>();
+
+    private static final StringBuffer text = new StringBuffer();
+
+    public static synchronized void init() {
+        if (initialized) return;
+        initialized = true;
+        if (!User.isDockMessagesWindow()) new MessagesWindow();
+        appendString(ActivityLogger.getLoggingInformation());
+    }
+
+    public static Iterable<MessagesWindow> getMessagesWindows() {
+        return messagesWindows;
+    }
+
+    public Container getContent() { return contentFrame; }
+
 	public MessagesWindow()
 	{
 		Dimension scrnSize = TopLevel.getScreenSize();
@@ -95,7 +116,7 @@ public class MessagesWindow
 			contentFrame = jInternalFrame.getContentPane();
 			jInternalFrame.setFrameIcon(TopLevel.getFrameIcon());
 			jf.setLocation(msgPos);
-		} else
+		} else if (!User.isDockMessagesWindow())
 		{
 			JFrame jFrame = new JFrame("Electric Messages");
 			jf = jFrame;
@@ -107,7 +128,9 @@ public class MessagesWindow
 			jf.setLocation(pt);
 			Dimension override = User.getDefaultMessagesSize();
 			if (override != null) jf.setPreferredSize(override);
-		}
+        } else {
+            contentFrame = new JPanel();
+        }
 		contentFrame.setLayout(new BorderLayout());
 
 		info = new JTextArea(20, 110);
@@ -124,13 +147,16 @@ public class MessagesWindow
 		{
 			((JInternalFrame)jf).pack();
 			TopLevel.addToDesktop((JInternalFrame)jf);
-		} else
+		} else if (!User.isDockMessagesWindow())
 		{
 			((JFrame)jf).pack();
 			((JFrame)jf).setVisible(true);
-		}
+        }
 
-        appendString(ActivityLogger.getLoggingInformation());
+        if (currentFont==null)
+            currentFont = info.getFont();
+        if (User.isDockMessagesWindow()) appendStr(text.toString());
+        messagesWindows.add(this);
 	}
 
 //	public Component getComponent()
@@ -144,10 +170,21 @@ public class MessagesWindow
 	 */
 	public boolean isFocusOwner()
 	{
+        if (jf==null) return false;
 		if (TopLevel.isMDIMode())
 			return ((JInternalFrame)jf).isSelected();
 		return jf.isFocusOwner();
 	}
+
+    /**
+     *  If a MessagesWindow has the focus, return it; else return null.
+     */
+	public static MessagesWindow getFocusOwner() {
+        for (MessagesWindow mw : messagesWindows)
+            if (mw.isFocusOwner())
+                return mw;
+        return null;
+    }
 
 	/**
 	 * Method to request focus on the Messages Window.
@@ -166,6 +203,7 @@ public class MessagesWindow
 
 	private void requestFocusUnsafe()
 	{
+        if (jf==null) return;
 		if (TopLevel.isMDIMode())
 		{
 			((JInternalFrame)jf).toFront();
@@ -185,46 +223,64 @@ public class MessagesWindow
 	 */
 	public Rectangle getMessagesLocation()
 	{
+        if (jf==null) return contentFrame.getBounds();
 		return jf.getBounds();
 	}
 
 	/**
-	 * Method to return the number of columns in the Messages Window.
-	 * @return the number of columns in the Messages Window.
+	 * Method to return the number of columns in the narrowest Messages Window.
+	 * @return the number of columns in the narrowest Messages Window.
 	 */
-	public int getMessagesCharWidth()
+	public static int getMinMessagesCharWidth()
 	{
-		return info.getColumns();
+        int min = Integer.MAX_VALUE;
+        for (MessagesWindow mw : messagesWindows)
+            min = Math.min(mw.info.getColumns(), min);
+        return min;
 	}
 
 	/**
 	 * Method to adjust the Messages Window so that it attaches to the current Edit Window.
 	 */
-	public void tileWithEdit()
+	public static void tileWithEdit()
 	{
-		// get the location of the edit window
-		WindowFrame wf = WindowFrame.getCurrentWindowFrame();
-		if (wf == null) return;
-		Rectangle eb;
-		if (TopLevel.isMDIMode()) eb = wf.getInternalFrame().getBounds(); else
-			eb = wf.getFrame().getBounds();
-
-		// get the location of the messages window
-		Rectangle mb = this.getMessagesLocation();
-
-		// adjust the messages window location and size
-		mb.x = eb.x;
-		mb.width = eb.width;
-		mb.y = eb.y + eb.height;
-		jf.setBounds(mb);
+        if (User.isDockMessagesWindow()) return;
+        for (MessagesWindow mw : messagesWindows) {
+            // get the location of the edit window
+            WindowFrame wf = WindowFrame.getCurrentWindowFrame();
+            if (wf == null) return;
+            Rectangle eb;
+            if (TopLevel.isMDIMode()) eb = wf.getInternalFrame().getBounds(); else
+                eb = wf.getFrame().getBounds();
+            
+            // get the location of the messages window
+            Rectangle mb = mw.getMessagesLocation();
+            
+            // adjust the messages window location and size
+            mb.x = eb.x;
+            mb.width = eb.width;
+            mb.y = eb.y + eb.height;
+            if (mw.jf!=null)
+                mw.jf.setBounds(mb);
+        }
 	}
 
 	/**
 	 * Method to add text to the Messages Window.
 	 * @param str the text to add.
 	 */
-	public void appendString(String str)
+	public static void appendString(String str)
 	{
+        if (messagesWindows.size()==0 && !User.isDockMessagesWindow()) {
+            // Error before the message window is available. Sending error to std error output
+            System.err.println(str);
+            return;
+        }
+        if (User.isDockMessagesWindow()) text.append(str);
+        for(MessagesWindow mw : messagesWindows)
+            mw.appendStr(str);
+    }
+    private void appendStr(String str) {
 		info.append(str);
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() { info.setCaretPosition(info.getDocument().getLength()); }
@@ -366,6 +422,12 @@ public class MessagesWindow
 		}
 	}
 
+    public static void clearAll() {
+        text.setLength(0);
+        for (MessagesWindow mw : messagesWindows)
+            mw.clear(true); 
+    }
+
 	/**
 	 * Method to select all text in the Messages Window.
 	 */
@@ -379,7 +441,7 @@ public class MessagesWindow
 	/**
 	 * Method to interactively select the messages window font.
 	 */
-	public void selectFont()
+	public static void selectFont()
 	{
 		if (TopLevel.isMDIMode())
 		{
@@ -391,7 +453,7 @@ public class MessagesWindow
 		}
 	}
 
-	private class FontSelectDialog extends EDialog
+	private static class FontSelectDialog extends EDialog
 	{
 		private Font initialFont;
 		private String initialFontName;
@@ -407,7 +469,7 @@ public class MessagesWindow
 			getContentPane().setLayout(new java.awt.GridBagLayout());
 
 			// get the current messages window font
-			initialFont = info.getFont();
+			initialFont = currentFont;
 			initialFontName = initialFont.getName();
 			initialFontSize = initialFont.getSize();
 
@@ -566,7 +628,8 @@ public class MessagesWindow
 			if (!currentFontName.equals(initialFontName) || currentFontSize != initialFontSize)
 			{
 				initialFont = new Font(currentFontName, 0, currentFontSize);
-				info.setFont(initialFont);
+                for (MessagesWindow mw : messagesWindows)
+                    mw.info.setFont(initialFont);
 				System.out.println("Messages window font is now " + currentFontName + ", size " + currentFontSize);
 			}
 			cancel();

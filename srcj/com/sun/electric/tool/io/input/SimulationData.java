@@ -34,7 +34,7 @@ import com.sun.electric.tool.Job;
 import com.sun.electric.tool.UserInterfaceExec;
 import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.io.input.verilog.VerilogOut;
-import com.sun.electric.tool.simulation.Simulation;
+import com.sun.electric.tool.simulation.SimulationTool;
 import com.sun.electric.tool.user.ui.WindowFrame;
 import com.sun.electric.tool.user.waveform.WaveformWindow;
 import com.sun.electric.tool.simulation.Stimuli;
@@ -57,7 +57,19 @@ public final class SimulationData {
 	private SimulationData() {}
 
     private static final String[] known_extensions = new String[]
-        { "raw", "dump", "spo", "out", "tr0", "ac0", "txt", "vcd" };
+        { 
+
+          // Steve has specifically requested that tr0/ac0 files have top
+          // priority (Bug #2815)
+          "tr0", "ac0", 
+          
+          "vcd", "raw", "dump", "spo",
+
+          // it's important that "out" and "txt" appear last because
+          // they sometimes are present yet do not contain simulation
+          // data (although in such situations the user should not
+          // be using "plot from guessed" anyways)
+          "out", "txt" };
 
     public static boolean isKnownSimulationFormatExtension(String extension) {
         return getInputForExtension(extension)!=null;
@@ -92,14 +104,13 @@ public final class SimulationData {
      * If ww is null, a waveform window will be created.
 	 */
 	public static void plot(Cell cell, URL url, WaveformWindow ww) {
-        if (ww==null) ww = new WindowFrame().createWaveformWindow(new Stimuli()).getWaveformWindow();
         new ReadSimulationOutput(cell, url, ww).start();
     }
 
     private static Input<Stimuli> getInputForExtension(String extension) {
         if (extension.indexOf('.')!=-1)
             extension = extension.substring(extension.lastIndexOf('.')+1);
-        if      (extension.equals("txt"))  return new SmartSpiceOut();
+        if      (extension.equals("txt"))  return new PSpiceOut();
         else if (extension.equals("raw"))  return new RawSpiceOut();
         else if (extension.equals("dump")) return new VerilogOut();
         else if (extension.equals("spo"))  return new SpiceOut();
@@ -150,7 +161,10 @@ public final class SimulationData {
                 final Stimuli sdx = sd;
                 SwingUtilities.invokeLater(new Runnable() {
                         public void run() {
-                            WaveformWindow.showSimulationData(sdx, ReadSimulationOutput.this.ww);
+                            if (ww==null)
+                                WaveformWindow.showSimulationDataInNewWindow(sdx);
+                            else
+                                WaveformWindow.refreshSimulationData(sdx, ReadSimulationOutput.this.ww);
                         }});
 			} catch (IOException e) {
 				System.out.println("End of file reached while reading " + fileURL);

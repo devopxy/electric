@@ -27,14 +27,34 @@ package com.sun.electric.tool.user.menus;
 import static com.sun.electric.database.text.ArrayIterator.i2i;
 import static com.sun.electric.tool.user.menus.EMenuItem.SEPARATOR;
 
+import java.awt.Color;
+import java.awt.event.KeyEvent;
+import java.awt.geom.Point2D;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
+
 import com.sun.electric.database.geometry.EPoint;
 import com.sun.electric.database.geometry.GeometryHandler;
 import com.sun.electric.database.geometry.Poly;
+import com.sun.electric.database.geometry.btree.EquivalenceClasses;
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.EDatabase;
 import com.sun.electric.database.hierarchy.Export;
 import com.sun.electric.database.hierarchy.HierarchyEnumerator;
-import com.sun.electric.tool.simulation.IRSIM;
 import com.sun.electric.database.hierarchy.Library;
 import com.sun.electric.database.hierarchy.Nodable;
 import com.sun.electric.database.hierarchy.View;
@@ -46,7 +66,6 @@ import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.prototype.PortCharacteristic;
 import com.sun.electric.database.prototype.PortProto;
 import com.sun.electric.database.text.TextUtils;
-import com.sun.electric.tool.user.dialogs.CellBrowser;
 import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.Connection;
 import com.sun.electric.database.topology.NodeInst;
@@ -60,7 +79,6 @@ import com.sun.electric.database.variable.TextDescriptor;
 import com.sun.electric.database.variable.UserInterface;
 import com.sun.electric.database.variable.VarContext;
 import com.sun.electric.database.variable.Variable;
-import com.sun.electric.database.geometry.btree.EquivalenceClasses;
 import com.sun.electric.lib.LibFile;
 import com.sun.electric.technology.DRCTemplate;
 import com.sun.electric.technology.Foundry;
@@ -111,8 +129,6 @@ import com.sun.electric.tool.ncc.result.NccResult;
 import com.sun.electric.tool.ncc.result.NccResults;
 import com.sun.electric.tool.ncc.result.equivalence.Equivalence;
 import com.sun.electric.tool.placement.Placement;
-import com.sun.electric.tool.placement.PlacementFrame;
-import com.sun.electric.tool.placement.Placement.PlacementPreferences;
 import com.sun.electric.tool.routing.AutoStitch;
 import com.sun.electric.tool.routing.Maze;
 import com.sun.electric.tool.routing.MimicStitch;
@@ -126,42 +142,23 @@ import com.sun.electric.tool.sc.Maker;
 import com.sun.electric.tool.sc.Place;
 import com.sun.electric.tool.sc.Route;
 import com.sun.electric.tool.sc.SilComp;
-import com.sun.electric.tool.simulation.Simulation;
+import com.sun.electric.tool.simulation.SimulationTool;
+import com.sun.electric.tool.simulation.irsim.IRSIM;
 import com.sun.electric.tool.user.CompileVHDL;
 import com.sun.electric.tool.user.ErrorLogger;
 import com.sun.electric.tool.user.Highlight;
 import com.sun.electric.tool.user.Highlighter;
 import com.sun.electric.tool.user.User;
+import com.sun.electric.tool.user.dialogs.CellBrowser;
 import com.sun.electric.tool.user.dialogs.FastHenryArc;
 import com.sun.electric.tool.user.dialogs.FillGenDialog;
 import com.sun.electric.tool.user.dialogs.LanguageScripts;
 import com.sun.electric.tool.user.dialogs.OpenFile;
 import com.sun.electric.tool.user.ncc.HighlightEquivalent;
 import com.sun.electric.tool.user.ui.EditWindow;
-import com.sun.electric.tool.user.ui.InvisibleLayerConfiguration;
 import com.sun.electric.tool.user.ui.TextWindow;
 import com.sun.electric.tool.user.ui.TopLevel;
 import com.sun.electric.tool.user.ui.WindowFrame;
-
-import java.awt.Color;
-import java.awt.event.KeyEvent;
-import java.awt.geom.Point2D;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import javax.swing.JMenu;
-import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
-import javax.swing.KeyStroke;
-import javax.swing.SwingUtilities;
 
 /**
  * Class to handle the commands in the "Tools" pulldown menu.
@@ -243,50 +240,50 @@ public class ToolMenu
 			// mnemonic keys available:  B       JK  N PQ      XYZ
             new EMenu("Simulation (Built-in)",
                 IRSIM.hasIRSIM() ? new EMenuItem("IRSI_M: Simulate Current Cell") { public void run() {
-				    Simulation.startSimulation(Simulation.IRSIM_ENGINE, false, null, null); }} : null,
+				    SimulationTool.startSimulation(SimulationTool.IRSIM_ENGINE, false, null, null); }} : null,
 			    IRSIM.hasIRSIM() ? new EMenuItem("IRSIM: _Write Deck...") { public void run() {
 				    FileMenu.exportCommand(FileType.IRSIM, true); }} : null,
 			    IRSIM.hasIRSIM() ? new EMenuItem("_IRSIM: Simulate Deck...") { public void run() {
-				    Simulation.startSimulation(Simulation.IRSIM_ENGINE, true, null, null); }} : null,
+				    SimulationTool.startSimulation(SimulationTool.IRSIM_ENGINE, true, null, null); }} : null,
 
                 IRSIM.hasIRSIM() ? SEPARATOR : null,
 
 		        new EMenuItem("_ALS: Simulate Current Cell") { public void run() {
-                    Simulation.startSimulation(Simulation.ALS_ENGINE, false, null, null); }},
+                    SimulationTool.startSimulation(SimulationTool.ALS_ENGINE, false, null, null); }},
 
                 SEPARATOR,
 
 		        new EMenuItem("Set Signal _High at Main Time", KeyStroke.getKeyStroke('V', 0)) { public void run() {
-                    Simulation.setSignalHigh(); }},
+                    SimulationTool.setSignalHigh(); }},
 		        new EMenuItem("Set Signal _Low at Main Time", KeyStroke.getKeyStroke('G', 0)) { public void run() {
-                    Simulation.setSignalLow(); }},
+                    SimulationTool.setSignalLow(); }},
 		        new EMenuItem("Set Signal Un_defined at Main Time", KeyStroke.getKeyStroke('X', 0)) { public void run() {
-                    Simulation.setSignalX(); }},
+                    SimulationTool.setSignalX(); }},
 		        new EMenuItem("Set Clock on Selected Signal...") { public void run() {
-                    Simulation.setClock(); }},
+                    SimulationTool.setClock(); }},
 
                 SEPARATOR,
 
 		        new EMenuItem("_Update Simulation Window") { public void run() {
-				    Simulation.update(); }},
+				    SimulationTool.update(); }},
 		        new EMenuItem("_Get Information about Selected Signals") { public void run() {
-                    Simulation.showSignalInfo(); }},
+                    SimulationTool.showSignalInfo(); }},
 
                 SEPARATOR,
 
 		        new EMenuItem("_Clear Selected Stimuli") { public void run() {
-                    Simulation.removeSelectedStimuli(); }},
+                    SimulationTool.removeSelectedStimuli(); }},
 		        new EMenuItem("Clear All Stimuli _on Selected Signals") { public void run() {
-			    Simulation.removeStimuliFromSignal(); }},
+			    SimulationTool.removeStimuliFromSignal(); }},
 		        new EMenuItem("Clear All S_timuli") { public void run() {
-			    Simulation.removeAllStimuli(); }},
+			    SimulationTool.removeAllStimuli(); }},
 
                 SEPARATOR,
 
 		        new EMenuItem("_Save Stimuli to Disk...") { public void run() {
-                    Simulation.saveStimuli(); }},
+                    SimulationTool.saveStimuli(); }},
 		        new EMenuItem("_Restore Stimuli from Disk...") { public void run() {
-                    Simulation.restoreStimuli(); }}),
+                    SimulationTool.restoreStimuli(); }}),
 
 		//------------------- Simulation (SPICE)
 
@@ -304,7 +301,7 @@ public class ToolMenu
                     if (cell == null) return;
                     SimulationData.plotGuessed(cell, null); }},
 		        new EMenuItem("Set Spice _Model...") { public void run() {
-                    Simulation.setSpiceModel(); }},
+                    SimulationTool.setSpiceModel(); }},
 		        new EMenuItem("Add M_ultiplier") { public void run() {
                     addMultiplierCommand(); }},
                 new EMenuItem("Add Flat Cod_e") { public void run() {
@@ -338,11 +335,11 @@ public class ToolMenu
 			// mnemonic keys available:  BCDEF HIJKLMN  QR  U  XYZ
             new EMenu("Simulation (_Verilog)",
 		        new EMenuItem("Write _Verilog Deck...") { public void run() {
-                    Simulation.setVerilogStopAtStandardCells(false);
-                    Simulation.setVerilogNetlistNonstandardCells(true);
+                    SimulationTool.setVerilogStopAtStandardCells(false);
+                    SimulationTool.setVerilogNetlistNonstandardCells(true);
                     FileMenu.exportCommand(FileType.VERILOG, true); }},
     		    new EMenuItem("Write Verilog_A Deck...") { public void run() {
-    		    	Simulation.setVerilogStopAtStandardCells(false);
+    		    	SimulationTool.setVerilogStopAtStandardCells(false);
     		    	FileMenu.exportCommand(FileType.VERILOGA, true); }},    
 		        new EMenuItem("Plot Simulation _Output from Chosen File...") { public void run() {
                     plotChosen(); }},
@@ -362,18 +359,18 @@ public class ToolMenu
 				// mnemonic keys available: ABC EFGHIJKLMNOPQRS UV XYZ
                 new EMenu("Set Verilog _Wire",
 		        	new EMenuItem("_Wire") { public void run() {
-                        Simulation.setVerilogWireCommand(0); }},
+                        SimulationTool.setVerilogWireCommand(0); }},
 		        	new EMenuItem("_Trireg") { public void run() {
-                        Simulation.setVerilogWireCommand(1); }},
+                        SimulationTool.setVerilogWireCommand(1); }},
 		        	new EMenuItem("_Default") { public void run() {
-                        Simulation.setVerilogWireCommand(2); }}),
+                        SimulationTool.setVerilogWireCommand(2); }}),
 
 				// mnemonic keys available: ABCDEFGHIJKLM OPQRSTUV XYZ
                 new EMenu("Transistor _Strength",
 		        	new EMenuItem("_Weak") { public void run() {
-                        Simulation.setTransistorStrengthCommand(true); }},
+                        SimulationTool.setTransistorStrengthCommand(true); }},
 		        	new EMenuItem("_Normal") { public void run() {
-                        Simulation.setTransistorStrengthCommand(false); }})),
+                        SimulationTool.setTransistorStrengthCommand(false); }})),
 
 		//------------------- Simulation (others)
 
@@ -409,7 +406,7 @@ public class ToolMenu
             // mnemonic keys available:  BCDEFGHIJKLMNOPQRSTUV XYZ
             new EMenu("_ERC",
 		        new EMenuItem("Check _Wells") { public void run() {
-                    ERCWellCheck.analyzeCurCell(GeometryHandler.GHMode.ALGO_SWEEP); }},
+                    ERCWellCheck.analyzeCurCell(); }},
 		        new EMenuItem("_Antenna Check") { public void run() {
                     ERCAntenna.doAntennaCheck(); }}),
 
@@ -1771,7 +1768,7 @@ public class ToolMenu
         public boolean doIt() throws JobException
         {
             TextDescriptor td = TextDescriptor.getNodeTextDescriptor().withDispPart(TextDescriptor.DispPos.NAMEVALUE).withOff(-1.5, -1);
-            ni.newVar(Simulation.M_FACTOR_KEY, new Double(1.0), td);
+            ni.newVar(SimulationTool.M_FACTOR_KEY, new Double(1.0), td);
             return true;
         }
     }

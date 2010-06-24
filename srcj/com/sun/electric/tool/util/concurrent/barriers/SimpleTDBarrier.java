@@ -26,7 +26,7 @@ package com.sun.electric.tool.util.concurrent.barriers;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * @author fs239085
+ * @author Felix Schmidt
  * 
  */
 public class SimpleTDBarrier implements TDBarrier {
@@ -60,7 +60,6 @@ public class SimpleTDBarrier implements TDBarrier {
 		} else {
 			count.getAndIncrement();
 		}
-
 	}
 
 	/*
@@ -68,6 +67,7 @@ public class SimpleTDBarrier implements TDBarrier {
 	 * 
 	 * @see com.sun.electric.tool.util.concurrent.barriers.Barrier#await()
 	 */
+	@Deprecated
 	public void await() {
 		throw new UnsupportedOperationException();
 
