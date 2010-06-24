@@ -32,7 +32,7 @@ import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.variable.EvalJavaBsh;
 import com.sun.electric.database.variable.VarContext;
 import com.sun.electric.tool.io.output.Spice;
-import com.sun.electric.tool.simulation.Simulation;
+import com.sun.electric.tool.simulation.SimulationTool;
 import com.sun.electric.tool.user.User;
 
 import java.io.BufferedReader;
@@ -47,6 +47,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 /**
  *
@@ -156,7 +158,7 @@ public class SCRunBase {
             if (c.getView() == View.LAYOUT) {
                 if (c != c.getNewestVersion()) continue;
 
-                String verilogCellName = Spice.getSafeNetName(c.getName(), Simulation.SpiceEngine.SPICE_ENGINE_H);
+                String verilogCellName = Spice.getSafeNetName(c.getName(), SimulationTool.SpiceEngine.SPICE_ENGINE_H);
 
                 // if data already in liberty file, ignore
                 List<LibData.Group> existing = library.getGroups("cell", verilogCellName);
@@ -183,7 +185,7 @@ public class SCRunBase {
                 // Use either star rcxt extracted netlist or write netlist from Electric layout
                 File outputFile = new File(cellDir, c.getName()+".sp");
 
-                String cellName = Spice.getSafeNetName(c.getName(), Simulation.SpiceEngine.SPICE_ENGINE_H);
+                String cellName = Spice.getSafeNetName(c.getName(), SimulationTool.SpiceEngine.SPICE_ENGINE_H);
                 if (extractedCells.containsKey(cellName)) {
                     try {
                         PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(outputFile)));
@@ -206,7 +208,7 @@ public class SCRunBase {
                     sp.writeEmptySubckts = false;
                     sp.cdlIgnoreResistors = false;
                     sp.useCellParameters = true;
-                    sp.parasiticsLevel = Simulation.SpiceParasitics.RC_CONSERVATIVE;
+                    sp.parasiticsLevel = SimulationTool.SpiceParasitics.RC_CONSERVATIVE;
                     sp.writeFinalDotEnd = false;
                     sp.parasiticsUseExemptedNetsFile = false;
                     sp.parasiticsExtractsR = true;
@@ -298,9 +300,33 @@ public class SCRunBase {
         return timing;
     }
 
+    private static Pattern cellsize1 = Pattern.compile(".*?_([0-9.]+)x");
+    private static Pattern cellsize2 = Pattern.compile(".*?_x([0-9.]+)");
+
+    public static double getCellSize(String cellname) {
+        String s = null;
+        Matcher m1 = cellsize1.matcher(cellname);
+        if (m1.matches()) {
+            s = m1.group(1);
+        } else {
+            Matcher m2 = cellsize2.matcher(cellname);
+            if (m2.matches()) {
+                s = m2.group(1);
+            }
+        }
+        if (s != null) {
+            try {
+                return Double.valueOf(s);
+            } catch (NumberFormatException e) {
+                return 1.0;
+            }
+        }
+        return 1.0;
+    }
+
     public static SCTiming getSetupFromScript(String [] script, SCSettings settings) {
         EvalJavaBsh bsh = new EvalJavaBsh();
-        bsh.doEvalLine("import com.sun.electric.plugins.sctiming.*;");
+        bsh.doEvalLine("import com.sun.electric.tool.simulation.sctiming.*;");
         SCTiming timing = new SCTiming();
         timing.setSettings(settings);
 

@@ -30,11 +30,10 @@ package com.sun.electric.tool.util.concurrent.runtime;
  * @author Felix Schmidt
  * 
  */
-public abstract class PoolWorkerStrategy {
+public abstract class WorkerStrategy {
 
 	protected volatile int executed = 0;
 	protected int threadId = -1;
-
 	protected volatile boolean abort;
 
 	/**

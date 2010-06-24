@@ -23,9 +23,16 @@
  */
 package com.sun.electric.tool.routing;
 
-import com.sun.electric.database.geometry.ERectangle;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
 import com.sun.electric.database.geometry.Orientation;
-import com.sun.electric.database.geometry.Poly;
 import com.sun.electric.database.geometry.PolyBase;
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.Export;
@@ -33,7 +40,6 @@ import com.sun.electric.database.hierarchy.HierarchyEnumerator;
 import com.sun.electric.database.hierarchy.Nodable;
 import com.sun.electric.database.network.Netlist;
 import com.sun.electric.database.network.Network;
-import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.text.Pref;
 import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.topology.ArcInst;
@@ -52,20 +58,9 @@ import com.sun.electric.technology.PrimitivePort;
 import com.sun.electric.technology.Technology;
 import com.sun.electric.technology.Technology.NodeLayer;
 import com.sun.electric.technology.technologies.Generic;
-import com.sun.electric.tool.Job;
 import com.sun.electric.tool.drc.DRC;
-import com.sun.electric.tool.placement.Placement;
 import com.sun.electric.tool.routing.experimentalSeaOfGates.RoutingFrameSeaOfGates;
 import com.sun.electric.tool.routing.experimentalSimple.RoutingFrameSimple;
-
-import java.awt.geom.AffineTransform;
-import java.awt.geom.Point2D;
-import java.awt.geom.Rectangle2D;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Class to define a framework for Routing algorithms.
@@ -100,13 +95,20 @@ import java.util.Map;
  */
 public class RoutingFrame
 {
+	private static final boolean DEBUGROUTES = false;
+
 	/**
 	 * Static list of all Routing algorithms.
 	 * When you create a new algorithm, add it to the following list.
 	 */
 	private static RoutingFrame [] routingAlgorithms = {
 		new RoutingFrameSimple(),
-		new RoutingFrameSeaOfGates()
+		new RoutingFrameSeaOfGates(),
+//		new AStarRoutingFrame(),
+//		new com.sun.electric.tool.routing.team02LeeMoore.RoutingFrameLeeMoore(),
+//		new AStarRouter(),
+//		new com.sun.electric.tool.routing.team04LeeMoore.RoutingFrameLeeMoore(),
+//		new yana()
 	};
 
 	/**
@@ -988,6 +990,29 @@ public class RoutingFrame
 			List<RoutePoint> contacts = rs.routedPoints;
 			List<RouteWire> wires = rs.routedWires;
 			if (contacts.size() == 0 && wires.size() == 0) continue;
+
+// display route
+if (DEBUGROUTES)
+{
+	System.out.println("++++ ROUTING SEGMENT: ++++");
+	Map<RoutePoint,String> numberContacts = new HashMap<RoutePoint,String>();
+	int num = 1;
+	for(RoutePoint rp : contacts)
+	{
+		RoutingContact rc = rp.getContact();
+		String contactName = "CONTACT-" + (num++);
+		System.out.println(contactName + " IS " + rc.getName() + " AT (" + rp.loc.getX() + "," + rp.loc.getY() + ")");
+		numberContacts.put(rp, contactName);
+	}
+	for(RouteWire rw : wires)
+	{
+		String start = numberContacts.get(rw.start);
+		String end = numberContacts.get(rw.end);
+		if (rw.start.getContact() == RoutingContact.STARTPOINT) start = "STARTING-POINT";
+		if (rw.end.getContact() == RoutingContact.FINISHPOINT) end = "ENDING-POINT";
+		System.out.println("WIRE " + rw.layer.getName() + " RUNS FROM " + start + " TO " + end);
+	}
+}
 
 			// create the contacts
 			Map<RoutePoint,PortInst> builtContacts = new HashMap<RoutePoint,PortInst>();

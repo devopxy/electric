@@ -37,7 +37,7 @@ import java.util.List;
  * It includes the labels and values.
  * It can handle digital, analog, and many variations (intervals, sweeps).
  */
-public abstract class Analysis<S extends Signal>
+public class Analysis<S extends Signal>
 {
 	public static class AnalysisType
 	{
@@ -89,8 +89,10 @@ public abstract class Analysis<S extends Signal>
 		this.sd = sd;
 		this.type = type;
 		this.extrapolateToRight = extrapolateToRight;
+        this.isAnalog = true;
 		sd.addAnalysis(this);
 	}
+    private boolean isAnalog;
 
 	/**
 	 * Free allocated resources before closing.
@@ -162,7 +164,7 @@ public abstract class Analysis<S extends Signal>
 	 * Method to add a new signal to this Simulation Data object.
 	 * Signals can be either digital or analog.
 	 * @param ws the signal to add.
-	 * Instead of a "Signal", use either Signal<DigitalSample> or AnalogSignal.
+	 * Instead of a "Signal", use either Signal<DigitalSample> or Signal<ScalarSample>.
 	 */
 	public void addSignal(S ws) {
 		signals.add(ws);
@@ -171,7 +173,7 @@ public abstract class Analysis<S extends Signal>
 	}
 
     private static String getBaseNameFromExtractedNet(String signalFullName, String delim) {
-//        String delim = Simulation.getSpiceExtractedNetDelimiter();
+//        String delim = SimulationTool.getSpiceExtractedNetDelimiter();
         int hashPos = signalFullName.indexOf(delim);
         if (hashPos > 0)
         {
@@ -212,10 +214,9 @@ public abstract class Analysis<S extends Signal>
             if (sig .isDigital()) {
                 minY = Math.min(minY, 0);
                 maxY = Math.max(maxY, 1);
-            } else if (sig instanceof ScalarSignal) {
-                ScalarSignal ssig = (ScalarSignal)sig;
-                ScalarSample min = ssig.getMinValue();
-                ScalarSample max = ssig.getMaxValue();
+            } else if (sig.isAnalog()) {
+                ScalarSample min = ((Signal<ScalarSample>)sig).getMinValue();
+                ScalarSample max = ((Signal<ScalarSample>)sig).getMaxValue();
                 minY = min==null ? minY : Math.min(minY, min.getValue());
                 maxY = max==null ? maxY : Math.max(maxY, max.getValue());
             }
@@ -233,7 +234,8 @@ public abstract class Analysis<S extends Signal>
 	 * Method to tell whether this simulation data is analog or digital.
 	 * @return true if this simulation data is analog.
 	 */
-	public abstract boolean isAnalog();
+	public boolean isAnalog() { return isAnalog; }
+
 
 	/**
 	 * Method to quickly return the signal that corresponds to a given Network name.

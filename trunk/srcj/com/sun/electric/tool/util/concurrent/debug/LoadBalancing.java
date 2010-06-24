@@ -23,33 +23,32 @@
  */
 package com.sun.electric.tool.util.concurrent.debug;
 
-import java.text.DecimalFormat;
 import java.util.Iterator;
 import java.util.Set;
 
+import com.sun.electric.database.geometry.GenMath;
+import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.tool.util.CollectionFactory;
-import com.sun.electric.tool.util.concurrent.runtime.PoolWorkerStrategy;
+import com.sun.electric.tool.util.concurrent.runtime.WorkerStrategy;
 
 /**
- * @author fschmidt
+ * @author Felix Schmidt
  * 
  */
 public class LoadBalancing implements IDebug {
 
 	private static LoadBalancing instance = new LoadBalancing();
-	private Set<PoolWorkerStrategy> workers;
+	private Set<WorkerStrategy> workers;
 
 	private LoadBalancing() {
-
 		workers = CollectionFactory.createConcurrentHashSet();
-
 	}
 
 	public static LoadBalancing getInstance() {
 		return instance;
 	}
 
-	public void registerWorker(PoolWorkerStrategy worker) {
+	public void registerWorker(WorkerStrategy worker) {
 		workers.add(worker);
 	}
 
@@ -63,30 +62,35 @@ public class LoadBalancing implements IDebug {
 	 * @see com.sun.electric.tool.util.concurrent.debug.IDebug#printStatistics()
 	 */
 	public void printStatistics() {
-		Set<PoolWorkerStrategy> workersLocalCopy = CollectionFactory.copySetToConcurrent(workers);
+		Set<WorkerStrategy> workersLocalCopy = CollectionFactory.copySetToConcurrent(workers);
 
 		int sum = 0;
-		for (Iterator<PoolWorkerStrategy> it = workersLocalCopy.iterator(); it.hasNext();) {
+		for (Iterator<WorkerStrategy> it = workersLocalCopy.iterator(); it.hasNext();) {
 			sum += it.next().getExecutedCounter();
 		}
 
-		for (Iterator<PoolWorkerStrategy> it = workersLocalCopy.iterator(); it.hasNext();) {
-			PoolWorkerStrategy worker = it.next();
+		double mean = (double) sum / (double) workersLocalCopy.size();
+		double varField[] = new double[workersLocalCopy.size()];
+
+		int i = 0;
+		for (Iterator<WorkerStrategy> it = workersLocalCopy.iterator(); it.hasNext();) {
+			WorkerStrategy worker = it.next();
 			System.out.print(worker);
 			System.out.print(" - ");
-			System.out.println(getPercentageString((double) worker.getExecutedCounter()
-					/ (double) sum));
+			varField[i] = (double) worker.getExecutedCounter() / (double) sum;
+			System.out.println(TextUtils.getPercentageString(varField[i]));
+			i++;
 		}
-	}
 
-	private String getPercentageString(double value) {
-		StringBuilder builder = new StringBuilder();
+		// double var = GenMath.varianceEqualDistribution(varField);
+		double dev = GenMath.standardDeviation(varField);
 
-		DecimalFormat df2 = new DecimalFormat("##0.00");
+		System.out.print("mean value");
+		System.out.print(" - ");
+		System.out.println(TextUtils.getPercentageString(mean / (double) sum));
 
-		builder.append(df2.format(value * 100.0));
-		builder.append("%");
-
-		return builder.toString();
+		System.out.print("deviation");
+		System.out.print(" - ");
+		System.out.println(TextUtils.getPercentageString(dev));
 	}
 }

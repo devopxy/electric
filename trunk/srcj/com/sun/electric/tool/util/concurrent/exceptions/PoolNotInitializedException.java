@@ -2,7 +2,9 @@
  *
  * Electric(tm) VLSI Design System
  *
- * Copyright (c) 2009 Sun Microsystems and Static Free Software
+ * File: PoolNotInitializedException.java
+ *
+ * Copyright (c) 2010 Sun Microsystems and Static Free Software
  *
  * Electric(tm) is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,18 +21,19 @@
  * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, Mass 02111-1307, USA.
  */
-package com.sun.electric.tool.simulation;
+package com.sun.electric.tool.util.concurrent.exceptions;
 
-import java.io.*;
-import java.util.*;
-import com.sun.electric.database.geometry.btree.*;
-import com.sun.electric.database.geometry.btree.unboxed.*;
-import com.sun.electric.tool.simulation.*;
+/**
+ * @author fs239085
+ * 
+ */
+public class PoolNotInitializedException extends Error {
 
-public class ScalarSignal extends BTreeSignal<ScalarSample> {
-
-    public ScalarSignal(Analysis analysis, String signalName, String signalContext) {
-        super(analysis, signalName, signalContext, BTreeSignal.getTree(ScalarSample.unboxer));
-    }
+	/**
+	 * 
+	 */
+	public PoolNotInitializedException() {
+		super("The requested thread pool is not initialized!");
+	}
 
 }

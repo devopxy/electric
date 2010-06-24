@@ -32,11 +32,11 @@ import com.sun.electric.tool.util.concurrent.patterns.PReduceJob;
 import com.sun.electric.tool.util.concurrent.patterns.PForJob.BlockedRange;
 import com.sun.electric.tool.util.concurrent.patterns.PForJob.BlockedRange1D;
 import com.sun.electric.tool.util.concurrent.patterns.PReduceJob.PReduceTask;
-import com.sun.electric.tool.util.concurrent.runtime.ThreadPool;
+import com.sun.electric.tool.util.concurrent.runtime.taskParallel.ThreadPool;
 
 /**
  * 
- * @author fs239085
+ * @author Felix Schmidt
  */
 public class PReduceJob_T {
 
@@ -59,23 +59,23 @@ public class PReduceJob_T {
 
 	@Test
 	public void testPerformancePReduce() throws PoolExistsException, InterruptedException {
-		
+
 		int stepW = 100000000;
 		double step = 1.0 / stepW;
 
 		ThreadPool pool = ThreadPool.initialize(1);
 
-		long start = System.currentTimeMillis(); 
+		long start = System.currentTimeMillis();
 		PReduceJob<Double> pReduceJobSer = new PReduceJob<Double>(new BlockedRange1D(0, stepW, 128),
 				new PITask(step));
 
 		pReduceJobSer.execute();
-		
+
 		long endSer = System.currentTimeMillis() - start;
 
 		pool.shutdown();
-		pool = ThreadPool.initialize();
-		
+		pool = ThreadPool.initialize(8);
+
 		System.out.println(ThreadPool.getThreadPool().getPoolSize());
 
 		start = System.currentTimeMillis();
@@ -90,7 +90,7 @@ public class PReduceJob_T {
 		Assert.assertEquals(pReduceJobPar.getResult(), pReduceJobSer.getResult(), 0.000000001);
 		System.out.println("Ser:     " + endSer);
 		System.out.println("Par:     " + endPar);
-		System.out.println("Speedup: " + (double)endSer/(double)endPar); 
+		System.out.println("Speedup: " + (double) endSer / (double) endPar);
 
 	}
 
@@ -104,9 +104,13 @@ public class PReduceJob_T {
 		}
 
 		@Override
-		public Double reduce(PReduceTask<Double> other) {
+		public synchronized Double reduce(PReduceTask<Double> other) {
 			PITask task = (PITask) other;
-			this.pi += task.pi;
+
+			if (!this.equals(task)) {
+				this.pi += task.pi;
+			}
+
 			return this.pi * step;
 		}
 
@@ -122,7 +126,7 @@ public class PReduceJob_T {
 			BlockedRange1D tmpRange = (BlockedRange1D) range;
 			this.pi = 0.0;
 
-			for (int i = tmpRange.getStart(); i < tmpRange.getEnd(); i++) {
+			for (int i = tmpRange.start(); i < tmpRange.end(); i++) {
 				double x = step * ((double) i - 0.5);
 				this.pi += 4.0 / (1.0 + x * x);
 			}

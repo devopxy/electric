@@ -2,9 +2,9 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: AnalogSignal.java
+ * File: StealTracker.java
  *
- * Copyright (c) 2004 Sun Microsystems and Static Free Software
+ * Copyright (c) 2010 Sun Microsystems and Static Free Software
  *
  * Electric(tm) is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,16 +21,41 @@
  * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, Mass 02111-1307, USA.
  */
-package com.sun.electric.tool.simulation;
+package com.sun.electric.tool.util.concurrent.debug;
+
 
 /**
- * Class to define an analog signal in the simulation waveform window.
+ * @author Felix Schmidt
+ * 
  */
-public final class AnalogSignal extends ScalarSignal {
+public class StealTracker implements IDebug {
 
-	public AnalogSignal(AnalogAnalysis an, String signalName, String signalContext) {
-        super(an, signalName, signalContext);
-		an.addSignal(this);
+	private static StealTracker instance = new StealTracker();
+	private volatile int stealCounter = 0;
+
+	private StealTracker() {
+
+	}
+
+	public static StealTracker getInstance() {
+		return StealTracker.instance;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see com.sun.electric.tool.util.concurrent.debug.IDebug#printStatistics()
+	 */
+	public void printStatistics() {
+		System.out.println("Steal counter: " + stealCounter);
+	}
+
+	public void countSteal() {
+		this.stealCounter++;
+	}
+
+	public int getStealCounter() {
+		return this.stealCounter;
 	}
 
 }

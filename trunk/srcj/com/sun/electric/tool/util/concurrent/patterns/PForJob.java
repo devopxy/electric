@@ -26,7 +26,7 @@ package com.sun.electric.tool.util.concurrent.patterns;
 import java.util.List;
 
 import com.sun.electric.tool.util.CollectionFactory;
-import com.sun.electric.tool.util.concurrent.runtime.ThreadPool;
+import com.sun.electric.tool.util.concurrent.runtime.taskParallel.ThreadPool;
 
 /**
  * 
@@ -45,6 +45,11 @@ public class PForJob extends PJob {
 	 */
 	public PForJob(BlockedRange range, PForTask task) {
 		super();
+		this.add(new SplitIntoTasks(this, range, task), PJob.SERIAL);
+	}
+
+	public PForJob(BlockedRange range, PForTask task, ThreadPool pool) {
+		super(pool);
 		this.add(new SplitIntoTasks(this, range, task), PJob.SERIAL);
 	}
 
@@ -117,9 +122,9 @@ public class PForJob extends PJob {
 		 */
 		@Override
 		public void execute() {
-			int threadNum = ThreadPool.getThreadPool().getPoolSize();
+			int threadNum = job.getThreadPool().getPoolSize();
 			for (int i = 0; i < threadNum; i++) {
-				job.add(new SplitterTask(job, range, task), i);
+				job.add(new SplitterTask(job, range, task, i, threadNum), i);
 			}
 		}
 	}
@@ -128,9 +133,9 @@ public class PForJob extends PJob {
 		private BlockedRange range;
 		private PForTask task;
 
-		public SplitterTask(PJob job, BlockedRange range, PForTask task) {
+		public SplitterTask(PJob job, BlockedRange range, PForTask task, int number, int total) {
 			super(job);
-			this.range = range;
+			this.range = range.createInstance(number, total);
 			this.task = task;
 		}
 
@@ -142,7 +147,7 @@ public class PForJob extends PJob {
 		public void execute() {
 			List<BlockedRange> tmpRange;
 
-			int step = ThreadPool.getThreadPool().getPoolSize();
+			int step = job.getThreadPool().getPoolSize();
 			while (((tmpRange = range.splitBlockedRange(step))) != null) {
 				for (BlockedRange tr : tmpRange) {
 					try {
@@ -172,6 +177,7 @@ public class PForJob extends PJob {
 			super(job);
 			this.task = task;
 			this.range = range;
+			task.job = job;
 		}
 
 		/*
@@ -186,6 +192,26 @@ public class PForJob extends PJob {
 
 		public PForTask getTask() {
 			return task;
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see com.sun.electric.tool.util.concurrent.patterns.PTask#before()
+		 */
+		@Override
+		public void before() {
+			task.before();
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see com.sun.electric.tool.util.concurrent.patterns.PTask#after()
+		 */
+		@Override
+		public void after() {
+			task.after();
 		}
 
 	}
@@ -207,15 +233,15 @@ public class PForJob extends PJob {
 			this.step = step;
 		}
 
-		public int getStart() {
+		public int start() {
 			return start;
 		}
 
-		public int getEnd() {
+		public int end() {
 			return end;
 		}
 
-		public int getStep() {
+		public int step() {
 			return step;
 		}
 
@@ -228,6 +254,8 @@ public class PForJob extends PJob {
 	 */
 	public interface BlockedRange {
 		public List<BlockedRange> splitBlockedRange(int step);
+
+		public BlockedRange createInstance(int number, int total);
 	}
 
 	/**
@@ -244,15 +272,15 @@ public class PForJob extends PJob {
 			this.range = new Range(start, end, step);
 		}
 
-		public int getStart() {
+		public int start() {
 			return range.start;
 		}
 
-		public int getEnd() {
+		public int end() {
 			return range.end;
 		}
 
-		public int getStep() {
+		public int step() {
 			return range.end;
 		}
 
@@ -260,7 +288,7 @@ public class PForJob extends PJob {
 		 * split the current block range into smaller pieces according to step
 		 * width
 		 */
-		public synchronized List<BlockedRange> splitBlockedRange(int step) {
+		public List<BlockedRange> splitBlockedRange(int step) {
 
 			if (current != null && current >= range.end)
 				return null;
@@ -279,6 +307,20 @@ public class PForJob extends PJob {
 			return result;
 		}
 
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * com.sun.electric.tool.util.concurrent.patterns.PForJob.BlockedRange
+		 * #createInstance(int, int)
+		 */
+		public BlockedRange createInstance(int number, int total) {
+			int size = this.range.end - this.range.start;
+			int split = size / total;
+			BlockedRange1D result = new BlockedRange1D(number * split, (number + 1 == total) ? this.range.end
+					: (number + 1) * split, this.range.step);
+			return result;
+		}
 	}
 
 	/**
@@ -299,11 +341,11 @@ public class PForJob extends PJob {
 			this.row = new Range(startRow, endRow, stepRow);
 		}
 
-		public Range getCol() {
+		public Range col() {
 			return col;
 		}
 
-		public Range getRow() {
+		public Range row() {
 			return row;
 		}
 
@@ -311,7 +353,7 @@ public class PForJob extends PJob {
 		 * split current 2-dimensional blocked range into smaller pieces
 		 * according to both step widths
 		 */
-		public synchronized List<BlockedRange> splitBlockedRange(int step) {
+		public List<BlockedRange> splitBlockedRange(int step) {
 
 			if (currentRow != null && currentRow >= row.end) {
 				return null;
@@ -342,6 +384,21 @@ public class PForJob extends PJob {
 				currentCol += col.step;
 
 			}
+			return result;
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * com.sun.electric.tool.util.concurrent.patterns.PForJob.BlockedRange
+		 * #createInstance(int, int)
+		 */
+		public BlockedRange createInstance(int number, int total) {
+			int size = this.row.end - this.row.start;
+			int split = size / total;
+			BlockedRange2D result = new BlockedRange2D(number * split, (number + 1 == total) ? this.row.end
+					: (number + 1) * split, this.row.step, this.col.start, this.col.end, this.col.step);
 			return result;
 		}
 	}

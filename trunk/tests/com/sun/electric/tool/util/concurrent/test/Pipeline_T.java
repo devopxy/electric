@@ -23,72 +23,11 @@
  */
 package com.sun.electric.tool.util.concurrent.test;
 
-import org.junit.Ignore;
-import org.junit.Test;
-
-import com.sun.electric.tool.util.CollectionFactory;
-import com.sun.electric.tool.util.IStructure;
-import com.sun.electric.tool.util.concurrent.runtime.Pipeline;
-import com.sun.electric.tool.util.concurrent.runtime.Pipeline.Filter;
 
 /**
- * @author fs239085
+ * @author Felix Schmidt
  * 
  */
 public class Pipeline_T {
-
-	@Ignore
-	@Test
-	public void testPipeline() {
-		IStructure<Integer> testData = CollectionFactory.createLockFreeQueue();
-
-		testData.add(1);
-		testData.add(2);
-		testData.add(3);
-
-		Pipeline pipe = new Pipeline();
-		pipe.addFilter(new Stage1(), 2);
-		pipe.addFilter(new Stage2(), 2);
-		
-		pipe.start(testData);
-
-	}
-
-	public class Stage1 extends Filter<Integer, Integer> {
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see
-		 * com.sun.electric.tool.util.concurrent.runtime.Pipeline.Filter#execute
-		 * (java.lang.Object)
-		 */
-		@Override
-		public void execute(Integer element) {
-
-			System.out.println("Stage 1: " + element);
-			this.sendToOutput(element + 2);
-
-		}
-
-	}
-
-	public class Stage2 extends Filter<Integer, Integer> {
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see
-		 * com.sun.electric.tool.util.concurrent.runtime.Pipeline.Filter#execute
-		 * (java.lang.Object)
-		 */
-		@Override
-		public void execute(Integer element) {
-
-			System.out.println("Stage 2: " + element);
-
-		}
-
-	}
 
 }
