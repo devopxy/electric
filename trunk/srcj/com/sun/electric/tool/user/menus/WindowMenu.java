@@ -339,7 +339,7 @@ public class WindowMenu {
                                   WaveformWindow.getCurrentWaveformWindow().vcrClickSlower();
                     }},
                 SEPARATOR,
-                new EMenuItem("Generate Digital Signal from Analog Signal (0.5v Threshhold)") { public void run() {
+                new EMenuItem("Generate Digital Signal from Analog Signal (0.5v threshold)") { public void run() {
                     WindowFrame current = WindowFrame.getCurrentWindowFrame();
                     WindowContent content = current.getContent();
                     if (!(content instanceof WaveformWindow)) {
@@ -357,6 +357,7 @@ public class WindowMenu {
                          s1.getSignalContext(),
                          new Signal[] { s1 }) {
                         public boolean isDigital() { return true; }
+                        public boolean isEmpty() { return false; }
                         public RangeSample<DigitalSample> getDerivedRange(RangeSample<ScalarSample>[] s) {
                             if (s[0]==null) return null;
                             double min = s[0].getMin().getValue();

@@ -774,21 +774,35 @@ public class Panel extends JPanel
 
 	/**
 	 * Method to make this Panel show a signal fully.
-	 * @param sSig the signal to show (must be analog)
+	 * @param sSig the signal to show (must be analog) or null to fit to all signals
 	 */
-	public void fitToSignal(Signal sSig) {
-        Sample minval = sSig.getMinValue();
-        Sample maxval = sSig.getMaxValue();
-        if (minval!=null && maxval != null && minval instanceof ScalarSample && maxval instanceof ScalarSample) {
-            double lowValue = ((ScalarSample)minval).getValue();
-            double highValue = ((ScalarSample)maxval).getValue();
-            double range = highValue - lowValue;
-            if (range == 0) range = 2;
-            double rangeExtra = range / 10;
-            setYAxisRange(lowValue - rangeExtra, highValue + rangeExtra);
-            makeSelectedPanel(-1, -1);
+	public void fitToSignal(Signal sig) {
+        double lowValue = Double.MAX_VALUE;
+        double highValue = Double.MIN_VALUE;
+        for(WaveSignal wSig : getSignals()) {
+            Signal sSig = wSig.getSignal();
+            if (sig!=null && sig!=sSig) continue;
+            Signal.View<RangeSample<Sample>> view =
+                sSig.getRasterView(sSig.getMinTime(), sSig.getMaxTime(), 2, false);
+            for(int i=0; i<view.getNumEvents(); i++) {
+                RangeSample rs = view.getSample(i);
+                if (rs==null) continue;
+                Sample min = rs.getMin();
+                Sample max = rs.getMax();
+                if (min!=null && !(min instanceof ScalarSample)) break;
+                if (max!=null && !(max instanceof ScalarSample)) break;
+                lowValue = Math.min(lowValue, ((ScalarSample)min).getValue());
+                highValue = Math.max(highValue, ((ScalarSample)max).getValue());
+            }
         }
+        double range = highValue - lowValue;
+        if (range == 0) range = 2;
+        double rangeExtra = range / 10;
+        setYAxisRange(lowValue - rangeExtra, highValue + rangeExtra);
+        makeSelectedPanel(-1, -1);
+        repaintWithRulers();
 	}
+
 
 	/**
 	 * Method to set the Y axis range in this panel.
@@ -1510,15 +1524,18 @@ public class Panel extends JPanel
 					Signal wave = as.getWaveform(s);
                 */
                 Signal wave = as;
+                if (wave.isEmpty()) continue;
                     Signal.View<RangeSample<ScalarSample>> waveform =
                         ((Signal<ScalarSample>)wave).getRasterView(convertXScreenToData(0),
                                                                    convertXScreenToData(sz.width),
-                                                                   sz.width);
+                                                                   sz.width,
+                                                                   true);
                     Signal xWaveform = null;
                     if (xSignal != null)
                         xWaveform = xSignal;
 					int lastX = 0, lastLY = 0, lastHY = 0;
 					int numEvents = waveform.getNumEvents();
+                    boolean first = true;
 					for(int i=0; i<numEvents; i++)
 					{
                         int x = convertXDataToScreen(waveform.getTime(i));
@@ -1531,54 +1548,29 @@ public class Panel extends JPanel
 							x = convertXDataToScreen(((ScalarSample)xWaveform.getExactView().getSample(i)).getValue());
 
 						// draw lines if requested and line is on-screen
-						if (linePointMode <= 1 && x >= vertAxisPos && lastX < sz.width)
-						{
-	                        if (i != 0)
-	                        {
+						if (linePointMode <= 1) {
+	                        if (!first) {
                         		// drawing has lines
-	                            if (lastLY != lastHY || lowY != highY)
-	                            {
+	                            if (lastLY != lastHY || lowY != highY) {
                                     if (g!=null) g.setColor(light);
-	        						if (processALine(g, lastX, lastHY, lastX, lastLY, bounds, forPs, selectedObjects, ws, s)) break;
-	        						if (processALine(g, x, highY, x, lowY, bounds, forPs, selectedObjects, ws, s)) break;
+	        						processALine(g, lastX, lastHY, lastX, lastLY, bounds, forPs, selectedObjects, ws, s);
+	        						processALine(g, x, highY, x, lowY, bounds, forPs, selectedObjects, ws, s);
                                     if (g!=null) g.setColor(ws.getColor());
-	        						if (processALine(g, lastX, lastHY, x, highY, bounds, forPs, selectedObjects, ws, s)) break;
+	        						processALine(g, lastX, lastHY, x, highY, bounds, forPs, selectedObjects, ws, s);
 	        						//if (processALine(g, lastX, lastHY, x, lowY, bounds, forPs, selectedObjects, ws, s)) break;
 	        						//if (processALine(g, lastX, lastLY, x, highY, bounds, forPs, selectedObjects, ws, s)) break;
 	                            }
-	                            if (processALine(g, lastX, lastLY, x, lowY, bounds, forPs, selectedObjects, ws, s)) break;
+	                            processALine(g, lastX, lastLY, x, lowY, bounds, forPs, selectedObjects, ws, s);
 							}
-	                        if (as.extrapolateValues() && i == numEvents-1)
-	                    	{
-	                    		if (getMinXAxis() < getMaxXAxis())
-	                    		{
-		                    		// process extrapolated line from the last data point
-		                            if (processALine(g, x, lowY, sz.width, lowY, bounds, forPs, selectedObjects, ws, s)) break;
-		                            if (lastLY != lastHY || lowY != highY)
-		                            {
-		        						if (processALine(g, x, highY, sz.width, highY, bounds, forPs, selectedObjects, ws, s)) break;
-		                            }
-	                    		}
-	                    	}
-						}
-
-						// show points if requested and point is on-screen
-                    	if (linePointMode >= 1 && x >= vertAxisPos && x <= sz.width)
-						{
-							if (processABox(g, x-2, lowY-2, x+2, lowY+2, bounds, forPs, selectedObjects, ws, false, 0)) break;
-						}
-						lastX = x;   lastLY = lowY; lastHY = highY;
+						} else {
+                            // show points if requested and point is on-screen
+							processABox(g, x-2, lowY-2, x+2, lowY+2, bounds, forPs, selectedObjects, ws, false, 0);
+                        }
+						lastX = x;
+                        lastLY = lowY;
+                        lastHY = highY;
+                        first = false;
 					}
-                    /*
-                    System.out.println("misses="+com.sun.electric.tool.simulation.BTreeSignal.misses + ", "+
-                                       "avg steps="+
-                                       (((float)com.sun.electric.tool.simulation.BTreeSignal.steps)/
-                                        com.sun.electric.tool.simulation.BTreeSignal.numLookups));
-                    com.sun.electric.tool.simulation.BTreeSignal.misses=0;
-                    com.sun.electric.tool.simulation.BTreeSignal.steps=0;
-                    com.sun.electric.tool.simulation.BTreeSignal.numLookups=0;
-                    */
-                    //}
 				continue;
             } else {
 				// draw digital traces
