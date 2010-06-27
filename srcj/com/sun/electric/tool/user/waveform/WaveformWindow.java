@@ -651,16 +651,12 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		}
 
 		// set bounds of the window from extent of the data
-		Rectangle2D dataBounds = sd.getBounds();
-		if (dataBounds != null)
-		{
-			double lowTime = dataBounds.getMinX();
-			double highTime = dataBounds.getMaxX();
-			double timeRange = highTime - lowTime;
-			setMainXPositionCursor(timeRange*0.2 + lowTime);
-			setExtensionXPositionCursor(timeRange*0.8 + lowTime);
-			setDefaultHorizontalRange(lowTime, highTime);
-		}
+        double lowTime = sd.getMinTime();
+        double highTime = sd.getMaxTime();
+        double timeRange = highTime - lowTime;
+        setMainXPositionCursor(timeRange*0.2 + lowTime);
+        setExtensionXPositionCursor(timeRange*0.8 + lowTime);
+        setDefaultHorizontalRange(lowTime, highTime);
 	}
 
 	private class WaveTable extends JTable
@@ -1215,27 +1211,16 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 	}
 
 	/**
-	 * Method to shift the panels so that the current cursor location becomes the center.
+	 * Method to shift the panels so that the main cursor location becomes the center.
 	 */
-	public void centerCursor()
-	{
-		Panel pan = Panel.getCurrentPanel();
-		if (pan == null) return;
-
-		int x = Panel.getCurrentXPos();
-		if (x < 0) return;
-		Dimension dim = pan.getSize();
-		double startX = pan.convertXScreenToData(x);
-		double endX = pan.convertXScreenToData(dim.width/2);
-		double dXValue = endX - startX;
-
-		for(Iterator<Panel> it = getPanels(); it.hasNext(); )
-		{
-			Panel wp = it.next();
-			if (!isXAxisLocked() && wp != pan) continue;
-			wp.setXAxisRange(wp.getMinXAxis() - dXValue, wp.getMaxXAxis() - dXValue);
-			wp.repaintWithRulers();
-		}
+	public void centerCursor() {
+        double center = getMainXPositionCursor();
+        for(Iterator<Panel> it = getPanels(); it.hasNext(); ) {
+            Panel wp = it.next();
+            double half = (wp.getMaxXAxis() - wp.getMinXAxis())/2.;
+            wp.setXAxisRange(center-half, center+half);
+            wp.repaintWithRulers();
+        }
 	}
 
 	/**
@@ -1380,12 +1365,12 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		// determine the X and Y ranges
 		Rectangle2D bounds = null;
 		double leftEdge, rightEdge;
-        bounds = sd.getBounds();
+        //bounds = sd.getBounds();
         leftEdge = sd.getMinTime();
         rightEdge = sd.getMaxTime();
 
-		double lowValue = bounds.getMinY();
-		double highValue = bounds.getMaxY();
+		//double lowValue = bounds.getMinY();
+		//double highValue = bounds.getMaxY();
 		int vertAxisPos = -1;
 		if (xAxisLocked && wavePanels.size() > 0)
 		{
@@ -1897,12 +1882,12 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		if (wavePanels.size() == 0) return;
 		Panel wp = wavePanels.iterator().next();
 		int xValueScreen = wp.convertXDataToScreen(mainXPosition);
-		Rectangle2D bounds = sd.getBounds();
+		//Rectangle2D bounds = sd.getBounds();
 		if (vcrPlayingBackwards)
 		{
 			int newXValueScreen = xValueScreen - vcrAdvanceSpeed;
 			double newXValue = wp.convertXScreenToData(newXValueScreen);
-			double lowXValue = bounds.getMinX();
+			double lowXValue = sd.getMinTime();
 			if (newXValue <= lowXValue)
 			{
 				newXValue = lowXValue;
@@ -1913,7 +1898,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		{
 			int newXValueScreen = xValueScreen + vcrAdvanceSpeed;
 			double newXValue = wp.convertXScreenToData(newXValueScreen);
-			double highXValue = bounds.getMaxX();
+			double highXValue = sd.getMaxTime();
 			if (newXValue >= highXValue)
 			{
 				newXValue = highXValue;
@@ -1927,8 +1912,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 	public void vcrClickRewind()
 	{
 		vcrClickStop();
-		Rectangle2D bounds = sd.getBounds();
-		double lowXValue = bounds.getMinX();
+		double lowXValue = sd.getMinTime();
 		setMainXPositionCursor(lowXValue);
 		redrawAllPanels();
 	}
@@ -1976,8 +1960,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 	public void vcrClickToEnd()
 	{
 		vcrClickStop();
-		Rectangle2D bounds = sd.getBounds();
-		double highXValue = bounds.getMaxX();
+		double highXValue = sd.getMaxTime();
 		setMainXPositionCursor(highXValue);
 		redrawAllPanels();
 	}
@@ -3185,9 +3168,6 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 	 */
 	private void updateAssociatedLayoutWindow()
 	{
-		// this only works for digital simulation
-		if (sd.isAnalog()) return;
-
 		// make sure there is a layout/schematic window being simulated
 		WindowFrame oWf = findSchematicsWindow();
 		if (oWf == null) return;
@@ -4164,17 +4144,13 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 	{
 		// accumulate bounds for all displayed panels
 		double leftEdge=0, rightEdge=0;
-		for(Panel wp : wavePanels)
-		{
+		for(Panel wp : wavePanels) {
 			if (wp.getXAxisSignal() != null) continue;
-			for(WaveSignal ws : wp.getSignals())
-			{
-				if (leftEdge == rightEdge)
-				{
+			for(WaveSignal ws : wp.getSignals()) {
+				if (leftEdge == rightEdge) {
 					leftEdge  = ws.getSignal().getMinTime();
 					rightEdge = ws.getSignal().getMaxTime();
-				} else
-				{
+				} else {
 					leftEdge  = Math.min(leftEdge,  ws.getSignal().getMinTime());
 					rightEdge = Math.max(rightEdge, ws.getSignal().getMaxTime());
 				}
@@ -4199,88 +4175,19 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		}
 
 		// if there is an overriding signal on the X axis, use its bounds
-		if (xAxisLocked && xAxisSignalAll != null)
-		{
+		if (xAxisLocked && xAxisSignalAll != null) {
 			leftEdge = xAxisSignalAll.getMinTime();
 			rightEdge = xAxisSignalAll.getMaxTime();
 		}
 
-		for(Panel wp : wavePanels)
-		{
-			if (!xAxisLocked)
-			{
-				if (!wp.isSelected()) continue;
-
-                /*
-				// when time is not locked, compute bounds for this panel only
-				Analysis an = sd.findAnalysis(wp.getAnalysisType());
-				leftEdge = an.getMinTime();
-				rightEdge = an.getMaxTime();
-				if (wp.getXAxisSignal() != null)
-				{
-					leftEdge = wp.getXAxisSignal().getMinTime();
-					rightEdge = wp.getXAxisSignal().getMaxTime();
-				}
-                */
-			}
-
-            double minX = Double.MAX_VALUE;
-            double maxX = Double.MIN_VALUE;
-            double minY = Double.MAX_VALUE;
-            double maxY = Double.MIN_VALUE;
-			for(WaveSignal ws : wp.getSignals()) {
-                Signal sSig = ws.getSignal();
-                Sample minval = sSig.getMinValue();
-                Sample maxval = sSig.getMaxValue();
-                if (minval!=null && maxval != null && minval instanceof ScalarSample && maxval instanceof ScalarSample) {
-                    double lowValue = ((ScalarSample)minval).getValue();
-                    double highValue = ((ScalarSample)maxval).getValue();
-                    minY = Math.min(minY, lowValue);
-                    maxY = Math.max(maxY, highValue);
-				} else if (minval!=null && maxval != null && minval instanceof DigitalSample && maxval instanceof DigitalSample) {
-                    minY = Math.min(minY, 0);
-                    maxY = Math.max(maxY, 1);
-                }
-                minX = Math.min(minX, sSig.getMinTime());
-                maxX = Math.max(maxX, sSig.getMaxTime());
+		for(Panel wp : wavePanels) {
+            if (!xAxisLocked && !wp.isSelected()) continue;
+            if ((how&2)!=0) wp.fitToSignal(null);
+            if (leftEdge != rightEdge && (wp.getMinXAxis() != leftEdge || wp.getMaxXAxis() != rightEdge) && (how&1) != 0) {
+                wp.setXAxisRange(leftEdge, rightEdge);
+                wp.repaintWithRulers();
             }
-			Rectangle2D yBounds = new Rectangle2D.Double(minX, minY, maxX-minX, maxY-minY);
-			boolean repaint = false;
-			if (leftEdge != rightEdge)
-			{
-				if (wp.getMinXAxis() != leftEdge || wp.getMaxXAxis() != rightEdge)
-				{
-					// only if X filling is requested
-					if ((how&1) != 0)
-					{
-						wp.setXAxisRange(leftEdge, rightEdge);
-						repaint = true;
-					}
-				}
-			}
-			if (yBounds != null)
-			{
-				double lowValue = yBounds.getMinY();
-				double highValue = yBounds.getMaxY();
-				double valueRange = (highValue - lowValue) / 8;
-				if (valueRange == 0) valueRange = 0.5;
-				lowValue -= valueRange;
-				highValue += valueRange;
-				if (wp.getYAxisLowValue() != lowValue || wp.getYAxisHighValue() != highValue)
-				{
-					// only if Y filling is requested
-					if ((how&2) != 0)
-					{
-						wp.setYAxisRange(lowValue, highValue);
-						repaint = true;
-					}
-				}
-			}
-			if (repaint)
-			{
-				wp.repaintWithRulers();
-			}
-		}
+        }
 	}
 
 	public void zoomOutContents()
@@ -5030,10 +4937,6 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		if (sd.isAnalog())
 		{
 			Panel wp = new Panel(ww, sd.isAnalog());
-			Rectangle2D bounds = an.getBounds();
-			double lowValue = bounds.getMinY();
-			double highValue = bounds.getMaxY();
-			wp.setYAxisRange(lowValue, highValue);
 			wp.makeSelectedPanel(-1, -1);
 		} else
 		{
