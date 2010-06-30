@@ -27,7 +27,7 @@ import com.sun.electric.database.geometry.Poly;
 import com.sun.electric.database.geometry.PolyBase;
 import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.variable.TextDescriptor;
-import com.sun.electric.tool.simulation.Analysis;
+
 import com.sun.electric.tool.simulation.Signal;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.ui.ClickZoomWireListener;
@@ -393,7 +393,7 @@ public class HorizRuler extends JPanel implements MouseListener, MouseMotionList
 					}
 					waveWindow.deleteAllSignalsFromPanel(wp);
 				}
-				Analysis.AnalysisType analysisType = Analysis.ANALYSIS_SIGNALS;
+				String analysisType = "SIGNALS";
 				if (waveWindow.getSimData().getNumAnalyses() > 0)
 					analysisType = waveWindow.getSimData().getAnalyses().next().getAnalysisType();
 				wp.setAnalysisType(analysisType);

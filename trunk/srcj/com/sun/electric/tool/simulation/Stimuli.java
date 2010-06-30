@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.*;
 
 /**
  *  This class represents a set of simulation *inputs* -- that is,
@@ -57,8 +58,8 @@ public class Stimuli {
 	/** the cell attached to this Stimuli information */		private Cell cell;
 	/** the disk file associated with this Stimuli */			private URL fileURL;
 	/** the separator character that breaks names */			private char separatorChar;
-	/** the analyses in this Stimuli */							private HashMap<Analysis.AnalysisType,Analysis> analyses;
-	/** the list of analyses in this Stimuli */					private List<Analysis> analysisList;
+	/** the analyses in this Stimuli */							private HashMap<String,HashMap<String,Signal>> analyses;
+	/** the list of analyses in this Stimuli */					private List<HashMap<String,Signal>> analysisList;
 	/** control points when signals are selected */				private HashMap<Signal,Double[]> controlPointMap;
 
     /** Cached version of net delimiter**/                      private String delim = SimulationTool.getSpiceExtractedNetDelimiter();
@@ -69,8 +70,8 @@ public class Stimuli {
 	public Stimuli()
 	{
 		separatorChar = '.';
-		analyses = new HashMap<Analysis.AnalysisType,Analysis>();
-		analysisList = new ArrayList<Analysis>();
+		analyses = new HashMap<String,HashMap<String,Signal>>();
+		analysisList = new ArrayList<HashMap<String,Signal>>();
 		controlPointMap = new HashMap<Signal,Double[]>();
 	}
 
@@ -79,28 +80,24 @@ public class Stimuli {
 	 */
 	public void finished()
 	{
-		for (Analysis an: analysisList)
-			an.finished();
 		controlPointMap.clear();
-		for (Analysis an: analyses.values())
-			an.finished();
 		analyses.clear();
 	}
 
-	public void addAnalysis(Analysis an)
+	public void addAnalysis(HashMap<String,Signal> an)
 	{
-		analyses.put(an.getAnalysisType(), an);
+		analyses.put(an.toString(), an);
 		analysisList.add(an);
 	}
 
 	/**
-	 * Method to find an Analysis of a given type.
+	 * Method to find an HashMap<String,Signal> of a given type.
 	 * @param type the stimulus type being queried.
-	 * @return the Analysis of that type (null if not found).
+	 * @return the HashMap<String,Signal> of that type (null if not found).
 	 */
-	public Analysis findAnalysis(Analysis.AnalysisType type)
+	public HashMap<String,Signal> findAnalysis(String title)
 	{
-		Analysis an = analyses.get(type);
+		HashMap<String,Signal> an = analyses.get(title);
 		return an;
 	}
 
@@ -108,7 +105,7 @@ public class Stimuli {
 
     public int getNumAnalyses() { return analysisList.size(); }
 
-	public Iterator<Analysis> getAnalyses() { return analysisList.iterator(); }
+	public Iterator<HashMap<String,Signal>> getAnalyses() { return analysisList.iterator(); }
 
 	/**
 	 * Method to set the Cell associated with this simulation data.
@@ -261,7 +258,7 @@ public class Stimuli {
 	{
 		// determine extent of the data
 		Rectangle2D bounds = null;
-		for(Analysis an : analysisList)
+		for(HashMap<String,Signal> an : analysisList)
 		{
 			Rectangle2D anBounds = an.getBounds();
 			if (anBounds == null) continue;
@@ -286,23 +283,20 @@ public class Stimuli {
 	public double getMinTime()
 	{
 		double leftEdge = 0, rightEdge = 0;
-		for(Analysis an : analysisList)
-		{
-			if (leftEdge == rightEdge)
-			{
-				leftEdge = an.getMinTime();
-				rightEdge = an.getMaxTime();
-			} else
-			{
-				if (leftEdge < rightEdge)
-				{
-					leftEdge = Math.min(leftEdge, an.getMinTime());
-					rightEdge = Math.max(rightEdge, an.getMaxTime());
-				} else
-				{
-					leftEdge = Math.max(leftEdge, an.getMinTime());
-					rightEdge = Math.min(rightEdge, an.getMaxTime());
-				}
+		for(HashMap<String,Signal> an : analysisList) {
+            for (Signal sig : (Iterable<Signal>)an.values()) {
+                if (leftEdge == rightEdge) {
+                        leftEdge = sig.getMinTime();
+                        rightEdge = sig.getMaxTime();
+                } else {
+                    if (leftEdge < rightEdge) {
+                        leftEdge = Math.min(leftEdge, sig.getMinTime());
+                        rightEdge = Math.max(rightEdge, sig.getMaxTime());
+                    } else {
+                        leftEdge = Math.max(leftEdge, sig.getMinTime());
+                        rightEdge = Math.min(rightEdge, sig.getMaxTime());
+                    }
+                }
 			}
 		}
 		return leftEdge;
@@ -317,23 +311,20 @@ public class Stimuli {
 	public double getMaxTime()
 	{
 		double leftEdge = 0, rightEdge = 0;
-		for(Analysis an : analysisList)
-		{
-			if (leftEdge == rightEdge)
-			{
-				leftEdge = an.getMinTime();
-				rightEdge = an.getMaxTime();
-			} else
-			{
-				if (leftEdge < rightEdge)
-				{
-					leftEdge = Math.min(leftEdge, an.getMinTime());
-					rightEdge = Math.max(rightEdge, an.getMaxTime());
-				} else
-				{
-					leftEdge = Math.max(leftEdge, an.getMinTime());
-					rightEdge = Math.min(rightEdge, an.getMaxTime());
-				}
+		for(HashMap<String,Signal> an : analysisList) {
+            for (Signal sig : (Iterable<Signal>)an.values()) {
+                if (leftEdge == rightEdge) {
+                        leftEdge = sig.getMinTime();
+                        rightEdge = sig.getMaxTime();
+                } else {
+                    if (leftEdge < rightEdge) {
+                        leftEdge = Math.min(leftEdge, sig.getMinTime());
+                        rightEdge = Math.max(rightEdge, sig.getMaxTime());
+                    } else {
+                        leftEdge = Math.max(leftEdge, sig.getMinTime());
+                        rightEdge = Math.min(rightEdge, sig.getMaxTime());
+                    }
+                }
 			}
 		}
 		return rightEdge;
@@ -439,4 +430,12 @@ public class Stimuli {
 		}
 		return "?";
 	}
+
+    public static HashMap<String,Signal> newAnalysis(Stimuli sd, final String title, boolean extrapolateToRight) {
+        HashMap<String,Signal> ret = new HashMap<String,Signal>() {
+            public String toString() { return title; }
+        };
+		sd.addAnalysis(ret);
+        return ret;
+    }
 }

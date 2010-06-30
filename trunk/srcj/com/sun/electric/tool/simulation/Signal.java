@@ -22,6 +22,14 @@
  * Boston, Mass 02111-1307, USA.
  */
 package com.sun.electric.tool.simulation;
+import com.sun.electric.database.text.TextUtils;
+import com.sun.electric.tool.user.waveform.*;
+import com.sun.electric.tool.user.waveform.Panel.WaveSelection;
+import java.awt.Graphics;
+import java.awt.Color;
+import java.awt.geom.Rectangle2D;
+import com.sun.electric.database.geometry.PolyBase;
+import java.util.*;
 
 /**
  * A Signal represents simulation data captured for a particular node
@@ -42,26 +50,31 @@ package com.sun.electric.tool.simulation;
  */
 public abstract class Signal<SS extends Sample> {
 
-    public Signal(Analysis analysis, String signalName, String signalContext) {
+    public Signal(HashMap<String,Signal> analysis, Stimuli sd, String signalName, String signalContext) {
 		this.signalName = signalName;
 		this.signalContext = signalContext;
-		this.extrapolateToRight = analysis==null ? false : analysis.extrapolateValues();
-        this.analysisType = analysis==null ? Analysis.ANALYSIS_SIGNALS : analysis.getAnalysisType();
+		this.extrapolateToRight = true;
+        this.analysisTitle = analysis==null ? "SIGNALS" : analysis.toString();
         this.fullSignalName = signalContext==null
             ? signalName
-            : signalContext + (analysis==null ? '.' : analysis.getStimuli().getSeparatorChar()) + signalName;
-		if (analysis!=null) analysis.nameSignal(this, getFullName());
-        this.stimuli = analysis==null ? null : analysis.getStimuli();
-        if (analysis!=null && analysis instanceof DigitalAnalysis)
-            analysis.addSignal(this);
+            : signalContext + (analysis==null ? '.' : sd.getSeparatorChar()) + signalName;
+        this.stimuli = sd;
+        if (analysis!=null) {
+            String name = TextUtils.canonicString(fullSignalName);
+            // simulators may strip off last "_"
+            if (name.indexOf('_') >= 0 && !name.endsWith("_"))
+                analysis.put(name + "_", this);
+            else
+                analysis.put(name, this);
+        }
     }
 
 	/** the name of this signal */									private final String signalName;
 	/** the context of this signal (qualifications to name) */		private final String signalContext;
 	/** the context of this signal (qualifications to name) */		private final String fullSignalName;
-    /** the Analysis to which this signal belongs */                private final Analysis.AnalysisType analysisType;
-    /** the extrapolateToRight setting of the Analysis */           private final boolean extrapolateToRight;
-    /** the stimuli of the Analysis */                              private final Stimuli stimuli;
+    /** the HashMap<String,Signal> to which this signal belongs */                private final String analysisTitle;
+    /** the extrapolateToRight setting of the HashMap<String,Signal> */           private final boolean extrapolateToRight;
+    /** the stimuli of the HashMap<String,Signal> */                              private final Stimuli stimuli;
 
     // methods relocated from other classes
     public void clearControlPoints() { stimuli.clearControlPoints(this); }
@@ -69,7 +82,7 @@ public abstract class Signal<SS extends Sample> {
     public void addControlPoint(double time) { stimuli.addControlPoint(this, time); }
     public Double[] getControlPoints() { return stimuli.getControlPoints(this); }
     public boolean extrapolateValues() { return extrapolateToRight; }
-	public final Analysis.AnalysisType getAnalysisType() { return analysisType; }
+	public final String getAnalysisTitle() { return analysisTitle; }
 
 	/** The name of this simulation signal, not including hierarchical path information */
 	public final String getSignalName() { return signalName; }
@@ -134,7 +147,12 @@ public abstract class Signal<SS extends Sample> {
      */
     public abstract boolean isEmpty();
 
-    public boolean isDigital() { return false; }
-    public boolean isAnalog() { return !isDigital(); }
+    public abstract void plot(Panel panel, Graphics g, WaveSignal ws, Color light, List<PolyBase> forPs,
+                              Rectangle2D bounds, List<WaveSelection> selectedObjects);
 
+    public String getBaseNameFromExtractedNet(String signalFullName) {
+        String delim = stimuli.getNetDelimiter();
+        int hashPos = signalFullName.indexOf(delim);
+        return hashPos > 0 ? signalFullName.substring(0, hashPos) : signalFullName;
+    }
 }

@@ -30,7 +30,7 @@ import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.io.FileType;
-import com.sun.electric.tool.simulation.DigitalAnalysis;
+
 import com.sun.electric.tool.simulation.DigitalSample;
 import com.sun.electric.tool.simulation.DigitalSample;
 import com.sun.electric.tool.simulation.Engine;
@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.HashMap;
 
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.Library;
@@ -120,7 +121,7 @@ public class ALS extends Engine
 	/** the simulation engine */						Sim               theSim;
 	/** the circuit flattener */						Flat              theFlat;
 	/** the waveform window showing this simulator */	WaveformWindow    ww;
-	/** the stimuli set currently being displayed */	DigitalAnalysis   an;
+	/** the stimuli set currently being displayed */	HashMap<String,Signal>   an;
 	/** current time in the simulator */				double            timeAbs;
 	/** saved list of stimuli when refreshing */		List<String>      stimuliList;
 
@@ -450,8 +451,11 @@ public class ALS extends Engine
 		}
 	}
 
-	ALS()
+    private Stimuli sd;
+    public Stimuli getStimuli() { return sd; }
+	ALS(Stimuli sd)
 	{
+        this.sd = sd;
 		theSim = new Sim(this);
 		theFlat = new Flat(this);
 	}
@@ -463,9 +467,9 @@ public class ALS extends Engine
 	 * @param netlistCell the Cell with the real ALS netlist.
 	 * @param cell the original Cell being simulated.
 	 */
-	public static void simulateNetlist(Cell netlistCell, Cell cell)
+	public static void simulateNetlist(Cell netlistCell, Cell cell, Stimuli sd)
 	{
-		ALS theALS = new ALS();
+		ALS theALS = new ALS(sd);
 		theALS.doSimulation(netlistCell, cell, null, null);
 	}
 
@@ -475,11 +479,11 @@ public class ALS extends Engine
 	 * @param cell the cell being simulated.
 	 * @param prevALS the simulation that is being reloaded.
 	 */
-	public static void restartSimulation(Cell netlistCell, Cell cell, ALS prevALS)
+	public static void restartSimulation(Cell netlistCell, Cell cell, ALS prevALS, Stimuli sd)
 	{
 		WaveformWindow ww = prevALS.ww;
 		List<String> stimuliList = prevALS.stimuliList;
-		ALS theALS = new ALS();
+		ALS theALS = new ALS(sd);
 		theALS.doSimulation(netlistCell, cell, ww, stimuliList);
 	}
 
@@ -492,7 +496,7 @@ public class ALS extends Engine
 		stimuliList = getStimuliToSave();
 
 		// restart everything
-		SimulationTool.startSimulation(SimulationTool.ALS_ENGINE, false, an.getStimuli().getCell(), this);
+		SimulationTool.startSimulation(SimulationTool.ALS_ENGINE, false, getStimuli().getCell(), this);
 	}
 
 	/**
@@ -774,7 +778,7 @@ public class ALS extends Engine
 	 */
 	public void saveStimuli()
 	{
-		String stimuliFileName = OpenFile.chooseOutputFile(FileType.ALSVECTOR, "ALS Vector file", an.getStimuli().getCell().getName() + ".vec");
+		String stimuliFileName = OpenFile.chooseOutputFile(FileType.ALSVECTOR, "ALS Vector file", getStimuli().getCell().getName() + ".vec");
 		if (stimuliFileName ==  null) return;
 		try
 		{
@@ -868,13 +872,13 @@ public class ALS extends Engine
 		ww = oldWW;
 
         if (ww==null)
-            WaveformWindow.showSimulationDataInNewWindow(an.getStimuli());
+            WaveformWindow.showSimulationDataInNewWindow(getStimuli());
         else
-            WaveformWindow.refreshSimulationData(an.getStimuli(), ww);
+            WaveformWindow.refreshSimulationData(getStimuli(), ww);
 
 		// make a waveform window
 		if (ww == null)
-			ww = an.getStimuli().getWaveformWindow();
+			ww = getStimuli().getWaveformWindow();
 
 		if (stimuliList != null) processStimuliList(stimuliList);
 
@@ -1007,12 +1011,12 @@ public class ALS extends Engine
 		}
 	}
 
-	private DigitalAnalysis getCircuit(Cell cell)
+	private HashMap<String,Signal> getCircuit(Cell cell)
 	{
 		// convert the stimuli
 		Stimuli sd = new Stimuli();
 		sd.setEngine(this);
-		DigitalAnalysis an = new DigitalAnalysis(sd, true);
+		HashMap<String,Signal> an = Stimuli.newAnalysis(sd, "SIGNALS", true);
 		sd.setSeparatorChar('.');
 		sd.setCell(cell);
 		String topLevelName = cell.getName().toUpperCase();
@@ -1027,7 +1031,7 @@ public class ALS extends Engine
 		return an;
 	}
 
-	private void addExports(Connect cr, DigitalAnalysis an, String context)
+	private void addExports(Connect cr, HashMap<String,Signal> an, String context)
 	{
 		// determine type of model
 		for(Model modPtr1 : modelList)
@@ -1041,7 +1045,7 @@ public class ALS extends Engine
 		for(ALSExport e : cr.exList)
 		{
 			if (e.nodePtr.sig != null) continue;
-			MutableSignal<DigitalSample> sig = DigitalSample.createSignal(an, (String)e.nodeName, context);
+			MutableSignal<DigitalSample> sig = DigitalSample.createSignal(an, null, (String)e.nodeName, context);
 			e.nodePtr.sig = sig;
             sig.addSample(0, DigitalSample.LOGIC_0);
             sig.addSample(DEFTIMERANGE, DigitalSample.LOGIC_0);
@@ -1352,7 +1356,7 @@ public class ALS extends Engine
 
 		int dotPos = sp.lastIndexOf('.');
 		String s2 = sp;
-		Connect cellPtr = findLevel(an.getStimuli().getCell().getName().toUpperCase());
+		Connect cellPtr = findLevel(getStimuli().getCell().getName().toUpperCase());
 		if (dotPos >= 0)
 		{
 			s2 = sp.substring(dotPos+1);
@@ -2396,10 +2400,10 @@ public class ALS extends Engine
 			}
 			if (prevEngine != null)
 			{
-				ALS.restartSimulation(cell, originalCell, (ALS)prevEngine);
+				ALS.restartSimulation(cell, originalCell, (ALS)prevEngine, new Stimuli());
 			} else
 			{
-				ALS.simulateNetlist(cell, originalCell);
+				ALS.simulateNetlist(cell, originalCell, new Stimuli());
 			}
 		}
 	}

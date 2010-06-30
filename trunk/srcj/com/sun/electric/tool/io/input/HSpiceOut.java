@@ -27,9 +27,9 @@ package com.sun.electric.tool.io.input;
 
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.text.TextUtils;
-import com.sun.electric.tool.simulation.Analysis;
+
 import com.sun.electric.tool.simulation.ScalarSample;
-import com.sun.electric.tool.simulation.Analysis;
+
 import com.sun.electric.tool.simulation.Stimuli;
 import com.sun.electric.tool.simulation.Signal;
 import com.sun.electric.tool.simulation.ScalarSample;
@@ -178,7 +178,7 @@ public class HSpiceOut extends Input<Stimuli>
 		if (openTextInput(mtURL)) return;
 		System.out.println("Reading HSpice measurements '" + mtURL.getFile() + "'");
 
-		Analysis an = new Analysis(sd, Analysis.ANALYSIS_MEAS, false);
+		HashMap<String,Signal> an = Stimuli.newAnalysis(sd, "MEASUREMENTS", false);
 		List<String> measurementNames = new ArrayList<String>();
 		HashMap<String,List<Double>> measurementData = new HashMap<String,List<Double>>();
 		String lastLine = null;
@@ -260,7 +260,7 @@ public class HSpiceOut extends Input<Stimuli>
 
 			// special case with the "alter#" name...remove the "#"
 			if (mName.equals("alter#")) mName = "alter";
-			Signal<ScalarSample> as = ScalarSample.createSignal(an, mName, null, time, values);
+			Signal<ScalarSample> as = ScalarSample.createSignal(an, sd, mName, null, time, values);
 			measData.add(as);
 		}
 
@@ -317,7 +317,7 @@ public class HSpiceOut extends Input<Stimuli>
 		if (!TextUtils.URLExists(swURL)) return;
 
 		// process the DC data
-		readTRDCACFile(sd, swURL, paList, Analysis.ANALYSIS_TRANS);
+		readTRDCACFile(sd, swURL, paList, "TRANS SIGNALS");
 	}
 
 	/**
@@ -338,7 +338,7 @@ public class HSpiceOut extends Input<Stimuli>
 		if (swURL != null && TextUtils.URLExists(swURL))
 		{
 			// process the DC data
-			readTRDCACFile(sd, swURL, paList, Analysis.ANALYSIS_DC);
+			readTRDCACFile(sd, swURL, paList, "DC SIGNALS");
 			return;
 		}
 
@@ -376,7 +376,7 @@ public class HSpiceOut extends Input<Stimuli>
 		if (!TextUtils.URLExists(acURL)) return;
 
 		// process the AC data
-		readTRDCACFile(sd, acURL, paList, Analysis.ANALYSIS_AC);
+		readTRDCACFile(sd, acURL, paList, "AC SIGNALS");
 	}
 
 	/**
@@ -421,16 +421,16 @@ public class HSpiceOut extends Input<Stimuli>
 		return paList;
 	}
 
-	private void readTRDCACFile(Stimuli sd, URL fileURL, List<PALine> paList, Analysis.AnalysisType analysisType)
+	private void readTRDCACFile(Stimuli sd, URL fileURL, List<PALine> paList, String analysisTitle)
 		throws IOException
 	{
 		if (openBinaryInput(fileURL)) return;
 		eofReached = false;
 		resetBinaryTRACDCReader();
 
-		Analysis an = new Analysis(sd, analysisType, false);
-		startProgressDialog("HSpice " + analysisType.toString() + " analysis", fileURL.getFile());
-		System.out.println("Reading HSpice " + analysisType.toString() + " analysis '" + fileURL.getFile() + "'");
+		HashMap<String,Signal> an = Stimuli.newAnalysis(sd, analysisTitle, false);
+		startProgressDialog("HSpice " + analysisTitle + " analysis", fileURL.getFile());
+		System.out.println("Reading HSpice " + analysisTitle + " analysis '" + fileURL.getFile() + "'");
 
 		// get number of nodes
 		int nodcnt = getHSpiceInt();
@@ -707,7 +707,7 @@ public class HSpiceOut extends Input<Stimuli>
 				constantPrefix = null;
 		}
 
-		boolean isComplex = analysisType == Analysis.ANALYSIS_AC;
+		boolean isComplex = analysisTitle.equals("AC SIGNALS");
         Signal[] signals = new Signal[numSignals];
 		for(int k=0; k<numSignals; k++) {
 			String name = signalNames[k];
@@ -723,8 +723,8 @@ public class HSpiceOut extends Input<Stimuli>
 			}
 			signals[k] =
                 isComplex
-                ? ComplexSample.createComplexSignal(an, name, context)
-                : ScalarSample.createSignal(an, name, context);
+                ? ComplexSample.createComplexSignal(an, sd, name, context)
+                : ScalarSample.createSignal(an, sd, name, context);
 		}
 
 		// setup the simulation information
@@ -779,7 +779,7 @@ public class HSpiceOut extends Input<Stimuli>
 		closeInput();
 
 		stopProgressDialog();
-		System.out.println("Done reading " + analysisType.toString() + " analysis");
+		System.out.println("Done reading " + analysisTitle + " analysis");
 	}
 
 	/**
