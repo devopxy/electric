@@ -27,11 +27,12 @@ package com.sun.electric.tool.io.input;
 
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.text.TextUtils;
-import com.sun.electric.tool.simulation.Analysis;
+
 import com.sun.electric.tool.simulation.Stimuli;
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.text.TextUtils;
-import com.sun.electric.tool.simulation.Analysis;
+
+import com.sun.electric.tool.simulation.Signal;
 import com.sun.electric.tool.simulation.ScalarSample;
 import com.sun.electric.tool.simulation.Stimuli;
 
@@ -39,6 +40,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
 import java.io.IOException;
 import java.net.URL;
 
@@ -57,14 +59,14 @@ public class RawSpiceOut extends Input<Stimuli> {
 	/**
 	 * Class for handling swept signals.
 	 */
-	private static class SweepAnalysisLT extends Analysis
+	private static class SweepAnalysisLT extends HashMap<String,Signal>
 	{
 		double [][] commonTime; // sweep, signal
 		List<List<double[]>> theSweeps = new ArrayList<List<double[]>>(); // sweep, event, signal
 
-		private SweepAnalysisLT(Stimuli sd, Analysis.AnalysisType type)
+		private SweepAnalysisLT(Stimuli sd, String type)
 		{
-			super(sd, type, false);
+            sd.addAnalysis(this);
 		}
 	}
 
@@ -99,12 +101,12 @@ public class RawSpiceOut extends Input<Stimuli> {
 		int signalCount = -1;
 		String[] signalNames = null;
 		int rowCount = -1;
-		Analysis.AnalysisType aType = Analysis.ANALYSIS_TRANS;
+		String aType = "TRANS SIGNALS";
         boolean isLTSpice = false;
 		boolean first = true;
 
 		sd.setCell(cell);
-		Analysis an = null;
+		HashMap<String,Signal> an = null;
 
 		double[][] values = null;
         double[] time = null;
@@ -151,15 +153,15 @@ public class RawSpiceOut extends Input<Stimuli> {
 
                     // start reading a new analysis
                     if (restOfLine.startsWith("Transient Analysis")) {
-                        an = new Analysis(sd, Analysis.ANALYSIS_TRANS, false);
+                        an = Stimuli.newAnalysis(sd, "TRANS SIGNALS", false);
                     } else if (restOfLine.startsWith("DC ")) {
-                        an = new Analysis(sd, Analysis.ANALYSIS_DC, false);
+                        an = Stimuli.newAnalysis(sd, "DC SIGNALS", false);
                     } else if (restOfLine.startsWith("AC ")) {
-                        an = new Analysis(sd, Analysis.ANALYSIS_AC, false);
-                        aType = Analysis.ANALYSIS_AC;
+                        an = Stimuli.newAnalysis(sd, "AC SIGNALS", false);
+                        aType = "AC SIGNALS";
                     } else {
                         System.out.println("Warning: unknown analysis: " + restOfLine);
-                        an = new Analysis(sd, Analysis.ANALYSIS_TRANS, false);
+                        an = Stimuli.newAnalysis(sd, "TRANS SIGNALS", false);
                     }
                     continue;
                 }
@@ -220,8 +222,10 @@ public class RawSpiceOut extends Input<Stimuli> {
                         pos = Math.min(spacePos, tabPos);
                         name = name.substring(0, pos);
                         if (i == 0) {
-                            if (!name.equals("time") && an.getAnalysisType() == Analysis.ANALYSIS_TRANS)
+                            /*
+                            if (!name.equals("time"))
                                 System.out.println("Warning: the first variable should be time, is '" + name + "'");
+                            */
                         } else {
                             signalNames[i-1] = name;
                         }
@@ -270,7 +274,7 @@ public class RawSpiceOut extends Input<Stimuli> {
                         }
                     }
                     for (int i = 0; i < signalCount; i++)
-                        ScalarSample.createSignal(an, signalNames[i], null, time, values[i]);
+                        ScalarSample.createSignal(an, sd, signalNames[i], null, time, values[i]);
                     continue;
                 }
                 if (keyWord.equals("Binary")) {
@@ -384,7 +388,7 @@ public class RawSpiceOut extends Input<Stimuli> {
                             }
                         if (DEBUG) System.out.println("FOUND " + sweepCount + " SWEEPS");
 
-                        // place data into the Analysis object
+                        // place data into the HashMap<String,Signal> object
                         lan.commonTime = new double[sweepCount][];
                         int offset = 0;
                         for(int s=0; s<sweepCount; s++)
@@ -418,7 +422,7 @@ public class RawSpiceOut extends Input<Stimuli> {
                                         name = name.substring(lastDotPos + 1);
                                     }
                                 double minTime = 0, maxTime = 0, minValues = 0, maxValues = 0;
-                                ScalarSample.createSignal(lan, signalNames[i], context, time, values[i]);
+                                ScalarSample.createSignal(lan, sd, signalNames[i], context, time, values[i]);
                             }
                         return;
                     }

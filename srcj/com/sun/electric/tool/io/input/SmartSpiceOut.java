@@ -27,11 +27,13 @@ package com.sun.electric.tool.io.input;
 
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.text.TextUtils;
-import com.sun.electric.tool.simulation.Analysis;
+
 import com.sun.electric.tool.simulation.Stimuli;
+import com.sun.electric.tool.simulation.Signal;
 import com.sun.electric.tool.simulation.ScalarSample;
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashMap;
 
 /**
  * Class for reading and displaying waveforms from SmartSpice Raw output.
@@ -71,7 +73,7 @@ public class SmartSpiceOut extends Input<Stimuli>
 		int signalCount = -1;
 		String[] signalNames = null;
 		int rowCount = -1;
-		Analysis an = null;
+		HashMap<String,Signal> an = null;
 		double[][] values = null;
         double[] time = null;
 		for(;;)
@@ -120,7 +122,7 @@ public class SmartSpiceOut extends Input<Stimuli>
 					System.out.println("Missing variable count in file");
 					return;
 				}
-				an = new Analysis(sd, Analysis.ANALYSIS_SIGNALS, false);
+				an = Stimuli.newAnalysis(sd, "SIGNALS", false);
 				sd.setCell(cell);
 				signalNames = new String[signalCount];
 				values = new double[signalCount][rowCount];
@@ -240,7 +242,7 @@ public class SmartSpiceOut extends Input<Stimuli>
 				context = name.substring(0, lastDotPos);
 				name = name.substring(lastDotPos + 1);
 			}
-			ScalarSample.createSignal(an, signalNames[i], context, time, values[i]);
+			ScalarSample.createSignal(an, sd, signalNames[i], context, time, values[i]);
 		}
 	}
 }

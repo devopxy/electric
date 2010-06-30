@@ -58,7 +58,7 @@ import java.util.regex.Pattern;
 
 import com.sun.electric.database.geometry.GenMath;
 import com.sun.electric.database.text.TextUtils;
-import com.sun.electric.tool.simulation.Analysis;
+
 import com.sun.electric.tool.simulation.ScalarSample;
 import com.sun.electric.tool.simulation.Stimuli;
 import com.sun.electric.tool.simulation.Signal;
@@ -78,6 +78,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -182,8 +183,10 @@ public static class EpicOutProcess extends Input<Stimuli> implements Runnable
         }
     }
 
+    private Stimuli sd;
     private Stimuli readEpicFile(Stimuli sd) throws IOException {
         EpicAnalysis an = this.epicAnalysis;
+        this.sd = sd;
         int numSignals = 0;
         ContextBuilder contextBuilder = new ContextBuilder();
         ArrayList<ContextBuilder> contextStack = new ArrayList<ContextBuilder>();
@@ -234,8 +237,7 @@ public static class EpicOutProcess extends Input<Stimuli> implements Runnable
         an.setVoltageResolution(stdOut.readDouble());
         an.setCurrentResolution(stdOut.readDouble());
         an.setMaxTime(stdOut.readDouble());
-        List<Signal<ScalarSample>> signals = an.getSignals();
-        assert numSignals == signals.size();
+        Iterable<Signal> signals = an.values();
         an.waveStarts = new int[numSignals];
         an.waveLengths = new int[numSignals];
 
@@ -889,7 +891,7 @@ public static class EpicOutProcess extends Input<Stimuli> implements Runnable
 
         public EpicReaderSignal(int sigNum, String name, String context) {
             this.sigNum = sigNum;
-            this.signal = ScalarSample.createSignal(epicAnalysis, name, context);
+            this.signal = ScalarSample.createSignal(epicAnalysis, sd, name, context);
         }
 
         public Signal getBWaveform() {
@@ -1048,7 +1050,7 @@ public static class EpicOutProcess extends Input<Stimuli> implements Runnable
  * EpicSignals don't store signalContex strings, EpicAnalysis don't have signalNames hash map.
  * Elements of Context are EpicTreeNodes. They partially implements interface javax.swing.tree.TreeNode .
  */
-public static class EpicAnalysis extends Analysis {
+public static class EpicAnalysis extends HashMap<String,Signal> {
     
     /** Separator in Epic signal names. */              static final char separator = '.';
     
@@ -1079,9 +1081,13 @@ public static class EpicAnalysis extends Analysis {
      * @param sd Stimuli.
      */
     EpicAnalysis(Stimuli sd) {
-        super(sd, Analysis.ANALYSIS_TRANS, false);
-        signalsUnmodifiable = Collections.unmodifiableList(super.getSignals());
+        sd.addAnalysis(this);
+        ArrayList<Signal<ScalarSample>> l = new ArrayList<Signal<ScalarSample>>();
+        for(Signal s : values()) l.add((Signal<ScalarSample>)s);
+        signalsUnmodifiable = Collections.unmodifiableList(l);
     }
+
+    public String toString() { return "TRANS SIGNALS"; }
     
     /**
      * Set time resolution of this EpicAnalysis.
@@ -1130,8 +1136,7 @@ public static class EpicAnalysis extends Analysis {
     /**
      * Free allocated resources before closing.
      */
-    @Override
-        public void finished() {
+    public void finished() {
         try {
             waveFile.close();
             waveFileName.delete();
@@ -1141,17 +1146,16 @@ public static class EpicAnalysis extends Analysis {
     
 	/**
 	 * Method to quickly return the signal that corresponds to a given Network name.
-     * This method overrides the m,ethod from Analysis class.
+     * This method overrides the m,ethod from HashMap<String,Signal> class.
      * It doesn't use signalNames hash map.
 	 * @param netName the Network name to find.
 	 * @return the Signal that corresponds with the Network.
 	 * Returns null if none can be found.
 	 */
-    @Override
-        public Signal<ScalarSample> findSignalForNetworkQuickly(String netName) {
-        Signal<ScalarSample> old = super.findSignalForNetworkQuickly(netName);
+    public Signal get(String netName) {
+        Signal<ScalarSample> old = super.get(netName);
         
-        String lookupName = TextUtils.canonicString(netName);
+        String lookupName = netName;
         int index = searchName(lookupName);
         if (index < 0) {
             assert old == null;
@@ -1209,8 +1213,7 @@ public static class EpicAnalysis extends Analysis {
      * List is unmodifieable.
 	 * @return a List of signals.
 	 */
-    @Override
-        public List<Signal<ScalarSample>> getSignals() { return signalsUnmodifiable; }
+    public Collection<Signal> values() { return (Collection<Signal>)(Object)signalsUnmodifiable; }
 
     /**
      * This methods overrides Analysis.nameSignal.

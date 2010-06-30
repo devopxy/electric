@@ -30,17 +30,7 @@ import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.variable.TextDescriptor;
 import com.sun.electric.technology.technologies.Artwork;
 import com.sun.electric.tool.Job;
-import com.sun.electric.tool.simulation.Analysis;
-import com.sun.electric.tool.simulation.Sample;
-import com.sun.electric.tool.simulation.ScalarSample;
-import com.sun.electric.tool.simulation.Analysis;
-import com.sun.electric.tool.simulation.DigitalAnalysis;
-import com.sun.electric.tool.simulation.DigitalSample;
-import com.sun.electric.tool.simulation.Signal;
-import com.sun.electric.tool.simulation.RangeSample;
-import com.sun.electric.tool.simulation.Signal;
-import com.sun.electric.tool.simulation.SimulationTool;
-import com.sun.electric.tool.simulation.Stimuli;
+import com.sun.electric.tool.simulation.*;
 import com.sun.electric.tool.simulation.Signal.View;
 import com.sun.electric.tool.user.Highlight;
 import com.sun.electric.tool.user.Resources;
@@ -345,16 +335,16 @@ public class Panel extends JPanel
 
             /*
 			// the "signal type" selector for this panel (analog only)
-			boolean hasACData = waveWindow.getSimData().findAnalysis(Analysis.ANALYSIS_AC) != null;
-			boolean hasDCData = waveWindow.getSimData().findAnalysis(Analysis.ANALYSIS_DC) != null;
-			boolean hasMeasData = waveWindow.getSimData().findAnalysis(Analysis.ANALYSIS_MEAS) != null;
+			boolean hasACData = waveWindow.getSimData().findAnalysis("AC SIGNALS") != null;
+			boolean hasDCData = waveWindow.getSimData().findAnalysis("DC SIGNALS") != null;
+			boolean hasMeasData = waveWindow.getSimData().findAnalysis(HashMap<String,Signal>.ANALYSIS_MEAS) != null;
 			if (hasACData || hasDCData || hasMeasData)
 			{
 				analysisCombo = new JComboBox();
-				analysisCombo.addItem(Analysis.ANALYSIS_TRANS.toString());
-				if (hasACData) analysisCombo.addItem(Analysis.ANALYSIS_AC.toString());
-				if (hasDCData) analysisCombo.addItem(Analysis.ANALYSIS_DC.toString());
-				if (hasMeasData) analysisCombo.addItem(Analysis.ANALYSIS_MEAS.toString());
+				analysisCombo.addItem("TRANS SIGNALS".toString());
+				if (hasACData) analysisCombo.addItem("AC SIGNALS".toString());
+				if (hasDCData) analysisCombo.addItem("DC SIGNALS".toString());
+				if (hasMeasData) analysisCombo.addItem(HashMap<String,Signal>.ANALYSIS_MEAS.toString());
 				analysisCombo.setToolTipText("Sets the type of data seen in this panel");
 				analysisCombo.setSelectedItem(analysisType.toString());
 				gbc = new GridBagConstraints();
@@ -651,8 +641,8 @@ public class Panel extends JPanel
 		waveWindow.saveSignalOrder();
 	}
 
-	private void toggleBusContents()
-	{
+	private void toggleBusContents() {
+        /*
 		// this panel must have one signal
 		Collection<WaveSignal> theSignals = waveSignals.values();
 		if (theSignals.size() != 1) return;
@@ -663,7 +653,7 @@ public class Panel extends JPanel
 
 		// the digital signal must be a bus
 		Signal<DigitalSample> sDSig = (Signal<DigitalSample>)ws.getSignal();
-		List<Signal<DigitalSample>> bussedSignals = DigitalAnalysis.getBussedSignals(sDSig);
+		List<Signal<DigitalSample>> bussedSignals = Analysis.getBussedSignals(sDSig);
 		if (bussedSignals == null) return;
 
 		// see if any of the bussed signals are displayed
@@ -743,6 +733,7 @@ public class Panel extends JPanel
 		}
 		waveWindow.validatePanel();
 		waveWindow.saveSignalOrder();
+        */
 	}
 
 	// ************************************* X AND Y AXIS CONTROL *************************************
@@ -890,7 +881,7 @@ public class Panel extends JPanel
 	 * @param value the simulation Y value.
 	 * @return the Y coordinate of that simulation value on the screen
 	 */
-	private int convertYDataToScreen(double value)
+	public int convertYDataToScreen(double value)
 	{
 		if (vertPanelLogarithmic)
 		{
@@ -917,7 +908,7 @@ public class Panel extends JPanel
 	 * @param y the Y coordinate on the screen.
 	 * @return the Y value in the simulation corresponding to that screen coordinate.
 	 */
-	private double convertYScreenToData(int y)
+	public double convertYScreenToData(int y)
 	{
 		if (vertPanelLogarithmic)
 		{
@@ -1405,20 +1396,17 @@ public class Panel extends JPanel
 
 	void dumpDataCSV(PrintWriter pw) {
 		for(WaveSignal ws : waveSignals.values()) {
-			if (ws.getSignal() .isAnalog()) {
-				Signal as = ws.getSignal();
-//				Analysis an = as.getAnalysis();
-				for (int s = 0, numSweeps = /*as.getNumSweeps()*/1; s < numSweeps; s++) {
-                    pw.println();
-					Signal wave = as;
-                    Signal.View pref = ((Signal)wave).getExactView();
-                    Signal.View waveform = pref /* FIXME */;
-					int numEvents = waveform.getNumEvents();
-					for(int i=0; i<numEvents; i++)
-                        pw.println("\""+waveform.getTime(i) + "\""+
-                                   ","+
-                                   "\""+waveform.getSample(i)+"\"");
-                }
+            Signal as = ws.getSignal();
+            for (int s = 0, numSweeps = /*as.getNumSweeps()*/1; s < numSweeps; s++) {
+                pw.println();
+                Signal wave = as;
+                Signal.View pref = ((Signal)wave).getExactView();
+                Signal.View waveform = pref /* FIXME */;
+                int numEvents = waveform.getNumEvents();
+                for(int i=0; i<numEvents; i++)
+                    pw.println("\""+waveform.getTime(i) + "\""+
+                               ","+
+                               "\""+waveform.getSample(i)+"\"");
             }
         }
     }
@@ -1430,58 +1418,47 @@ public class Panel extends JPanel
         int linetype = 1;
 		for(WaveSignal ws : waveSignals.values()) {
             boolean used = false;
-			if (ws.getSignal() .isAnalog()) {
-				Signal as = ws.getSignal();
-				for (int s = 0, numSweeps = /*as.getNumSweeps()*/1; s < numSweeps; s++) {
-                    if (!first) pw.print(sep);
-                    pw.print(" \'-\' with lines ");
-                    Color c = ws.getColor();
-                    pw.print(" lt "+linetype+" ");
-                    pw.print("lc rgb \"#"+
-                             pad2(Integer.toString(c.getRed()   & 0xff, 16))+
-                             pad2(Integer.toString(c.getGreen() & 0xff, 16))+
-                             pad2(Integer.toString(c.getBlue()  & 0xff, 16))+
-                             "\" ");
-                    pw.print(" title \""+ws.getSignal().getFullName()+"\" ");
-                    first = false;
-                    used = true;
-                }
+            Signal as = ws.getSignal();
+            for (int s = 0, numSweeps = /*as.getNumSweeps()*/1; s < numSweeps; s++) {
+                if (!first) pw.print(sep);
+                pw.print(" \'-\' with lines ");
+                Color c = ws.getColor();
+                pw.print(" lt "+linetype+" ");
+                pw.print("lc rgb \"#"+
+                         pad2(Integer.toString(c.getRed()   & 0xff, 16))+
+                         pad2(Integer.toString(c.getGreen() & 0xff, 16))+
+                         pad2(Integer.toString(c.getBlue()  & 0xff, 16))+
+                         "\" ");
+                pw.print(" title \""+ws.getSignal().getFullName()+"\" ");
+                first = false;
+                used = true;
             }
             if (used) linetype++;
         }
 		for(WaveSignal ws : waveSignals.values()) {
-			if (ws.getSignal() .isAnalog()) {
-				Signal as = ws.getSignal();
-				for (int s = 0, numSweeps = /*as.getNumSweeps()*/1; s < numSweeps; s++) {
-                    pw.println();
-					Signal wave = as;//as.getWaveform(s);
-                    Signal.View pref = ((Signal)wave).getExactView();
-                    Signal.View waveform = pref /* FIXME */;
-					int numEvents = waveform.getNumEvents();
-					for(int i=0; i<numEvents; i++) {
-                        if (waveform.getTime(i) < min || waveform.getTime(i) > max) continue;
-                        pw.println(waveform.getTime(i) + " " + waveform.getSample(i));
-                    }
-                    pw.println("e");
-                    pw.println();
+            Signal as = ws.getSignal();
+            for (int s = 0, numSweeps = /*as.getNumSweeps()*/1; s < numSweeps; s++) {
+                pw.println();
+                Signal wave = as;//as.getWaveform(s);
+                Signal.View pref = ((Signal)wave).getExactView();
+                Signal.View waveform = pref /* FIXME */;
+                int numEvents = waveform.getNumEvents();
+                for(int i=0; i<numEvents; i++) {
+                    if (waveform.getTime(i) < min || waveform.getTime(i) > max) continue;
+                    pw.println(waveform.getTime(i) + " " + waveform.getSample(i));
                 }
+                pw.println("e");
+                pw.println();
             }
         }
     }
 
-	private List<WaveSelection> processSignals(Graphics g, Rectangle2D bounds, List<PolyBase> forPs)
-	{
-
+	private List<WaveSelection> processSignals(Graphics g, Rectangle2D bounds, List<PolyBase> forPs) {
 		List<WaveSelection> selectedObjects = null;
 		if (bounds != null) selectedObjects = new ArrayList<WaveSelection>();
-		int hei = sz.height;
 		Signal xSignal = xAxisSignal;
 		if (waveWindow.isXAxisLocked()) xSignal = waveWindow.getXAxisSignalAll();
-		double[] result = new double[3];
-
-		int linePointMode = waveWindow.getLinePointMode();
 		Collection<WaveSignal> sigs = waveSignals.values();
-
 		int sigIndex = 0;
         Color light = null;
 		for(WaveSignal ws : sigs)
@@ -1496,6 +1473,7 @@ public class Panel extends JPanel
 
 			if (forPs != null)
 			{
+                int hei = sz.height;
 				double yPos = hei / 2;
 				Poly.Type style = Poly.Type.TEXTRIGHT;
 				if (sigs.size() > 1)
@@ -1511,258 +1489,7 @@ public class Panel extends JPanel
 				forPs.add(poly);
 			}
 			sigIndex++;
-			if (!(ws.getSignal() .isDigital())) {
-				// draw analog trace
-				Signal as = ws.getSignal();
-                int s = 0;
-                /*
-				for (int s = 0, numSweeps = as.getNumSweeps(); s < numSweeps; s++)
-				{
-					boolean included = waveWindow.isSweepSignalIncluded(an, s);
-					if (!included)
-						continue;
-					Signal wave = as.getWaveform(s);
-                */
-                Signal wave = as;
-                if (wave.isEmpty()) continue;
-                    Signal.View<RangeSample<ScalarSample>> waveform =
-                        ((Signal<ScalarSample>)wave).getRasterView(convertXScreenToData(0),
-                                                                   convertXScreenToData(sz.width),
-                                                                   sz.width,
-                                                                   true);
-                    Signal xWaveform = null;
-                    if (xSignal != null)
-                        xWaveform = xSignal;
-					int lastX = 0, lastLY = 0, lastHY = 0;
-					int numEvents = waveform.getNumEvents();
-                    boolean first = true;
-					for(int i=0; i<numEvents; i++)
-					{
-                        int x = convertXDataToScreen(waveform.getTime(i));
-                        RangeSample<ScalarSample> samp =
-                            (RangeSample<ScalarSample>)waveform.getSample(i);
-                        if (samp==null) continue;
-                        int lowY = convertYDataToScreen(samp.getMin().getValue());
-                        int highY = convertYDataToScreen(samp.getMax().getValue());
-						if (xWaveform != null)
-							x = convertXDataToScreen(((ScalarSample)xWaveform.getExactView().getSample(i)).getValue());
-
-						// draw lines if requested and line is on-screen
-						if (linePointMode <= 1) {
-	                        if (!first) {
-                        		// drawing has lines
-	                            if (lastLY != lastHY || lowY != highY) {
-                                    if (g!=null) g.setColor(light);
-	        						processALine(g, lastX, lastHY, lastX, lastLY, bounds, forPs, selectedObjects, ws, s);
-	        						processALine(g, x, highY, x, lowY, bounds, forPs, selectedObjects, ws, s);
-                                    if (g!=null) g.setColor(ws.getColor());
-	        						processALine(g, lastX, lastHY, x, highY, bounds, forPs, selectedObjects, ws, s);
-	        						//if (processALine(g, lastX, lastHY, x, lowY, bounds, forPs, selectedObjects, ws, s)) break;
-	        						//if (processALine(g, lastX, lastLY, x, highY, bounds, forPs, selectedObjects, ws, s)) break;
-	                            }
-	                            processALine(g, lastX, lastLY, x, lowY, bounds, forPs, selectedObjects, ws, s);
-							}
-						} else {
-                            // show points if requested and point is on-screen
-							processABox(g, x-2, lowY-2, x+2, lowY+2, bounds, forPs, selectedObjects, ws, false, 0);
-                        }
-						lastX = x;
-                        lastLY = lowY;
-                        lastHY = highY;
-                        first = false;
-					}
-				continue;
-            } else {
-				// draw digital traces
-				Signal<DigitalSample> ds = ws.getSignal();
-				List<Signal<DigitalSample>> bussedSignals = DigitalAnalysis.getBussedSignals(ds);
-				if (bussedSignals != null)
-				{
-					// a digital bus trace
-					List<BusCrawl> bussesToCrawl = new ArrayList<BusCrawl>();
-					for(int i=0; i<bussedSignals.size(); i++)
-					{
-						BusCrawl bc = new BusCrawl();
-						bc.sig = bussedSignals.get(i);
-						bc.exactView = bc.sig.getExactView();
-						bc.numEvents = bc.exactView.getNumEvents();
-						bc.eventPos = 0;
-						bussesToCrawl.add(bc);
-					}
-					long curYValue = 0;
-					double curXValue = 0;
-					int lastX = vertAxisPos;
-					for(;;)
-					{
-						double nextXValue = Double.MAX_VALUE;
-						int bit = 0;
-						boolean curDefined = true;
-						for(BusCrawl bc : bussesToCrawl)
-						{
-							boolean undefined = false;
-							for(int i=bc.eventPos; i<bc.numEvents; i++)
-							{
-								double xValue = bc.exactView.getTime(i);
-								if (xValue <= curXValue)
-								{
-									switch (WaveformWindow.getState(bc.sig, i) & Stimuli.LOGIC)
-									{
-										case Stimuli.LOGIC_LOW:  curYValue &= ~(1<<bit);   undefined = false;   break;
-										case Stimuli.LOGIC_HIGH: curYValue |= (1<<bit);    undefined = false;   break;
-										case Stimuli.LOGIC_X:
-										case Stimuli.LOGIC_Z: undefined = true;    break;
-									}
-									bc.eventPos = i;
-								} else
-								{
-									if (xValue < nextXValue) nextXValue = xValue;
-									break;
-								}
-							}
-							if (undefined) { curDefined = false;   break; }
-							bit++;
-						}
-						int x = convertXDataToScreen(curXValue);
-						if (x >= vertAxisPos)
-						{
-							if (x < vertAxisPos+5)
-							{
-								// on the left edge: just draw the "<"
-								if (processALine(g, x, hei/2, x+5, hei-5, bounds, forPs, selectedObjects, ws, -1)) return selectedObjects;
-								if (processALine(g, x, hei/2, x+5, 5, bounds, forPs, selectedObjects, ws, -1)) return selectedObjects;
-							} else
-							{
-								// bus change point: draw the "X"
-								if (processALine(g, x-5, 5, x+5, hei-5, bounds, forPs, selectedObjects, ws, -1)) return selectedObjects;
-								if (processALine(g, x+5, 5, x-5, hei-5, bounds, forPs, selectedObjects, ws, -1)) return selectedObjects;
-							}
-							if (lastX+5 < x-5)
-							{
-								// previous bus change point: draw horizontal bars to connect
-								if (processALine(g, lastX+5, 5, x-5, 5, bounds, forPs, selectedObjects, ws, -1)) return selectedObjects;
-								if (processALine(g, lastX+5, hei-5, x-5, hei-5, bounds, forPs, selectedObjects, ws, -1)) return selectedObjects;
-							}
-							String valString = "XX";
-							if (curDefined) valString = Long.toString(curYValue);
-							if (g != null)
-							{
-								g.setFont(waveWindow.getFont());
-								GlyphVector gv = waveWindow.getFont().createGlyphVector(waveWindow.getFontRenderContext(), valString);
-								Rectangle2D glyphBounds = gv.getLogicalBounds();
-								int textHei = (int)glyphBounds.getHeight();
-								g.drawString(valString, x+2, hei/2+textHei/2);
-							}
-							if (forPs != null)
-							{
-								Point2D [] pts = new Point2D[1];
-								pts[0] = new Point2D.Double(x+2, hei/2);
-								Poly poly = new Poly(pts);
-								poly.setStyle(Poly.Type.TEXTLEFT);
-								poly.setTextDescriptor(TextDescriptor.EMPTY.withAbsSize(8));
-								poly.setString(valString);
-								forPs.add(poly);
-							}
-						}
-						curXValue = nextXValue;
-						lastX = x;
-						if (nextXValue == Double.MAX_VALUE) break;
-					}
-					if (ds.extrapolateValues())
-					{
-						int wid = sz.width;
-						if (lastX+5 < wid)
-						{
-							// run horizontal bars to the end
-							if (processALine(g, lastX+5, 5, wid, 5, bounds, forPs, selectedObjects, ws, -1)) return selectedObjects;
-							if (processALine(g, lastX+5, hei-5, wid, hei-5, bounds, forPs, selectedObjects, ws, -1)) return selectedObjects;
-						}
-					}
-					continue;
-				}
-
-				// a simple digital signal
-				int lastx = vertAxisPos;
-				int lastState = 0;
-				//if (ds.getStateVector() == null) continue;
-				int numEvents = ds.getExactView().getNumEvents();
-				int lastLowy = 0, lastHighy = 0;
-				for(int i=0; i<numEvents; i++)
-				{
-					double xValue = ds.getExactView().getTime(i);
-					int x = convertXDataToScreen(xValue);
-					if (SimulationTool.isWaveformDisplayMultiState() && g != null)
-					{
-						if (waveWindow.getPrintingMode() == 2) g.setColor(Color.BLACK); else
-						{
-							switch (WaveformWindow.getState(ds, i) & Stimuli.STRENGTH)
-							{
-								case Stimuli.OFF_STRENGTH:  g.setColor(waveWindow.getOffStrengthColor());    break;
-								case Stimuli.NODE_STRENGTH: g.setColor(waveWindow.getNodeStrengthColor());   break;
-								case Stimuli.GATE_STRENGTH: g.setColor(waveWindow.getGateStrengthColor());   break;
-								case Stimuli.VDD_STRENGTH:  g.setColor(waveWindow.getPowerStrengthColor());  break;
-							}
-						}
-					}
-					int state = WaveformWindow.getState(ds, i) & Stimuli.LOGIC;
-					int lowy = 0, highy = 0;
-					switch (state)
-					{
-						case Stimuli.LOGIC_HIGH:
-							lowy = highy = 5;
-							break;
-						case Stimuli.LOGIC_LOW:
-							lowy = highy = hei-5;
-							break;
-						case Stimuli.LOGIC_X:
-							lowy = 5;   highy = hei-5;
-							break;
-						case Stimuli.LOGIC_Z:
-							lowy = (hei-10) / 3 + 5;   highy = hei - (hei-10) / 3 - 5;
-							break;
-					}
-					if (g != null && !SimulationTool.isWaveformDisplayMultiState()) g.setColor(Color.RED);
-					if (i != 0)
-					{
-						if (state != lastState)
-						{
-							if (processALine(g, x, Math.min(lowy, lastLowy), x, Math.max(lowy, lastLowy), bounds, forPs, selectedObjects, ws, -1)) return selectedObjects;
-						}
-					}
-					if (g != null && !SimulationTool.isWaveformDisplayMultiState())
-					{
-						if (lastState == Stimuli.LOGIC_Z) g.setColor(Color.GREEN);
-					}
-					if (lastLowy == lastHighy)
-					{
-						if (processALine(g, lastx, lastLowy, x, lastLowy, bounds, forPs, selectedObjects, ws, -1)) return selectedObjects;
-					} else
-					{
-						if (processABox(g, lastx, lastLowy, x, lastHighy, bounds, forPs, selectedObjects, ws, false, 0)) return selectedObjects;
-					}
-					if (ds.extrapolateValues())
-					{
-						if (i >= numEvents-1)
-						{
-							if (g != null && !SimulationTool.isWaveformDisplayMultiState())
-							{
-								if (state == Stimuli.LOGIC_Z) g.setColor(Color.GREEN); else g.setColor(Color.RED);
-							}
-							int wid = sz.width;
-							if (lowy == highy)
-							{
-								if (processALine(g, x, lowy, wid-1, lowy, bounds, forPs, selectedObjects, ws, -1)) return selectedObjects;
-							} else
-							{
-								if (processABox(g, x, lowy, wid-1, highy, bounds, forPs, selectedObjects, ws, false, 0)) return selectedObjects;
-							}
-						}
-					}
-					lastx = x;
-					lastLowy = lowy;
-					lastHighy = highy;
-					lastState = state;
-				}
-			}
+            ws.getSignal().plot(this, g, ws, light, forPs, bounds, selectedObjects);
 		}
 		return selectedObjects;
 	}
@@ -1814,7 +1541,7 @@ public class Panel extends JPanel
 		return selectedObjects;
 	}
 
-	private boolean processABox(Graphics g, int lX, int lY, int hX, int hY, Rectangle2D bounds, List<PolyBase> forPs,
+	public boolean processABox(Graphics g, int lX, int lY, int hX, int hY, Rectangle2D bounds, List<PolyBase> forPs,
 		List<WaveSelection> result, WaveSignal ws, boolean controlPoint, double controlXValue)
 	{
 		// bounds is non-null if doing hit-testing
@@ -1851,7 +1578,7 @@ public class Panel extends JPanel
 		return false;
 	}
 
-	private boolean processALine(Graphics g, int fX, int fY, int tX, int tY, Rectangle2D bounds,
+	public boolean processALine(Graphics g, int fX, int fY, int tX, int tY, Rectangle2D bounds,
 		List<PolyBase> forPs, List<WaveSelection> result, WaveSignal ws, int sweepNum)
 	{
 		if (bounds != null)
@@ -2122,7 +1849,7 @@ public class Panel extends JPanel
 		return polys;
 	}
 
-	private static class WaveSelection
+	public static class WaveSelection
 	{
 		/** Selected signal in Waveform Window */		WaveSignal ws;
 		/** true if this is a control point */			boolean    controlPoint;
@@ -2193,13 +1920,11 @@ public class Panel extends JPanel
 		// snap to any waveform points
 		for(WaveSignal ws : waveSignals.values())
 		{
-			if (!(ws.getSignal() .isAnalog())) continue;
-
 			// draw analog trace
             /*
 			Signal as = ws.getSignal();
             double[] result = new double[3];
-            Analysis an = (Analysis)as.getAnalysis();
+            HashMap<String,Signal> an = (HashMap<String,Signal>)as.getAnalysis();
 			for(int s=0, numSweeps = as.getNumSweeps(); s<numSweeps; s++)
 			{
                 if (!waveWindow.isSweepSignalIncluded(an, s)) continue;
@@ -2227,14 +1952,12 @@ public class Panel extends JPanel
 		Point2D snap = new Point2D.Double(pt.x, pt.y);
 		for(WaveSignal ws : waveSignals.values())
 		{
-			if (!(ws.getSignal() .isAnalog())) continue;
-
 			// draw analog trace
             /*
 			Signal as = (Signal)ws.getSignal();
             double[] result = new double[3];
             double[] lastResult = new double[3];
-            Analysis an = (Analysis)as.getAnalysis();
+            HashMap<String,Signal> an = (HashMap<String,Signal>)as.getAnalysis();
 			for(int s=0, numSweeps = as.getNumSweeps(); s<numSweeps; s++)
 			{
                 if (!waveWindow.isSweepSignalIncluded(an, s)) continue;

@@ -70,6 +70,7 @@ import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Collections;
 import java.util.EventListener;
 import java.util.Iterator;
@@ -350,9 +351,10 @@ public class WindowMenu {
                     Panel panel = ww.getPanel(0);
                     Stimuli stim = ww.getSimData();
                     Signal s1 = panel.getSignals().get(0).getSignal();
-                    Analysis an = new Analysis(stim, Analysis.ANALYSIS_DC, false) { public boolean isAnalog() { return false; } };
+                    HashMap<String,Signal> an = Stimuli.newAnalysis(stim, "DC SIGNALS", false);
                     Signal derived = new DerivedSignal<DigitalSample,ScalarSample>
                         (an,
+                         stim,
                          s1.getSignalName(),
                          s1.getSignalContext(),
                          new Signal[] { s1 }) {

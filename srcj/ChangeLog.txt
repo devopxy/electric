@@ -2,7 +2,57 @@
 
 NOTE: Please place changes under the version that will be released next.
 
+************************* Version 9.00j: ******************************
+
+BUG: (6/30/10, DN) I am not able to perform error-free Node Extraction (Bug #2829).
+FIX: I replaced tech.getFactoryScaledResolution() by tech.getFactoryResolution().
+  This fix allows to recognize transistors by there are still some DRC errors.
+  This fix doen't solve the entire issue but I hope that this fix is reasonable.
+
+IMP: (6/29/10, AM) Remove Signal.isAnalog(), Signal.isBussed()
+
+IMP: (6/29/10, AM) Remove Signal.isDigital()
+
+BUG: (6/29/10, DN) Inconsistency in how export names are compared using canonicString (Bug #2826).
+FIX: ElectricObject.uniqueObjectName maintains case-sensitive uniqueness.
+
+IMP: (6/28/10, AM) Eradicate Analysis.java for all eternity.
+
+IMP: (6/28/10, AM) Remove Analysis.getSignals()
+
+IMP: (6/28/10, AM) Remove calls to Analysis' constructor
+
+IMP: (6/28/10, AM) Analysis extends HashMap<String,Signal>
+
+IMP: (6/28/10, AM) Remove Analysis.getSignalsFromExtractedNet()
+
+IMP: (6/28/10, AM) Remove Analysis.findSignalForNetwork()
+
+IMP: (6/28/10, AM) Remove Analysis.getTitle()
+
+IMP: (6/28/10, AM) Remove Analysis.findSignalForNetworkQuickly()
+
+IMP: (6/28/10, AM) Remove Analysis.get{Min,Max}.
+
+IMP: (6/28/10, AM) Remove Analysis.AnalysisType.
+
+IMP: (6/28/10, AM) Remove Analysis.getStimuli().
+
+IMP: (6/28/10, AM) Clean up Analysis.java.
+
+IMP: (6/28/10, AM) Expunge DigitalAnalysis.
+
+IMP: (6/28/10, AM) Remove legacy "bussing" kludge.
+
+IMP: (6/28/10, AM) Have VerilogOut use BusSample.
+
+IMP: (6/28/10, AM) Finish implementing BusSample.createSignal().
+
 ************************* Version 9.00i: ******************************
+
+BUG: (6/27/10, AM) Waveform window exception at different places (Bug #2824)
+FIX: Deal in a more robust manner with Signals having fewer than two samples.
+     Also improve error reporting if things go wrong.
 
 IMP/MAN: (6/26/10, GVG) highlight the outline of the geometry in ERC errors (Bug #2752)
 
