@@ -4,6 +4,32 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.00j: ******************************
 
+BUG: (7/2/10, GVG) Placement regression failed due to change in test library? (Bug #2837)
+FIX: Rolled placementTests.jelib to original revision (r1576). Revision r1720 was
+modified inadvertent and gives different results.
+
+BUG: (7/2/10, SMR) Explorer-tree context command to create a new cell should
+     choose the proper library as the default (Bug #2836).
+FIX: Improved NewCell to take a default library.
+
+BUG: (7/1/10, SMR) AC waveform signals crash (Bug #2835).
+FIX: Added Adam's patch.
+
+BUG (7/1/10, FS)  Placement regression failed due to missing static method
+FIX: add static method from history
+
+BUG: (7/1/10, SMR) Interactive sizing misaligning coordinates (Bug #2827).
+FIX: Fixed SizeListener to avoid transforming into the space of the node.
+
+BUG (6/30/10, FS) Force-Directed-1 do not terminate (Bug 2800)
+FIX: Kill barrier after termination
+
+BUG (6/30/10, FS) Add Placement Tools to Test Menu (Bug 2831) 
+FIX: Added, each tool has the following paramters (#threads 2, runtime 10sec) 
+
+BUG: (6/30/10, GVG) Test -> TestPlacement -> Placement1 doesn't work (Bug #2832)
+FIX: Don't assume libraries have *.jelib extension. Fixed regression as well.
+
 BUG: (6/30/10, DN) I am not able to perform error-free Node Extraction (Bug #2829).
 FIX: I replaced tech.getFactoryScaledResolution() by tech.getFactoryResolution().
   This fix allows to recognize transistors by there are still some DRC errors.
