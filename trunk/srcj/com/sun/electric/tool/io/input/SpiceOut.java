@@ -27,15 +27,16 @@ package com.sun.electric.tool.io.input;
 
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.text.TextUtils;
-
-import com.sun.electric.tool.simulation.Stimuli;
-import com.sun.electric.tool.simulation.Signal;
 import com.sun.electric.tool.simulation.ScalarSample;
+import com.sun.electric.tool.simulation.Signal;
+import com.sun.electric.tool.simulation.SignalCollection;
+import com.sun.electric.tool.simulation.Stimuli;
+
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * Class for reading and displaying waveforms from Spice2 or GNUCap output.
@@ -48,15 +49,14 @@ public class SpiceOut extends Input<Stimuli>
 	/**
 	 * Method to read an Spice output file.
 	 */
-	protected Stimuli processInput(URL fileURL, Cell cell)
+	protected Stimuli processInput(URL fileURL, Cell cell, Stimuli sd)
 		throws IOException
 	{
-        Stimuli sd = new Stimuli();
-
 		// open the file
 		if (openTextInput(fileURL)) return sd;
 
 		// show progress reading .spo file
+		System.out.println("Reading Spice/GNUCap output file: " + fileURL.getFile());
 		startProgressDialog("Spice output", fileURL.getFile());
 
 		// read the actual signal data from the .spo file
@@ -65,7 +65,7 @@ public class SpiceOut extends Input<Stimuli>
 		// stop progress dialog, close the file
 		stopProgressDialog();
 		closeInput();
-        return sd;
+		return sd;
 	}
 
 	private final static String CELLNAME_HEADER = "*** SPICE deck for cell ";
@@ -181,7 +181,7 @@ public class SpiceOut extends Input<Stimuli>
 			return;
 		}
 
-		HashMap<String,Signal> an = Stimuli.newAnalysis(sd, "SIGNALS", false);
+		SignalCollection sc = Stimuli.newSignalCollection(sd, "SIGNALS");
 		sd.setCell(cell);
 
 		// convert lists to arrays
@@ -195,7 +195,7 @@ public class SpiceOut extends Input<Stimuli>
 				List<Double> row = allNumbers.get(i);
 				values[i] = row.get(j+1).doubleValue();
 			}
-			ScalarSample.createSignal(an, sd, "Signal " + (j+1), null, time, values);
+			ScalarSample.createSignal(sc, sd, "Signal " + (j+1), null, time, values);
 		}
 	}
 

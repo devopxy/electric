@@ -104,10 +104,9 @@ public class SeaOfGatesEngineNew extends SeaOfGatesEngine {
 
 			if (parallelDij) {
 
-				numberOfThreads = 4;
 				pools = ThreadPool.initialize(WorkStealingStructure.createForThreadPool(numberOfThreads),
-						numberOfThreads, ThreadPoolType.synchronizedPool, WorkStealingStructure
-								.createForThreadPool(4), 4, ThreadPoolType.simplePool, false);
+						numberOfThreads, ThreadPoolType.simplePool, WorkStealingStructure
+								.createForThreadPool(numberOfThreads), numberOfThreads, ThreadPoolType.simplePool, false);
 			} else {
 				ThreadPool.initialize(WorkStealingStructure.createForThreadPool(numberOfThreads),
 						numberOfThreads, true, ThreadPoolType.synchronizedPool);
@@ -274,7 +273,7 @@ public class SeaOfGatesEngineNew extends SeaOfGatesEngine {
 		Wavefront wf = nr.winningWF;
 		double verLength = Double.MAX_VALUE;
 		if (wf != null)
-			verLength = getVertexLength(wf.vertices);
+			verLength = SeaOfGatesEngine.getVertexLength(wf.vertices);
 		if (verLength == Double.MAX_VALUE) {
 			// failed to route
 			String errorMsg;
@@ -298,7 +297,7 @@ public class SeaOfGatesEngineNew extends SeaOfGatesEngine {
 				firstFailure = false;
 				EditWindow_ wnd = Job.getUserInterface().getCurrentEditWindow_();
 				wnd.clearHighlighting();
-				showSearchVertices(nr.dir1.searchVertexPlanes, false);
+				showSearchVertices(nr.dir1.searchVertexPlanes, false, cell);
 				wnd.finishedHighlighting();
 			}
 		}

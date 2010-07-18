@@ -350,15 +350,15 @@ public class WindowMenu {
                     WaveformWindow ww = (WaveformWindow)content;
                     Panel panel = ww.getPanel(0);
                     Stimuli stim = ww.getSimData();
-                    Signal s1 = panel.getSignals().get(0).getSignal();
-                    HashMap<String,Signal> an = Stimuli.newAnalysis(stim, "DC SIGNALS", false);
-                    Signal derived = new DerivedSignal<DigitalSample,ScalarSample>
-                        (an,
+                    Signal<?> s1 = panel.getSignals().get(0).getSignal();
+                    SignalCollection sc = Stimuli.newSignalCollection(stim, "DC SIGNALS");
+                    Signal<?> derived = new DerivedSignal<DigitalSample,ScalarSample>
+                        (sc,
                          stim,
                          s1.getSignalName(),
                          s1.getSignalContext(),
+                         true,
                          new Signal[] { s1 }) {
-                        public boolean isDigital() { return true; }
                         public boolean isEmpty() { return false; }
                         public RangeSample<DigitalSample> getDerivedRange(RangeSample<ScalarSample>[] s) {
                             if (s[0]==null) return null;

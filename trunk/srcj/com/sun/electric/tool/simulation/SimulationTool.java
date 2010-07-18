@@ -24,7 +24,6 @@
 package com.sun.electric.tool.simulation;
 
 import com.sun.electric.database.hierarchy.Cell;
-import com.sun.electric.database.hierarchy.Library;
 import com.sun.electric.database.hierarchy.View;
 import com.sun.electric.database.text.Pref;
 import com.sun.electric.database.text.Setting;
@@ -42,23 +41,16 @@ import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.Tool;
 import com.sun.electric.tool.ToolSettings;
 import com.sun.electric.tool.io.FileType;
-import com.sun.electric.tool.io.output.GenerateVHDL;
 import com.sun.electric.tool.io.output.Spice;
 import com.sun.electric.tool.io.output.Verilog;
 import com.sun.electric.tool.simulation.als.ALS;
-import com.sun.electric.tool.simulation.irsim.*;
-import com.sun.electric.tool.user.CompileVHDL;
+import com.sun.electric.tool.simulation.irsim.IRSIM;
 import com.sun.electric.tool.user.dialogs.EDialog;
 import com.sun.electric.tool.user.dialogs.OpenFile;
-import com.sun.electric.tool.user.menus.EMenu;
-import com.sun.electric.tool.user.ui.TextWindow;
 import com.sun.electric.tool.user.ui.TopLevel;
 import com.sun.electric.tool.user.ui.WindowFrame;
-import com.sun.electric.tool.user.waveform.Panel;
-import com.sun.electric.tool.user.waveform.WaveSignal;
 import com.sun.electric.tool.user.waveform.WaveformWindow;
 
-import java.awt.Color;
 import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -67,9 +59,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.awt.geom.Rectangle2D;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -766,7 +755,7 @@ public class SimulationTool extends Tool {
 	public static Setting getVerilogUseAssignSetting() { return ToolSettings.getVerilogUseAssignSetting(); }
 
 	/**
-	 * Method to tell whether Verilog deck generation shoultd use Trireg by default.
+	 * Method to tell whether Verilog deck generation should use Trireg by default.
 	 * The alternative is to use the "wire" statement.
 	 * The default is false.
 	 * @return true if Verilog deck generation should use Trireg by default.
@@ -1060,18 +1049,18 @@ public class SimulationTool extends Tool {
 
 	private static Pref cacheIRSIMDelayedX = Pref.makeBooleanPref("IRSIMDelayedX", tool.prefs, true);
 	/**
-	 * Get whether or not IRSIM uses a delayed X model, versus the old fast-propogating X model.
-	 * @return true if using the delayed X model, false if using the old fast-propogating X model.
+	 * Get whether or not IRSIM uses a delayed X model, versus the old fast-propagating X model.
+	 * @return true if using the delayed X model, false if using the old fast-propagating X model.
 	 */
 	public static boolean isIRSIMDelayedX() { return cacheIRSIMDelayedX.getBoolean(); }
 	/**
-	 * Get whether or not IRSIM uses a delayed X model, versus the old fast-propogating X model.
-	 * @param b true to use the delayed X model, false to use the old fast-propogating X model.
+	 * Get whether or not IRSIM uses a delayed X model, versus the old fast-propagating X model.
+	 * @param b true to use the delayed X model, false to use the old fast-propagating X model.
 	 */
 	public static void setIRSIMDelayedX(boolean b) { cacheIRSIMDelayedX.setBoolean(b); }
 	/**
-	 * Get whether or not IRSIM uses a delayed X model, versus the old fast-propogating X model, by default.
-	 * @return true if using the delayed X model, false if using the old fast-propogating X model, by default.
+	 * Get whether or not IRSIM uses a delayed X model, versus the old fast-propagating X model, by default.
+	 * @return true if using the delayed X model, false if using the old fast-propagating X model, by default.
 	 */
 	public static boolean isFactoryIRSIMDelayedX() { return cacheIRSIMDelayedX.getBooleanFactoryValue(); }
 
@@ -1084,6 +1073,7 @@ public class SimulationTool extends Tool {
 		/** PSpice engine. */		SPICE_ENGINE_P(3, "PSpice"),
 		/** GNUCap engine. */		SPICE_ENGINE_G(4, "Gnucap"),
 		/** SmartSpice engine. */	SPICE_ENGINE_S(5, "SmartSpice"),
+		/** Spice Opus engine. */	SPICE_ENGINE_O(8, "Spice Opus"),
 		/** HSpice engine for Assura. */		SPICE_ENGINE_H_ASSURA(6, "HSpice for Assura"),
 		/** HSpice engine for Calibre. */		SPICE_ENGINE_H_CALIBRE(7, "HSpice for Calibre");
 
@@ -1116,6 +1106,7 @@ public class SimulationTool extends Tool {
 	 * SimulationTool.SPICE_ENGINE_P for PSpice.<BR>
 	 * SimulationTool.SPICE_ENGINE_G for GNUCap.<BR>
 	 * SimulationTool.SPICE_ENGINE_S for Smart Spice.<BR>
+	 * SimulationTool.SPICE_ENGINE_O for Spice Opus.<BR>
 	 * SimulationTool.SPICE_ENGINE_H_ASSURA for HSpice for Assura.<BR>
 	 * Where SimulationTool.SPICE_ENGINE_3 is the default.
 	 */
@@ -1140,6 +1131,7 @@ public class SimulationTool extends Tool {
 	 * SimulationTool.SpiceEngine.SPICE_ENGINE_P for PSpice.<BR>
 	 * SimulationTool.SpiceEngine.SPICE_ENGINE_G for GNUCap.<BR>
 	 * SimulationTool.SpiceEngine.SPICE_ENGINE_S for Smart Spice.<BR>
+	 * SimulationTool.SpiceEngine.SPICE_ENGINE_O for Spice Opus.<BR>
 	 * SimulationTool.SpiceEngine.SPICE_ENGINE_H_ASSURA for HSpice for Assura.
 	 */
 	public static void setSpiceEngine(SpiceEngine engine) { cacheSpiceEngine.setInt(engine.code()); }
@@ -1155,6 +1147,7 @@ public class SimulationTool extends Tool {
 	 * SimulationTool.SPICE_ENGINE_P for PSpice.<BR>
 	 * SimulationTool.SPICE_ENGINE_G for GNUCap.<BR>
 	 * SimulationTool.SPICE_ENGINE_S for Smart Spice.<BR>
+	 * SimulationTool.SPICE_ENGINE_O for Spice Opus.<BR>
 	 * SimulationTool.SPICE_ENGINE_H_ASSURA for HSpice for Assura.<BR>
 	 */
 	public static SpiceEngine getFactorySpiceEngine()
@@ -1187,39 +1180,6 @@ public class SimulationTool extends Tool {
 	 * @return which SPICE level is being used (1, 2, or 3), by default.
 	 */
 	public static String getFactorySpiceLevel() { return cacheSpiceLevel.getStringFactoryValue(); }
-
-	private static Pref cacheSpiceOutputFormat = Pref.makeStringPref("SpiceOutputFormat", tool.prefs, "Standard");
-//	static { cacheSpiceOutputFormat.attachToObject(tool, "Tools/Spice tab", "Spice output format"); }
-	/**
-	 * Method to tell the type of output files expected from Spice.
-	 * @return the type of output files expected from Spice.
-	 * The values are:<BR>
-	 * "Standard": Standard output (the default)<BR>
-	 * "Raw" Raw output<BR>
-	 * "RawLT" Raw output from LTSpice<BR>
-	 * "RawSmart": Raw output from SmartSpice<BR>
-	 */
-	public static String getSpiceOutputFormat() { return cacheSpiceOutputFormat.getString(); }
-	/**
-	 * Method to set the type of output files expected from Spice.
-	 * @param format the type of output files expected from Spice.
-	 * The values are:<BR>
-	 * "Standard": Standard output (the default)<BR>
-	 * "Raw" Raw output<BR>
-	 * "RawLT" Raw output from LTSpice<BR>
-	 * "RawSmart": Raw output from SmartSpice<BR>
-	 */
-	public static void setSpiceOutputFormat(String format) { cacheSpiceOutputFormat.setString(format); }
-	/**
-	 * Method to tell the type of output files expected from Spice, by default.
-	 * @return the type of output files expected from Spice, by default.
-	 * The values are:<BR>
-	 * "Standard": Standard output<BR>
-	 * "Raw" Raw output<BR>
-	 * "RawLT" Raw output from LTSpice<BR>
-	 * "RawSmart": Raw output from SmartSpice<BR>
-	 */
-	public static String getFactorySpiceOutputFormat() { return cacheSpiceOutputFormat.getStringFactoryValue(); }
 
 	private static Pref cacheSpiceShortResistors = Pref.makeIntPref("SpiceShortResistors", tool.prefs, 0);
 	/**
@@ -1582,7 +1542,7 @@ public class SimulationTool extends Tool {
     private static Pref cacheSpiceWritePwrGndInTopCell = Pref.makeBooleanPref("cacheSpiceWritePwrGndInTopCell", tool.prefs, true);
 	/**
 	 * Method to tell whether or not to write power and ground in Spice top cell section.
-	 * The default is true. True is the default behavoir until now.
+	 * The default is true. True is the default behavior until now.
 	 * @return true to write power and ground in Spice top cell section.
 	 */
 	public static boolean isSpiceWritePwrGndInTopCell() { return cacheSpiceWritePwrGndInTopCell.getBoolean(); }
@@ -1674,24 +1634,6 @@ public class SimulationTool extends Tool {
     public static boolean isSpiceIgnoreModelFiles() { return cachedSpiceIgnoreModelFiles.getBoolean(); }
     public static void setSpiceIgnoreModelFiles(boolean b) { cachedSpiceIgnoreModelFiles.setBoolean(b); }
     public static boolean isFactorySpiceIgnoreModelFiles() { return cachedSpiceIgnoreModelFiles.getBooleanFactoryValue(); }
-
-    private static Pref cacheSpiceEpicReaderMemorySize = Pref.makeIntPref("SpiceEpicReaderMemorySize", tool.prefs, 1000);
-	/**
-	 * Method to tell the maximum memory to use for EpicReaderProcess, in megatybes.
-	 * The default is 1000 (1 gigabyte).
-	 * @return the maximum memory to use for EpicReaderProcess (in megabytes).
-	 */
-	public static int getSpiceEpicMemorySize() { return cacheSpiceEpicReaderMemorySize.getInt(); }
-	/**
-	 * Method to set the maximum memory to use for EpicReaderProcess.
-	 * @param limit maximum memory to use for EpicReaderProcess (in megabytes).
-	 */
-	public static void setSpiceEpicMemorySize(int limit) { cacheSpiceEpicReaderMemorySize.setInt(limit); }
-	/**
-	 * Method to tell the maximum memory to use for EpicReaderProcess (in megatybes), by default.
-	 * @return the maximum memory to use for EpicReaderProcess (in megabytes), by default.
-	 */
-	public static int getFactorySpiceEpicMemorySize() { return cacheSpiceEpicReaderMemorySize.getIntFactoryValue(); }
 
     private static Pref cacheSpiceExtractedNetDelimiter = Pref.makeStringPref("SpiceExtractedNetDelimiter", tool.prefs, ":");
     public static String getSpiceExtractedNetDelimiter() { return cacheSpiceExtractedNetDelimiter.getString(); }

@@ -22,20 +22,24 @@
  * Boston, Mass 02111-1307, USA.
  */
 package com.sun.electric.tool.simulation;
-import com.sun.electric.database.text.TextUtils;
-import com.sun.electric.tool.user.waveform.*;
-import com.sun.electric.tool.user.waveform.Panel.WaveSelection;
-import java.awt.Graphics;
-import java.awt.Color;
-import java.awt.geom.Rectangle2D;
+
 import com.sun.electric.database.geometry.PolyBase;
-import java.util.*;
+import com.sun.electric.database.text.TextUtils;
+import com.sun.electric.tool.user.waveform.Panel;
+import com.sun.electric.tool.user.waveform.WaveSignal;
+import com.sun.electric.tool.user.waveform.Panel.WaveSelection;
+
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.geom.Rectangle2D;
+import java.util.HashMap;
+import java.util.List;
 
 /**
  * A Signal represents simulation data captured for a particular node
  * over a stretch of time.  Internally, it associates Samples to
  * points in time (measured by a double).  Each Signal also belongs to
- * an Analysis, and has a Name and a Context (which are both Strings).
+ * a SignalCollection, and has a Name and a Context (which are both Strings).
  *
  * Because the simulation data set may be extremely large, one does
  * not access the data directly through the Signal class.  Instead,
@@ -50,39 +54,42 @@ import java.util.*;
  */
 public abstract class Signal<SS extends Sample> {
 
-    public Signal(HashMap<String,Signal> analysis, Stimuli sd, String signalName, String signalContext) {
+    public Signal(SignalCollection sc, Stimuli sd, String signalName, String signalContext, boolean digital) {
 		this.signalName = signalName;
 		this.signalContext = signalContext;
-		this.extrapolateToRight = true;
-        this.analysisTitle = analysis==null ? "SIGNALS" : analysis.toString();
+        this.signalCollectionName = sc==null ? "SIGNALS" : sc.getName();
         this.fullSignalName = signalContext==null
             ? signalName
-            : signalContext + (analysis==null ? '.' : sd.getSeparatorChar()) + signalName;
+            : signalContext + (sc==null ? '.' : sd.getSeparatorChar()) + signalName;
+        this.digital = digital;
         this.stimuli = sd;
-        if (analysis!=null) {
+        if (sc!=null) {
             String name = TextUtils.canonicString(fullSignalName);
             // simulators may strip off last "_"
             if (name.indexOf('_') >= 0 && !name.endsWith("_"))
-                analysis.put(name + "_", this);
+                sc.addSignal(name + "_", this);
             else
-                analysis.put(name, this);
+                sc.addSignal(name, this);
         }
     }
 
-	/** the name of this signal */									private final String signalName;
-	/** the context of this signal (qualifications to name) */		private final String signalContext;
-	/** the context of this signal (qualifications to name) */		private final String fullSignalName;
-    /** the HashMap<String,Signal> to which this signal belongs */                private final String analysisTitle;
-    /** the extrapolateToRight setting of the HashMap<String,Signal> */           private final boolean extrapolateToRight;
-    /** the stimuli of the HashMap<String,Signal> */                              private final Stimuli stimuli;
+	/** the name of this signal */										private final String signalName;
+	/** the context of this signal (qualifications to name) */			private final String signalContext;
+	/** full name (with context) */										private final String fullSignalName;
+    /** the name of theSignalCollection to which this signal belongs */	private final String signalCollectionName;
+    /** true if the signal is digital */                    			private final boolean digital;
+    /** the stimuli to which this signal belongs */						private final Stimuli stimuli;
 
     // methods relocated from other classes
     public void clearControlPoints() { stimuli.clearControlPoints(this); }
     public void removeControlPoint(double time) { stimuli.removeControlPoint(this, time); }
     public void addControlPoint(double time) { stimuli.addControlPoint(this, time); }
     public Double[] getControlPoints() { return stimuli.getControlPoints(this); }
-    public boolean extrapolateValues() { return extrapolateToRight; }
-	public final String getAnalysisTitle() { return analysisTitle; }
+	public final boolean isDigital() { return digital; }
+	public final String getSignalCollectionName() { return signalCollectionName; }
+
+	/** method to return the sub-signals in this bus (null if not a bus) */
+    public Signal<?>[] getBusMembers() { return null; }
 
 	/** The name of this simulation signal, not including hierarchical path information */
 	public final String getSignalName() { return signalName; }
@@ -148,7 +155,7 @@ public abstract class Signal<SS extends Sample> {
     public abstract boolean isEmpty();
 
     public abstract void plot(Panel panel, Graphics g, WaveSignal ws, Color light, List<PolyBase> forPs,
-                              Rectangle2D bounds, List<WaveSelection> selectedObjects);
+                              Rectangle2D bounds, List<WaveSelection> selectedObjects, Signal<?> xAxisSignal);
 
     public String getBaseNameFromExtractedNet(String signalFullName) {
         String delim = stimuli.getNetDelimiter();

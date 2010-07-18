@@ -22,7 +22,6 @@
  * Boston, Mass 02111-1307, USA.
  */
 package com.sun.electric.tool.simulation;
-import java.io.*;
 
 /**
  *  A sample consisting of a range (a min and a max).  Example usage:
@@ -40,8 +39,8 @@ public class RangeSample<S extends Sample> implements Sample {
     public S getMax() { return max; }
 
     public boolean equals(Object o) {
-        if (o==null || !(o instanceof RangeSample)) return false;
-        RangeSample rs = (RangeSample)o;
+        if (o==null || !(o instanceof RangeSample<?>)) return false;
+        RangeSample<?> rs = (RangeSample<?>)o;
         return rs.min.equals(min) && rs.max.equals(max);
     }
 

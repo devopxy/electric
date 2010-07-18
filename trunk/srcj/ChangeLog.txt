@@ -4,6 +4,43 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.00j: ******************************
 
+IMP: (7/18/10, DN) The last argument of basicDRCTest specifies min area check algorithm.
+
+IMP: (7/18/10, DN) Add min area check algorithm DRCCheckMinArea.AREA_MANHATTAN .
+    It is fast, but accepts only manhattan layout.
+
+IMP: (7/17/10, DN) Laze allocaltion of "sons" in PolyBase.PolyBaseTree ..
+
+IMP: (7/16/10, DN) Fast path for grid-aligned boxes in AbstractShapeBuilder.pushPoly .
+
+IMP/MAN: (7/15/10, SMR) Added Spice Opus output format (Bug #2848).
+
+BUG: (7/15/10, SMR) Going up hierarchy can duplicate selection (Bug #2843).
+FIX: In WindowFrame.setCellByHistory() and in EditWindow.upHierarchy()
+     clear selection before setting new ones.
+
+BUG: (7/14/10, SMR) Restore waveform window functionality (Bug #2846).
+FIX: Redid many things.
+
+BUG: (7/13/10 GVG) KeyBehavior not picking arrow keys (Bug #2845)
+FIX: Added KeyEvent.KEY_RELEASED as valid ID to accept the event.
+
+BUG: (7/12/10, SMR) Nanosim/Epic waveform reader crashes on bad file (Bug #2816).
+FIX: Rewrote Epic reader to use new waveform model.
+
+BUG: (7/11/10, SMR) Changing component choice in component menu should
+     change all component menus (Bug #2154).
+Fixed in TechPalette.PlacePopupListListener.actionPerformed().
+
+BUG: (7/8/10, SMR) LTSpice (raw format) doesn't display properly (Bug #2841).
+FIX: Fixed RawSpiceOut.java to use new sweeps.
+
+BUG: (7/8/10, SMR) Waveform window doesn't handle HSpice sweeps (Bug #2782).
+FIX: Added SweptSample class, added getSweepNames() to Signal.
+
+BUG: (7/5/10, SMR) Waveform window draws AC stimuli wrong (Bug #2839).
+FIX: Changed ComplexSample constructor to compute hypot() instead of atan2().
+
 BUG: (7/2/10, GVG) Placement regression failed due to change in test library? (Bug #2837)
 FIX: Rolled placementTests.jelib to original revision (r1576). Revision r1720 was
 modified inadvertent and gives different results.
