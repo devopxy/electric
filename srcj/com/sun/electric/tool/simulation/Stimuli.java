@@ -24,16 +24,15 @@
 package com.sun.electric.tool.simulation;
 
 import com.sun.electric.database.hierarchy.Cell;
-import com.sun.electric.tool.io.FileType;
+import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.tool.user.waveform.WaveformWindow;
 
-import java.awt.geom.Rectangle2D;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.*;
 
 /**
  *  This class represents a set of simulation *inputs* -- that is,
@@ -58,11 +57,10 @@ public class Stimuli {
 	/** the cell attached to this Stimuli information */		private Cell cell;
 	/** the disk file associated with this Stimuli */			private URL fileURL;
 	/** the separator character that breaks names */			private char separatorChar;
-	/** the analyses in this Stimuli */							private HashMap<String,HashMap<String,Signal>> analyses;
-	/** the list of analyses in this Stimuli */					private List<HashMap<String,Signal>> analysisList;
-	/** control points when signals are selected */				private HashMap<Signal,Double[]> controlPointMap;
-
-    /** Cached version of net delimiter**/                      private String delim = SimulationTool.getSpiceExtractedNetDelimiter();
+	/** the analyses in this Stimuli */							private HashMap<String,SignalCollection> scMap;
+	/** the list of analyses in this Stimuli */					private List<SignalCollection> scList;
+	/** control points when signals are selected */				private HashMap<Signal<?>,Double[]> controlPointMap;
+    /** Cached version of net delimiter**/                      private String delim;
 
     /**
 	 * Constructor to build a new Simulation Data object.
@@ -70,9 +68,10 @@ public class Stimuli {
 	public Stimuli()
 	{
 		separatorChar = '.';
-		analyses = new HashMap<String,HashMap<String,Signal>>();
-		analysisList = new ArrayList<HashMap<String,Signal>>();
-		controlPointMap = new HashMap<Signal,Double[]>();
+		scMap = new HashMap<String,SignalCollection>();
+		scList = new ArrayList<SignalCollection>();
+		controlPointMap = new HashMap<Signal<?>,Double[]>();
+		delim = " ";
 	}
 
 	/**
@@ -81,31 +80,33 @@ public class Stimuli {
 	public void finished()
 	{
 		controlPointMap.clear();
-		analyses.clear();
+		scMap.clear();
 	}
 
-	public void addAnalysis(HashMap<String,Signal> an)
+	public void addSignalCollection(SignalCollection an)
 	{
-		analyses.put(an.toString(), an);
-		analysisList.add(an);
+		scMap.put(an.getName(), an);
+		scList.add(an);
 	}
 
 	/**
-	 * Method to find an HashMap<String,Signal> of a given type.
+	 * Method to find a SignalCollection with a given name.
 	 * @param type the stimulus type being queried.
-	 * @return the HashMap<String,Signal> of that type (null if not found).
+	 * @return the SignalCollection with that name (null if not found).
 	 */
-	public HashMap<String,Signal> findAnalysis(String title)
+	public SignalCollection findSignalCollection(String title)
 	{
-		HashMap<String,Signal> an = analyses.get(title);
+		SignalCollection an = scMap.get(title);
 		return an;
 	}
 
+    public void setNetDelimiter(String d) { delim = d;}
+
     public String getNetDelimiter() { return delim;}
 
-    public int getNumAnalyses() { return analysisList.size(); }
+    public int getNumAnalyses() { return scList.size(); }
 
-	public Iterator<HashMap<String,Signal>> getAnalyses() { return analysisList.iterator(); }
+	public Iterator<SignalCollection> getSignalCollections() { return scList.iterator(); }
 
 	/**
 	 * Method to set the Cell associated with this simulation data.
@@ -179,7 +180,7 @@ public class Stimuli {
 	 * @return an array of times where there are control points.
 	 * Null if no control points are defined.
 	 */
-	public Double [] getControlPoints(Signal sig) { return controlPointMap.get(sig); }
+	public Double [] getControlPoints(Signal<?> sig) { return controlPointMap.get(sig); }
 
 	/**
 	 * Method to clear the list of control points associated with a signal.
@@ -187,7 +188,7 @@ public class Stimuli {
 	 * These points can be selected for change of the stimuli.
 	 * @param sig the signal to clear.
 	 */
-	public void clearControlPoints(Signal sig) { controlPointMap.remove(sig); }
+	public void clearControlPoints(Signal<?> sig) { controlPointMap.remove(sig); }
 
 	/**
 	 * Method to add a new control point to the list on a signal.
@@ -196,7 +197,7 @@ public class Stimuli {
 	 * @param sig the signal in question.
 	 * @param time the time of the new control point.
 	 */
-	public void addControlPoint(Signal sig, double time)
+	public void addControlPoint(Signal<?> sig, double time)
 	{
 		Double [] controlPoints = controlPointMap.get(sig);
 		if (controlPoints == null)
@@ -226,7 +227,7 @@ public class Stimuli {
 	 * @param sig the signal in question.
 	 * @param time the time of the control point to delete.
 	 */
-	public void removeControlPoint(Signal sig, double time)
+	public void removeControlPoint(Signal<?> sig, double time)
 	{
 		Double [] controlPoints = controlPointMap.get(sig);
 		if (controlPoints == null) return;
@@ -283,8 +284,8 @@ public class Stimuli {
 	public double getMinTime()
 	{
 		double leftEdge = 0, rightEdge = 0;
-		for(HashMap<String,Signal> an : analysisList) {
-            for (Signal sig : (Iterable<Signal>)an.values()) {
+		for(SignalCollection sc : scList) {
+            for (Signal<?> sig : sc.getSignals()) {
                 if (leftEdge == rightEdge) {
                         leftEdge = sig.getMinTime();
                         rightEdge = sig.getMaxTime();
@@ -311,8 +312,8 @@ public class Stimuli {
 	public double getMaxTime()
 	{
 		double leftEdge = 0, rightEdge = 0;
-		for(HashMap<String,Signal> an : analysisList) {
-            for (Signal sig : (Iterable<Signal>)an.values()) {
+		for(SignalCollection sc : scList) {
+            for (Signal<?> sig : sc.getSignals()) {
                 if (leftEdge == rightEdge) {
                         leftEdge = sig.getMinTime();
                         rightEdge = sig.getMaxTime();
@@ -334,7 +335,17 @@ public class Stimuli {
 	 * Method to tell whether this simulation data is analog or digital.
 	 * @return true if this simulation data is analog.
 	 */
-	public boolean isAnalog() { return true; }
+	public boolean isAnalog()
+	{
+		for(SignalCollection sc : scList)
+		{
+            for (Signal<?> sig : sc.getSignals())
+            {
+            	if (!sig.isDigital()) return true;
+            }
+		}
+		return false;
+	}
 
 	/**
 	 * Method to convert a strength to an index value.
@@ -431,11 +442,84 @@ public class Stimuli {
 		return "?";
 	}
 
-    public static HashMap<String,Signal> newAnalysis(Stimuli sd, final String title, boolean extrapolateToRight) {
-        HashMap<String,Signal> ret = new HashMap<String,Signal>() {
-            public String toString() { return title; }
-        };
-		sd.addAnalysis(ret);
-        return ret;
+    public static SignalCollection newSignalCollection(Stimuli sd, final String title)
+    {
+    	SignalCollection sc = new SignalCollection(title);
+		sd.addSignalCollection(sc);
+        return sc;
     }
+
+    /**
+     * Method to find busses in a list of signals and create them.
+     * @param curArray the list of signals.
+     * @param sc the SignalCollection in which the signals reside.
+     */
+    public void makeBusSignals(List<Signal<?>> signalList, SignalCollection sc)
+	{
+		if (signalList == null) return;
+        Collections.sort(signalList, new WaveformWindow.SignalsByName());
+		List<Signal<?>> busSoFar = new ArrayList<Signal<?>>();
+		for(Signal<?> sig : signalList)
+		{
+			String curSignalName = sig.getSignalName();
+			int squarePos = curSignalName.indexOf('[');
+			if (squarePos < 0)
+			{
+				makeBus(busSoFar, sc);
+				continue;
+			}
+			boolean startNewBus = false;
+			if (busSoFar.size() > 0)
+			{
+				String curBusName = curSignalName.substring(0, squarePos);
+				int curIndex = TextUtils.atoi(curSignalName.substring(squarePos+1));
+				String curScope = sig.getSignalContext();
+				if (curScope == null) curScope = "";
+
+				Signal<?> lastSig = busSoFar.get(busSoFar.size()-1);
+				String lastSignalName = lastSig.getSignalName();
+				squarePos = lastSignalName.indexOf('[');
+				String lastBusName = lastSignalName.substring(0, squarePos);
+				int lastIndex = TextUtils.atoi(lastSignalName.substring(squarePos+1));
+				String lastScope = lastSig.getSignalContext();
+				if (lastScope == null) lastScope = "";
+
+				if (!lastBusName.equals(curBusName)) startNewBus = true; else
+					if (!lastScope.equals(curScope)) startNewBus = true; else
+						if (lastIndex+1 != curIndex) startNewBus = true;
+			}
+			if (startNewBus)
+				makeBus(busSoFar, sc);
+			busSoFar.add(sig);
+		}
+		makeBus(busSoFar, sc);
+	}
+
+	private void makeBus(List<Signal<?>> busSoFar, SignalCollection sc)
+	{
+		if (busSoFar.size() == 0) return;
+		int width = busSoFar.size();
+		Signal<DigitalSample>[] subsigs = (Signal<DigitalSample>[])new Signal[width];
+		for(int i=0; i<width; i++)
+            subsigs[i] = (Signal<DigitalSample>)busSoFar.get(i);
+
+		// get first index
+		String firstEntryName = subsigs[0].getSignalName();
+		int firstSquarePos = firstEntryName.indexOf('[');
+		int firstIndex = TextUtils.atoi(firstEntryName.substring(firstSquarePos+1));
+
+		// get last index
+		String lastEntryName = subsigs[width-1].getSignalName();
+		int lastSquarePos = lastEntryName.indexOf('[');
+		int lastIndex = TextUtils.atoi(lastEntryName.substring(lastSquarePos+1));
+
+		// make the bus
+		String busName = firstEntryName.substring(0, firstSquarePos) + "[" + firstIndex + ":" + lastIndex + "]";
+		String scope = subsigs[0].getSignalContext();
+        BusSample.createSignal(sc, this, busName, scope, true, subsigs);
+
+        // reset the list
+        busSoFar.clear();
+	}
+
 }

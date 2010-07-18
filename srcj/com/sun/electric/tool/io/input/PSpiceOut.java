@@ -27,10 +27,10 @@ package com.sun.electric.tool.io.input;
 
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.text.TextUtils;
-
-import com.sun.electric.tool.simulation.Stimuli;
-import com.sun.electric.tool.simulation.Signal;
 import com.sun.electric.tool.simulation.ScalarSample;
+import com.sun.electric.tool.simulation.Signal;
+import com.sun.electric.tool.simulation.SignalCollection;
+import com.sun.electric.tool.simulation.Stimuli;
 
 import java.io.IOException;
 import java.net.URL;
@@ -54,18 +54,19 @@ public class PSpiceOut extends Input<Stimuli>
 	/**
 	 * Method to read an PSpice output file.
 	 */
-	protected Stimuli processInput(URL fileURL, Cell cell)
+	protected Stimuli processInput(URL fileURL, Cell cell, Stimuli sd)
 		throws IOException
 	{
-        Stimuli sd = new Stimuli();
+		sd.setNetDelimiter(" ");
 
 		// open the file
 		if (openTextInput(fileURL)) return sd;
 
-		// show progress reading .spo file
+		// show progress reading .txt file
+		System.out.println("Reading PSpice output file: " + fileURL.getFile());
 		startProgressDialog("PSpice output", fileURL.getFile());
 
-		// read the actual signal data from the .spo file
+		// read the actual signal data from the .txt file
 		readPSpiceFile(cell, sd);
 
 		// stop progress dialog, close the file
@@ -78,7 +79,7 @@ public class PSpiceOut extends Input<Stimuli>
 		throws IOException
 	{
 		boolean first = true;
-		HashMap<String,Signal> an = Stimuli.newAnalysis(sd, "SIGNALS", false);
+		SignalCollection sc = Stimuli.newSignalCollection(sd, "SIGNALS");
 		sd.setCell(cell);
 		List<String> signalNames = new ArrayList<String>();
 		List<Double> [] values = null;
@@ -169,7 +170,7 @@ public class PSpiceOut extends Input<Stimuli>
 			double[] doubleValues = new double[numEvents];
 			for(int i=0; i<numEvents; i++)
 				doubleValues[i] = values[j].get(i).doubleValue();
-			ScalarSample.createSignal(an, sd, signalNames.get(j), null, time, doubleValues);
+			ScalarSample.createSignal(sc, sd, signalNames.get(j), null, time, doubleValues);
 		}
 	}
 

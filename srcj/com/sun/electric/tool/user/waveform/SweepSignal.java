@@ -22,9 +22,7 @@
  * Boston, Mass 02111-1307, USA.
  */
 package com.sun.electric.tool.user.waveform;
-import com.sun.electric.database.text.TextUtils;
-import com.sun.electric.tool.simulation.Signal;
-import java.util.*;
+
 import java.util.Iterator;
 
 /**
@@ -32,36 +30,31 @@ import java.util.Iterator;
  */
 public class SweepSignal
 {
-	private Object obj;
+	private String name;
 	private WaveformWindow ww;
-	private HashMap<String,Signal> an;
 	private boolean included;
 	private int sweepIndex;
 
-	public SweepSignal(Object obj, WaveformWindow ww, HashMap<String,Signal> an)
+	public SweepSignal(String name, WaveformWindow ww)
 	{
-		this.obj = obj;
+		this.name = name;
 		this.ww = ww;
-		this.an = an;
 		included = true;
-        sweepIndex = ww.addSweep(this);
 	}
 
 	public String toString()
 	{
-		String name = null;
-		if (obj instanceof Double) name = TextUtils.formatDouble(((Double)obj).doubleValue()); else
-			name = obj.toString();
+		String ret = name;
 		if (included)
 		{
-			name += " >>>>> INCLUDED";
+			ret += " >>>>> INCLUDED";
 			if (ww.getHighlightedSweep() == sweepIndex)
-				name += " !!!!";
+				ret += " !!!!";
 		} else
 		{
-			name += " ----- EXCLUDED";
+			ret += " ----- EXCLUDED";
 		}
-		return name;
+		return ret;
 	}
 
 	public void setIncluded(boolean included, boolean update)
@@ -78,7 +71,7 @@ public class SweepSignal
 		}
 	}
 
-    public Object getObject() { return obj; }
+    public String getName() { return name; }
 
 	public boolean isIncluded() { return included; }
 
@@ -91,6 +84,4 @@ public class SweepSignal
 			wp.repaintWithRulers();
 		}
 	}
-
-	public HashMap<String,Signal> getAnalysis() { return an; }
 }

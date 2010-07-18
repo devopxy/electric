@@ -27,11 +27,9 @@ import com.sun.electric.database.geometry.Poly;
 import com.sun.electric.database.geometry.PolyBase;
 import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.variable.TextDescriptor;
-
 import com.sun.electric.tool.simulation.Signal;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.ui.ClickZoomWireListener;
-import com.sun.electric.tool.user.ui.TopLevel;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -50,7 +48,6 @@ import java.util.Iterator;
 import java.util.List;
 
 import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 
@@ -128,7 +125,7 @@ public class HorizRuler extends JPanel implements MouseListener, MouseMotionList
 		int wid = sz.width;
 		int hei = sz.height;
 		int offX = 0;
-		Signal xAxisSig = waveWindow.getXAxisSignalAll();
+		Signal<?> xAxisSig = waveWindow.getXAxisSignalAll();
 		if (drawHere != null)
 		{
 			xAxisSig = drawHere.getXAxisSignal();
@@ -136,7 +133,7 @@ public class HorizRuler extends JPanel implements MouseListener, MouseMotionList
 		if (g != null)
 		{
 			// figure out where the panel sits on the screen
-			if (WaveformWindow.USETABLES && drawHere != null)
+			if (drawHere != null)
 			{
 				Dimension tableSz = waveWindow.getWaveformTable().getSize();
 				Point screenLoc = waveWindow.getWaveformTable().getLocationOnScreen();
@@ -374,31 +371,10 @@ public class HorizRuler extends JPanel implements MouseListener, MouseMotionList
 		double leftEdge = waveWindow.getSimData().getMinTime();
 		double rightEdge = waveWindow.getSimData().getMaxTime();
 
-		boolean notWarned = true;
 		for(Iterator<Panel> it = waveWindow.getPanels(); it.hasNext(); )
 		{
 			Panel wp = it.next();
 			if (!waveWindow.isXAxisLocked() && wp != wavePanel) continue;
-            /*
-			if (wp.getAnalysisType() == Analysis.ANALYSIS_MEAS)
-			{
-				if (wp.getNumSignals() > 0)
-				{
-					if (notWarned)
-					{
-						notWarned = true;
-						int response = JOptionPane.showConfirmDialog(TopLevel.getCurrentJFrame(),
-							"Remove all measurement traces in these panels?");
-						if (response != JOptionPane.YES_OPTION) return;
-					}
-					waveWindow.deleteAllSignalsFromPanel(wp);
-				}
-				String analysisType = "SIGNALS";
-				if (waveWindow.getSimData().getNumAnalyses() > 0)
-					analysisType = waveWindow.getSimData().getAnalyses().next().getAnalysisType();
-				wp.setAnalysisType(analysisType);
-			}
-            */
 			wp.setXAxisSignal(null);
 			wp.setXAxisRange(leftEdge, rightEdge);
 			if (wp.getHorizRuler() != null) wp.getHorizRuler().repaint();

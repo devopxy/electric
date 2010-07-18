@@ -22,6 +22,7 @@
  * Boston, Mass 02111-1307, USA.
  */
 package com.sun.electric.tool.simulation;
+
 import com.sun.electric.database.geometry.PolyBase;
 import com.sun.electric.database.geometry.btree.unboxed.LatticeOperation;
 import com.sun.electric.database.geometry.btree.unboxed.UnboxedComparable;
@@ -41,7 +42,7 @@ import java.util.List;
  *  An implementation of Sample for scalar data.  Holds a
  *  double internally.
  */
-public class ScalarSample implements Sample, Comparable {
+public class ScalarSample implements Sample, Comparable<Object> {
 
     private double value;
 
@@ -121,37 +122,50 @@ public class ScalarSample implements Sample, Comparable {
         }
     };
 
-    public static void plotSig(MutableSignal sig, Panel panel, Graphics g, WaveSignal ws, Color light,
-        List<PolyBase> forPs, Rectangle2D bounds, List<WaveSelection> selectedObjects)
+    public static void plotSig(MutableSignal<?> sig, Panel panel, Graphics g, WaveSignal ws, Color light,
+        List<PolyBase> forPs, Rectangle2D bounds, List<WaveSelection> selectedObjects, Signal<?> xAxisSignal)
     {
 		int linePointMode = panel.getWaveWindow().getLinePointMode();
 		Dimension sz = panel.getSize();
 
 		// draw analog trace
-		Signal<ScalarSample> as = sig;
+		Signal<?> as = sig;
 		int s = 0;
-		Signal<ScalarSample> wave = as;
+		Signal<?> wave = as;
 		if (wave.isEmpty()) return;
 		Signal.View<RangeSample<ScalarSample>> waveform = ((Signal<ScalarSample>)wave).getRasterView(
 			panel.convertXScreenToData(0), panel.convertXScreenToData(sz.width), sz.width, true);
-		Signal<ScalarSample> xWaveform = null;
+		Signal.View<RangeSample<ScalarSample>> xWaveform = null;
+	    if (xAxisSignal != null)
+	    	xWaveform = ((Signal<ScalarSample>)xAxisSignal).getRasterView(
+				panel.convertXScreenToData(0), panel.convertXScreenToData(sz.width), sz.width, true);
 		int lastX = 0, lastLY = 0, lastHY = 0;
 		boolean first = true;
 		for(int i=0; i<waveform.getNumEvents(); i++)
 		{
-		    int x = panel.convertXDataToScreen(waveform.getTime(i));
 		    RangeSample<ScalarSample> samp = (RangeSample<ScalarSample>)waveform.getSample(i);
 		    if (samp == null) continue;
 		    int lowY = panel.convertYDataToScreen(samp.getMin().getValue());
 		    int highY = panel.convertYDataToScreen(samp.getMax().getValue());
-		    if (xWaveform != null)
-		    	x = panel.convertXDataToScreen(((ScalarSample)xWaveform.getExactView().getSample(i)).getValue());
 
-		   // draw lines if requested and line is on-screen
-		   if (linePointMode <= 1) {
-		       if (!first) {
-		           // drawing has lines
-		           if (lastLY != lastHY || lowY != highY) {
+		    int x = panel.convertXDataToScreen(waveform.getTime(i));
+		    if (xWaveform != null)
+		    {
+		    	int xEventNum = waveform.getNumEvents() * i / xWaveform.getNumEvents();
+			    RangeSample<ScalarSample> xSampRange = (RangeSample<ScalarSample>)xWaveform.getSample(xEventNum);
+			    Sample xSamp = xSampRange.getMin();
+			    if (xSamp instanceof SweptSample<?>) xSamp = ((SweptSample<?>)xSamp).getSweep(0);
+		    	x = panel.convertXDataToScreen(((ScalarSample)xSamp).getValue());
+		    }
+
+		   // draw lines/points if requested and on-screen
+		   if (linePointMode <= 1)
+		   {
+	           // show line
+		       if (!first)
+		       {
+		           if (lastLY != lastHY || lowY != highY)
+		           {
 		               if (g != null) g.setColor(light);
 		               panel.processALine(g, lastX, lastHY, lastX, lastLY, bounds, forPs, selectedObjects, ws, s);
 		               panel.processALine(g, x, highY, x, lowY, bounds, forPs, selectedObjects, ws, s);
@@ -160,18 +174,20 @@ public class ScalarSample implements Sample, Comparable {
 		           }
 		           panel.processALine(g, lastX, lastLY, x, lowY, bounds, forPs, selectedObjects, ws, s);
 		       }
-		   } else {
-		       // show points if requested and point is on-screen
+			   first = false;
+		   }
+		   if (linePointMode >= 1)
+		   {
+		       // show point
 		       panel.processABox(g, x-2, lowY-2, x+2, lowY+2, bounds, forPs, selectedObjects, ws, false, 0);
 		   }
 		   lastX = x;
 		   lastLY = lowY;
 		   lastHY = highY;
-		   first = false;
 		}
     }
 
-    public static MutableSignal<ScalarSample> createSignal(HashMap<String,Signal> an,
+    public static MutableSignal<ScalarSample> createSignal(SignalCollection sc,
                                                            Stimuli sd, String signalName, String signalContext) {
     	/**
     	 *  Adam says: This class is an _anonymous_ inner class for a reason.  Although XXXSample.createSignal() returns a
@@ -182,25 +198,22 @@ public class ScalarSample implements Sample, Comparable {
     	 *  instanceof checks.
     	 */
         MutableSignal<ScalarSample> ret =
-            new BTreeSignal<ScalarSample>(an, sd, signalName, signalContext, BTreeSignal.getTree(unboxer, latticeOp)) {
+            new BTreeSignal<ScalarSample>(sc, sd, signalName, signalContext, false, BTreeSignal.getTree(unboxer, latticeOp)) {
             public void plot(Panel panel, Graphics g, WaveSignal ws, Color light,
-                             List<PolyBase> forPs, Rectangle2D bounds, List<WaveSelection> selectedObjects) {
-            	plotSig(this, panel, g, ws, light, forPs, bounds, selectedObjects);
+                             List<PolyBase> forPs, Rectangle2D bounds, List<WaveSelection> selectedObjects, Signal<?> xAxisSignal) {
+            	plotSig(this, panel, g, ws, light, forPs, bounds, selectedObjects, xAxisSignal);
             }
         };
         return ret;
     }
 
-	public static MutableSignal<ScalarSample> createSignal(HashMap<String,Signal> an, Stimuli sd, String signalName, String signalContext,
+	public static MutableSignal<ScalarSample> createSignal(SignalCollection sc, Stimuli sd, String signalName, String signalContext,
                                                            double[] time, double[] values) {
         if (values.length==0) throw new RuntimeException("attempt to create an empty signal");
-        MutableSignal<ScalarSample> as = ScalarSample.createSignal(an, sd, signalName, signalContext);
+        MutableSignal<ScalarSample> as = ScalarSample.createSignal(sc, sd, signalName, signalContext);
         for(int i=0; i<time.length; i++)
             if (as.getSample(time[i]) == null)
                 as.addSample(time[i], new ScalarSample(values[i]));
 		return as;
 	}
-
 }
-
-

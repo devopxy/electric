@@ -27,20 +27,13 @@ package com.sun.electric.tool.io.input;
 
 import com.sun.electric.database.Environment;
 import com.sun.electric.database.hierarchy.Cell;
-import com.sun.electric.database.hierarchy.Library;
 import com.sun.electric.database.text.TextUtils;
-import com.sun.electric.database.variable.UserInterface;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.UserInterfaceExec;
 import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.io.input.verilog.VerilogOut;
 import com.sun.electric.tool.simulation.SimulationTool;
-import com.sun.electric.tool.user.ui.WindowFrame;
-import com.sun.electric.tool.user.waveform.WaveformWindow;
 import com.sun.electric.tool.simulation.Stimuli;
-import com.sun.electric.tool.user.dialogs.CellBrowser;
-import com.sun.electric.tool.user.dialogs.OpenFile;
-import com.sun.electric.tool.user.ui.TopLevel;
 import com.sun.electric.tool.user.waveform.WaveformWindow;
 
 import java.io.File;
@@ -86,7 +79,6 @@ public final class SimulationData {
             FileType.SPICE.getGroupPath(),
             TextUtils.getFilePath(cell.getLibrary().getLibFile())
         };
-        File file = null;
         for (String path : paths)
             for (String ext : known_extensions)
                 if (new File(path, cell.getName()+'.'+ext).exists()) {
@@ -108,17 +100,16 @@ public final class SimulationData {
     }
 
     private static Input<Stimuli> getInputForExtension(String extension) {
-        if (extension.indexOf('.')!=-1)
+        if (extension.indexOf('.') != -1)
             extension = extension.substring(extension.lastIndexOf('.')+1);
-        if      (extension.equals("txt"))  return new PSpiceOut();
-        else if (extension.equals("raw"))  return new RawSpiceOut();
-        else if (extension.equals("dump")) return new VerilogOut();
-        else if (extension.equals("spo"))  return new SpiceOut();
-        else if (extension.equals("out"))  return new EpicOut.EpicOutProcess();
-        else if (extension.equals("vcd"))  return new VerilogOut();
-        else if (extension.startsWith("tr") || extension.startsWith("sw") || extension.startsWith("ic") ||
-                 extension.startsWith("ac") || extension.startsWith("mt") || extension.startsWith("pa"))
-            return new HSpiceOut();
+        if (extension.equals("dump") || extension.equals("vcd")) return new VerilogOut();
+        if (extension.equals("txt")) return new PSpiceOut();
+        if (extension.equals("raw")) return new RawSpiceOut();
+        if (extension.equals("spo")) return new SpiceOut();
+        if (extension.equals("out")) return new EpicOut();
+        if (extension.startsWith("tr") || extension.startsWith("sw") || extension.startsWith("ic") ||
+            extension.startsWith("ac") || extension.startsWith("mt") || extension.startsWith("pa"))
+            	return new HSpiceOut();
         return null;
     }
 
@@ -126,7 +117,6 @@ public final class SimulationData {
 	 * Class to read simulation output in a new thread.
 	 */
 	private static class ReadSimulationOutput extends Thread {
-		private FileType type;
 		private Input<Stimuli> is;
 		private URL fileURL;
 		private Cell cell;
@@ -134,14 +124,14 @@ public final class SimulationData {
         private Stimuli sd;
         private final Environment launcherEnvironment;
         private final UserInterfaceExec userInterface;
+        private String netDelimeter;
 
 		private ReadSimulationOutput(Cell cell, URL fileURL, WaveformWindow ww) {
-			this.type = type;
 			this.fileURL = fileURL;
 			this.cell = cell;
 			this.ww = ww;
-            this.sd = null;
             this.is = getInputForExtension(fileURL.getPath());
+            this.netDelimeter = SimulationTool.getSpiceExtractedNetDelimiter();
             if (this.is==null) throw new RuntimeException("unable to detect type");
             // future feature: try to guess the file type from the first few lines
             launcherEnvironment = Environment.getThreadEnvironment();
@@ -155,7 +145,10 @@ public final class SimulationData {
                 Job.setUserInterface(userInterface);
             }
 			try {
-                sd = is.processInput(fileURL, cell);
+				sd = new Stimuli();
+				sd.setNetDelimiter(netDelimeter);
+				sd.setCell(cell);
+                is.processInput(fileURL, cell, sd);
 				if (sd == null) return;
                 sd.setFileURL(fileURL);
                 final Stimuli sdx = sd;
