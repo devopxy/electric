@@ -40,8 +40,8 @@ import java.util.List;
  */
 public abstract class AbstractMetricGeneric<T> {
 
-	List<PlacementNode> nodesToPlace;
-	List<PlacementNetwork> allNetworks;
+	protected List<PlacementNode> nodesToPlace;
+	protected List<PlacementNetwork> allNetworks;
 
 	/**
 	 * 
