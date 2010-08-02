@@ -37,7 +37,6 @@ import com.sun.electric.database.variable.EditWindow_;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.routing.SeaOfGates.SeaOfGatesOptions;
 import com.sun.electric.tool.user.ErrorLogger;
-import com.sun.electric.tool.util.CollectionFactory;
 import com.sun.electric.tool.util.concurrent.Parallel;
 import com.sun.electric.tool.util.concurrent.datastructures.WorkStealingStructure;
 import com.sun.electric.tool.util.concurrent.exceptions.PoolExistsException;
@@ -111,8 +110,8 @@ public class SeaOfGatesEngineNew2 extends SeaOfGatesEngine {
         // non-blocking execute
         seaOfGatesJob.execute(false);
 
-        List<NeededRoute> routesToDo = CollectionFactory.createArrayList();
-        List<Integer> routeIndices = CollectionFactory.createArrayList();
+        NeededRoute[] routesToDo = new NeededRoute[numberOfThreads];
+        int[] routeIndices = new int[numberOfThreads];
 
         // create list of routes and blocked areas
         List<NeededRoute> myList = new ArrayList<NeededRoute>();
@@ -137,50 +136,46 @@ public class SeaOfGatesEngineNew2 extends SeaOfGatesEngine {
                 }
                 if (isBlocked)
                     continue;
-                
-                myList.remove(i);
 
                 // this route can be done: start it
                 blocked.add(nr.routeBounds);
-                routesToDo.add(nr);
-                routeIndices.add(i);
+                routesToDo[threadAssign] = nr;
+                routeIndices[threadAssign] = i;
                 findPath(nr, env, ep);
                 threadAssign++;
-//                if (threadAssign >= numberOfThreads)
-//                    break;
+                if (threadAssign >= numberOfThreads)
+                    break;
             }
 
-            // String routes = "";
-            // for (int i = 0; i < threadAssign; i++) {
-            // String routeName = routesToDo[i].routeName;
-            // if (routeBatches[routesToDo[i].batchNumber].segsInBatch > 1)
-            // routeName += "(" + routesToDo[i].routeInBatch + "/"
-            // + routeBatches[routesToDo[i].batchNumber].segsInBatch + ")";
-            // if (routes.length() > 0)
-            // routes += ", ";
-            // routes += routeName;
-            // }
-            // System.out.println("Parallel routing " + routes + "...");
-            // Job.getUserInterface().setProgressNote(routes);
+            String routes = "";
+            for (int i = 0; i < threadAssign; i++) {
+                String routeName = routesToDo[i].routeName;
+                if (routeBatches[routesToDo[i].batchNumber].segsInBatch > 1)
+                    routeName += "(" + routesToDo[i].routeInBatch + "/"
+                            + routeBatches[routesToDo[i].batchNumber].segsInBatch + ")";
+                if (routes.length() > 0)
+                    routes += ", ";
+                routes += routeName;
+            }
+            System.out.println("Parallel routing " + routes + "...");
+            Job.getUserInterface().setProgressNote(routes);
 
             // now wait for routing threads to finish
             // outSem.acquireUninterruptibly(threadAssign);
             seaOfGatesJob.join();
 
             // all done, now handle the results
-            for (NeededRoute tmpNr : routesToDo) {
-                if (tmpNr.winningWF != null && tmpNr.winningWF.vertices != null)
-                    createRoute(tmpNr);
+            for (int i = 0; i < threadAssign; i++) {
+                if (routesToDo[i].winningWF != null && routesToDo[i].winningWF.vertices != null)
+                    createRoute(routesToDo[i]);
             }
-            
+            for (int i = threadAssign - 1; i >= 0; i--)
+                myList.remove(routeIndices[i]);
             routesDone += threadAssign;
             Job.getUserInterface().setProgressValue(routesDone * 100 / totalRoutes);
-            
         }
 
         seaOfGatesJob.join();
-        routesToDo.clear();
-        routeIndices.clear();
 
         try {
             ThreadPool.getThreadPool().shutdown();
@@ -273,7 +268,7 @@ public class SeaOfGatesEngineNew2 extends SeaOfGatesEngine {
 
         public synchronized boolean isReady(int id) {
             isReady[id] = true;
-            return !(isReady[0] && isReady[1]);
+            return isReady[0] && isReady[1];
         }
 
         /*
@@ -316,9 +311,7 @@ public class SeaOfGatesEngineNew2 extends SeaOfGatesEngine {
                     wnd.finishedHighlighting();
                 }
             }
-            //nr.cleanSearchMemory();
-            
-            System.out.println(nr.routeName + " done ... (" + nr.routeInBatch + "/" + nr.batchNumber + ")");
+            nr.cleanSearchMemory();
 
         }
 

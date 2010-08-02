@@ -2,7 +2,66 @@
 
 NOTE: Please place changes under the version that will be released next.
 
+************************* Version 9.00k: ******************************
+
+IMP: (8/2/10, SMR) Gerber import alternates layer assignment (Bug #2860).
+
+BUG: (7/30/10, JKG) Hitting escape to cancel a wiring tool action does not reset the highlights (Bug #2842)
+FIX: This case was missing in the code for 'escapePressed' in ClickZoomWireListener
+
+IMP: (7/29/10 GVG) Removing deprecated fuctions in experimental 2 and 3,
+new routers codes, Bug #2803
+
+BUG: (7/29/10, DN) NPE in WaveformTests using the GUI (Bug #2868).
+    I guess that WindowFrame.finished() should be called from SwingThread only.
+    Assertion is added to WindowFrame.finished() .
+
+BUG: (7/29/10, SMR) Vertical waveform axis zero value drawn badly (Bug #2870).
+FIX: Fixed in Panel.drawPanelContents().
+
+IMP: (7/29/10, SMR) Added import regressions (Bug #2869).
+
+BUG: (7/29/10, FS) Add "terminal-flag" to electric (Bug #2867)
+FIX: Set terminal cells as locked (bookshelf) + propagate terminals to placement nodes
+     But: no placement tool uses this information at the moment
+
+IMP: (7/29/10, DN) Skip non-manhattan layers in MANHATTAN mode of DRC area check.
+
+BUG: (7/28/10, FS) ArrayIndexOutOfBoundsException in matrix example
+FIX: Data Race on bottom index pointer in UnboundedDEQueue
+
+IMP: (7/27/10, GVG) DRC Warnings reported more than once (Bug #2865)
+
+IMP: (7/17/10, GVG) Getting Waveform script working in regression (Bug #2864)
+
+IMP: (7/26/10, SMR) Added initial waveform window regression tests (Bug #2861).
+
+BUG: (7/26/10, GVG) Exception in Gerber reader because it tries to read wrong file? (Bug #2859)
+FIX: Extra filtering of files. Fixed unnecessary concatenation of file path. Removed  topDirName
+from gerberfiles.
+
+BUG: (7/26/10, FS) MultipleQueues + FCQueue not possible
+FIX: PJob didn't use all queues for work distribution
+
+BUG: (7/24/10, FS) German umlauts cause compiler warnings
+FIX: Use international translation of German umlauts
+
+BUG: (7/24/10, FS) Interrupt Exception in LockFreeStack (Bug #2856)
+FIX: Fixed. Save return from backoff algorithm instead of exception.
+
+IMP: (7/22/10, GVG) DRC regression failing due to memory problem in sport test (Bug #2854)
+Just disconnecting sport/area/local test since it takes too much time to run.
+
+IMP: (7/22/10, SMR) Added 6 experimental routers from Karlsruhe (Bug #2803).
+
 ************************* Version 9.00j: ******************************
+
+IMP: (7/21/10, FS) Add Scheduler Factory to Parallel Infrastructure
+
+IMP: (7/20/10, FS) Add FCQueue proposed by Nir Shavit and integrated the queue
+	as a scheduler for the parallel infrastructure.
+
+IMP: (7/20/10, FS) Parallel metrics: bounding box - minimum spaning tree (MST)
 
 BUG: (7/20/10, SMR) Canceling undo warning dialog with ESC fails (Bug #2852).
 FIX: Fixed ToolBar.undoCommand.run().
@@ -69,8 +128,8 @@ FIX: Fixed SizeListener to avoid transforming into the space of the node.
 BUG (6/30/10, FS) Force-Directed-1 do not terminate (Bug 2800)
 FIX: Kill barrier after termination
 
-BUG (6/30/10, FS) Add Placement Tools to Test Menu (Bug 2831) 
-FIX: Added, each tool has the following paramters (#threads 2, runtime 10sec) 
+BUG (6/30/10, FS) Add Placement Tools to Test Menu (Bug 2831)
+FIX: Added, each tool has the following paramters (#threads 2, runtime 10sec)
 
 BUG: (6/30/10, GVG) Test -> TestPlacement -> Placement1 doesn't work (Bug #2832)
 FIX: Don't assume libraries have *.jelib extension. Fixed regression as well.

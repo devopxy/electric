@@ -27,6 +27,7 @@ import com.sun.electric.database.change.DatabaseChangeEvent;
 import com.sun.electric.database.change.DatabaseChangeListener;
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.Library;
+import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.topology.NodeInst;
 import com.sun.electric.database.topology.PortInst;
 import com.sun.electric.database.variable.ElectricObject;
@@ -958,6 +959,7 @@ public class WindowFrame extends Observable
 	 */
 	public void finished()
 	{
+        assert SwingUtilities.isEventDispatchThread();
         // if this was called from the code, instead of an event handler,
         // make sure we're not visible anymore
         if (TopLevel.isMDIMode()) {

@@ -166,7 +166,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 	/** the "grow panel" button for widening. */			private JButton growPanel;
 	/** the "shrink panel" button for narrowing. */			private JButton shrinkPanel;
 	/** the list of panels. */								private JComboBox signalNameList;
-	/** mapping from analysis to entries in "SIGNALS" tree*/private Map<Signal<?>,TreePath> treePathFromSignal = new HashMap<Signal<?>,TreePath>();
+	/** mapping from Signals to entries in "SIGNALS" tree*/	private Map<Signal<?>,TreePath> treePathFromSignal = new HashMap<Signal<?>,TreePath>();
 	/** true if rebuilding the list of panels */			private boolean rebuildingSignalNameList = false;
 	/** the main scroll of all panels. */					private JScrollPane scrollAll;
 	/** left panel: the signal names */						private JPanel left;
@@ -308,7 +308,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		overall.add(addPanel, gbc);
 		addPanel.addActionListener(new ActionListener()
 		{
-			public void actionPerformed(ActionEvent evt) { makeNewPanel(); }
+			public void actionPerformed(ActionEvent evt) { makeNewPanel(-1); }
 		});
 
 		showPoints = new JButton(iconLineOnPointOff);
@@ -1338,10 +1338,13 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 	 * Method to create a new panel with an X range similar to others on the display.
 	 * @return the newly created Panel.
 	 */
-	public Panel makeNewPanel()
+	public Panel makeNewPanel(int panelSize)
 	{
-		int panelSize = User.getWaveformDigitalPanelHeight();
-		if (sd.isAnalog()) panelSize = User.getWaveformAnalogPanelHeight();
+		if (panelSize < 0)
+		{
+			if (sd.isAnalog()) panelSize = User.getWaveformAnalogPanelHeight(); else
+				panelSize = User.getWaveformDigitalPanelHeight();
+		}
 
 		// determine the X and Y ranges
 		double leftEdge, rightEdge;
@@ -2060,7 +2063,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
     public void loadTechnologies() {
     }
     
-	private DefaultMutableTreeNode getSignalsForExplorer(SignalCollection sc, TreePath parentPath, String analysis)
+	private DefaultMutableTreeNode getSignalsForExplorer(SignalCollection sc, TreePath parentPath, String collectionName)
 	{
 		Iterable<Signal<?>> signalsi = sc.getSignals();
         ArrayList<Signal<?>> signals = new ArrayList<Signal<?>>();
@@ -2077,12 +2080,12 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
         for(Signal<?> s : signalsi)
         	if (!busMembers.contains(s)) signals.add(s);
         if (signals.size()==0) return null;
-		DefaultMutableTreeNode signalsExplorerTree = new DefaultMutableTreeNode(analysis);
-		TreePath analysisPath = parentPath.pathByAddingChild(signalsExplorerTree);
+		DefaultMutableTreeNode signalsExplorerTree = new DefaultMutableTreeNode(collectionName);
+		TreePath collectionPath = parentPath.pathByAddingChild(signalsExplorerTree);
         for (Signal<?> s : sc.getSignals())
-            treePathFromSignal.put(s, analysisPath);
+            treePathFromSignal.put(s, collectionPath);
 		Map<String,TreePath> contextMap = new HashMap<String,TreePath>();
-		contextMap.put("", analysisPath);
+		contextMap.put("", collectionPath);
 		Collections.sort(signals, new SignalsByName());
 
 		// add branches first
@@ -2112,7 +2115,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		// add all signals to the tree
 		for(Signal<?> sSig : signals)
 		{
-			TreePath thisTree = analysisPath;
+			TreePath thisTree = collectionPath;
 
 			String nodeName = sSig.getSignalContext();
 			String nodeNameStr = nodeName;
@@ -2255,7 +2258,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		for(Signal<?> sSig : found) {
 			// add the signal
 			if (newPanel) {
-				wp = makeNewPanel();
+				wp = makeNewPanel(-1);
                 wp.fitToSignal(sSig);
                 newPanel = false;
 				if (!xAxisLocked)
@@ -3245,7 +3248,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 			oldXAxisSignalAll = xAxisSignalAll;
 			xAxisSignalAll = null;
 
-			SignalCollection sc = sd.findSignalCollection(oldXAxisSignalAll.getSignalCollectionName());
+			SignalCollection sc = oldXAxisSignalAll.getSignalCollection();
 			for(Signal<?> newSs : sc.getSignals())
 			{
 				String newSigName = newSs.getFullName();
@@ -3272,7 +3275,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 				wp.setXAxisSignal(null);
 
 				String oldSigName = oldSig.getFullName();
-				SignalCollection sc = sd.findSignalCollection(oldSig.getSignalCollectionName());
+				SignalCollection sc = oldSig.getSignalCollection();
 				for(Signal<?> newSs : sc.getSignals())
 				{
 					String newSigName = newSs.getFullName();
@@ -3290,54 +3293,24 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 			// adjust all signals inside the panel
 			for(WaveSignal ws : wp.getSignals())
 			{
+				// find the signal name in the new list
 				Signal<?> ss = ws.getSignal();
-				SignalCollection sc = sd.findSignalCollection(ss.getSignalCollectionName());
-//				Signal<?>[] busMembers = ss.getBusMembers();
-//				if (busMembers != null)
-//				{
-//					for(int b=0; b<busMembers.length; b++)
-//					{
-//						Signal<?> subDS = busMembers[b];
-//						String oldSigName = subDS.getFullName();
-//						Signal<?> newBus = null;
-//
-//						for(Signal<?> newSs : sc.getSignals())
-//                        {
-//	                        String newSigName = newSs.getFullName();
-//	                        if (!newSigName.equals(oldSigName)) continue;
-//	                        newBus = newSs;
-//	                        break;
-//						}
-//
-//						if (newBus == null)
-//						{
-//							inBus.remove(b);
-//							b--;
-//							System.out.println("Could not find signal " + oldSigName + " in the new data");
-//							redoPanel = true;
-//							continue;
-//						}
-//						inBus.set(b, newBus);
-//					}
-//				} else
+				String oldSigName = ss.getFullName();
+				ws.setSignal(null);
+				SignalCollection sc = ss.getSignalCollection();
+				for(Signal<?> newSs : sc.getSignals())
 				{
-					// single signal: find the name in the new list
-					String oldSigName = ss.getFullName();
-					ws.setSignal(null);
-					for(Signal<?> newSs : sc.getSignals())
-					{
-						String newSigName = newSs.getFullName();
-						if (!newSigName.equals(oldSigName)) continue;
-						ws.setSignal(newSs);
-						break;
-					}
-					if (ws.getSignal() == null)
-					{
-						System.out.println("Could not find signal " + oldSigName + " in the new data");
-						redoPanel = true;
-					}
-                }
-			}
+					String newSigName = newSs.getFullName();
+					if (!newSigName.equals(oldSigName)) continue;
+					ws.setSignal(newSs);
+					break;
+				}
+				if (ws.getSignal() == null)
+				{
+					System.out.println("Could not find signal " + oldSigName + " in the new data");
+					redoPanel = true;
+				}
+            }
 			while (redoPanel)
 			{
 				redoPanel = false;
@@ -3446,20 +3419,25 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 					entries[i] = "";
 					Signal<?> sig = dumpSignals.get(i-1);
 	                Signal.View<?> view = sig.getExactView();
-                    if (j < view.getNumEvents()) {
+                    if (j < view.getNumEvents())
+                    {
                         Sample sample = view.getSample(j);
-                        if (sample == null) {
-                        } else if (sample instanceof ScalarSample) {
-                            double t = view.getTime(j);
-                            double v = ((ScalarSample)sample).getValue();
-							if (entries[0] == null) entries[0] = "" + t;
-							entries[i] = "" + v;
-							haveData = true;
-						} else if (sample instanceof DigitalSample) {
-							if (entries[0] == null) entries[0] = "" + view.getTime(j);
-							entries[i] = "" + DigitalSample.getState((Signal.View<DigitalSample>)view, j);
-							haveData = true;
-						}
+                        if (sample != null)
+                        {
+	                        if (sample instanceof ScalarSample)
+	                        {
+	                            double t = view.getTime(j);
+	                            double v = ((ScalarSample)sample).getValue();
+								if (entries[0] == null) entries[0] = "" + t;
+								entries[i] = "" + v;
+								haveData = true;
+							} else if (sample instanceof DigitalSample)
+							{
+								if (entries[0] == null) entries[0] = "" + view.getTime(j);
+								entries[i] = "" + DigitalSample.getState((Signal.View<DigitalSample>)view, j);
+								haveData = true;
+							}
+                        }
 					}
 				}
 				if (!haveData) break;
@@ -3528,7 +3506,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 	/**
 	 * Method to remove all panels from the display.
 	 */
-	private void clearAllPanels()
+	public void clearAllPanels()
 	{
 		List<Panel> closeList = new ArrayList<Panel>();
 		for(Panel wp : wavePanels)
@@ -3593,13 +3571,13 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 					{
 						// header
 						first = false;
-						String analysisName = "";
-						//if (wp.getAnalysisType() != null) analysisName = " " + wp.getAnalysisType();
+						String collectionName = "";
+						//if (wp.getAnalysisType() != null) collectionName = " " + wp.getAnalysisType();
 						String log = "";
 						if (wp.isPanelLogarithmicHorizontally()) log = " xlog";
 						if (wp.isPanelLogarithmicVertically()) log += " ylog";
 						if (i > 0) printWriter.println();
-						printWriter.println("panel" + analysisName + log);
+						printWriter.println("panel" + collectionName + log);
 						printWriter.println("zoom " + wp.getYAxisLowValue() + " " + wp.getYAxisHighValue() +
 							" " + wp.getMinXAxis() + " " + wp.getMaxXAxis());
 						Signal<?> signalInX = ww.xAxisSignalAll;
@@ -3738,7 +3716,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 	 * The format of the string is as follows:
 	 * Each panel in the waveform window is terminated by "\n", so for example two panels would look like this:<BR>
 	 *   <PanelInfo> \n <PanelInfo> \n<BR>
-	 * Each PanelInfo section starts with information about the analysis in that panel,
+	 * Each PanelInfo section starts with information about the SignalCollection in that panel,
 	 * and then lists the signals in that panel.  The format is:<BR>
 	 *    \t [<SignalCollectionName>] [(<HorizontalSignal>)] <SignalList><BR>
 	 * Where <SignalList> is one or more of this:<BR>
@@ -3747,7 +3725,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 	 * Example:<BR>
 	 *    \t\t1:net_198 {255,0,0}\n<BR>
 	 * This has just one \n in it so it defines a single panel.
-	 * The first \t introduces the analysis type which is blank, meaning that it is
+	 * The first \t introduces the SignalCollection which is blank, meaning that it is
 	 * a Transient analysis and has Time as the horizontal axis.
 	 * There is just one signal listed (1:net_198) and its color is red (255,0,0).
 	 */
@@ -3917,7 +3895,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
         if (!found)
         {
             // create a new panel for the signal
-            Panel wp = makeNewPanel();
+            Panel wp = makeNewPanel(-1);
             wp.fitToSignal(as);
             if (!xAxisLocked)
                 wp.setXAxisRange(as.getMinTime(), as.getMaxTime());
@@ -4005,23 +3983,35 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 	{
 		// accumulate bounds for all displayed panels
 		double leftEdge=0, rightEdge=0;
+		Map<Panel,Double> panelLefts = new HashMap<Panel,Double>();
+		Map<Panel,Double> panelRights = new HashMap<Panel,Double>();
 		for(Panel wp : wavePanels)
 		{
-			if (wp.getXAxisSignal() != null) continue;
+			double panelLeft = 0, panelRight = 0;
 			for(WaveSignal ws : wp.getSignals())
 			{
-				if (leftEdge == rightEdge)
+				if (panelLeft == panelRight)
 				{
-					leftEdge  = ws.getSignal().getMinTime();
-					rightEdge = ws.getSignal().getMaxTime();
+					panelLeft  = ws.getSignal().getMinTime();
+					panelRight = ws.getSignal().getMaxTime();
 				} else
 				{
-					leftEdge  = Math.min(leftEdge,  ws.getSignal().getMinTime());
-					rightEdge = Math.max(rightEdge, ws.getSignal().getMaxTime());
+					panelLeft  = Math.min(panelLeft,  ws.getSignal().getMinTime());
+					panelRight = Math.max(panelRight, ws.getSignal().getMaxTime());
 				}
 			}
+			panelLefts.put(wp, new Double(panelLeft));
+			panelRights.put(wp, new Double(panelRight));
+			if (leftEdge == rightEdge)
+			{
+				leftEdge  = panelLeft;
+				rightEdge = panelRight;
+			} else
+			{
+				leftEdge  = Math.min(leftEdge,  panelLeft);
+				rightEdge = Math.max(rightEdge, panelRight);
+			}
 		}
-
 		// if there is an overriding signal on the X axis, use its bounds
 		if (xAxisLocked && xAxisSignalAll != null)
 		{
@@ -4032,10 +4022,16 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 		for(Panel wp : wavePanels)
 		{
             if (!xAxisLocked && !wp.isSelected()) continue;
+            double useLeft = leftEdge, useRight = rightEdge;
+			if (!xAxisLocked)
+			{
+				useLeft = panelLefts.get(wp).doubleValue();
+				useRight = panelRights.get(wp).doubleValue();
+			}
             if ((how&2)!=0) wp.fitToSignal(null);
-            if (leftEdge != rightEdge && (wp.getMinXAxis() != leftEdge || wp.getMaxXAxis() != rightEdge) && (how&1) != 0)
+            if (useLeft != useRight && (wp.getMinXAxis() != useLeft || wp.getMaxXAxis() != useRight) && (how&1) != 0)
             {
-                wp.setXAxisRange(leftEdge, rightEdge);
+                wp.setXAxisRange(useLeft, useRight);
                 wp.repaintWithRulers();
             }
         }
@@ -4267,7 +4263,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 							sSig = ws.getSignal();
 							break;
 						}
-						signalCollectionName = sSig.getSignalCollectionName();
+						signalCollectionName = sSig.getSignalCollection().getName();
 					}
 				} else
 				{
@@ -4418,7 +4414,7 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 				}
 
 				// add this signal in a new panel
-				panel = ww.makeNewPanel();
+				panel = ww.makeNewPanel(-1);
 				panel.fitToSignal(sSig);
 				new WaveSignal(panel, sSig);
 			}
@@ -4704,7 +4700,6 @@ public class WaveformWindow implements WindowContent, PropertyChangeListener
 			for(Signal<?> sig : allSignals) {
 				Signal<DigitalSample> sDSig = (Signal<DigitalSample>)sig;
 				if (sDSig.getSignalContext() != null) continue;
-				//if (HashMap<String,Signal>.isInBus(sDSig)) continue;
 				if (sDSig.getSignalName().indexOf('@') >= 0) continue;
 				int height = User.getWaveformDigitalPanelHeight();
 				Panel wp = new Panel(ww, height);

@@ -40,6 +40,7 @@ import com.sun.electric.tool.user.Resources;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.dialogs.WaveformZoom;
 import com.sun.electric.tool.user.ui.ClickZoomWireListener;
+import com.sun.electric.tool.user.ui.ElectricPrinter;
 import com.sun.electric.tool.user.ui.ToolBar;
 import com.sun.electric.tool.user.ui.TopLevel;
 import com.sun.electric.tool.user.ui.ZoomAndPanListener;
@@ -102,8 +103,9 @@ import javax.swing.SwingConstants;
 public class Panel extends JPanel
 	implements MouseMotionListener, MouseListener, MouseWheelListener, KeyListener
 {
-	/** Use VolatileImage for offscreen buffer */           private static final boolean USE_VOLATILE_IMAGE = true;
+	/** Use VolatileImage for offscreen buffer */           private static final boolean USE_VOLATILE_IMAGE = false;
 	/** Use anti-aliasing for lines */                      private static final boolean USE_ANTIALIASING = false;
+	/** Spacing above and below each panel */               private static final int PANELGAP = 2;
 
 	/** the main waveform window this is part of */			private WaveformWindow waveWindow;
 	/** the size of the window (in pixels) */				private Dimension sz;
@@ -194,25 +196,25 @@ public class Panel extends JPanel
 		// a drop target for the signal panel
 		new DropTarget(leftHalf, DnDConstants.ACTION_LINK, WaveformWindow.waveformDropTarget, true);
 
-		// a separator at the top
-		JSeparator sep = new JSeparator(SwingConstants.HORIZONTAL);
-		GridBagConstraints gbc = new GridBagConstraints();
-		gbc.gridx = 0;       gbc.gridy = 0;
-		gbc.gridwidth = 5;   gbc.gridheight = 1;
-		gbc.weightx = 1;     gbc.weighty = 0;
-		gbc.anchor = GridBagConstraints.NORTH;
-		gbc.fill = GridBagConstraints.HORIZONTAL;
-		gbc.insets = new Insets(4, 0, 4, 0);
-		leftHalf.add(sep, gbc);
+//		// a separator at the top
+//		JSeparator sep = new JSeparator(SwingConstants.HORIZONTAL);
+//		GridBagConstraints gbc = new GridBagConstraints();
+//		gbc.gridx = 0;       gbc.gridy = 0;
+//		gbc.gridwidth = 5;   gbc.gridheight = 1;
+//		gbc.weightx = 1;     gbc.weighty = 0;
+//		gbc.anchor = GridBagConstraints.NORTH;
+//		gbc.fill = GridBagConstraints.HORIZONTAL;
+//		gbc.insets = new Insets(4, 0, 4, 0);
+//		leftHalf.add(sep, gbc);
 
 		// the name of this panel
 		panelTitle = new DragButton("" + Integer.toString(panelNumber), panelNumber);
 		panelTitle.setToolTipText("Identification number of this waveform panel (drag the number to rearrange panels)");
-		gbc = new GridBagConstraints();
-		gbc.gridx = 0;       gbc.gridy = 1;
+		GridBagConstraints gbc = new GridBagConstraints();
+		gbc.gridx = 0;      gbc.gridy = 1;
 		gbc.weightx = 1;    gbc.weighty = 0;
 		gbc.anchor = GridBagConstraints.WEST;
-		gbc.insets = new Insets(0, 4, 0, 1);
+		gbc.insets = new Insets(2, 4, 2, 1);
 		panelTitle.addActionListener(new ActionListener()
 		{
 			public void actionPerformed(ActionEvent evt) { panelTitleClicked(evt); }
@@ -313,15 +315,15 @@ public class Panel extends JPanel
 		// a drop target for the signal panel
 		new DropTarget(this, DnDConstants.ACTION_LINK, WaveformWindow.waveformDropTarget, true);
 
-		// a separator at the top
-		sep = new JSeparator(SwingConstants.HORIZONTAL);
-		gbc = new GridBagConstraints();
-		gbc.gridx = 0;       gbc.gridy = 0;
-		gbc.weightx = 1;     gbc.weighty = 0;
-		gbc.anchor = GridBagConstraints.NORTH;
-		gbc.fill = GridBagConstraints.HORIZONTAL;
-		gbc.insets = new Insets(4, 0, 4, 0);
-		rightHalf.add(sep, gbc);
+//		// a separator at the top
+//		sep = new JSeparator(SwingConstants.HORIZONTAL);
+//		gbc = new GridBagConstraints();
+//		gbc.gridx = 0;       gbc.gridy = 0;
+//		gbc.weightx = 1;     gbc.weighty = 0;
+//		gbc.anchor = GridBagConstraints.NORTH;
+//		gbc.fill = GridBagConstraints.HORIZONTAL;
+//		gbc.insets = new Insets(4, 0, 4, 0);
+//		rightHalf.add(sep, gbc);
 
 		// the horizontal ruler (if separate rulers in each panel)
 		if (!waveWindow.isXAxisLocked())
@@ -333,7 +335,7 @@ public class Panel extends JPanel
 		gbc.weightx = 1;     gbc.weighty = 1;
 		gbc.anchor = GridBagConstraints.CENTER;
 		gbc.fill = GridBagConstraints.BOTH;
-		gbc.insets = new Insets(0, 0, 0, 0);
+		gbc.insets = new Insets(PANELGAP, 0, PANELGAP, 0);
 		rightHalf.add(this, gbc);
 
 		// add to list of wave panels
@@ -643,7 +645,7 @@ public class Panel extends JPanel
 			waveWindow.stopEditing();
 			for(Signal<?> subSig : bussedSignals)
 			{
-				Panel wp = waveWindow.makeNewPanel();
+				Panel wp = waveWindow.makeNewPanel(-1);
 				WaveSignal wsig = new WaveSignal(wp, subSig);
 
 				// remove the panels and put them in the right place
@@ -698,33 +700,33 @@ public class Panel extends JPanel
         {
             Signal<Sample> sSig = (Signal<Sample>)wSig.getSignal();
             if (sig != null && sig != sSig) continue;
-            if (sSig.isDigital())
-            {
-            	lowValue = Math.min(lowValue, 0);
-            	highValue = Math.max(highValue, 1);
-            } else
-            {
-            	Signal.View<RangeSample<Sample>> view =
-//                  sSig.getRasterView(sSig.getMinTime(), sSig.getMaxTime(), 2, false);
-            		sSig.getRasterView(sSig.getMinTime(), sSig.getMaxTime(), (int)getSize().getWidth(), false);
-	            for(int i=0; i<view.getNumEvents(); i++)
-	            {
-	                RangeSample<?> rs = view.getSample(i);
-	                if (rs==null) continue;
-	                Sample min = rs.getMin();
-	                if (min != null)
-	                {
-	                	if (min instanceof ScalarSample) lowValue = Math.min(lowValue, ((ScalarSample)min).getValue()); else
-	                		if (min instanceof SweptSample<?>) lowValue = Math.min(lowValue, ((SweptSample<ScalarSample>)min).getMin());
-	                }
-	                Sample max = rs.getMax();
-	                if (max != null)
-	                {
-	                	if (max instanceof ScalarSample) highValue = Math.max(highValue, ((ScalarSample)max).getValue()); else
-	                		if (max instanceof SweptSample<?>) highValue = Math.max(highValue, ((SweptSample<ScalarSample>)max).getMax());
-	                }
-	            }
-            }
+        	lowValue = Math.min(lowValue, sSig.getMinValue());
+        	highValue = Math.max(highValue, sSig.getMaxValue());
+//            if (sSig.isDigital())
+//            {
+//            	lowValue = Math.min(lowValue, 0);
+//            	highValue = Math.max(highValue, 1);
+//            } else
+//            {
+//            	Signal.View<RangeSample<Sample>> view = sSig.getRasterView(sSig.getMinTime(), sSig.getMaxTime(), 2);
+//	            for(int i=0; i<view.getNumEvents(); i++)
+//	            {
+//	                RangeSample<?> rs = view.getSample(i);
+//	                if (rs==null) continue;
+//	                Sample min = rs.getMin();
+//	                if (min != null)
+//	                {
+//	                	if (min instanceof ScalarSample) lowValue = Math.min(lowValue, ((ScalarSample)min).getValue()); else
+//	                		if (min instanceof SweptSample<?>) lowValue = Math.min(lowValue, ((SweptSample<ScalarSample>)min).getMin());
+//	                }
+//	                Sample max = rs.getMax();
+//	                if (max != null)
+//	                {
+//	                	if (max instanceof ScalarSample) highValue = Math.max(highValue, ((ScalarSample)max).getValue()); else
+//	                		if (max instanceof SweptSample<?>) highValue = Math.max(highValue, ((SweptSample<ScalarSample>)max).getMax());
+//	                }
+//	            }
+//            }
         }
         double range = highValue - lowValue;
         if (range == 0) range = 2;
@@ -894,6 +896,8 @@ public class Panel extends JPanel
 
 	private boolean needRepaintOffscreenImage;
 	private Image offscreen;
+
+	public Image getWaveImage() { return offscreen; }
 
 	/**
 	 * Method to repaint this Panel.
@@ -1230,9 +1234,12 @@ public class Panel extends JPanel
 			if (ss.getSeparation() != 0.0)
 			{
 				double value = ss.getLowValue();
-				if (localGraphics != null)
-					localGraphics.setFont(waveWindow.getFont());
+				if (localGraphics != null) localGraphics.setFont(waveWindow.getFont());
 				int lastY = -1;
+				int ySeparation = convertYDataToScreen(value) - convertYDataToScreen(value+ss.getSeparation());
+				int textSkip = 100;
+				if (ySeparation > 0) textSkip = 20 / ySeparation;
+				int textSkipPos = 0;
 				for(int i=0; ; i++)
 				{
 					if (value > displayedHigh) break;
@@ -1241,26 +1248,11 @@ public class Panel extends JPanel
 						int y = convertYDataToScreen(value);
 						if (lastY >= 0)
 						{
-							if (lastY - y > 100)
+							// add extra tick marks
+							int addedTicks = (lastY - y) / 20;
+							for(int j=1; j<addedTicks; j++)
 							{
-								// add 5 tick marks
-								for(int j=1; j<5; j++)
-								{
-									int intY = (lastY - y) / 5 * j + y;
-									if (polys != null)
-									{
-										polys.add(new Poly(new Point2D[] {
-											new Point2D.Double(vertAxisPos-5, intY),
-											new Point2D.Double(vertAxisPos, intY)}));
-									} else
-									{
-										localGraphics.drawLine(vertAxisPos-5, intY, vertAxisPos, intY);
-									}
-								}
-							} else if (lastY - y > 25)
-							{
-								// add 1 tick mark
-								int intY = (lastY - y) / 2 + y;
+								int intY = (lastY - y) / addedTicks * j + y;
 								if (polys != null)
 								{
 									polys.add(new Poly(new Point2D[] {
@@ -1282,26 +1274,32 @@ public class Panel extends JPanel
 						{
 							localGraphics.drawLine(vertAxisPos-10, y, vertAxisPos, y);
 						}
-						String yValue = TextUtils.convertToEngineeringNotation(value, null);
-						if (polys != null)
+
+						// skip text if spaced too closely
+						textSkipPos--;
+						if (textSkipPos <= 0)
 						{
-							Poly poly = new Poly(new Point2D[] {
-								new Point2D.Double(vertAxisPos-12, y)});
-							poly.setStyle(Poly.Type.TEXTRIGHT);
-							poly.setTextDescriptor(TextDescriptor.EMPTY.withAbsSize(6));
-							poly.setString(yValue);
-							polys.add(poly);
-						} else
-						{
-							GlyphVector gv = waveWindow.getFont().createGlyphVector(waveWindow.getFontRenderContext(), yValue);
-							Rectangle2D glyphBounds = gv.getLogicalBounds();
-							int height = (int)glyphBounds.getHeight();
-							int yPos = y + height / 2;
-							if (yPos-height <= 0) yPos = height+1;
-							if (yPos >= hei) yPos = hei;
-							int xPos = vertAxisPos-10-(int)glyphBounds.getWidth()-2;
-							if (xPos < 0) xPos = 0;
-							localGraphics.drawString(yValue, xPos, yPos);
+							textSkipPos = textSkip;
+							String yValue = TextUtils.convertToEngineeringNotation(value, null, ss.getStepScale()+3);
+							if (polys != null)
+							{
+								Poly poly = new Poly(new Point2D[] { new Point2D.Double(vertAxisPos-12, y) });
+								poly.setStyle(Poly.Type.TEXTRIGHT);
+								poly.setTextDescriptor(TextDescriptor.EMPTY.withAbsSize(6));
+								poly.setString(yValue);
+								polys.add(poly);
+							} else
+							{
+								GlyphVector gv = waveWindow.getFont().createGlyphVector(waveWindow.getFontRenderContext(), yValue);
+								Rectangle2D glyphBounds = gv.getLogicalBounds();
+								int height = (int)glyphBounds.getHeight();
+								int yPos = y + height / 2;
+								if (yPos-height <= 0) yPos = height+1;
+								if (yPos >= hei) yPos = hei;
+								int xPos = vertAxisPos-10-(int)glyphBounds.getWidth()-2;
+								if (xPos < 0) xPos = 0;
+								localGraphics.drawString(yValue, xPos, yPos);
+							}
 						}
 						lastY = y;
 					}
@@ -1311,20 +1309,32 @@ public class Panel extends JPanel
 		}
 	}
 
-	void dumpDataCSV(PrintWriter pw) {
-		for(WaveSignal ws : waveSignals.values()) {
+	public void dumpDataCSV(PrintWriter pw)
+	{
+		for(WaveSignal ws : waveSignals.values())
+		{
             Signal<?> as = ws.getSignal();
-            for (int s = 0, numSweeps = /*as.getNumSweeps()*/1; s < numSweeps; s++) {
-                pw.println();
-                Signal<?> wave = as;
-                Signal.View<?> pref = ((Signal<?>)wave).getExactView();
-                Signal.View<?> waveform = pref /* FIXME */;
-                int numEvents = waveform.getNumEvents();
-                for(int i=0; i<numEvents; i++)
-                    pw.println("\""+waveform.getTime(i) + "\""+
-                               ","+
-                               "\""+waveform.getSample(i)+"\"");
+            Signal.View<?> waveform = ((Signal<?>)as).getExactView();
+            int numEvents = waveform.getNumEvents();
+            for(int i=0; i<numEvents; i++)
+            {
+        		Sample samp = waveform.getSample(i);
+        		double time = waveform.getTime(i);
+			    if (samp instanceof SweptSample<?>)
+			    {
+			    	SweptSample<?> sws = (SweptSample<?>)samp;
+			    	for(int s=0; s<sws.getWidth(); s++)
+			    	{
+			    		Sample ss = sws.getSweep(s);
+                        pw.println("\"" + time + "\",\"" + s + "\",\"" + ((ScalarSample)ss).getValue() + "\"");
+			    	}
+			    } else
+			    {
+			    	ScalarSample ss = (ScalarSample)samp;
+                    pw.println("\"" + time + "\",\"" + ss.getValue() + "\"");
+			    }
             }
+            pw.println();
         }
     }
 
@@ -1333,9 +1343,13 @@ public class Panel extends JPanel
 	void dumpDataForGnuplot(PrintWriter pw, double min, double max, String sep) {
         boolean first = true;
         int linetype = 1;
-		for(WaveSignal ws : waveSignals.values()) {
+		for(WaveSignal ws : waveSignals.values())
+		{
             boolean used = false;
-            for (int s = 0, numSweeps = /*as.getNumSweeps()*/1; s < numSweeps; s++) {
+            String [] sweepNames = ws.getSignal().getSignalCollection().getSweepNames();
+            int numSweeps = (sweepNames == null) ? 1 : sweepNames.length;
+            for (int s = 0; s < numSweeps; s++)
+            {
                 if (!first) pw.print(sep);
                 pw.print(" \'-\' with lines ");
                 Color c = ws.getColor();
@@ -1351,17 +1365,30 @@ public class Panel extends JPanel
             }
             if (used) linetype++;
         }
-		for(WaveSignal ws : waveSignals.values()) {
+		for(WaveSignal ws : waveSignals.values())
+		{
             Signal<?> as = ws.getSignal();
-            for (int s = 0, numSweeps = /*as.getNumSweeps()*/1; s < numSweeps; s++) {
+            String [] sweepNames = ws.getSignal().getSignalCollection().getSweepNames();
+            int numSweeps = (sweepNames == null) ? 1 : sweepNames.length;
+            Signal.View<?> waveform = ((Signal<?>)as).getExactView();
+            int numEvents = waveform.getNumEvents();
+            for (int s = 0; s < numSweeps; s++)
+            {
                 pw.println();
-                Signal<?> wave = as;//as.getWaveform(s);
-                Signal.View<?> pref = ((Signal<?>)wave).getExactView();
-                Signal.View<?> waveform = pref /* FIXME */;
-                int numEvents = waveform.getNumEvents();
-                for(int i=0; i<numEvents; i++) {
-                    if (waveform.getTime(i) < min || waveform.getTime(i) > max) continue;
-                    pw.println(waveform.getTime(i) + " " + waveform.getSample(i));
+                for(int i=0; i<numEvents; i++)
+                {
+            		Sample samp = waveform.getSample(i);
+            		double time = waveform.getTime(i);
+                    if (time < min || time > max) continue;
+    			    if (samp instanceof SweptSample<?>)
+    			    {
+    			    	SweptSample<?> sws = (SweptSample<?>)samp;
+			    		Sample ss = sws.getSweep(s);
+                        pw.println(time + " " + ss);
+    			    } else
+    			    {
+                        pw.println(time + " " + samp);
+    			    }
                 }
                 pw.println("e");
                 pw.println();
@@ -1825,72 +1852,163 @@ public class Panel extends JPanel
 		draggingArea = true;
 	}
 
+	private Point getPointIfClose(int x, int y, Point pt)
+	{
+		if (Math.abs(x - pt.x) < 8 && Math.abs(y - pt.y) < 8)
+		{
+			pt.x = x;   pt.y = y;
+			return pt;
+		}
+		return null;
+	}
+
+	private Point getPointIfCloseToLine(Point2D lstPt, Point2D thisPt, Point2D snap)
+	{
+		Point2D closest = GenMath.closestPointToSegment(lstPt, thisPt, snap);
+		if (closest.distance(snap) < 5)
+		{
+			Point pt = new Point((int)Math.round(closest.getX()), (int)Math.round(closest.getY()));
+            return pt;
+		}
+		return null;
+	}
+
 	private Point snapPoint(Point pt)
 	{
-        /*
-		// snap to any waveform points
+		// get list of views in this panel
+		List<Signal.View<RangeSample<Sample>>> allViews = new ArrayList<Signal.View<RangeSample<Sample>>>();
 		for(WaveSignal ws : waveSignals.values())
 		{
-			// draw analog trace
-			Signal<?> as = ws.getSignal();
-            double[] result = new double[3];
-            String scName = as.getSignalCollectionName();
-			for(int s=0, numSweeps = as.getNumSweeps(); s<numSweeps; s++)
-			{
-                if (!waveWindow.isSweepSignalIncluded(scName, s)) continue;
-                Signal waveform = as;//as.getWaveform(s);
-				int numEvents = waveform.getExactView().getNumEvents();
-				for(int i=0; i<numEvents; i++)
-				{
-                    result[0] = waveform.getExactView().getTime(i);                                            
-                    result[1] = result[2] = (waveform.getExactView().getSample(i)).getValue();   
-					int x = convertXDataToScreen(result[0]);
-                    int lowY = convertYDataToScreen(result[1]);
-                    int highY = convertYDataToScreen(result[2]);
-					if (Math.abs(x - pt.x) < 5 && pt.y > lowY - 5 && pt.y < highY + 5)
-					{
-						pt.x = x;
-                		pt.y = Math.max(Math.min(pt.y, highY), lowY);
-						return pt;
-					}
-				}
-			}
+			Signal<Sample> sig = (Signal<Sample>)ws.getSignal();
+			if (sig.isDigital()) continue;
+			allViews.add(sig.getRasterView(sig.getMinTime(), sig.getMaxTime(), sz.width));
+		}
+
+		// snap to any waveform points
+		for(Signal.View<RangeSample<Sample>> view : allViews)
+		{
+            for(int i=0; i<view.getNumEvents(); i++)
+            {
+                RangeSample<?> rs = view.getSample(i);
+                if (rs == null) continue;
+        		int x = convertXDataToScreen(view.getTime(i));
+
+        		// see if point on minimum is close
+        		Sample min = rs.getMin();
+			    if (min instanceof SweptSample<?>)
+			    {
+			    	SweptSample<?> ss = (SweptSample<?>)min;
+			    	for(int s=0; s<ss.getWidth(); s++)
+			    	{
+			    		Sample sweepSample = ss.getSweep(s);
+			    		int y = convertYDataToScreen(((ScalarSample)sweepSample).getValue());
+			    		Point closePoint = getPointIfClose(x, y, pt);
+			    		if (closePoint != null) return closePoint;
+			    	}
+			    } else
+			    {
+			    	int y = convertYDataToScreen(((ScalarSample)min).getValue());
+		    		Point closePoint = getPointIfClose(x, y, pt);
+		    		if (closePoint != null) return closePoint;
+			    }
+
+        		// see if point on maximum is close
+        		Sample max = rs.getMax();
+			    if (max instanceof SweptSample<?>)
+			    {
+			    	SweptSample<?> ss = (SweptSample<?>)max;
+			    	for(int s=0; s<ss.getWidth(); s++)
+			    	{
+			    		Sample sweepSample = ss.getSweep(s);
+			    		int y = convertYDataToScreen(((ScalarSample)sweepSample).getValue());
+			    		Point closePoint = getPointIfClose(x, y, pt);
+			    		if (closePoint != null) return closePoint;
+			    	}
+			    } else
+			    {
+			    	int y = convertYDataToScreen(((ScalarSample)max).getValue());
+		    		Point closePoint = getPointIfClose(x, y, pt);
+		    		if (closePoint != null) return closePoint;
+			    }
+            }
 		}
 
 		// snap to any waveform lines
 		Point2D snap = new Point2D.Double(pt.x, pt.y);
-		for(WaveSignal ws : waveSignals.values())
+		for(Signal.View<RangeSample<Sample>> view : allViews)
 		{
-			// draw analog trace
-			Signal as = (Signal)ws.getSignal();
-            double[] result = new double[3];
-            double[] lastResult = new double[3];
-            HashMap<String,Signal> an = (HashMap<String,Signal>)as.getAnalysis();
-			for(int s=0, numSweeps = as.getNumSweeps(); s<numSweeps; s++)
-			{
-                if (!waveWindow.isSweepSignalIncluded(an, s)) continue;
-                Signal waveform = as;//as.getWaveform(s);
-				int numEvents = waveform.getExactView().getNumEvents();
-                result[0] = waveform.getExactView().getTime(0);                                            
-                result[1] = result[2] = (waveform.getExactView().getSample(0)).getValue();   
-				Point2D lastPt = new Point2D.Double(convertXDataToScreen(lastResult[0]), convertYDataToScreen((lastResult[1] + lastResult[2]) / 2));
-				for(int i=1; i<numEvents; i++)
-				{
-                    result[0] = waveform.getExactView().getTime(i);                                            
-                    result[1] = result[2] = (waveform.getExactView().getSample(i)).getValue();   
-					Point2D thisPt = new Point2D.Double(convertXDataToScreen(result[0]), convertYDataToScreen((result[1] + result[2]) / 2));
-					Point2D closest = GenMath.closestPointToSegment(lastPt, thisPt, snap);
-					if (closest.distance(snap) < 5)
-					{
-						pt.x = (int)Math.round(closest.getX());
-                		pt.y = (int)Math.round(closest.getY());
-                        break;
-					}
-					lastPt = thisPt;
-				}
-			}
+			Point2D lastPt = null;
+			List<Point2D> lastSweepMinPts = new ArrayList<Point2D>();
+			List<Point2D> lastSweepMaxPts = new ArrayList<Point2D>();
+            for(int i=0; i<view.getNumEvents(); i++)
+            {
+                RangeSample<?> rs = view.getSample(i);
+                if (rs == null) continue;
+        		int x = convertXDataToScreen(view.getTime(i));
+
+        		// see if point on minimum is close
+        		Sample min = rs.getMin();
+			    if (min instanceof SweptSample<?>)
+			    {
+			    	SweptSample<?> ss = (SweptSample<?>)min;
+			    	for(int s=0; s<ss.getWidth(); s++)
+			    	{
+			    		Sample sweepSample = ss.getSweep(s);
+			    		int y = convertYDataToScreen(((ScalarSample)sweepSample).getValue());
+						Point2D thisPt = new Point2D.Double(x, y);
+			    		if (s < lastSweepMinPts.size())
+			    		{
+			    			Point2D lstPt = lastSweepMinPts.get(s);
+			    			Point close = getPointIfCloseToLine(lstPt, thisPt, snap);
+			    			if (close != null) return close;
+			    		}
+			    		while (lastSweepMinPts.size() <= s) lastSweepMinPts.add(null);
+			    		lastSweepMinPts.set(s, thisPt);
+			    	}
+			    } else
+			    {
+			    	int y = convertYDataToScreen(((ScalarSample)min).getValue());
+					Point2D thisPt = new Point2D.Double(x, y);
+		    		if (lastPt != null)
+		    		{
+		    			Point close = getPointIfCloseToLine(lastPt, thisPt, snap);
+		    			if (close != null) return close;
+		    		}
+		    		lastPt = thisPt;
+			    }
+
+        		// see if point on maximum is close
+        		Sample max = rs.getMax();
+			    if (max instanceof SweptSample<?>)
+			    {
+			    	SweptSample<?> ss = (SweptSample<?>)max;
+			    	for(int s=0; s<ss.getWidth(); s++)
+			    	{
+			    		Sample sweepSample = ss.getSweep(s);
+			    		int y = convertYDataToScreen(((ScalarSample)sweepSample).getValue());
+						Point2D thisPt = new Point2D.Double(x, y);
+			    		if (s < lastSweepMaxPts.size())
+			    		{
+			    			Point2D lstPt = lastSweepMaxPts.get(s);
+			    			Point close = getPointIfCloseToLine(lstPt, thisPt, snap);
+			    			if (close != null) return close;
+			    		}
+			    		while (lastSweepMaxPts.size() <= s) lastSweepMaxPts.add(null);
+			    		lastSweepMaxPts.set(s, thisPt);
+			    	}
+			    } else
+			    {
+			    	int y = convertYDataToScreen(((ScalarSample)max).getValue());
+					Point2D thisPt = new Point2D.Double(x, y);
+		    		if (lastPt != null)
+		    		{
+		    			Point close = getPointIfCloseToLine(lastPt, thisPt, snap);
+		    			if (close != null) return close;
+		    		}
+		    		lastPt = thisPt;
+			    }
+            }
 		}
-        */
 
 		// no snapping: return the original point
 		return pt;
@@ -2035,7 +2153,7 @@ public class Panel extends JPanel
 			}
 
 			// snap to waveform point
-			curPanel.snapPoint(cPt);
+			cPt = curPanel.snapPoint(cPt);
 
 			dragEndXD = curPanel.convertXScreenToData(cPt.x);
 			dragEndYD = curPanel.convertYScreenToData(cPt.y);
@@ -2266,5 +2384,4 @@ public class Panel extends JPanel
 	}
 
 	public void mouseMovedPan(MouseEvent evt) {}
-
 }

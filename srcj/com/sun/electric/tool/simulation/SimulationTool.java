@@ -23,6 +23,7 @@
  */
 package com.sun.electric.tool.simulation;
 
+import com.sun.electric.database.Environment;
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.View;
 import com.sun.electric.database.text.Pref;
@@ -40,9 +41,11 @@ import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.Tool;
 import com.sun.electric.tool.ToolSettings;
+import com.sun.electric.tool.UserInterfaceExec;
 import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.io.output.Spice;
 import com.sun.electric.tool.io.output.Verilog;
+import com.sun.electric.tool.io.output.IRSIM.IRSIMPreferences;
 import com.sun.electric.tool.simulation.als.ALS;
 import com.sun.electric.tool.simulation.irsim.IRSIM;
 import com.sun.electric.tool.user.dialogs.EDialog;
@@ -70,7 +73,8 @@ import javax.swing.JTextField;
 /**
  * This is the Simulation Interface tool.
  */
-public class SimulationTool extends Tool {
+public class SimulationTool extends Tool
+{
 	/** the Simulation tool. */							private static SimulationTool tool = new SimulationTool();
 
 	/** key of Variable holding rise time. */			public static final Variable.Key RISE_DELAY_KEY = Variable.newKey("SIM_rise_delay");
@@ -96,7 +100,8 @@ public class SimulationTool extends Tool {
 	 * @param prevCell the previous cell being simulated (null for a new simulation).
 	 * @param prevEngine the previous simulation engine running (null for a new simulation).
 	 */
-	public static void startSimulation(int engine, boolean forceDeck, Cell prevCell, Engine prevEngine) {
+	public static void startSimulation(int engine, boolean forceDeck, Cell prevCell, Engine prevEngine)
+	{
 		Cell cell = null;
 		VarContext context = null;
 		String fileName = null;
@@ -149,11 +154,48 @@ public class SimulationTool extends Tool {
 
 			case IRSIM_ENGINE:
 				if (!IRSIM.hasIRSIM()) return;
-//                if (!cell.isSchematic()) // not valid cell
-//                    System.out.println("Can't run IRSIM on a non-schematic cell: " + cell);
-//                else
-                IRSIM.runIRSIM(cell, context, fileName);
+				new RunIRSIM(cell, context, fileName);
 				break;
+		}
+	}
+
+	private static class RunIRSIM extends Thread
+	{
+		private Cell cell;
+		private VarContext context;
+		private String fileName;
+        private IRSIMPreferences ip;
+        private final Environment launcherEnvironment;
+        private final UserInterfaceExec userInterface;
+
+		public RunIRSIM(Cell cell, VarContext context, String fileName)
+		{
+			this.cell = cell;
+			this.context = context;
+			this.fileName = fileName;
+            ip = new IRSIMPreferences(true);
+
+            launcherEnvironment = Environment.getThreadEnvironment();
+            userInterface = new UserInterfaceExec();
+            if (fileName != null)
+            {
+            	// when reading a file, do it in a new thread so that progress bars work
+	            start();
+            } else
+            {
+            	// when simulating a Cell, do it directly so that environments work
+            	IRSIM.runIRSIM(cell, context, fileName, ip);
+            }
+		}
+
+		public void run()
+		{
+            if (Thread.currentThread() == this)
+            {
+                Environment.setThreadEnvironment(launcherEnvironment);
+                Job.setUserInterface(userInterface);
+            }
+			IRSIM.runIRSIM(cell, context, fileName, ip);
 		}
 	}
 
@@ -1117,7 +1159,7 @@ public class SimulationTool extends Tool {
 		{
 			if (p.code() == cache) return p;
 		}
-		throw new Error("No Spice engine found");
+		return SpiceEngine.values()[0];
 	}
 	/**
 	 * Method to set which SPICE engine is being used.
@@ -1157,7 +1199,7 @@ public class SimulationTool extends Tool {
 		{
 			if (p.code() == cache) return p;
 		}
-		throw new Error("No Spice engine found");
+		return SpiceEngine.values()[0];
 	}
 
 	private static Pref cacheSpiceLevel = Pref.makeStringPref("SpiceLevel", tool.prefs, "1");

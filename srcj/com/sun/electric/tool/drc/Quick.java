@@ -1052,8 +1052,9 @@ public class Quick
 
 				if (tech != cellTech)
 				{
-					DRC.createDRCErrorLogger(reportInfo, DRC.DRCErrorType.TECHMIXWARN, " belongs to " + tech.getTechName(),
-                        cell, 0, 0, null, null, ai, null, null, null, null);
+                    // Leaving this tech conflict to the code in checkCell()
+//					DRC.createDRCErrorLogger(reportInfo, DRC.DRCErrorType.TECHMIXWARN, " belongs to " + tech.getTechName(),
+//                        cell, 0, 0, null, null, ai, null, null, null, null);
 					continue;
 				}
 
@@ -4495,6 +4496,10 @@ public class Quick
                 if (skipLayer(layer))
                     continue;
                 System.out.println("layer " + layer);
+                if (vce.isBadLayer(layer)) {
+                    System.out.println("IS NOT MANHATTAN !!");
+                    continue;
+                }
         		DRCTemplate minAreaRule = minAreaLayerMap.get(layer);
                 DRCTemplate encloseAreaRule = enclosedAreaLayerMap.get(layer);
                 DRCTemplate spacingRule = spacingLayerMap.get(layer);
