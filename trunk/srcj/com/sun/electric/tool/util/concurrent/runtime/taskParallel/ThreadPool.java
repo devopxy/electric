@@ -24,6 +24,7 @@
 package com.sun.electric.tool.util.concurrent.runtime.taskParallel;
 
 import java.util.ArrayList;
+import java.util.concurrent.Semaphore;
 
 import com.sun.electric.database.Environment;
 import com.sun.electric.database.variable.UserInterface;
@@ -34,8 +35,10 @@ import com.sun.electric.tool.util.UniqueIDGenerator;
 import com.sun.electric.tool.util.concurrent.debug.LoadBalancing;
 import com.sun.electric.tool.util.concurrent.exceptions.PoolExistsException;
 import com.sun.electric.tool.util.concurrent.patterns.PTask;
+import com.sun.electric.tool.util.concurrent.runtime.Scheduler;
 import com.sun.electric.tool.util.concurrent.runtime.ThreadID;
-import com.sun.electric.tool.util.concurrent.runtime.WorkerStrategy;
+import com.sun.electric.tool.util.concurrent.runtime.Scheduler.SchedulingStrategy;
+import com.sun.electric.tool.util.concurrent.runtime.Scheduler.UnknownSchedulerException;
 
 /**
  * 
@@ -73,7 +76,8 @@ public class ThreadPool {
 	 * @param taskPool
 	 * @param numOfThreads
 	 */
-	private ThreadPool(IStructure<PTask> taskPool, int numOfThreads, boolean debug, ThreadPoolType type) {
+	private ThreadPool(IStructure<PTask> taskPool, int numOfThreads, boolean debug,
+			ThreadPoolType type) {
 		state = ThreadPoolState.New;
 		this.taskPool = taskPool;
 		this.numOfThreads = numOfThreads;
@@ -112,8 +116,12 @@ public class ThreadPool {
 	public void shutdown() throws InterruptedException {
 		for (Worker worker : workers) {
 			worker.shutdown();
-			worker.strategy.trigger();
 		}
+
+		taskPool.shutdown();
+
+		if (workers.size() > 0)
+			workers.get(0).strategy.trigger();
 
 		this.join();
 		state = ThreadPoolState.Closed;
@@ -164,9 +172,8 @@ public class ThreadPool {
 	 * trigger workers (used for the synchronization)
 	 */
 	public void trigger() {
-		for (Worker worker : workers) {
-			worker.strategy.trigger();
-		}
+		if (workers.size() > 0)
+			workers.get(0).strategy.trigger();
 	}
 
 	/**
@@ -176,6 +183,15 @@ public class ThreadPool {
 	 */
 	public void add(PTask item) {
 		taskPool.add(item);
+	}
+	
+	/**
+	 * add a task to the pool
+	 * 
+	 * @param item
+	 */
+	public void add(PTask item, int threadId) {
+		taskPool.add(item, threadId);
 	}
 
 	/**
@@ -194,6 +210,7 @@ public class ThreadPool {
 
 		private ThreadPool pool;
 		private PoolWorkerStrategy strategy;
+		private Thread thisThread;
 
 		public Worker(ThreadPool pool) {
 			this.pool = pool;
@@ -211,7 +228,8 @@ public class ThreadPool {
 
 			try {
 				Job.setUserInterface(pool.getUserInterface());
-				Environment.setThreadEnvironment(Job.getUserInterface().getDatabase().getEnvironment());
+				Environment.setThreadEnvironment(Job.getUserInterface().getDatabase()
+						.getEnvironment());
 			} catch (Exception ex) {
 
 			}
@@ -226,6 +244,7 @@ public class ThreadPool {
 		 */
 		public void shutdown() {
 			strategy.shutdown();
+			this.interrupt();
 		}
 
 		/**
@@ -251,9 +270,12 @@ public class ThreadPool {
 	 * Factory class for worker strategy
 	 */
 	private static class PoolWorkerStrategyFactory {
-		public static PoolWorkerStrategy createStrategy(IStructure<PTask> taskPool, ThreadPoolType type) {
+		private static Semaphore trigger = new Semaphore(0);
+
+		public static PoolWorkerStrategy createStrategy(IStructure<PTask> taskPool,
+				ThreadPoolType type) {
 			if (type == ThreadPoolType.synchronizedPool)
-				return new SynchronizedWorker(taskPool);
+				return new SynchronizedWorker(taskPool, trigger);
 			else
 				return new SimpleWorker(taskPool);
 		}
@@ -315,7 +337,8 @@ public class ThreadPool {
 	 * @return initialized thread pool
 	 * @throws PoolExistsException
 	 */
-	public static ThreadPool initialize(IStructure<PTask> taskPool, boolean debug) throws PoolExistsException {
+	public static ThreadPool initialize(IStructure<PTask> taskPool, boolean debug)
+			throws PoolExistsException {
 		return ThreadPool.initialize(taskPool, ThreadPool.getNumOfThreads(), debug);
 	}
 
@@ -329,6 +352,17 @@ public class ThreadPool {
 	 */
 	public static ThreadPool initialize(IStructure<PTask> taskPool) throws PoolExistsException {
 		return ThreadPool.initialize(taskPool, false);
+	}
+
+	public static synchronized ThreadPool initialize(SchedulingStrategy taskPool, int numOfThreads)
+			throws UnknownSchedulerException, PoolExistsException {
+		return ThreadPool.initialize(taskPool, numOfThreads, false);
+	}
+
+	public static synchronized ThreadPool initialize(SchedulingStrategy taskPool, int numOfThreads,
+			boolean debug) throws UnknownSchedulerException, PoolExistsException {
+		IStructure<PTask> pool = Scheduler.createScheduler(taskPool, numOfThreads);
+		return ThreadPool.initialize(pool, numOfThreads, debug);
 	}
 
 	/**
@@ -392,9 +426,9 @@ public class ThreadPool {
 	 * @param debug
 	 * @return
 	 */
-	public static synchronized ThreadPool[] initialize(IStructure<PTask> taskPool1, int numOfThreads1,
-			ThreadPoolType type1, IStructure<PTask> taskPool2, int numOfThreads2, ThreadPoolType type2,
-			boolean debug) {
+	public static synchronized ThreadPool[] initialize(IStructure<PTask> taskPool1,
+			int numOfThreads1, ThreadPoolType type1, IStructure<PTask> taskPool2,
+			int numOfThreads2, ThreadPoolType type2, boolean debug) {
 
 		ThreadPool[] result = new ThreadPool[2];
 
@@ -414,7 +448,8 @@ public class ThreadPool {
 	public static synchronized void killPool() {
 		try {
 			ThreadPool.instance.shutdown();
-		} catch (InterruptedException e) {}
+		} catch (InterruptedException e) {
+		}
 		ThreadPool.instance = null;
 	}
 

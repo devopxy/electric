@@ -29,13 +29,17 @@ import java.io.Serializable;
  *  A Sample is the data assigned to each point in time by a
  *  Signal.  Subclasses of Sample MUST BE IMMUTABLE.
  */
-public interface Sample extends Serializable {
-
+public interface Sample extends Serializable
+{
     /** returns true iff this sample is "X" (unknown) */
     public boolean isLogicX();
 
     /** returns true iff this sample is "Z" (unconnected) */
     public boolean isLogicZ();
+
+    public double getMinValue();
+
+    public double getMaxValue();
 
     /**
      *  Return the least upper bound of this and s.  This is sort of
@@ -52,7 +56,5 @@ public interface Sample extends Serializable {
      *  rather than a linear order.
      */
     public Sample glb(Sample s);
-
 }
-
 

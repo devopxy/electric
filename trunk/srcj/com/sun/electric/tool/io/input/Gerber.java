@@ -87,6 +87,8 @@ public class Gerber extends Input<Object>
 
 	private static class GerberLayer
 	{
+		String layerName;
+		boolean mentionedUse;
 		boolean polarityDark;
 		PrimitiveNode pNp;
 		private static int ePrimitiveIndex = 0;
@@ -97,6 +99,15 @@ public class Gerber extends Input<Object>
 		{
 			this.pNp = pNp;
 			polarityDark = true;
+			mentionedUse = false;
+		}
+
+		public void usingIt()
+		{
+			if (mentionedUse) return;
+			mentionedUse = true;
+            System.out.println("Importing layer name '" + layerName + "' (polarity " + (polarityDark ? "dark" : "light") +
+            	") into layer " + pNp.getName());
 		}
 
 		public static GerberLayer findLayer(String name)
@@ -104,19 +115,20 @@ public class Gerber extends Input<Object>
 			GerberLayer gl = allLayers.get(name);
 			if (gl == null)
 			{
-
 				if (ePrimitives == null)
 				{
 					ePrimitives = new PrimitiveNode[16];
+					int j = 0;
 					for(int i=0; i<8; i++)
 					{
-						ePrimitives[i] = pcbTech.findNodeProto("Signal-" + (i+1) + "-Node");
-						ePrimitives[i+8] = pcbTech.findNodeProto("Power-" + (i+1) + "-Node");
+						ePrimitives[j++] = pcbTech.findNodeProto("Signal-" + (i+1) + "-Node");
+						ePrimitives[j++] = pcbTech.findNodeProto("Power-" + (i+1) + "-Node");
 					}
 				}
 				gl = new GerberLayer(ePrimitives[ePrimitiveIndex%ePrimitives.length]);
 				ePrimitiveIndex++;
 				allLayers.put(name, gl);
+				gl.layerName = name;
 			}
 			return gl;
 		}
@@ -210,7 +222,7 @@ public class Gerber extends Input<Object>
 
 			// determine the current directory
 			String topDirName = TextUtils.getFilePath(lib.getLibFile());
-			gerberfiles.add(topDirName);
+//			gerberfiles.add(topDirName);
 
 			// find all files that end with ".gbr" and include them in the search
 			File topDir = new File(topDirName);
@@ -218,17 +230,17 @@ public class Gerber extends Input<Object>
 			for(int i=0; i<fileList.length; i++)
 			{
 				if (!fileList[i].endsWith(".gbr")) continue;
-				String fileName = topDirName + fileList[i];
+                String fileName = topDirName + fileList[i];
 				gerberfiles.add(fileName);
 			}
 
 			// read the file
 			try
 			{
-				for(String fileName : fileList)
+				for(String fileName : gerberfiles)
 				{
-			        System.out.println("Reading: "+topDirName + fileName);
-			        URL fileURL = TextUtils.makeURLToFile(topDirName + fileName);
+			        System.out.println("Reading: " + fileName);
+			        URL fileURL = TextUtils.makeURLToFile(fileName);
 					if (openTextInput(fileURL)) return null;
 					readFile(lineReader);
 					closeInput();
@@ -299,7 +311,9 @@ public class Gerber extends Input<Object>
 				if (astPos < 0) astPos = line.length();
 				String layerName = line.substring(3, astPos);
 				currentLayer = GerberLayer.findLayer(layerName);
-				continue;
+//                if (currentLayer != null)
+//                    System.out.println("Importing layer name '" + layerName + "' into layer " + currentLayer.pNp.getName());
+                continue;
 			}
 			if (line.startsWith("%LP"))
 			{
@@ -410,7 +424,7 @@ public class Gerber extends Input<Object>
 										merge.add(Artwork.tech().defaultLayer, existing);
 										merge.subtract(Artwork.tech().defaultLayer, subtractPoly);
 										List<PolyBase> polys = merge.getMergedPoints(Artwork.tech().defaultLayer, true);
-if (polys.size() > 1) System.out.println("SUBTRACTION MADE "+polys.size()+" POLYGONS");
+//if (polys.size() > 1) System.out.println("SUBTRACTION MADE "+polys.size()+" POLYGONS");
 										for(PolyBase pb : polys)
 										{
 											Point2D [] newPts = pb.getPoints();
@@ -423,6 +437,7 @@ if (polys.size() > 1) System.out.println("SUBTRACTION MADE "+polys.size()+" POLY
 								if (subtracted) break;
 			                }
 							PrimitiveNode pNp = currentLayer.pNp;
+							currentLayer.usingIt();
 							Point2D ctr = new Point2D.Double(cX, cY);
 							double width = maxX - minX;
 							double height = maxY - minY;
@@ -513,6 +528,7 @@ if (polys.size() > 1) System.out.println("SUBTRACTION MADE "+polys.size()+" POLY
 				} else
 				{
 					PrimitiveNode pNp = currentLayer.pNp;
+					currentLayer.usingIt();
 					NodeInst ni = NodeInst.makeInstance(pNp, ctr, width, height, curCell);
 					if (width != 0 && height != 0)
 						ni.setTrace(points);
@@ -551,6 +567,7 @@ if (polys.size() > 1) System.out.println("SUBTRACTION MADE "+polys.size()+" POLY
 				} else
 				{
 					PrimitiveNode pNp = currentLayer.pNp;
+					currentLayer.usingIt();
 					NodeInst ni = NodeInst.makeInstance(pNp, ctr, diameter, diameter, curCell);
 					Point2D[] doubledPointList = new Point2D[pointList.length*2-1];
 					for(int i=0; i<pointList.length; i++)

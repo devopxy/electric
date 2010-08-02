@@ -31,7 +31,6 @@ import com.sun.electric.tool.user.waveform.Panel.WaveSelection;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.geom.Rectangle2D;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.TreeMap;
@@ -49,7 +48,7 @@ public class SweptSample<S extends Sample> implements Sample
         this.vals = new Sample[vals.length];
         for(int i=0; i<vals.length; i++)
         {
-            if (vals[i] == null) throw new RuntimeException("null values not allowed in sweeps");
+//            if (vals[i] == null) throw new RuntimeException("null values not allowed in sweeps");
             this.vals[i] = vals[i];
         }
     }
@@ -61,7 +60,8 @@ public class SweptSample<S extends Sample> implements Sample
     {
     	double minVal = Double.MAX_VALUE;
     	for(int i=0; i<vals.length; i++)
-    		minVal = Math.min(minVal, ((ScalarSample)vals[i]).getValue());
+    		if (vals[i] != null)
+    			minVal = Math.min(minVal, ((ScalarSample)vals[i]).getValue());
     	return minVal;
     }
 
@@ -69,7 +69,8 @@ public class SweptSample<S extends Sample> implements Sample
     {
     	double maxVal = Double.MIN_VALUE;
     	for(int i=0; i<vals.length; i++)
-    		maxVal = Math.max(maxVal, ((ScalarSample)vals[i]).getValue());
+    		if (vals[i] != null)
+    			maxVal = Math.max(maxVal, ((ScalarSample)vals[i]).getValue());
     	return maxVal;
     }
 
@@ -80,15 +81,24 @@ public class SweptSample<S extends Sample> implements Sample
         SweptSample<?> bo = (SweptSample<?>)o;
         if (bo.vals.length != vals.length) return false;
         for(int i=0; i<vals.length; i++)
+        {
+        	if (vals[i] == null)
+        	{
+        		if (bo.vals[i] == null) continue;
+        		return false;
+        	}
+        	if (bo.vals[i] == null) return false;
             if (!vals[i].equals(bo.vals[i]))
                 return false;
+        }
         return true;
     }
     public int hashCode()
     {
         int ret = 0;
         for(int i=0; i<vals.length; i++)
-            ret ^= vals[i].hashCode();
+        	if (vals[i] != null)
+        		ret ^= vals[i].hashCode();
         return ret;
     }
 
@@ -102,7 +112,8 @@ public class SweptSample<S extends Sample> implements Sample
         if (ds.vals.length != vals.length) throw new RuntimeException("tried to call lub() on SweptSamples of different width");
         Sample[] ret = new Sample[vals.length];
         for(int i=0; i<ret.length; i++)
-            ret[i] = vals[i].lub(ds.vals[i]);
+        	if (vals[i] != null && ds.vals[i] != null)
+        		ret[i] = vals[i].lub(ds.vals[i]);
         return new SweptSample<ScalarSample>(ret);
     }
 
@@ -113,8 +124,25 @@ public class SweptSample<S extends Sample> implements Sample
         if (ds.vals.length != vals.length) throw new RuntimeException("tried to call glb() on SweptSamples of different width");
         Sample[] ret = new Sample[vals.length];
         for(int i=0; i<ret.length; i++)
-            ret[i] = vals[i].glb(ds.vals[i]);
+        	if (vals[i] != null && ds.vals[i] != null)
+        		ret[i] = vals[i].glb(ds.vals[i]);
         return new SweptSample<ScalarSample>(ret);
+    }
+
+    public double getMinValue()
+    {
+    	double min = Double.MAX_VALUE;
+    	for(int i=0; i<vals.length; i++)
+    		min = Math.min(min, vals[i].getMinValue());
+    	return min;
+    }
+
+    public double getMaxValue()
+    {
+    	double max = Double.MIN_VALUE;
+    	for(int i=0; i<vals.length; i++)
+    		max = Math.max(max, vals[i].getMaxValue());
+    	return max;
     }
 
     /** create a MutableSignal<SweptSample<SS>> */
@@ -147,12 +175,12 @@ public class SweptSample<S extends Sample> implements Sample
         {
             public boolean isEmpty() { for(Signal<SS> sig : subsignals) if (!sig.isEmpty()) return false; return true; }
 
-            public Signal.View<RangeSample<SweptSample<SS>>> getRasterView(final double t0, final double t1, final int numPixels, final boolean extrap)
+            public Signal.View<RangeSample<SweptSample<SS>>> getRasterView(final double t0, final double t1, final int numPixels)
             {
                 final Signal.View<RangeSample<SS>>[] subviews = new Signal.View[subsignals.length];
 
                 for(int i=0; i<subviews.length; i++)
-                    subviews[i] = subsignals[i].getRasterView(t0, t1, numPixels, extrap);
+                    subviews[i] = subsignals[i].getRasterView(t0, t1, numPixels);
 
                 // the subviews' getRasterView() methods might have differing getNumEvents() values or different
                 // getTime() values for a given index.  Therefore, we must "collate" them.  By using a sorted treemap
@@ -194,6 +222,26 @@ public class SweptSample<S extends Sample> implements Sample
 						}
                         event[v]++;
                     }
+//for(int j=0; j<subviews.length; j++)
+//{
+//	boolean debug = false;
+//	if (minvals[j] == null)
+//		{ System.out.println(">>>>>>>>>>>>>>> MINVALS["+j+"] NULL (ARRAY IS "+subviews.length+" LONG)"); debug = true; }
+//	if (maxvals[j] == null)
+//		{ System.out.println(">>>>>>>>>>>>>>> MAXVALS["+j+"] NULL (ARRAY IS "+subviews.length+" LONG)"); debug = true; }
+//	if (debug)
+//	{
+//		System.out.println("   TIMES FOUND:");
+//        for(double tt : tm.keySet())
+//        {
+//        	System.out.print("      " + tt + " IN");
+//            HashSet<Integer> hss = tm.get(t);
+//            for(int vv : hss) System.out.print(" " + vv);
+//            System.out.println();
+//        }
+//        System.out.println();		
+//	}
+//}
                     vals[i] = new RangeSample<SweptSample<SS>>( new SweptSample<SS>(minvals), new SweptSample<SS>(maxvals) );
                     i++;
                 }
@@ -208,11 +256,53 @@ public class SweptSample<S extends Sample> implements Sample
 
             public Signal.View<SweptSample<SS>> getExactView()
             {
+                final Signal.View<SS>[] subviews = new Signal.View[subsignals.length];
+                for(int i=0; i<subviews.length; i++) subviews[i] = subsignals[i].getExactView();
+
+                // the subviews' getRasterView() methods might have differing getNumEvents() values or different
+                // getTime() values for a given index.  Therefore, we must "collate" them.  By using a sorted treemap
+                // here we ensure that this takes only O(n log n) time.
+                
+                // INVARIANT: tm.get(t).contains(i) ==> (exists j such that subviews[i].getTime(j)==t)
+                TreeMap<Double,HashSet<Integer>> tm = new TreeMap<Double,HashSet<Integer>>();
+                for (int i=0; i<subviews.length; i++)
+                {
+                    Signal.View<SS> view = subviews[i];
+                    for(int j=0; j<view.getNumEvents(); j++)
+                    {
+                        double t = view.getTime(j);
+                        HashSet<Integer> hs = tm.get(t);
+                        if (hs==null) tm.put(t, hs = new HashSet<Integer>());
+                        hs.add(i);
+                    }
+                }
+
+                // now we know, for each point in time, which signals changed at that point
+                final double[] times = new double[tm.size()];
+                final SweptSample<SS>[] vals = new SweptSample[tm.size()];
+                int i = 0;
+                int[] event = new int[subviews.length];
+                SS[] sampleVals = (SS[])new Sample[subviews.length];
+                for(double t : tm.keySet())
+                {
+                	times[i] = t;
+                    HashSet<Integer> hs = tm.get(t);
+                    for(int v : hs)
+                    {
+                        assert subviews[v].getTime(event[v])==t;  // sanity check
+                        SS rs = subviews[v].getSample(event[v]);
+						if (rs != null) sampleVals[v] = rs;
+                        event[v]++;
+                    }
+                    vals[i] = new SweptSample<SS>(sampleVals);
+                    i++;
+                }
+
                 return new Signal.View<SweptSample<SS>>()
                 {
-                    public int             getNumEvents() { throw new RuntimeException("not implemented"); }
-                    public double          getTime(int event) { throw new RuntimeException("not implemented"); }
-                    public SweptSample<SS> getSample(int event) { throw new RuntimeException("not implemented"); }
+                    public int             getNumEvents() { return times.length; }
+                    public double          getTime(int event) { return times[event]; }
+                    public SweptSample<SS> getSample(int event) { return vals[event]; }
                 };
             }
 
@@ -227,6 +317,20 @@ public class SweptSample<S extends Sample> implements Sample
             {
                 double max = Double.MIN_VALUE;
                 for(Signal<SS> sig : subsignals) max = Math.max(max, sig.getMaxTime());
+                return max;
+            }
+
+            public double getMinValue()
+            {
+                double min = Double.MAX_VALUE;
+                for(Signal<SS> sig : subsignals) min = Math.min(min, sig.getMinValue());
+                return min;
+            }
+
+            public double getMaxValue()
+            {
+                double max = Double.MIN_VALUE;
+                for(Signal<SS> sig : subsignals) max = Math.max(max, sig.getMaxValue());
                 return max;
             }
 

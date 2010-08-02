@@ -28,7 +28,6 @@ import com.sun.electric.database.geometry.PolyBase;
 import com.sun.electric.database.variable.TextDescriptor;
 import com.sun.electric.tool.user.waveform.Panel;
 import com.sun.electric.tool.user.waveform.WaveSignal;
-import com.sun.electric.tool.user.waveform.WaveformWindow;
 import com.sun.electric.tool.user.waveform.Panel.WaveSelection;
 
 import java.awt.Color;
@@ -37,7 +36,6 @@ import java.awt.Graphics;
 import java.awt.font.GlyphVector;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.TreeMap;
@@ -107,6 +105,22 @@ public class BusSample<S extends Sample> implements Sample
         return new BusSample<DigitalSample>(ret);
     }
 
+    public double getMinValue()
+    {
+    	double min = Double.MAX_VALUE;
+    	for(int i=0; i<vals.length; i++)
+    		min = Math.min(min, vals[i].getMinValue());
+    	return min;
+    }
+
+    public double getMaxValue()
+    {
+    	double max = Double.MIN_VALUE;
+    	for(int i=0; i<vals.length; i++)
+    		max = Math.max(max, vals[i].getMaxValue());
+    	return max;
+    }
+
     /** create a MutableSignal<BusSample<SS>> */
     public static <SS extends Sample> Signal<BusSample<SS>> createSignal(SignalCollection sc, Stimuli sd, String signalName,
     	String signalContext, int width)
@@ -138,12 +152,12 @@ public class BusSample<S extends Sample> implements Sample
 
             public Signal<?>[] getBusMembers() { return subsignals; }
 
-            public Signal.View<RangeSample<BusSample<SS>>> getRasterView(final double t0, final double t1, final int numPixels, final boolean extrap)
+            public Signal.View<RangeSample<BusSample<SS>>> getRasterView(final double t0, final double t1, final int numPixels)
             {
                 final Signal.View<RangeSample<SS>>[] subviews = new Signal.View[subsignals.length];
 
                 for(int i=0; i<subviews.length; i++)
-                    subviews[i] = subsignals[i].getRasterView(t0, t1, numPixels, extrap);
+                    subviews[i] = subsignals[i].getRasterView(t0, t1, numPixels);
 
                 // the subviews' getRasterView() methods might have differing getNumEvents() values or different
                 // getTime() values for a given index.  Therefore, we must "collate" them.  By using a sorted treemap
@@ -223,6 +237,20 @@ public class BusSample<S extends Sample> implements Sample
                 return max;
             }
 
+            public double getMinValue()
+            {
+                double min = Double.MAX_VALUE;
+                for(Signal<SS> sig : subsignals) min = Math.min(min, sig.getMinValue());
+                return min;
+            }
+
+            public double getMaxValue()
+            {
+                double max = Double.MIN_VALUE;
+                for(Signal<SS> sig : subsignals) max = Math.max(max, sig.getMaxValue());
+                return max;
+            }
+
             public void plot(Panel panel, Graphics g, WaveSignal ws, Color light, List<PolyBase> forPs,
             	Rectangle2D bounds, List<WaveSelection> selectedObjects, Signal<?> xAxisSignal)
             {
@@ -233,8 +261,7 @@ public class BusSample<S extends Sample> implements Sample
                 Signal.View<RangeSample<BusSample<DigitalSample> > > view =
                     (Signal.View<RangeSample<BusSample<DigitalSample> > >)ds.getRasterView(panel.convertXScreenToData(0),
                                                                                            panel.convertXScreenToData(sz.width),
-                                                                                           sz.width,
-                                                                                           true);
+                                                                                           sz.width);
                 boolean curDefined = true;
                 long curYValue = 0;  // wow, this is pretty lame that Electric can't draw buses with more than 64 bits
                 int lastX = 0;
