@@ -79,6 +79,19 @@ public class Layer implements Serializable, Comparable
     private static final LayerNumbers polyLayers = new LayerNumbers();
     private static List<Function> allFunctions;
 
+    /**
+     * Get Function Set associated to a given Layer
+     * @param layer
+     * @return
+     */
+    public static Function.Set getMultiLayersSet(Layer layer)
+    {
+        Function.Set thisLayerFunction = (layer.getFunction().isPoly()) ?
+        new Function.Set(Function.POLY1, Function.GATE) :
+        new Function.Set(layer);
+        return thisLayerFunction;
+    }
+
     private static class LayerNumbers
     {
     	private final ArrayList<Function> list;
@@ -625,7 +638,7 @@ public class Layer implements Serializable, Comparable
          */
         public static class Set {
             final BitSet bits = new BitSet();
-            final int extraBits; // -1 means no check extraBits
+            int extraBits; 
             /** Set if all Layer.Functions */
             public static final Set ALL = new Set(Function.class.getEnumConstants());
 
@@ -659,6 +672,12 @@ public class Layer implements Serializable, Comparable
                 this.extraBits = NO_FUNCTION_EXTRAS; // same value as Layer.extraFunctions;
             }
 
+            public void add(Layer l)
+            {
+                bits.set(l.getFunction().ordinal());
+                extraBits |= l.getFunctionExtras();
+            }
+
             /**
              * Returns true if specified Functions is in this Set.
              * @param f Function to test.
@@ -668,7 +687,8 @@ public class Layer implements Serializable, Comparable
             public boolean contains(Function f, int extraFunction)
             {
                 // Check first if there is a match in the extra bits
-                boolean extraBitsM = extraBits == NO_FUNCTION_EXTRAS || (extraBits == extraFunction);
+                int extra = extraBits&extraFunction;
+                boolean extraBitsM = extraFunction == NO_FUNCTION_EXTRAS || (extra != 0);
                 return extraBitsM && bits.get(f.ordinal());
             }
         }

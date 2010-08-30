@@ -396,17 +396,24 @@ public class VerilogReader extends Input<Object>
     /**
      * Method to ignore certain amount of lines. Useful for begin/end blocks and tables
      * @param endString
+     * @param nestedLoop
      * @throws IOException
      */
-    private void ignoreUntilEndOfStatement(String endString) throws IOException
+    private void ignoreUntilEndOfStatement(String endString, int nestedLoop) throws IOException
     {
         String key = (endString != null) ? endString : ";";  // endString != null for table for example
 
         for (;;)
         {
             String input = getRestOfLine();
-            if (endString == null && input.contains("begin")) // swtch to end only if it is not a table
-                key = "end";
+            if (/*endString == null &&*/ input.contains("begin")) // swtch to end only if it is not a table
+            {
+                //key = "end";
+                // ignore the next nested loop
+               ignoreUntilEndOfStatement("end", nestedLoop+1);
+               if (nestedLoop == 0)
+                   return; // stop in the outest loop
+            }
             if (input.contains(key))
                 return; // finish
         }
@@ -457,7 +464,10 @@ public class VerilogReader extends Input<Object>
                 VerilogData.VerilogPort export = module.findPort(name);
                 // input a, b, c, d, c got problems to parse
                 if (Job.getDebug())
-                    assert(export != null);
+                {
+                    System.out.println("Error: export name '" + name + " 'doesn't match with module signature");
+//                    assert(export != null);
+                }
                 if (export != null)
                 {
                     // except for clk!!
@@ -561,19 +571,23 @@ public class VerilogReader extends Input<Object>
 
             // ignoring some elements
             if (key.equals("assign") || key.startsWith("always") || key.startsWith("initial")
-                    || key.startsWith("reg") || key.startsWith("table") || key.startsWith("specify"))
+                || key.startsWith("reg") || key.startsWith("table") || key.startsWith("specify")
+                || key.startsWith("begin"))
             {
                 if (Job.getDebug())
                     System.out.println("Ignoring " + key);
                 String endStatement = null;
+                int nestedLoopAllowed = 0;
                 if (key.startsWith("table"))
                     endStatement = "endtable";
                 else if (key.startsWith("specify"))
                     endStatement = "endspecify";
-                ignoreUntilEndOfStatement(endStatement); // either ; or end
+                else if (key.startsWith("always")) // It is always defined in a begin-end block
+                    endStatement = "end";
+                ignoreUntilEndOfStatement(endStatement, nestedLoopAllowed); // either ; or end
                 continue;
             }
-            
+
             if (key.equals("tranif1")) // transistors
             {
                 // reading gates
@@ -895,7 +909,7 @@ public class VerilogReader extends Input<Object>
                         cell, Orientation.IDENT, pinName);
                 if (addExport)
                 {
-                    Export.newInstance(cell, ni.getOnlyPortInst(), pinName, portType, localPrefs.iconParameters);
+                    Export.newInstance(cell, ni.getOnlyPortInst(), pinName, portType);
                 }
             }
             else
@@ -975,8 +989,8 @@ public class VerilogReader extends Input<Object>
 
 	                ArcInst.makeInstanceBase(Schematics.tech().wire_arc, 0.0,
 	                    ni.getOnlyPortInst(), supply.getOnlyPortInst(), null, null, name);
-	
-	                Export.newInstance(cell, ni.getOnlyPortInst(), name, portType, localPrefs.iconParameters);
+
+	                Export.newInstance(cell, ni.getOnlyPortInst(), name, portType);
 	            }
 	            else
 	                System.out.println("Skipping this characteristic?");

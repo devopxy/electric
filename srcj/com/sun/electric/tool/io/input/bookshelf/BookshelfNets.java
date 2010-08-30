@@ -47,6 +47,9 @@ import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.NodeInst;
 import com.sun.electric.database.topology.PortInst;
+import com.sun.electric.database.variable.TextDescriptor;
+import com.sun.electric.database.variable.Variable;
+import com.sun.electric.database.variable.Variable.Key;
 import com.sun.electric.technology.ArcProto;
 import com.sun.electric.technology.technologies.Artwork;
 import com.sun.electric.technology.technologies.Generic;
@@ -56,10 +59,10 @@ import com.sun.electric.tool.io.input.bookshelf.BookshelfNodes.BookshelfPin;
 import com.sun.electric.tool.util.CollectionFactory;
 
 /**
- * @author fschmidt
+ * @author Felix Schmidt
  * 
  */
-public class BookshelfNets {
+public class BookshelfNets implements BookshelfInputParser<Void> {
 
 	private String fileName;
 	private Library lib;
@@ -70,7 +73,7 @@ public class BookshelfNets {
 		this.lib = lib;
 	}
 
-	public void parse() throws IOException {
+	public Void parse() throws IOException {
 
 		Job.getUserInterface().setProgressNote("Parse Net List File: Step 1/4");
 
@@ -179,6 +182,10 @@ public class BookshelfNets {
 			Cell np = bn.getPrototype();
 			NodeInst ni = NodeInst.newInstance(np, new Point2D.Double(bn.getX(), bn.getY()), bn.getWidth(), bn
 					.getHeight(), mainCell, Orientation.IDENT, bn.getName());
+			Key key = Variable.newKey("weight");
+			Variable var = Variable.newInstance(key, bn.getWeight(), TextDescriptor.getNodeTextDescriptor());
+			ni.addVar(var);
+			
 			bn.setInstance(ni);
 		}
 
@@ -251,6 +258,7 @@ public class BookshelfNets {
 			}
 
 		}
+		return null;
 	}
 
 	public static void newInstance(Cell parent, ArcProto protoType, String name, PortInst headPort, PortInst tailPort,
@@ -258,8 +266,8 @@ public class BookshelfNets {
 		if (true) {
 			ArcInst.newInstance(parent, protoType, name, null, headPort, tailPort, headPt, tailPt, gridExtendOverMin,
 					angle, flags);
-		} else {
-			ArcInst.makeInstance(protoType, headPort, tailPort);
+		} //else {
+			//ArcInst.makeInstance(protoType, headPort, tailPort);
 			// // make sure the arc can connect to these ports
 			// PortProto headProto = headPort.getPortProto();
 			// PortProto tailProto = tailPort.getPortProto();
@@ -281,7 +289,7 @@ public class BookshelfNets {
 			// Topology topology = parent.getTopology();
 			// ArcInst ai = new ArcInst(topology, d, headPort, tailPort);
 			// topology.addArc(ai);
-		}
+		//}
 	}
 
 	private BookshelfPin parsePin(String line, BookshelfNet net) {
@@ -304,7 +312,7 @@ public class BookshelfNets {
 
 		String[] splited = line.split(" ");
 		result.elements = Integer.parseInt(splited[2]);
-		result.netName = splited[4];
+		result.netName = splited[splited.length - 1];
 
 		return result;
 	}

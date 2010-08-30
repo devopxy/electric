@@ -191,7 +191,7 @@ public class MTDRCAreaTool extends MTDRCTool
             this.topCell = topC;
             this.reportInfo = rI;
             this.theLayer = layer;
-            this.thisLayerFunction = DRC.getMultiLayersSet(theLayer);
+            this.thisLayerFunction = Layer.getMultiLayersSet(theLayer);
             this.mode = m;
             cellsMap = new HashMap<Cell,GeometryHandlerLayerBucket>();
             nodesList = new ArrayList<PrimitiveNode>();
@@ -236,10 +236,10 @@ public class MTDRCAreaTool extends MTDRCTool
             if (job.checkAbort()) return false;
 
             Cell cell = info.getCell();
-            Set<String> set = cellLayersCon.getLayersSet(cell);
+            Set<Layer> set = cellLayersCon.getLayersSet(cell);
 
             // The cell doesn't contain the layer
-            if (set != null && !set.contains(theLayer.getName()))
+            if (set != null && !set.contains(theLayer))
             {
                 return false;
             }
@@ -374,9 +374,7 @@ public class MTDRCAreaTool extends MTDRCTool
                 // Must run the real checking
                 if (!minPass)
                 {
-                    List<PolyBase.PolyBaseTree> roots = PolyBase.getTreesFromLoops(list);
-
-                    for (PolyBase.PolyBaseTree obj : roots)
+                    for (PolyBase.PolyBaseTree obj : PolyBase.getTreesFromLoops(list))
                     {
                         traversePolyTree(layer, obj, 0, cell, errorFound);
                     }
@@ -404,8 +402,7 @@ public class MTDRCAreaTool extends MTDRCTool
         private void traversePolyTree(Layer layer, PolyBase.PolyBaseTree obj, int level,
                                       Cell cell, GenMath.MutableInteger count)
         {
-            List<PolyBase.PolyBaseTree> sons = obj.getSons();
-            for (PolyBase.PolyBaseTree son : sons)
+            for (PolyBase.PolyBaseTree son : obj.getSons())
             {
                 traversePolyTree(layer, son, level+1, cell, count);
             }

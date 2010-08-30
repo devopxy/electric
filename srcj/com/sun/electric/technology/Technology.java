@@ -158,7 +158,7 @@ public class Technology implements Comparable<Technology>, Serializable
 	 * Each ArcProto is composed of a number of ArcLayer descriptors.
 	 * A descriptor converts a specific ArcInst into a polygon that describe this particular layer.
 	 */
-	protected static class ArcLayer
+	public static class ArcLayer
 	{
 		private final Layer layer;
 		private final Poly.Type style;
@@ -4556,7 +4556,7 @@ public class Technology implements Comparable<Technology>, Serializable
 
     /**
      * This is the most basic function to determine the widest wire and the parallel distance
-     * that run along them. Done because MOSRules doesn't consider the parallel distance as input.
+     * that run along them. Done because old class (MOSRules) doesn't consider the parallel distance as input.
      */
     public double[] getSpacingDistances(Poly poly1, Poly poly2)
     {

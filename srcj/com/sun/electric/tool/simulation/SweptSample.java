@@ -67,7 +67,7 @@ public class SweptSample<S extends Sample> implements Sample
 
     public double getMax()
     {
-    	double maxVal = Double.MIN_VALUE;
+    	double maxVal = -Double.MAX_VALUE;
     	for(int i=0; i<vals.length; i++)
     		if (vals[i] != null)
     			maxVal = Math.max(maxVal, ((ScalarSample)vals[i]).getValue());
@@ -139,7 +139,7 @@ public class SweptSample<S extends Sample> implements Sample
 
     public double getMaxValue()
     {
-    	double max = Double.MIN_VALUE;
+    	double max = -Double.MAX_VALUE;
     	for(int i=0; i<vals.length; i++)
     		max = Math.max(max, vals[i].getMaxValue());
     	return max;
@@ -272,7 +272,7 @@ public class SweptSample<S extends Sample> implements Sample
                     {
                         double t = view.getTime(j);
                         HashSet<Integer> hs = tm.get(t);
-                        if (hs==null) tm.put(t, hs = new HashSet<Integer>());
+                        if (hs == null) tm.put(t, hs = new HashSet<Integer>());
                         hs.add(i);
                     }
                 }
@@ -315,7 +315,7 @@ public class SweptSample<S extends Sample> implements Sample
 
             public double getMaxTime()
             {
-                double max = Double.MIN_VALUE;
+                double max = -Double.MAX_VALUE;
                 for(Signal<SS> sig : subsignals) max = Math.max(max, sig.getMaxTime());
                 return max;
             }
@@ -329,7 +329,7 @@ public class SweptSample<S extends Sample> implements Sample
 
             public double getMaxValue()
             {
-                double max = Double.MIN_VALUE;
+                double max = -Double.MAX_VALUE;
                 for(Signal<SS> sig : subsignals) max = Math.max(max, sig.getMaxValue());
                 return max;
             }

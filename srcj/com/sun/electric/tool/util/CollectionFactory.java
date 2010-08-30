@@ -34,13 +34,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentSkipListSet;
 
 import com.sun.electric.tool.util.concurrent.datastructures.BDEQueue;
 import com.sun.electric.tool.util.concurrent.datastructures.FCQueue;
 import com.sun.electric.tool.util.concurrent.datastructures.LockFreeQueue;
 import com.sun.electric.tool.util.concurrent.datastructures.LockFreeStack;
 import com.sun.electric.tool.util.concurrent.datastructures.UnboundedDEQueue;
+import com.sun.electric.tool.util.datastructures.ImmutableList;
 
 /**
  * This class provides factory methods for creating data structures. The
@@ -127,10 +127,6 @@ public class CollectionFactory {
 		return new ConcurrentHashMap<T, K>();
 	}
 
-	public static <T> ConcurrentSkipListSet<T> createConcurrentSkipList() {
-		return new ConcurrentSkipListSet<T>();
-	}
-
 	/**
 	 * create a new concurrent hash set
 	 */
@@ -208,10 +204,26 @@ public class CollectionFactory {
 
 	public static <T> Set<T> copyListToSet(List<T> source) {
 		Set<T> result = CollectionFactory.createHashSet();
-		
+
 		doCopyCollection(source, result);
 
 		return result;
+	}
+
+	public static <T> List<T> copySetToList(Set<T> source) {
+		List<T> result = CollectionFactory.createArrayList();
+
+		doCopyCollection(source, result);
+
+		return result;
+	}
+
+	public static <T> ImmutableList<T> copyListToImmutableList(List<T> source) {
+		ImmutableList<T> immutableList = null;
+		for (T element : source) {
+			immutableList = ImmutableList.add(immutableList, element);
+		}
+		return immutableList;
 	}
 
 	private static <T> void doCopyCollection(Collection<T> source, Collection<T> dest) {

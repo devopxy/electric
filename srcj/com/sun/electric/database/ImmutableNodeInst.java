@@ -44,10 +44,12 @@ import com.sun.electric.database.variable.Variable;
 import com.sun.electric.technology.BoundsBuilder;
 import com.sun.electric.technology.Technology;
 import com.sun.electric.technology.technologies.Artwork;
+import java.awt.geom.Point2D;
 
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -58,8 +60,6 @@ import java.util.NoSuchElementException;
  * @promise "requiresColor (DBChanger | DBExaminer | AWT);" for check()
  */
 public class ImmutableNodeInst extends ImmutableElectricObject {
-
-    public static final boolean SIMPLE_TRACE_SIZE = true;
 
     /**
      * Class to access user bits of ImmutableNodeInst.
@@ -161,6 +161,12 @@ public class ImmutableNodeInst extends ImmutableElectricObject {
     public final TextDescriptor protoDescriptor;
     /** Variables on PortInsts. */
     final ImmutablePortInst[] ports;
+
+    public static Comparator<ImmutableNodeInst> NAME_ORDER = new Comparator<ImmutableNodeInst>() {
+        public int compare(ImmutableNodeInst n1, ImmutableNodeInst n2) {
+            return TextUtils.STRING_NUMBER_ORDER.compare(n1.name.toString(), n2.name.toString());
+        }
+    };
 
     /**
      * The private constructor of ImmutableNodeInst. Use the factory "newInstance" instead.
@@ -503,7 +509,7 @@ public class ImmutableNodeInst extends ImmutableElectricObject {
             return this;
         }
         EPoint size = this.size;
-        if (SIMPLE_TRACE_SIZE && var.getKey() == NodeInst.TRACE &&
+        if (var.getKey() == NodeInst.TRACE &&
                 protoId instanceof PrimitiveNodeId && !isCellCenter(protoId)) {
             Object value = var.getObject();
             if (value instanceof EPoint[]) {
@@ -915,7 +921,7 @@ public class ImmutableNodeInst extends ImmutableElectricObject {
         assert orient != null;
         assert anchor != null;
         assert size != null;
-        if (SIMPLE_TRACE_SIZE && protoId instanceof PrimitiveNodeId && !isCellCenter(protoId)) {
+        if (protoId instanceof PrimitiveNodeId && !isCellCenter(protoId)) {
             EPoint[] trace = getTrace();
             if (trace != null) {
                 assert calcTraceSize(trace).equals(size);
@@ -1130,6 +1136,68 @@ public class ImmutableNodeInst extends ImmutableElectricObject {
             return (EPoint[]) obj;
         }
         return null;
+    }
+
+    /**
+     * Method to set the "outline" information on this NodeInst.
+     * Outline information is a set of coordinate points that further
+     * refines the NodeInst description.  It is typically used in
+     * Artwork primitives to give them a precise shape.  It is also
+     * used by pure-layer nodes in all layout technologies to allow
+     * them to take any shape.  It is even used by many MOS
+     * transistors to allow a precise gate path to be specified.
+     * @param points an array of Point2D values in database coordinates.
+     * These are not relative to the center of the node, but are actual coordinates of the outline.
+     */
+    public ImmutableNodeInst withTrace(Point2D[] points, TextDescriptor td) {
+        double lX = points[0].getX();
+        double hX = lX;
+        double lY = points[0].getY();
+        double hY = lY;
+        for (int i = 1; i < points.length; i++) {
+            if (points[i] == null) {
+                continue;
+            }
+            double x = points[i].getX();
+            if (x < lX) {
+                lX = x;
+            }
+            if (x > hX) {
+                hX = x;
+            }
+            double y = points[i].getY();
+            if (y < lY) {
+                lY = y;
+            }
+            if (y > hY) {
+                hY = y;
+            }
+        }
+        EPoint newAnchor = EPoint.fromLambda((lX + hX) / 2, (lY + hY) / 2);
+        long newSX = 0;
+        long newSY = 0;
+        EPoint[] newPoints = new EPoint[points.length];
+        for (int i = 0; i < newPoints.length; i++) {
+            if (points[i] != null) {
+                EPoint p = EPoint.fromLambda(points[i].getX() - newAnchor.getLambdaX(), points[i].getY() - newAnchor.getLambdaY());
+                newSX = Math.max(newSX, Math.abs(p.getGridX()));
+                newSY = Math.max(newSY, Math.abs(p.getGridY()));
+                newPoints[i] = p;
+            }
+        }
+
+        // update the points
+//        Variable var = getVar(NodeInst.TRACE);
+//        if (var != null && var.getTextDescriptor() == td) {
+//            Object obj = var.getObject();
+//            if (obj instanceof EPoint[] && Arrays.equals((EPoint[])obj, newPoints)) {
+//                return this;
+//            }
+//        }
+        return withOrient(Orientation.IDENT)
+                .withAnchor(newAnchor)
+                .withSize(EPoint.fromGrid(newSX*2, newSY*2))
+                .withVariable(Variable.newInstance(NodeInst.TRACE, newPoints, td));
     }
 
     private static EPoint calcTraceSize(EPoint[] trace) {

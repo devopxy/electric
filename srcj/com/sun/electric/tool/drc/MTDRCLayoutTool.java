@@ -104,13 +104,15 @@ public class MTDRCLayoutTool extends MTDRCTool
     private class Task {
 
         private HashMap<NodeInst,CheckInst> checkInsts;
-
         private HashMap<Cell,CheckProto> checkProtos;
+
         private HashMap<Network,Integer[]> networkLists;
         private HashMap<Geometric,Geometric> nodesMap = new HashMap<Geometric,Geometric>(); // for node caching
         private Map<Layer,NodeInst> od2Layers = new HashMap<Layer,NodeInst>(3);  /** to control OD2 combination in the same die according to foundries */
 
-        private List<InstanceInter> instanceInteractionList = new ArrayList<InstanceInter>();
+        private List<InstanceInter> instanceInteractionList = new ArrayList<InstanceInter>();   
+//    private List<InstanceInter> instanceInteractionList = new ArrayList<InstanceInter>();
+        private Map<NodeInst,List<InstanceInter>> instanceInteractionMap = new HashMap<NodeInst,List<InstanceInter>>();
 
         /**
          * The DRCExclusion object lists areas where Generic:DRC-Nodes exist to ignore errors.
@@ -121,8 +123,8 @@ public class MTDRCLayoutTool extends MTDRCTool
         /** the other Geometric in "tiny" errors. */				private Geometric tinyGeometric;
         /** for tracking the time of good DRC. */					private HashSet<Cell> goodSpacingDRCDate = new HashSet<Cell>();
         /** for tracking cells that need to clean good DRC vars */	private HashSet<Cell> cleanSpacingDRCDate = new HashSet<Cell>();
-	/** for tracking the time of good DRC. */					private HashSet<Cell> goodAreaDRCDate = new HashSet<Cell>();
-	/** for tracking cells that need to clean good DRC vars */	private HashSet<Cell> cleanAreaDRCDate = new HashSet<Cell>();
+	    /** for tracking the time of good DRC. */					private HashSet<Cell> goodAreaDRCDate = new HashSet<Cell>();
+	    /** for tracking cells that need to clean good DRC vars */	private HashSet<Cell> cleanAreaDRCDate = new HashSet<Cell>();
         /** Miscellanous data for DRC */                            private DRC.ReportInfo reportInfo;
 
         // To speed up the layer process
@@ -157,7 +159,7 @@ public class MTDRCLayoutTool extends MTDRCTool
             if (taskKey != null)
             {
                 name = "Layer " + taskKey.getName();
-                this.thisLayerFunction = DRC.getMultiLayersSet(taskKey);
+                this.thisLayerFunction = Layer.getMultiLayersSet(taskKey);
             } else
             {
                 name = "Node Min. Size";
@@ -868,6 +870,16 @@ public class MTDRCLayoutTool extends MTDRCTool
             if (!thisCell.isLayout())
                 return false; // skips non-layout cells.
 
+            // look for other instances surrounding this one
+            Rectangle2D nodeBounds = ni.getBounds();
+//            double worstInteractionDistance = reportInfo.worstInteractionDistance;
+            GenMath.MutableDouble mutableDist = new GenMath.MutableDouble(0);
+            if (!cellLayersCon.getWorstSpacingDistance(thisCell, mutableDist))
+            {
+//                System.out.println("No worst spacing distance found in MTDRCLayoutTool:checkCellInst");
+                return false;
+            }
+
             // get transformation out of the instance
             AffineTransform upTrans = ni.translateOut(ni.rotateOut());
 
@@ -875,10 +887,10 @@ public class MTDRCLayoutTool extends MTDRCTool
             CheckInst ci = checkInsts.get(ni);
             int localIndex = globalIndex * ci.multiplier + ci.localIndex + ci.offset;
             boolean errorFound = false;
+            CheckProto cpNi = getCheckProto(thisCell);
 
-            // look for other instances surrounding this one
-            Rectangle2D nodeBounds = ni.getBounds();
-            double worstInteractionDistance = reportInfo.worstInteractionDistance;
+            double worstInteractionDistance = mutableDist.doubleValue();
+            
             Rectangle2D searchBounds = new Rectangle2D.Double(
                 nodeBounds.getMinX() - worstInteractionDistance,
                 nodeBounds.getMinY() - worstInteractionDistance,
@@ -900,15 +912,26 @@ public class MTDRCLayoutTool extends MTDRCTool
                 if (!oNi.isCellInstance()) continue;
 
                 // see if this configuration of instances has already been done
-                if (checkInteraction(ni, null, oNi, null, null)) continue;
+                CheckProto cpoNi = getCheckProto((Cell)oNi.getProto()); // assume oNi is a cell
+                // see if this configuration of instances has already been done
+                if (DRC.checkInteraction(instanceInteractionMap, reportInfo.errorTypeSearch,
+                    ni, ni, cpNi.cellParameterized, oNi, oNi, cpoNi.cellParameterized, ni, searchBounds))
+                    continue;
+//                if (checkInteraction(ni, null, oNi, null, null)) continue;
 
                 // found other instance "oNi", look for everything in "ni" that is near it
                 Rectangle2D nearNodeBounds = oNi.getBounds();
+                if (!cellLayersCon.getWorstSpacingDistance(oNi.getProto(), mutableDist))
+                {
+//                    System.out.println("No worst spacing distance found in Quick:checkThisCellPlease");
+                    continue;
+                }
+                double worstInteractionDistanceLocal = mutableDist.doubleValue();
                 Rectangle2D subBounds = new Rectangle2D.Double(
-                    nearNodeBounds.getMinX() - worstInteractionDistance,
-                    nearNodeBounds.getMinY() - worstInteractionDistance,
-                    nearNodeBounds.getWidth() + worstInteractionDistance * 2,
-                    nearNodeBounds.getHeight() + worstInteractionDistance * 2);
+                    nearNodeBounds.getMinX() - worstInteractionDistanceLocal,
+                    nearNodeBounds.getMinY() - worstInteractionDistanceLocal,
+                    nearNodeBounds.getWidth() + worstInteractionDistanceLocal * 2,
+                    nearNodeBounds.getHeight() + worstInteractionDistanceLocal * 2);
 
                 // recursively search instance "ni" in the vicinity of "oNi"
                 boolean ret = checkCellInstContents(subBounds, ni, upTrans, localIndex, oNi, null, globalIndex, null);
@@ -930,6 +953,10 @@ public class MTDRCLayoutTool extends MTDRCTool
             if (checkAbort()) return true;
 
             Cell cell = (Cell) thisNi.getProto();
+            if (!cell.isLayout())
+                return false; // skips non-layout cells.
+
+            CheckProto cpoNi = getCheckProto((Cell)oNi.getProto()); // assume oNi is a cell
             boolean logsFound = false;
             Netlist netlist = getCheckProto(cell).netlist;
             Technology cellTech = cell.getTechnology();
@@ -957,8 +984,11 @@ public class MTDRCLayoutTool extends MTDRCTool
 
                     if (ni.isCellInstance())
                     {
+                        CheckProto cpNi = getCheckProto((Cell)np);
                         // see if this configuration of instances has already been done
-                        if (checkInteraction(ni, thisNi, oNi, oNiParent, triggerNi)) continue;  // Jan 27'05. Removed on May'05
+                        if (DRC.checkInteraction(instanceInteractionMap, reportInfo.errorTypeSearch,
+                            ni, thisNi, cpNi.cellParameterized, oNi, oNiParent, cpoNi.cellParameterized, triggerNi, bb))
+                            continue;  // Jan 27'05. Removed on May'05
                         // You can't discard by interaction becuase two cells could be visited many times
                         // during this type of checking
 
@@ -979,13 +1009,17 @@ public class MTDRCLayoutTool extends MTDRCTool
                         }
                     } else
                     {
-                        AffineTransform rTrans = ni.rotateOut();
-                        rTrans.preConcatenate(upTrans);
                         Technology tech = np.getTechnology();
                         Poly[] primPolyList = tech.getShapeOfNode(ni, true, reportInfo.ignoreCenterCuts, thisLayerFunction);
                         convertPseudoLayers(ni, primPolyList);
                         int tot = primPolyList.length;
+
+                        if (tot == 0)
+                            continue;
+
                         Technology.MultiCutData multiCutData = tech.getMultiCutData(ni);
+                        AffineTransform rTrans = ni.rotateOut();
+                        rTrans.preConcatenate(upTrans);
 
                         for (int j = 0; j < tot; j++)
                         {
@@ -1018,7 +1052,8 @@ public class MTDRCLayoutTool extends MTDRCTool
 
                     if (tech != cellTech)
                     {
-                        DRC.createDRCErrorLogger(reportInfo, DRC.DRCErrorType.TECHMIXWARN, " belongs to " + tech.getTechName(), cell, 0, 0, null, null, ai, null, null, null, null);
+                        // Leaving this tech conflict to the code in checkCell()
+//                        DRC.createDRCErrorLogger(reportInfo, DRC.DRCErrorType.TECHMIXWARN, " belongs to " + tech.getTechName(), cell, 0, 0, null, null, ai, null, null, null, null);
                         continue;
                     }
 
@@ -1032,7 +1067,11 @@ public class MTDRCLayoutTool extends MTDRCTool
                         Poly poly = arcPolyList[j];
                         Layer layer = poly.getLayer();
                         if (layer == null) continue;
-                        if (layer.isNonElectrical()) continue;
+                        if (layer.isNonElectrical())
+                        {
+                            assert(false); // should this happen?
+                            continue;
+                        }
                         Network jNet = netlist.getNetwork(ai, 0);
                         int net = -1;
                         if (jNet != null)
@@ -1063,8 +1102,9 @@ public class MTDRCLayoutTool extends MTDRCTool
         {
             // see how far around the box it is necessary to search
             double maxSize = poly.getMaxSize();
-            double bound = currentRules.getMaxSurround(layer, maxSize);
-            if (bound < 0) return false;
+            GenMath.MutableDouble mutableDist = new GenMath.MutableDouble(0);
+            boolean found = currentRules.getMaxSurround(layer, maxSize, mutableDist);
+		    if (!found) return false;
 
             // get bounds
             Rectangle2D bounds = new Rectangle2D.Double();
@@ -1080,6 +1120,7 @@ public class MTDRCLayoutTool extends MTDRCTool
             int localIndex = topGlobalIndex * ci.multiplier + ci.localIndex + ci.offset;
 
             // search in the area surrounding the box
+            double bound = mutableDist.doubleValue();
             bounds.setRect(bounds.getMinX() - bound, bounds.getMinY() - bound, bounds.getWidth() + bound * 2, bounds.getHeight() + bound * 2);
             return (badBoxInArea(poly, layer, tech, net, geom, trans, globalIndex, bounds, (Cell) oNi.getProto(), localIndex,
                 oNi.getParent(), topGlobalIndex, upTrans, multiCutData, false));
@@ -1100,8 +1141,9 @@ public class MTDRCLayoutTool extends MTDRCTool
         {
             // see how far around the box it is necessary to search
             double maxSize = poly.getMaxSize();
-            double bound = this.currentRules.getMaxSurround(layer, maxSize);
-            if (bound < 0) return false;
+            GenMath.MutableDouble mutableDist = new GenMath.MutableDouble(0);
+            boolean found = currentRules.getMaxSurround(layer, maxSize, mutableDist);
+            if (!found) return false;
 
             // get bounds
             Rectangle2D bounds = new Rectangle2D.Double();
@@ -1113,6 +1155,7 @@ public class MTDRCLayoutTool extends MTDRCTool
 //                baseMulti = tech.isMultiCutCase((NodeInst) geom);
 
             // search in the area surrounding the box
+            double bound = mutableDist.doubleValue();
             bounds.setRect(bounds.getMinX() - bound, bounds.getMinY() - bound, bounds.getWidth() + bound * 2, bounds.getHeight() + bound * 2);
             return badBoxInArea(poly, layer, tech, net, geom, trans, globalIndex, bounds, cell, globalIndex,
                 cell, globalIndex, DBMath.MATID, multiCutData, true);
@@ -1204,19 +1247,27 @@ public class MTDRCLayoutTool extends MTDRCTool
                         // because they might below to the same cell but in different instances
                         boolean touch = sameInstance && nGeom.isConnected(geom);
 
+                        // get the shape of each nodeinst layer
+                        Poly [] subPolyList = DRC.getShapeOfNodeBasedOnRules(tech, reportInfo, ni);
+                        int tot = subPolyList.length;
+
+                        if (tot == 0)
+                            System.out.println("Should i skup this one?");
+
                         // prepare to examine every layer in this nodeinst
                         AffineTransform rTrans = ni.rotateOut();
                         rTrans.preConcatenate(upTrans);
-
-                        // get the shape of each nodeinst layer
-                        Poly[] subPolyList = tech.getShapeOfNode(ni, true, reportInfo.ignoreCenterCuts, null);
                         convertPseudoLayers(ni, subPolyList);
-                        int tot = subPolyList.length;
                         for (int i = 0; i < tot; i++)
                             subPolyList[i].transform(rTrans);
+
                         /* Step 1 */
                         boolean multi = baseMulti;
                         Technology.MultiCutData niMCD = tech.getMultiCutData(ni);
+
+                        if (tot==0 && niMCD != null)
+                            assert(false); // does it happen?
+
                         // in case it is one via against many from another contact (3-contact configuration)
                         if (!multi && isLayerAContact && niMCD != null)
                         {
@@ -1892,7 +1943,15 @@ public class MTDRCLayoutTool extends MTDRCTool
 
             // look for other objects surrounding this one
             Rectangle2D nodeBounds = ni.getBounds();
-            double worstInteractionDistance = reportInfo.worstInteractionDistance;
+//            double worstInteractionDistance = reportInfo.worstInteractionDistance;
+            GenMath.MutableDouble mutableDist = new GenMath.MutableDouble(0);
+            if (!cellLayersCon.getWorstSpacingDistance(cell, mutableDist))
+            {
+                System.out.println("No worst spacing distance found in Quick:checkThisCellPlease");
+                return false;
+            }
+            double worstInteractionDistance = mutableDist.doubleValue();
+
             Rectangle2D searchBounds = new Rectangle2D.Double(
                 nodeBounds.getMinX() - worstInteractionDistance,
                 nodeBounds.getMinY() - worstInteractionDistance,
@@ -1921,11 +1980,18 @@ public class MTDRCLayoutTool extends MTDRCTool
 
                 // found other instance "oNi", look for everything in "ni" that is near it
                 Rectangle2D subNodeBounds = oNi.getBounds();
+                //            double worstInteractionDistanceLocal = cellLayersCon.getWorstSpacingDistance(oNi.getProto());
+                if (!cellLayersCon.getWorstSpacingDistance(oNi.getProto(), mutableDist))
+                {
+                    System.out.println("No worst spacing distance found in Quick:checkThisCellPlease");
+                    continue;
+                }
+                double worstInteractionDistanceLocal = mutableDist.doubleValue();
                 Rectangle2D subBounds = new Rectangle2D.Double(
-                    subNodeBounds.getMinX() - worstInteractionDistance,
-                    subNodeBounds.getMinY() - worstInteractionDistance,
-                    subNodeBounds.getWidth() + worstInteractionDistance * 2,
-                    subNodeBounds.getHeight() + worstInteractionDistance * 2);
+                    subNodeBounds.getMinX() - worstInteractionDistanceLocal,
+                    subNodeBounds.getMinY() - worstInteractionDistanceLocal,
+                    subNodeBounds.getWidth() + worstInteractionDistanceLocal * 2,
+                    subNodeBounds.getHeight() + worstInteractionDistanceLocal * 2);
 
                 // recursively search instance "ni" in the vicinity of "oNi"
                 if (checkCellInstContents(subBounds, ni, upTrans, localIndex, oNi, null, globalIndex, null))
@@ -1978,6 +2044,7 @@ public class MTDRCLayoutTool extends MTDRCTool
             int localIndex = globalIndex * ci.multiplier + ci.localIndex + ci.offset;
 
             // examine the polygons on this node
+            GenMath.MutableDouble mutableDist = new GenMath.MutableDouble(0);
             for (int j = 0; j < tot; j++)
             {
                 Poly poly = nodeInstPolyList[j];
@@ -1986,8 +2053,8 @@ public class MTDRCLayoutTool extends MTDRCTool
 
                 // see how far around the box it is necessary to search
                 double maxSize = poly.getMaxSize();
-                double bound = this.currentRules.getMaxSurround(polyLayer, maxSize);
-                if (bound < 0) continue;
+                boolean found = currentRules.getMaxSurround(polyLayer, maxSize, mutableDist);
+			    if (!found) continue;
 
                 // determine network for this polygon
                 int net;
@@ -2004,6 +2071,7 @@ public class MTDRCLayoutTool extends MTDRCTool
 
                 // determine area to search inside of cell to check this layer
                 Rectangle2D polyBounds = poly.getBounds2D();
+                double bound = mutableDist.doubleValue();
                 Rectangle2D subBounds = new Rectangle2D.Double(polyBounds.getMinX() - bound,
                     polyBounds.getMinY() - bound, polyBounds.getWidth() + bound * 2, polyBounds.getHeight() + bound * 2);
                 AffineTransform tempTrans = ni.rotateIn();
@@ -2091,10 +2159,8 @@ public class MTDRCLayoutTool extends MTDRCTool
          */
         private boolean findInteraction(InstanceInter dii)
         {
-//		for(Iterator it = instanceInteractionList.iterator(); it.hasNext(); )
             for (InstanceInter thisII : instanceInteractionList)
             {
-//			InstanceInter thisII = (InstanceInter)it.next();
                 if (thisII.cell1 == dii.cell1 && thisII.cell2 == dii.cell2 &&
                     thisII.or1.equals(dii.or1) && thisII.or2.equals(dii.or2) &&
                     thisII.dx == dii.dx && thisII.dy == dii.dy &&
@@ -2378,8 +2444,7 @@ public class MTDRCLayoutTool extends MTDRCTool
         private void traversePolyTree(Layer layer, PolyBase.PolyBaseTree obj, int level, DRCTemplate minAreaRule,
                                       DRCTemplate encloseAreaRule, DRCTemplate spacingRule, Cell cell, GenMath.MutableInteger count)
         {
-            List<PolyBase.PolyBaseTree> sons = obj.getSons();
-            for (PolyBase.PolyBaseTree son : sons)
+            for (PolyBase.PolyBaseTree son : obj.getSons())
             {
                 traversePolyTree(layer, son, level + 1, minAreaRule, encloseAreaRule, spacingRule, cell, count);
             }
@@ -2589,7 +2654,7 @@ public class MTDRCLayoutTool extends MTDRCTool
             boolean[] pointsFound = new boolean[2];
             pointsFound[0] = pointsFound[1] = false;
             boolean allFound = DRC.lookForLayerCoverage(geo1, poly1, geo2, poly2, cell, layer, DBMath.MATID, bounds,
-                pt1, pt2, null, pointsFound, overlap, this.thisLayerFunction, false, reportInfo.ignoreCenterCuts);
+                pt1, pt2, null, pointsFound, overlap, thisLayerFunction, false, reportInfo.ignoreCenterCuts);
 
             return allFound;
         }
@@ -2655,8 +2720,12 @@ public class MTDRCLayoutTool extends MTDRCTool
                     {
                         Poly poly = layerLookPolyList[i];
                         // sameLayer test required to check if Active layer is not identical to thich actice layer
-                        if (!tech.sameLayer(poly.getLayer(), layer))
+                         if (!tech.sameLayer(poly.getLayer(), layer))
                         {
+                            // This happens when you have implant with VTH implant, Function.Set doesn't distinguish them
+                            if (Job.getDebug())
+                                System.out.println("Wrong Function.Set with " + layer.getName() + " and " + poly.getLayer().getName());
+//                            assert(false); // should this happen?
                             continue;
                         }
 
@@ -2690,6 +2759,10 @@ public class MTDRCLayoutTool extends MTDRCTool
                         // sameLayer test required to check if Active layer is not identical to thich actice layer
                         if (!tech.sameLayer(poly.getLayer(), layer))
                         {
+                            // This happens when you have implant with VTH implant, Function.Set doesn't distinguish them
+                            if (Job.getDebug())
+                                System.out.println("Wrong Function.Set with " + layer.getName() + " and " + poly.getLayer().getName());
+//                            assert(false); // should this happen?
                             continue;
                         }
                         poly.transform(moreTrans);
@@ -3560,13 +3633,13 @@ public class MTDRCLayoutTool extends MTDRCTool
                                      Layer nLayer, int nNet, Geometric nGeom, Rectangle2D bound)
         {
             Technology tech = ni.getProto().getTechnology();
-            Poly[] cropNodePolyList = tech.getShapeOfNode(ni, true, reportInfo.ignoreCenterCuts, null);
+            assert(!ni.getProto().getFunction().isPin());
+            Layer.Function.Set set = Layer.getMultiLayersSet(nLayer);
+            Poly[] cropNodePolyList = tech.getShapeOfNode(ni, true, reportInfo.ignoreCenterCuts, set);
+
             convertPseudoLayers(ni, cropNodePolyList);
             int tot = cropNodePolyList.length;
             if (tot < 0) return false;
-            // Change #1
-//		for(int j=0; j<tot; j++)
-//			cropNodePolyList[j].transform(trans);
             boolean[] rotated = new boolean[tot];
             Arrays.fill(rotated, false);
             boolean isConnected = false;
@@ -3574,7 +3647,14 @@ public class MTDRCLayoutTool extends MTDRCTool
             for (int j = 0; j < tot; j++)
             {
                 Poly poly = cropNodePolyList[j];
-                if (!tech.sameLayer(poly.getLayer(), nLayer)) continue;
+                if (!tech.sameLayer(poly.getLayer(), nLayer))
+                {
+                    // This happens when you have implant with VTH implant, Function.Set doesn't distinguish them
+                    if (Job.getDebug())
+                        System.out.println("Wrong Function.Set with " + nLayer.getName() + " and " + poly.getLayer().getName());
+//                    assert(false); // should this happen?
+                    continue;
+                }
                 //only transform when poly is valid
                 poly.transform(trans); // change 1
                 rotated[j] = true;
@@ -3596,7 +3676,14 @@ public class MTDRCLayoutTool extends MTDRCTool
             for (int j = 0; j < tot; j++)
             {
                 Poly poly = cropNodePolyList[j];
-                if (!tech.sameLayer(poly.getLayer(), nLayer)) continue;
+                if (!tech.sameLayer(poly.getLayer(), nLayer))
+                {
+                    // This happens when you have implant with VTH implant, Function.Set doesn't distinguish them
+                    if (Job.getDebug())
+                        System.out.println("Wrong Function.Set with " + nLayer.getName() + " and " + poly.getLayer().getName());
+//                    assert(false); // should this happen?
+                    continue;
+                }
 
                 if (!rotated[j]) poly.transform(trans); // change 1
 
@@ -3630,9 +3717,12 @@ public class MTDRCLayoutTool extends MTDRCTool
             {
                 // find the primitive nodeinst at the true end of the portinst
                 PortInst pi = ai.getPortInst(i);
-
                 PortOriginal fp = new PortOriginal(pi, inTrans);
                 NodeInst ni = fp.getBottomNodeInst();
+
+                if (NodeInst.isSpecialNode(ni))
+                    continue; // Dec 08 -> is a pin so ignore it
+
                 NodeProto np = ni.getProto();
                 AffineTransform trans = fp.getTransformToTop();
 
@@ -3667,12 +3757,20 @@ public class MTDRCLayoutTool extends MTDRCTool
 //                }
 //            }
 //            else
-                cropArcPolyList = tech.getShapeOfNode(ni, false, reportInfo.ignoreCenterCuts, null);
+                Layer.Function.Set set = Layer.getMultiLayersSet(lay);
+                cropArcPolyList = tech.getShapeOfNode(ni, false, reportInfo.ignoreCenterCuts, set);
+
                 int tot = cropArcPolyList.length;
                 for (int j = 0; j < tot; j++)
                 {
                     Poly poly = cropArcPolyList[j];
-                    if (!tech.sameLayer(poly.getLayer(), lay)) continue;
+                    if (!tech.sameLayer(poly.getLayer(), lay))
+                    {
+                        // This happens when you have implant with VTH implant, Function.Set doesn't distinguish them
+                        if (Job.getDebug())
+                            System.out.println("Wrong Function.Set with " + lay.getName() + " and " + poly.getLayer().getName());
+                        continue;
+                    }
                     poly.transform(trans);
 
                     // warning: does not handle arbitrary polygons, only boxes
