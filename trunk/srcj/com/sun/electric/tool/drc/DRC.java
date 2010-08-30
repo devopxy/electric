@@ -78,15 +78,7 @@ public class DRC extends Listener
     /** to temporary store DRC dates for area checking */    private static Map<Cell,StoreDRCInfo> storedAreaDRCDate = new HashMap<Cell,StoreDRCInfo>();
 
     static final double TINYDELTA = DBMath.getEpsilon()*1.1;
-    /** key of Variable holding DRC Cell annotations. */	static final Variable.Key DRC_ANNOTATION_KEY = Variable.newKey("ATTR_DRC");
-
-    static Layer.Function.Set getMultiLayersSet(Layer layer)
-    {
-        Layer.Function.Set thisLayerFunction = (layer.getFunction().isPoly()) ?
-        new Layer.Function.Set(Layer.Function.POLY1, Layer.Function.GATE) :
-        new Layer.Function.Set(layer);
-        return thisLayerFunction;
-    }
+    /** key of Variable holding DRC Cell annotations. */	static final Variable.Key DRC_ANNOTATION_KEY = Variable.newKey("ATTR_DRC");  
 
     /*********************************** Annotations ***********************************/
     public static void makeDRCAnnotation()
@@ -106,6 +98,9 @@ public class DRC extends Listener
         // look for an active layer in this arc
         int tot = pList.length;
         int diffPoly = -1;
+        // note: arcs would never have tot=0 since they are only defined to wire elements with valid rules
+        assert(tot!=0);
+        
         for(int j=0; j<tot; j++)
         {
             Poly poly = pList[j];
@@ -121,6 +116,7 @@ public class DRC extends Listener
         Rectangle2D polyBounds = poly.getBox();
         if (polyBounds == null) return;
         polyBounds = new Rectangle2D.Double(polyBounds.getMinX(), polyBounds.getMinY(), polyBounds.getWidth(), polyBounds.getHeight());
+        Layer.Function.Set set = Layer.getMultiLayersSet(poly.getLayer());
 
         // search for adjoining transistor in the cell
         boolean cropped = false;
@@ -134,8 +130,10 @@ public class DRC extends Listener
             // crop the arc against this transistor
             AffineTransform trans = ni.rotateOut();
             Technology tech = ni.getProto().getTechnology();
-            Poly [] activeCropPolyList = tech.getShapeOfNode(ni, false, ignoreCenterCuts, null);
+            Poly [] activeCropPolyList = tech.getShapeOfNode(ni, false, ignoreCenterCuts, set);
+
             int nTot = activeCropPolyList.length;
+
             for(int k=0; k<nTot; k++)
             {
                 Poly nPoly = activeCropPolyList[k];
@@ -180,10 +178,10 @@ public class DRC extends Listener
      * If all locations are found, returns true.
      */
     static boolean lookForLayerCoverage(Geometric geo1, Poly poly1, Geometric geo2, Poly poly2, Cell cell,
-                                   Layer layer, AffineTransform moreTrans, Rectangle2D bounds,
-                                   Point2D pt1, Point2D pt2, Point2D pt3, boolean[] pointsFound,
-                                   boolean overlap, Layer.Function.Set layerFunction, boolean ignoreSameGeometry,
-                                   boolean ignoreCenterCuts)
+                                        Layer layer, AffineTransform moreTrans, Rectangle2D bounds,
+                                        Point2D pt1, Point2D pt2, Point2D pt3, boolean[] pointsFound,
+                                        boolean overlap, Layer.Function.Set layerFunction, boolean ignoreSameGeometry,
+                                        boolean ignoreCenterCuts)
     {
         int j;
         Rectangle2D newBounds = new Rectangle2D.Double();  // Sept 30
@@ -221,19 +219,28 @@ public class DRC extends Listener
                         return true;
                     continue;
                 }
-                AffineTransform bound = ni.rotateOut();
-                bound.preConcatenate(moreTrans);
                 Technology tech = ni.getProto().getTechnology();
                 // I have to ask for electrical layers otherwise it will retrieve one polygon for polysilicon
                 // and poly.polySame(poly1) will never be true. CONTRADICTION!
-                Poly[] layerLookPolyList = tech.getShapeOfNode(ni, false, ignoreCenterCuts, layerFunction); // consistent change!);
+                Poly[] layerLookPolyList = tech.getShapeOfNode(ni, false, ignoreCenterCuts, layerFunction);
                 int tot = layerLookPolyList.length;
+
+                if (tot == 0)
+                    continue;
+
+                AffineTransform bound = ni.rotateOut();
+                bound.preConcatenate(moreTrans);
+
                 for (int i = 0; i < tot; i++)
                 {
                     Poly poly = layerLookPolyList[i];
                     // sameLayer test required to check if Active layer is not identical to thick active layer
                     if (!tech.sameLayer(poly.getLayer(), layer))
                     {
+                        // This happens when you have implant with VTH implant, Function.Set doesn't distinguish them
+                        if (Job.getDebug())
+                            System.out.println("DRC: Wrong Function.Set with " + layer.getName() + " and " + poly.getLayer().getName());
+//                        assert(false);
                         continue;
                     }
 
@@ -250,7 +257,8 @@ public class DRC extends Listener
                     if (!pointsFound[1] && poly.isInside(pt2)) pointsFound[1] = true;
                     if (pt3 != null && !pointsFound[2] && poly.isInside(pt3)) pointsFound[2] = true;
                     for (j = 0; j < pointsFound.length && pointsFound[j]; j++) ;
-                    if (j == pointsFound.length) return true;
+                    if (j == pointsFound.length)
+                        return true;
                     // No need of checking rest of the layers
                     break; // assuming only 1 polygon per layer (non-electrical)
                 }
@@ -258,7 +266,8 @@ public class DRC extends Listener
             {
                 ArcInst ai = (ArcInst) g;
                 Technology tech = ai.getProto().getTechnology();
-                Poly[] layerLookPolyList = tech.getShapeOfArc(ai, layerFunction); // consistent change!);
+                Poly[] layerLookPolyList = tech.getShapeOfArc(ai, layerFunction);
+
                 int tot = layerLookPolyList.length;
                 for (int i = 0; i < tot; i++)
                 {
@@ -266,6 +275,9 @@ public class DRC extends Listener
                     // sameLayer test required to check if Active layer is not identical to thich actice layer
                     if (!tech.sameLayer(poly.getLayer(), layer))
                     {
+                        // This happens when you have implant with VTH implant, Function.Set doesn't distinguish them
+                        if (Job.getDebug())
+                            System.out.println("DRC: Wrong Function.Set with " + layer.getName() + " and " + poly.getLayer().getName());
                         continue;
                     }
                     poly.transform(moreTrans);  // @TODO Should still evaluate isInside if pointsFound[i] is already valid?
@@ -273,7 +285,8 @@ public class DRC extends Listener
                     if (!pointsFound[1] && poly.isInside(pt2)) pointsFound[1] = true;
                     if (pt3 != null && !pointsFound[2] && poly.isInside(pt3)) pointsFound[2] = true;
                     for (j = 0; j < pointsFound.length && pointsFound[j]; j++) ;
-                    if (j == pointsFound.length) return true;
+                    if (j == pointsFound.length)
+                        return true;
                     // No need of checking rest of the layers
                     break;
                 }
@@ -406,18 +419,25 @@ public class DRC extends Listener
                         return true;
                     continue;
                 }
+                Technology tech = ni.getProto().getTechnology();
+                Poly[] layerLookPolyList = tech.getShapeOfNode(ni, false, ignoreCenterCuts, layerFunction);
+                int tot = layerLookPolyList.length;
+
+                if (tot == 0)
+                    continue;
+
                 AffineTransform bound = ni.rotateOut();
                 bound.preConcatenate(moreTrans);
-                Technology tech = ni.getProto().getTechnology();
-                Poly[] layerLookPolyList = tech.getShapeOfNode(ni, false, ignoreCenterCuts, layerFunction); // consistent change!
-//                layerLookPolyList = tech.getShapeOfNode(ni, false, ignoreCenterCuts, null);
-                int tot = layerLookPolyList.length;
+
                 for (int i = 0; i < tot; i++)
                 {
                     Poly poly = layerLookPolyList[i];
                     // sameLayer test required to check if Active layer is not identical to thich actice layer
                     if (!tech.sameLayer(poly.getLayer(), layer))
                     {
+                        // This happens when you have implant with VTH implant, Function.Set doesn't distinguish them
+                        if (Job.getDebug())
+                            System.out.println("DRC: Wrong Function.Set with " + layer.getName() + " and " + poly.getLayer().getName());
                         continue;
                     }
 
@@ -439,14 +459,18 @@ public class DRC extends Listener
             {
                 ArcInst ai = (ArcInst) g;
                 Technology tech = ai.getProto().getTechnology();
-                Poly[] layerLookPolyList = tech.getShapeOfArc(ai, layerFunction); // consistent change!);
+                Poly[] layerLookPolyList = tech.getShapeOfArc(ai, layerFunction);
                 int tot = layerLookPolyList.length;
+                
                 for (int i = 0; i < tot; i++)
                 {
                     Poly poly = layerLookPolyList[i];
                     // sameLayer test required to check if Active layer is not identical to thich actice layer
                     if (!tech.sameLayer(poly.getLayer(), layer))
                     {
+                        // This happens when you have implant with VTH implant, Function.Set doesn't distinguish them
+                        if (Job.getDebug())
+                            System.out.println("DRC: Wrong Function.Set with " + layer.getName() + " and " + poly.getLayer().getName());
                         continue;
                     }
 
@@ -470,7 +494,7 @@ public class DRC extends Listener
                 return true;
             }
         }
-        if (skip) System.out.println("This case in lookForLayerNew antes");
+        if (skip) System.out.println("This case in lookForLayerNew before");
 
         return false;
     }
@@ -524,7 +548,7 @@ public class DRC extends Listener
             boolean [] pointsFound = new boolean[3];
             pointsFound[0] = pointsFound[1] = pointsFound[2] = false;
             boolean found = lookForLayerCoverage(geom, poly, null, null, cell, layer, DBMath.MATID,  poly.getBounds2D(),
-                from, to, center, pointsFound, true, null, true, reportInfo.ignoreCenterCuts);
+                from, to, center, pointsFound, true, layerFunction, true, reportInfo.ignoreCenterCuts);
             if (found) return false; // no error, flat element covered by othe elements.
 
             if (reportError)
@@ -742,6 +766,162 @@ public class DRC extends Listener
         return notOk;
     }
 
+    /**
+     * Method to retrieve only Polys from a NodeInst associated with layers with rules.
+     * @param tech
+     * @param reportInfo
+     * @param ni
+     * @return
+     */
+    static Poly [] getShapeOfNodeBasedOnRules(Technology tech, ReportInfo reportInfo, NodeInst ni)
+    {
+        // get layers from the NodeInst. Not a cell at this point.
+        Layer.Function.Set setFunction = getOnlyLayersWithRulesFromPrimitive(ni.getProto(), tech);
+
+        // get all of the polygons on this node
+		return tech.getShapeOfNode(ni, true, reportInfo.ignoreCenterCuts, setFunction);
+    }
+
+    /**
+     * Method to retrieve only Polyss from an ArcInst associated with layers with rules.
+     * @param tech
+     * @param ai
+     * @return
+     */
+    static Poly[] getShapeOfArcBasedOnRules(Technology tech, ArcInst ai)
+    {
+                // get layers from the NodeInst. Not a cell at this point.
+        Layer.Function.Set setFunction = getOnlyLayersWithRulesFromArc(ai.getProto(), tech);
+
+        // get all of the polygons on this arc
+		Poly [] arcInstPolyList = tech.getShapeOfArc(ai, setFunction);
+//        Poly [] arcInstPolyListOLD = tech.getShapeOfArc(ai);
+        return arcInstPolyList;
+    }
+
+    /**
+	 * Method to look for an interaction between instances "ni1" and "ni2".  If it is found,
+     * return TRUE.  If not found, add to the list and return FALSE.
+     */
+    static boolean checkInteraction(Map<NodeInst,List<InstanceInter>> instanceInteractionMap,
+                                    DRCCheckMode errorTypeSearch,
+                                    NodeInst ni1, NodeInst n1Parent, boolean n1cellParameterized,
+                                    NodeInst ni2, NodeInst n2Parent, boolean n2cellParameterized,
+                                    NodeInst triggerNi, Rectangle2D searchBnd)
+    {
+        if (errorTypeSearch == DRCCheckMode.ERROR_CHECK_EXHAUSTIVE) return false;
+
+        // must recheck parameterized instances always
+        if (n1cellParameterized || n2cellParameterized)
+            return false;
+
+//        CheckProto cp = getCheckProto((Cell)ni1.getProto());
+//		if (cp.cellParameterized) return false;
+//		cp = getCheckProto((Cell)ni2.getProto());
+//		if (cp.cellParameterized) return false;
+
+        // keep the instances in proper numeric order
+        InstanceInter dii = new InstanceInter();
+        if (ni1.getNodeIndex() < ni2.getNodeIndex())
+        {
+            NodeInst swapni = ni1;   ni1 = ni2;   ni2 = swapni;
+        } else if (ni1 == ni2)
+        {
+            int node1Orientation = ni1.getAngle();
+            if (ni1.isMirroredAboutXAxis()) node1Orientation += 3600;
+            if (ni1.isMirroredAboutYAxis()) node1Orientation += 7200;
+            int node2Orientation = ni2.getAngle();
+            if (ni2.isMirroredAboutXAxis()) node2Orientation += 3600;
+            if (ni2.isMirroredAboutYAxis()) node2Orientation += 7200;
+            if (node1Orientation < node2Orientation)
+            {
+                NodeInst swapNI = ni1;   ni1 = ni2;   ni2 = swapNI;
+                System.out.println("Check this case in Quick.checkInteraction");
+            }
+        }
+
+        // get essential information about their interaction
+        dii.cell1 = (Cell)ni1.getProto();
+        dii.or1 = ni1.getOrient();
+//        dii.bnd = searchBnd;
+
+        dii.cell2 = (Cell)ni2.getProto();
+        dii.or2 = ni2.getOrient();
+
+// This has to be calculated before the swap
+        dii.dx = ni2.getAnchorCenterX() - ni1.getAnchorCenterX();
+        dii.dy = ni2.getAnchorCenterY() - ni1.getAnchorCenterY();
+        dii.n1Parent = n1Parent;
+        dii.n2Parent = n2Parent;
+        dii.triggerNi = triggerNi;
+
+        // if found, stop now
+        // Find the interaction
+        if (findInteraction(instanceInteractionMap, dii))
+            return true;
+
+        // insert it now
+//		instanceInteractionList.add(dii);
+        List<InstanceInter> list = instanceInteractionMap.get(triggerNi);
+        assert (list != null); // if this is the first time looking, then list should be built in findInteraction
+        list.add(dii);
+        return false;
+    }
+
+    /**
+	 * Method to look for the instance-interaction in "dii" in the global list of instances interactions
+	 * that have already been checked.  Returns the entry if it is found, NOINSTINTER if not.
+	 */
+	private static boolean findInteraction(Map<NodeInst,List<InstanceInter>> instanceInteractionMap, InstanceInter dii)
+	{
+        List<InstanceInter> theList = null;
+
+        // new code
+        theList = instanceInteractionMap.get(dii.triggerNi);
+        if (theList == null) // first time
+        {
+            theList = new ArrayList<InstanceInter>();
+            // ni1 as a key should have been added in findInteraction. Big assumption though
+            instanceInteractionMap.put(dii.triggerNi, theList);
+        }
+
+        //
+//        boolean newValue = false;
+        for (InstanceInter thisII : theList)
+		{
+			if (thisII.cell1 == dii.cell1 && thisII.cell2 == dii.cell2 &&
+				thisII.or1.equals(dii.or1) && thisII.or2.equals(dii.or2) &&
+				thisII.dx == dii.dx && thisII.dy == dii.dy &&
+                thisII.n1Parent == dii.n1Parent && thisII.n2Parent == dii.n2Parent)
+//                thisII.bnd == dii.bnd)
+            {
+                if (dii.triggerNi == thisII.triggerNi)
+                {
+//                    newValue = true;
+                    return true;
+                }
+            }
+		}
+
+//        for (InstanceInter thisII : instanceInteractionList)
+//		{
+//			if (thisII.cell1 == dii.cell1 && thisII.cell2 == dii.cell2 &&
+//				thisII.or1.equals(dii.or1) && thisII.or2.equals(dii.or2) &&
+//				thisII.dx == dii.dx && thisII.dy == dii.dy &&
+//                thisII.n1Parent == dii.n1Parent && thisII.n2Parent == dii.n2Parent)
+////                thisII.bnd == dii.bnd)
+//            {
+//                if (dii.triggerNi == thisII.triggerNi)
+//                {
+//                    assert(newValue);
+//                    return true;
+//                }
+//            }
+//		}
+//        assert(!newValue);
+		return false;
+	}
+
     /*********************************** QUICK DRC ERROR REPORTING ***********************************/
     public static enum DRCErrorType
     {
@@ -775,7 +955,7 @@ public class DRC extends Listener
             this.dp = dp;
             interactiveLogger = dp.interactiveLog;
             activeSpacingBits = DRC.getActiveBits(tech, dp);
-            worstInteractionDistance = DRC.getWorstSpacingDistance(tech, -1);
+            worstInteractionDistance = getWorstSpacingDistance(tech, -1);
             // minimim resolution different from zero if flag is on otherwise stays at zero (default)
             minAllowedResolution = dp.getResolution(tech);
             ignoreCenterCuts = dp.ignoreCenterCuts;
@@ -1423,25 +1603,96 @@ public class DRC extends Listener
 		DRCRules rules = getRules(tech);
 		if (rules == null)
             return 0;
-		return (rules.getWorstSpacingDistance(lastMetal));
-	}
+        GenMath.MutableDouble mutableDist = new GenMath.MutableDouble(0);
+        boolean found = rules.getWorstSpacingDistance(lastMetal, mutableDist);
+        if (!found && Job.getDebug())
+            System.out.println("Not found in DRC.getWorstSpacingDistance");
+        return mutableDist.doubleValue();
+    }
+
+    /**
+	 * Method to find the worst spacing distance in the design rules for a given list of layers.
+	 * Finds the largest spacing rule in the Technology for those layers.
+	 * @param tech the Technology to examine.
+     * @param layers List of layers to check
+     * @param mutableDist the largest spacing distance in the Technology for the given layers. Zero if nothing found
+     * @return true if a valid value was found
+	 */
+    public static boolean getWorstSpacingDistance(Technology tech, Set<Layer> layers, GenMath.MutableDouble mutableDist)
+	{
+        mutableDist.setValue(0);
+		DRCRules rules = getRules(tech);
+		if (rules == null)
+            return false;
+        boolean found = rules.getWorstSpacingDistance(layers, mutableDist);
+        // false when cell has only pins for example
+        return found;
+    }
 
     /**
 	 * Method to find the maximum design-rule distance around a layer.
 	 * @param layer the Layer to examine.
 	 * @return the maximum design-rule distance around the layer. -1 if nothing found.
 	 */
-	public static double getMaxSurround(Layer layer, double maxSize)
+	public static boolean getMaxSurround(Layer layer, double maxSize, GenMath.MutableDouble mutableDist)
 	{
 		Technology tech = layer.getTechnology();
-        if (tech == null) return -1; // case when layer is a Graphics
+        mutableDist.setValue(-1);
+        if (tech == null) return false; // case when layer is a Graphics
 		DRCRules rules = getRules(tech);
-		if (rules == null) return -1;
+		if (rules == null) return false;
 
-        return (rules.getMaxSurround(layer, maxSize));
+        return (rules.getMaxSurround(layer, maxSize, mutableDist));
 	}
 
-	/**
+    /**
+     * Method to retrieve only the layer functions with rules in a node.
+     * A Layer.Function.Set object is needed to pass it to tech.getShapeOfNode()
+     * @param pn
+     * @return
+     */
+    public static Layer.Function.Set getOnlyLayersWithRulesFromPrimitive(NodeProto np, Technology tech)
+    {
+        // Cell case
+        if (!(np instanceof PrimitiveNode)) return null;
+
+        PrimitiveNode pn = (PrimitiveNode)np;
+		DRCRules rules = getRules(tech);
+		if (rules == null) return null;
+
+        // In this case, no need of checking the electrical layers
+        // since we want the valid layers from the DRC perspective, not the geometry yet
+        Layer.Function.Set functionSet = new Layer.Function.Set();
+        Technology.NodeLayer[] layers = pn.getNodeLayers();
+        if (pn.getElectricalLayers() != null)
+            layers = pn.getElectricalLayers();
+        for (Technology.NodeLayer layer : layers)
+        {
+            Layer l = layer.getLayer();
+            if (rules.hasLayerRules(l))
+                functionSet.add(l);
+        }
+        return functionSet;
+    }
+
+    public static Layer.Function.Set getOnlyLayersWithRulesFromArc(ArcProto ap, Technology tech)
+    {
+        DRCRules rules = getRules(tech);
+		if (rules == null) return null;
+
+        // in case the arc has valid electric layers
+        Layer.Function.Set functionSet = new Layer.Function.Set();
+        Technology.ArcLayer[] layers = ap.getArcLayers();
+        for (Technology.ArcLayer layer : layers)
+        {
+            Layer l = layer.getLayer();
+            if (rules.hasLayerRules(l))
+                functionSet.add(l);
+        }
+        return functionSet;
+    }
+
+    /**
 	 * Method to find the edge spacing rule between two layer.
 	 * @param layer1 the first layer.
 	 * @param layer2 the second layer.
@@ -2295,29 +2546,36 @@ public class DRC extends Listener
  **************************************************************************************************************/
 class CellLayersContainer implements Serializable
 {
-    private Map<NodeProto, Set<String>> cellLayersMap;
+    private Map<NodeProto, Set<Layer>> cellLayersMap;
 
     CellLayersContainer() {
-        cellLayersMap = new HashMap<NodeProto, Set<String>>();
+        cellLayersMap = new HashMap<NodeProto, Set<Layer>>();
     }
 
-    Set<String> getLayersSet(NodeProto cell) {
+    Set<Layer> getLayersSet(NodeProto cell) {
         return cellLayersMap.get(cell);
     }
 
-    void addCellLayers(Cell cell, Set<String> set) {
+    boolean getWorstSpacingDistance(NodeProto cell, GenMath.MutableDouble mutableDist)
+    {
+        Set<Layer> layers = getLayersSet(cell);
+        Technology tech = cell.getTechnology();
+        return DRC.getWorstSpacingDistance(tech, layers, mutableDist);
+    }
+
+    void addCellLayers(Cell cell, Set<Layer> set) {
         cellLayersMap.put(cell, set);
     }
 
     boolean addCellLayers(Cell cell, Layer layer) {
-        Set<String> set = cellLayersMap.get(cell);
+        Set<Layer> set = cellLayersMap.get(cell);
 
         // first time the cell is accessed
         if (set == null) {
-            set = new HashSet<String>(1);
+            set = new HashSet<Layer>(1);
             cellLayersMap.put(cell, set);
         }
-        return set.add(layer.getName());
+        return set.add(layer);
     }
 }
 
@@ -2355,17 +2613,18 @@ class CheckCellLayerEnumerator extends HierarchyEnumerator.Visitor {
         return true;
     }
 
-    private Set<String> getLayersInCell(Cell cell) {
+    private Set<Layer> getLayersInCell(Cell cell) {
         Map<NodeProto, NodeProto> tempNodeMap = new HashMap<NodeProto, NodeProto>();
         Map<ArcProto, ArcProto> tempArcMap = new HashMap<ArcProto, ArcProto>();
-        Set<String> set = new HashSet<String>();
+        Set<Layer> set = new HashSet<Layer>();
+        Technology tech = cell.getTechnology();
 
         // Nodes
         for (Iterator<NodeInst> it = cell.getNodes(); it.hasNext();) {
             NodeInst ni = it.next();
             NodeProto np = ni.getProto();
             if (ni.isCellInstance()) {
-                Set<String> s = cellLayersCon.getLayersSet(np);
+                Set<Layer> s = cellLayersCon.getLayersSet(np);
                 set.addAll(s);
                 assert (s != null); // it must have layers? unless is empty
             } else {
@@ -2379,7 +2638,8 @@ class CheckCellLayerEnumerator extends HierarchyEnumerator.Visitor {
                 PrimitiveNode pNp = (PrimitiveNode) np;
                 for (Technology.NodeLayer nLayer : pNp.getNodeLayers()) {
                     Layer layer = nLayer.getLayer();
-                    set.add(layer.getName());
+                    if (tech.findLayer(layer.getName()) == null) continue;
+                    set.add(layer);
                 }
             }
         }
@@ -2393,7 +2653,8 @@ class CheckCellLayerEnumerator extends HierarchyEnumerator.Visitor {
             tempArcMap.put(ap, ap);
             for (int i = 0; i < ap.getNumArcLayers(); i++) {
                 Layer layer = ap.getLayer(i);
-                set.add(layer.getName());
+                if (tech.findLayer(layer.getName()) == null) continue;
+                set.add(layer);
             }
         }
         return set;
@@ -2401,7 +2662,7 @@ class CheckCellLayerEnumerator extends HierarchyEnumerator.Visitor {
 
     public void exitCell(HierarchyEnumerator.CellInfo info) {
         Cell cell = info.getCell();
-        Set<String> set = getLayersInCell(cell);
+        Set<Layer> set = getLayersInCell(cell);
         assert (cellLayersCon.getLayersSet(cell) == null);
         cellLayersCon.addCellLayers(cell, set);
     }

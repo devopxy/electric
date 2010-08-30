@@ -105,7 +105,7 @@ public abstract class ElectricObject implements Serializable {
         if (var != null) {
             Object value = var.getObject();
             if (type.isInstance(value)) {
-                return (T) value;
+                return type.cast(value);
             }
         }
         return defaultValue; // null type means any type
@@ -970,7 +970,7 @@ public abstract class ElectricObject implements Serializable {
      * @param fromRight true to increment multidimensional arrays starting at the rightmost index.
      * @return a unique name for that class in that Cell.
      */
-    public static String uniqueObjectName(String name, Cell cell, Class cls, Set already,
+    public static String uniqueObjectName(String name, Cell cell, Class cls, Set<String> already,
     	Map<String, GenMath.MutableInteger> nextPlainIndex, boolean leaveIndexValues, boolean fromRight)
     {
         String newName = name;
@@ -1356,16 +1356,20 @@ public abstract class ElectricObject implements Serializable {
 
                 // find the unique index to use
                 String prefix = base.substring(0, startPos) + localSepString;
+                String suffix = base.substring(endPos);
+                if (an.indexPart != null)
+                    suffix += an.indexPart;
                 if (nextPlainIndex != null) {
-                    GenMath.MutableInteger nxt = nextPlainIndex.get(prefix);
+                    String prefixAndSuffix = prefix + '0' + suffix;
+                    GenMath.MutableInteger nxt = nextPlainIndex.get(prefixAndSuffix);
                     if (nxt == null) {
-                        nxt = new GenMath.MutableInteger(cell.getUniqueNameIndex(prefix, cls, nextIndex));
-                        nextPlainIndex.put(prefix, nxt);
+                        nxt = new GenMath.MutableInteger(cell.getUniqueNameIndex(prefix, suffix, cls, nextIndex));
+                        nextPlainIndex.put(prefixAndSuffix, nxt);
                     }
                     nextIndex = nxt.intValue();
                     nxt.increment();
                 } else {
-                    nextIndex = cell.getUniqueNameIndex(prefix, cls, nextIndex);
+                    nextIndex = cell.getUniqueNameIndex(prefix, suffix, cls, nextIndex);
                 }
                 an.baseName = prefix + nextIndex + base.substring(endPos);
             }

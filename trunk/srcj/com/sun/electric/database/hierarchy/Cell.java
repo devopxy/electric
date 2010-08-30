@@ -36,7 +36,9 @@ import com.sun.electric.database.ImmutableExport;
 import com.sun.electric.database.ImmutableNodeInst;
 import com.sun.electric.database.Snapshot;
 import com.sun.electric.database.constraint.Constraints;
+import com.sun.electric.database.geometry.EPoint;
 import com.sun.electric.database.geometry.ERectangle;
+import com.sun.electric.database.geometry.GenMath;
 import com.sun.electric.database.geometry.Poly;
 import com.sun.electric.database.id.CellId;
 import com.sun.electric.database.id.CellUsage;
@@ -88,7 +90,9 @@ import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -2121,13 +2125,138 @@ public class Cell extends ElectricObject implements NodeProto, Comparable<Cell> 
         allowCirDep = val;
     }
 
-    /**
-     * Method to add a new NodeInst to the cell.
-     * @param ni the NodeInst to be included in the cell.
-     * @return true on failure
-     */
-    public boolean addNode(NodeInst ni) {
+    public void addNodes(Collection<ImmutableNodeInst> nodes) {
         checkChanging();
+
+        EPoint newCellCenterAnchor = null;
+        BitSet nodeIds = new BitSet();
+        HashSet<Name> names = new HashSet<Name>();
+        for (Iterator<NodeInst> it = getNodes(); it.hasNext(); ) {
+            ImmutableNodeInst n = it.next().getD();
+            names.add(n.name);
+            if (nodeIds.get(n.nodeId)) {
+                throw new IllegalArgumentException("Duplicated");
+            }
+            nodeIds.set(n.nodeId);
+        }
+        HashMap<CellId,GenMath.MutableInteger> subCellIds = new HashMap<CellId,GenMath.MutableInteger>();
+        ArrayList<NodeInst> newNodes = new ArrayList<NodeInst>();
+        for (ImmutableNodeInst n: nodes) {
+            if (n.protoId instanceof CellId) {
+                CellId subCellId = (CellId)n.protoId;
+                GenMath.MutableInteger count = subCellIds.get(subCellId);
+                if (count == null) {
+                    count = new GenMath.MutableInteger(0);
+                    subCellIds.put(subCellId, count);
+                }
+                count.increment();
+            }
+            if (ImmutableNodeInst.isCellCenter(n.protoId)) {
+                if (alreadyCellCenter() || newCellCenterAnchor != null) {
+                    System.out.println("Can only be one cell-center in " + this + ": new one ignored");
+                    throw new IllegalArgumentException();
+                }
+                newCellCenterAnchor = n.anchor;
+            }
+            if (!names.add(n.name)) {
+                System.out.println(this + " already has NodeInst with name \"" + n.name + "\"");
+                throw new IllegalArgumentException();
+            }
+
+            NodeInst ni = NodeInst.lowLevelNewInstance(getTopology(), n);
+            newNodes.add(ni);
+
+            assert ni.checkAndRepair(true, null, null) == 0;
+
+            // check to see if this instantiation would create a circular library dependency
+            if (ni.isCellInstance()) {
+                Cell instProto = (Cell) ni.getProto();
+                if (instProto.getLibrary() != getLibrary()) {
+                    // a reference will be created, check it
+                    Library.LibraryDependency libDep = getLibrary().addReferencedLib(instProto.getLibrary());
+                    if (libDep != null) {
+                        // addition would create circular dependency
+                        if (!allowCirDep) {
+                            System.out.println("ERROR: " + libDescribe() + " cannot instantiate "
+                                    + instProto.libDescribe() + " because it would create a circular library dependence: ");
+                            System.out.println(libDep.toString());
+                            throw new IllegalArgumentException();
+                        }
+                        System.out.println("WARNING: " + libDescribe() + " instantiates "
+                                + instProto.libDescribe() + " which causes a circular library dependence: ");
+                        System.out.println(libDep.toString());
+                    }
+                }
+            }
+        }
+        for (CellId cellId: subCellIds.keySet()) {
+            Cell subCell = getDatabase().getCell(cellId);
+            if (Cell.isInstantiationRecursive(subCell, this)) {
+                System.out.println("Cannot create instance of " + subCell + " in " + this
+                        + " because it would be a recursive case");
+                throw new IllegalArgumentException();
+            }
+            subCell.getTechnology();
+        }
+
+        Collections.sort(newNodes);
+        Topology topology = getTopology();
+        int newNumNodes = topology.getNumNodes() + newNodes.size();
+        setTopologyModified();
+        topology.addNodes(newNodes);
+        for (NodeInst ni: newNodes) {
+            Constraints.getCurrent().newObject(ni);
+        }
+
+        for (Map.Entry<CellId,GenMath.MutableInteger> e: subCellIds.entrySet()) {
+            // count usage
+            CellUsage u = getId().getUsageIn(e.getKey());
+            if (cellUsages.length <= u.indexInParent) {
+                int[] newCellUsages = new int[u.indexInParent + 1];
+                System.arraycopy(cellUsages, 0, newCellUsages, 0, cellUsages.length);
+                cellUsages = newCellUsages;
+            }
+            cellUsages[u.indexInParent] += e.getValue().intValue();
+        }
+        if (newCellCenterAnchor != null) {
+            adjustReferencePoint(newCellCenterAnchor.getX(), newCellCenterAnchor.getY());
+        }
+        assert !cellContentsFresh && !cellBackupFresh && strongTopology == topology;
+        assert topology.getNumNodes() == newNumNodes;
+//        check();
+    }
+
+    /**
+     * Method to add a new NodeInst to the Cellby ImmutableNodeInst.
+     * @param n ImmutableNodeInst of new NodeInst
+     * @return the newly created NodeInst, or null on error.
+     */
+    public NodeInst addNode(ImmutableNodeInst n) {
+        checkChanging();
+
+        if (n.protoId instanceof CellId) {
+            Cell subCell = getDatabase().getCell((CellId) n.protoId);
+            if (Cell.isInstantiationRecursive(subCell, this)) {
+                System.out.println("Cannot create instance of " + subCell + " in " + this
+                        + " because it would be a recursive case");
+                return null;
+            }
+            subCell.getTechnology();
+        }
+
+        if (ImmutableNodeInst.isCellCenter(n.protoId) && alreadyCellCenter()) {
+            System.out.println("Can only be one cell-center in " + this + ": new one ignored");
+            return null;
+        }
+
+        if (findNode(n.name.toString()) != null) {
+            System.out.println(this + " already has NodeInst with name \"" + n.name + "\"");
+            return null;
+        }
+
+        NodeInst ni = NodeInst.lowLevelNewInstance(getTopology(), n);
+
+        assert ni.checkAndRepair(true, null, null) == 0;
 
         // check to see if this instantiation would create a circular library dependency
         if (ni.isCellInstance()) {
@@ -2141,7 +2270,7 @@ public class Cell extends ElectricObject implements NodeProto, Comparable<Cell> 
                         System.out.println("ERROR: " + libDescribe() + " cannot instantiate "
                                 + instProto.libDescribe() + " because it would create a circular library dependence: ");
                         System.out.println(libDep.toString());
-                        return true;
+                        return null;
                     }
                     System.out.println("WARNING: " + libDescribe() + " instantiates "
                             + instProto.libDescribe() + " which causes a circular library dependence: ");
@@ -2152,13 +2281,6 @@ public class Cell extends ElectricObject implements NodeProto, Comparable<Cell> 
 
         setTopologyModified();
         int nodeId = getTopology().addNode(ni);
-//        addNodeName(ni);
-//        int nodeId = ni.getD().nodeId;
-//        while (chronNodes.size() <= nodeId) {
-//            chronNodes.add(null);
-//        }
-//        assert chronNodes.get(nodeId) == null;
-//        chronNodes.set(nodeId, ni);
 
         // expand status and count usage
         if (ni.isCellInstance()) {
@@ -2175,12 +2297,13 @@ public class Cell extends ElectricObject implements NodeProto, Comparable<Cell> 
             cellUsages[u.indexInParent]++;
         }
 
-//        // make additional checks to keep circuit up-to-date
-//        if (ni.getProto() == Generic.tech().essentialBoundsNode) {
-//            essenBounds.add(ni);
-//        }
+        // handle change control, constraint, and broadcast
+        Constraints.getCurrent().newObject(ni);
+        if (ImmutableNodeInst.isCellCenter(n.protoId)) {
+            adjustReferencePoint(n.anchor.getX(), n.anchor.getY());
+        }
 
-        return false;
+        return ni;
     }
 
     /**
@@ -2328,13 +2451,28 @@ public class Cell extends ElectricObject implements NodeProto, Comparable<Cell> 
 
     /****************************** EXPORTS ******************************/
     /**
-     * Add a PortProto to this NodeProto.
-     * Adds Exports for Cells, PrimitivePorts for PrimitiveNodes.
-     * @param export the PortProto to add to this NodeProto.
+     * Add Exports to this Cell.
+     * @param exports the ImmutableExport to add to this Cell.
      */
-    void addExport(Export export) {
+    public void addExports(Collection<ImmutableExport> exports) {
+        ImmutableExport[] a = exports.toArray(new ImmutableExport[exports.size()]);
+        Arrays.sort(a, ImmutableExport.NAME_ORDER);
+        for (ImmutableExport e: a)
+            addExport(e);
+    }
+
+    /**
+     * Add an Export to this Cell.
+     * @param e the ImmutableExport to add to this Cell.
+     */
+    public Export addExport(ImmutableExport e) {
+        if (e.exportId.parentId != getId() || getExportChron(e.exportId.chronIndex) != null ||
+                e.nameDescriptor == null ||
+                getPortInst(e.originalNodeId, e.originalPortId) == null)
+            throw new IllegalArgumentException();
         checkChanging();
         setContentsModified();
+        Export export = new Export(e, this);
 
         int portIndex = -searchExport(export.getName()) - 1;
         assert portIndex >= 0;
@@ -2353,30 +2491,28 @@ public class Cell extends ElectricObject implements NodeProto, Comparable<Cell> 
         System.arraycopy(exports, 0, newExports, 0, portIndex);
         newExports[portIndex] = export;
         for (int i = portIndex; i < exports.length; i++) {
-            Export e = exports[i];
-            e.setPortIndex(i + 1);
-            newExports[i + 1] = e;
+            Export ex = exports[i];
+            ex.setPortIndex(i + 1);
+            newExports[i + 1] = ex;
         }
         exports = newExports;
 
         // create a PortInst for every instance of this Cell
-        if (getId().numUsagesOf() == 0) {
-            return;
+        if (getId().numUsagesOf() != 0) {
+            int[] pattern = new int[exports.length];
+            for (int i = 0; i < portIndex; i++) {
+                pattern[i] = i;
+            }
+            pattern[portIndex] = -1;
+            for (int i = portIndex + 1; i < exports.length; i++) {
+                pattern[i] = i - 1;
+            }
+            updatePortInsts(pattern);
         }
-        int[] pattern = new int[exports.length];
-        for (int i = 0; i < portIndex; i++) {
-            pattern[i] = i;
-        }
-        pattern[portIndex] = -1;
-        for (int i = portIndex + 1; i < exports.length; i++) {
-            pattern[i] = i - 1;
-        }
-        updatePortInsts(pattern);
-//        for(Iterator<NodeInst> it = getInstancesOf(); it.hasNext(); ) {
-//            NodeInst ni = it.next();
-//            ni.addPortInst(export);
-//            assert ni.getNumPortInsts() == exports.length;
-//        }
+        // handle change control, constraint, and broadcast
+        export.getOriginalPort().getNodeInst().redoGeometric();
+        Constraints.getCurrent().newObject(export);
+        return export;
     }
 
     /**
@@ -3054,19 +3190,22 @@ public class Cell extends ElectricObject implements NodeProto, Comparable<Cell> 
      * Method to determine the index value which, when appended to a given string,
      * will generate a unique name in this Cell.
      * @param prefix the start of the string.
+     * @param suffix the end of the string.
      * @param cls the type of object being examined.
      * @param startingIndex the starting value to append to the string.
      * @return a value that, when appended to the prefix, forms a unique name in the cell.
      */
-    public int getUniqueNameIndex(String prefix, Class cls, int startingIndex) {
-        int len = prefix.length();
+    public int getUniqueNameIndex(String prefix, String suffix, Class cls, int startingIndex) {
+        int prefixLen = prefix.length();
+        int suffixLen = suffix.length();
         int uniqueIndex = startingIndex;
-        if (cls == PortProto.class) {
-            for (Iterator<PortProto> it = getPorts(); it.hasNext();) {
-                PortProto pp = it.next();
-                if (pp.getName().startsWith(prefix)) //				if (TextUtils.startsWithIgnoreCase(pp.getName(), prefix))
+        if (cls == Export.class) {
+            for (Iterator<Export> it = getExports(); it.hasNext();) {
+                Export pp = it.next();
+                String name = pp.getName();
+                if (name.startsWith(prefix) && name.endsWith(suffix)) //				if (TextUtils.startsWithIgnoreCase(pp.getName(), prefix))
                 {
-                    String restOfName = pp.getName().substring(len);
+                    String restOfName = name.substring(prefixLen, name.length() - suffixLen);
                     if (TextUtils.isANumber(restOfName)) {
                         int indexVal = TextUtils.atoi(restOfName);
                         if (indexVal >= uniqueIndex) {
@@ -3078,9 +3217,10 @@ public class Cell extends ElectricObject implements NodeProto, Comparable<Cell> 
         } else if (cls == NodeInst.class) {
             for (Iterator<NodeInst> it = getNodes(); it.hasNext();) {
                 NodeInst ni = it.next();
-                if (ni.getName().startsWith(prefix)) //				if (TextUtils.startsWithIgnoreCase(ni.getName(), prefix))
+                String name = ni.getName();
+                if (name.startsWith(prefix) && name.endsWith(suffix)) //				if (TextUtils.startsWithIgnoreCase(ni.getName(), prefix))
                 {
-                    String restOfName = ni.getName().substring(len);
+                    String restOfName = name.substring(prefixLen, name.length() - suffixLen);
                     if (TextUtils.isANumber(restOfName)) {
                         int indexVal = TextUtils.atoi(restOfName);
                         if (indexVal >= uniqueIndex) {
@@ -3092,9 +3232,10 @@ public class Cell extends ElectricObject implements NodeProto, Comparable<Cell> 
         } else if (cls == ArcInst.class) {
             for (Iterator<ArcInst> it = getArcs(); it.hasNext();) {
                 ArcInst ai = it.next();
-                if (ai.getName().startsWith(prefix)) //				if (TextUtils.startsWithIgnoreCase(ai.getName(), prefix))
+                String name = ai.getName();
+                if (name.startsWith(prefix) && name.endsWith(suffix)) //				if (TextUtils.startsWithIgnoreCase(ai.getName(), prefix))
                 {
-                    String restOfName = ai.getName().substring(len);
+                    String restOfName = name.substring(prefixLen, name.length() - suffixLen);
                     if (TextUtils.isANumber(restOfName)) {
                         int indexVal = TextUtils.atoi(restOfName);
                         if (indexVal >= uniqueIndex) {
@@ -3128,13 +3269,9 @@ public class Cell extends ElectricObject implements NodeProto, Comparable<Cell> 
      * @return true if the name is unique in the Cell.  False if it already exists.
      */
     public boolean isUniqueName(Name name, Class cls, ElectricObject exclude) {
-//		name = name.canonic();
-        if (cls == PortProto.class) {
-            PortProto pp = findExport(name);
-            if (pp == null || exclude == pp) {
-                return true;
-            }
-            return false;
+        if (cls == Export.class) {
+            Export e = findExport(name);
+            return (e == null || exclude == e);
         }
         if (cls == NodeInst.class) {
             NodeInst ni = findNode(name.toString());
@@ -4516,6 +4653,7 @@ public class Cell extends ElectricObject implements NodeProto, Comparable<Cell> 
      */
     @Override
     protected void check() {
+        boolean originalCellContentsFresh = cellContentsFresh;
         CellId cellId = getD().cellId;
         super.check();
         assert database.getCell(cellId) == this;
@@ -4576,9 +4714,12 @@ public class Cell extends ElectricObject implements NodeProto, Comparable<Cell> 
         }
 
         // check topology
+        assert cellContentsFresh == originalCellContentsFresh;
         Topology topology = getTopologyOptional();
+        assert cellContentsFresh == originalCellContentsFresh;
         if (topology != null) {
             topology.check(cellUsages);
+            cellRevision = backup != null ? backup.cellRevision : null;
             if (cellContentsFresh) {
                 assert cellRevision.arcs.size() == topology.getNumArcs();
                 for (int arcIndex = 0; arcIndex < topology.getNumArcs(); arcIndex++) {

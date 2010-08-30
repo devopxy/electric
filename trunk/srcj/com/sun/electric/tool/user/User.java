@@ -92,7 +92,7 @@ public class User extends Listener
 
 	private ArcProto currentArcProto = null;
     private Technology currentTech = null;
-    private Map<String,PrimitivePort> currentContactPortProtoMap = new HashMap<String,PrimitivePort>();
+    private Map<String,PrimitivePort> preferredContactPortProtoMap = new HashMap<String,PrimitivePort>();
     private Map<String,List<PrimitivePort>> equivalentPortProtoMap = new HashMap<String,List<PrimitivePort>>();
 
 	/**
@@ -113,7 +113,7 @@ public class User extends Listener
 		setIncremental();
 
 //		if (Job.getRunMode() != Job.Mode.CLIENT)
-//			Clipboard.clear(); // To initialize Clibpoard Cell
+//			Clipboard.clear(); // To initialize clipboard Cell
 	}
 
 	/**
@@ -176,7 +176,7 @@ public class User extends Listener
 	}
 
 	/**
-	 * Reloading oe renaming libraries has the side affect that any EditWindows
+	 * Reloading or renaming libraries has the side affect that any EditWindows
 	 * containing cells that were reloaded now point to old, unlinked
 	 * cells instead of the new ones. This method checks for this state
 	 * and fixes it.
@@ -245,7 +245,7 @@ public class User extends Listener
 	 * Method to return the "current" PrimitivePort per a given pair of arcs, as maintained by the user interface.
 	 * @return the "current" PrimitivePort, as maintained by the user interface.
 	 */
-    public PrimitivePort getCurrentContactPortProto(ArcProto key1, ArcProto key2)
+    public PrimitivePort getPreferredContactPortProto(ArcProto key1, ArcProto key2)
     {
         Technology tech = key1.getTechnology();
         if (currentTech != tech)
@@ -254,11 +254,11 @@ public class User extends Listener
             uploadCurrentData(tech, tech.getFactoryMenuPalette());
         }
         String key = key1.getName() + "@" + key2.getName();
-        PrimitivePort np = currentContactPortProtoMap.get(key);
+        PrimitivePort np = preferredContactPortProtoMap.get(key);
         if (np != null) return np; // found
         // trying the other combination
         key = key2.getName() + "@" + key1.getName();
-        return currentContactPortProtoMap.get(key);
+        return preferredContactPortProtoMap.get(key);
     }
 
     public List<PrimitivePort> getPrimitivePortConnectedToArc(ArcProto ap)
@@ -267,7 +267,7 @@ public class User extends Listener
         String name = ap.getName();
 
         // Look if ArcProto name is contained in any key of the contact map. It might not be very efficient.
-        for (String key : currentContactPortProtoMap.keySet())
+        for (String key : preferredContactPortProtoMap.keySet())
         {
             if (!key.contains(name)) continue; // not a close match
             
@@ -278,7 +278,7 @@ public class User extends Listener
                 String str = t.nextToken();
                 if (str.equals(name))
                 {
-                    PrimitivePort p = currentContactPortProtoMap.get(key);
+                    PrimitivePort p = preferredContactPortProtoMap.get(key);
                     if (p != null)
                         list.add(p);
                     break;
@@ -314,7 +314,12 @@ public class User extends Listener
     public String getCurrentContactNodeProto(Technology tech, String mainContactName)
     {
     	Pref thisEntry = getContactNodePref(tech, mainContactName);
-    	return thisEntry.getString();
+        // update preferred contact map
+        PrimitiveNode pn = tech.findNodeProto(thisEntry.getString());
+        if (pn != null) {
+            updatePrimitiveNodeConnections(pn);
+        }
+        return thisEntry.getString();
     }
 
     /**
@@ -364,7 +369,7 @@ public class User extends Listener
             	{
 	                String key = list.get(k) + "@" + list.get(i); // @ is not valid for arc names
 	                // just 1 combination. getCurrentContactNodeProto would check for both possibilities
-	                currentContactPortProtoMap.put(key, pp);
+	                preferredContactPortProtoMap.put(key, pp);
             	}
             }
         }
@@ -381,7 +386,7 @@ public class User extends Listener
         setCurrentArcProto(tech.getArcs().next());
 
         // rebuild the map of inter-layer contacts
-        currentContactPortProtoMap.clear();
+        preferredContactPortProtoMap.clear();
         for(Iterator<PrimitiveNode> it = tech.getNodes(); it.hasNext(); )
         	updatePrimitiveNodeConnections(it.next());
 
@@ -900,37 +905,37 @@ public class User extends Listener
 
 	private static Pref cacheDraggingMustEncloseObjects = Pref.makeBooleanPref("DraggingMustEncloseObjects", tool.prefs, false);
 	/**
-	 * Method to tell whether dragging a selection rectangle must completely encose objects in order to select them.
+	 * Method to tell whether dragging a selection rectangle must completely enclose objects in order to select them.
 	 * The default is "false", which means that the selection rectangle need only touch an object in order to select it.
-	 * @return true if dragging a selection rectangle must completely encose objects in order to select them.
+	 * @return true if dragging a selection rectangle must completely enclose objects in order to select them.
 	 */
 	public static boolean isDraggingMustEncloseObjects() { return cacheDraggingMustEncloseObjects.getBoolean(); }
 	/**
-	 * Method to set whether dragging a selection rectangle must completely encose objects in order to select them.
-	 * @param on true if dragging a selection rectangle must completely encose objects in order to select them.
+	 * Method to set whether dragging a selection rectangle must completely enclose objects in order to select them.
+	 * @param on true if dragging a selection rectangle must completely enclose objects in order to select them.
 	 */
 	public static void setDraggingMustEncloseObjects(boolean on) { cacheDraggingMustEncloseObjects.setBoolean(on); }
 	/**
-	 * Method to tell whether dragging a selection rectangle must completely encose objects in order to select them, by default.
-	 * @return true if dragging a selection rectangle must completely encose objects in order to select them, by default.
+	 * Method to tell whether dragging a selection rectangle must completely enclose objects in order to select them, by default.
+	 * @return true if dragging a selection rectangle must completely enclose objects in order to select them, by default.
 	 */
 	public static boolean isFactoryDraggingMustEncloseObjects() { return cacheDraggingMustEncloseObjects.getBooleanFactoryValue(); }
 
 	private static Pref cacheMouseOverHighlighting = Pref.makeBooleanPref("UseMouseOverHighlighting", tool.prefs, true);
 	/**
-	 * Method to tell whether dragging a selection rectangle must completely encose objects in order to select them.
+	 * Method to tell whether dragging a selection rectangle must completely enclose objects in order to select them.
 	 * The default is "false", which means that the selection rectangle need only touch an object in order to select it.
-	 * @return true if dragging a selection rectangle must completely encose objects in order to select them.
+	 * @return true if dragging a selection rectangle must completely enclose objects in order to select them.
 	 */
 	public static boolean isMouseOverHighlightingEnabled() { return cacheMouseOverHighlighting.getBoolean(); }
 	/**
-	 * Method to set whether dragging a selection rectangle must completely encose objects in order to select them.
-	 * @param on true if dragging a selection rectangle must completely encose objects in order to select them.
+	 * Method to set whether dragging a selection rectangle must completely enclose objects in order to select them.
+	 * @param on true if dragging a selection rectangle must completely enclose objects in order to select them.
 	 */
 	public static void setMouseOverHighlightingEnabled(boolean on) { cacheMouseOverHighlighting.setBoolean(on); }
 	/**
-	 * Method to tell whether dragging a selection rectangle must completely encose objects in order to select them, by default.
-	 * @return true if dragging a selection rectangle must completely encose objects in order to select them, by default.
+	 * Method to tell whether dragging a selection rectangle must completely enclose objects in order to select them, by default.
+	 * @return true if dragging a selection rectangle must completely enclose objects in order to select them, by default.
 	 */
 	public static boolean isFactoryMouseOverHighlightingEnabled() { return cacheMouseOverHighlighting.getBooleanFactoryValue(); }
 
@@ -1703,7 +1708,7 @@ public class User extends Listener
 	 * @param s the file path to a library
 	 */
 	public static void addRecentlyOpenedLibrary(String s) {
-		int maxLength = 6;
+		int maxLength = 16;
 		String [] libs = getRecentlyOpenedLibraries();
 		StringBuffer buf = new StringBuffer();
 		buf.append(s);

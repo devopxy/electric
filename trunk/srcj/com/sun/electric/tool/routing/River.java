@@ -448,8 +448,10 @@ public class River
 
 		// figure out the worst design rule spacing for this type of arc
 		Layer layer = wantAp.getLayerIterator().next();
-		double amt = DRC.getMaxSurround(layer, Double.MAX_VALUE);
-		if (amt < 0) amt = 1;
+        GenMath.MutableDouble mutableDist = new GenMath.MutableDouble(0);
+        boolean found = DRC.getMaxSurround(layer, Double.MAX_VALUE, mutableDist);
+        double amt = mutableDist.doubleValue();
+        if (!found) amt = 1;  // if (amt < 0) amt = 1;
 		return unsortedRivRot(wantAp, theList, wantAp.getDefaultLambdaBaseWidth(), amt, amt, amt);
 	}
 
@@ -502,7 +504,7 @@ public class River
 	private void calculateBB(List<RDESC> right, List<RDESC> left)
 	{
 		routBoundLX = routBoundLY = Double.MAX_VALUE;
-		routBoundHX = routBoundHY = Double.MIN_VALUE;
+		routBoundHX = routBoundHY = -Double.MAX_VALUE;
 		for(RDESC rRight : right)
 		{
 			for(RPOINT rvp = rRight.path.pathDesc; rvp != null; rvp = rvp.next)
@@ -1251,7 +1253,7 @@ public class River
 		return ccInit;
 	}
 
-	private boolean isInterestingArc(ArcInst ai, Set arcsSeen)
+	private boolean isInterestingArc(ArcInst ai, Set<ArcInst> arcsSeen)
 	{
 		// skip arcs already considered
 		if (arcsSeen.contains(ai)) return false;

@@ -115,7 +115,7 @@ public class BusSample<S extends Sample> implements Sample
 
     public double getMaxValue()
     {
-    	double max = Double.MIN_VALUE;
+    	double max = -Double.MAX_VALUE;
     	for(int i=0; i<vals.length; i++)
     		max = Math.max(max, vals[i].getMaxValue());
     	return max;
@@ -170,10 +170,10 @@ public class BusSample<S extends Sample> implements Sample
                     Signal.View<RangeSample<SS>> view = subviews[i];
                     for(int j=0; j<view.getNumEvents(); j++)
                     {
-                        double t = view.getTime(j);
+                        Double t = new Double(view.getTime(j));
                         HashSet<Integer> hs = tm.get(t);
                         if (hs == null) tm.put(t, hs = new HashSet<Integer>());
-                        hs.add(i);
+                        hs.add(new Integer(i));
                     }
                 }
 
@@ -184,15 +184,15 @@ public class BusSample<S extends Sample> implements Sample
                 int[] event = new int[subviews.length];
                 SS[] minvals = (SS[])new Sample[subviews.length];
                 SS[] maxvals = (SS[])new Sample[subviews.length];
-                for(double t : tm.keySet())
+                for(Double t : tm.keySet())
                 {
-                	times[i] = t;
+                	times[i] = t.doubleValue();
                     HashSet<Integer> hs = tm.get(t);
                     for(int v : hs)
                     {
                     	// this used to be an assertion, but since it is possible for two successive events
                     	// to have the same time, the assertion may fail
-                    	if (subviews[v].getTime(event[v]) != t) continue;
+                    	if (subviews[v].getTime(event[v]) != t.doubleValue()) continue;
                         RangeSample<SS> rs = subviews[v].getSample(event[v]);
 						if (rs != null)
 						{
@@ -215,11 +215,53 @@ public class BusSample<S extends Sample> implements Sample
 
             public Signal.View<BusSample<SS>> getExactView()
             {
+                final Signal.View<SS>[] subviews = new Signal.View[subsignals.length];
+                for(int i=0; i<subviews.length; i++) subviews[i] = subsignals[i].getExactView();
+
+                // the subviews' getRasterView() methods might have differing getNumEvents() values or different
+                // getTime() values for a given index.  Therefore, we must "collate" them.  By using a sorted treemap
+                // here we ensure that this takes only O(n log n) time.
+                
+                // INVARIANT: tm.get(t).contains(i) ==> (exists j such that subviews[i].getTime(j)==t)
+                TreeMap<Double,HashSet<Integer>> tm = new TreeMap<Double,HashSet<Integer>>();
+                for (int i=0; i<subviews.length; i++)
+                {
+                    Signal.View<SS> view = subviews[i];
+                    for(int j=0; j<view.getNumEvents(); j++)
+                    {
+                        Double t = new Double(view.getTime(j));
+                        HashSet<Integer> hs = tm.get(t);
+                        if (hs == null) tm.put(t, hs = new HashSet<Integer>());
+                        hs.add(new Integer(i));
+                    }
+                }
+
+                // now we know, for each point in time, which signals changed at that point
+                final double[] times = new double[tm.size()];
+                final BusSample<SS>[] vals = new BusSample[tm.size()];
+                int i = 0;
+                int[] event = new int[subviews.length];
+                SS[] sampleVals = (SS[])new Sample[subviews.length];
+                for(Double t : tm.keySet())
+                {
+                	times[i] = t.doubleValue();
+                    HashSet<Integer> hs = tm.get(t);
+                    for(int v : hs)
+                    {
+                        assert subviews[v].getTime(event[v]) == t.doubleValue();  // sanity check
+                        SS rs = subviews[v].getSample(event[v]);
+						if (rs != null) sampleVals[v] = rs;
+                        event[v]++;
+                    }
+                    vals[i] = new BusSample<SS>(sampleVals);
+                    i++;
+                }
+
                 return new Signal.View<BusSample<SS>>()
                 {
-                    public int           getNumEvents() { throw new RuntimeException("not implemented"); }
-                    public double        getTime(int event) { throw new RuntimeException("not implemented"); }
-                    public BusSample<SS> getSample(int event) { throw new RuntimeException("not implemented"); }
+                    public int           getNumEvents() { return times.length; }
+                    public double        getTime(int event) { return times[event]; }
+                    public BusSample<SS> getSample(int event) { return vals[event]; }
                 };
             }
 
@@ -232,7 +274,7 @@ public class BusSample<S extends Sample> implements Sample
 
             public double getMaxTime()
             {
-                double max = Double.MIN_VALUE;
+                double max = -Double.MAX_VALUE;
                 for(Signal<SS> sig : subsignals) max = Math.max(max, sig.getMaxTime());
                 return max;
             }
@@ -246,7 +288,7 @@ public class BusSample<S extends Sample> implements Sample
 
             public double getMaxValue()
             {
-                double max = Double.MIN_VALUE;
+                double max = -Double.MAX_VALUE;
                 for(Signal<SS> sig : subsignals) max = Math.max(max, sig.getMaxValue());
                 return max;
             }
@@ -256,31 +298,34 @@ public class BusSample<S extends Sample> implements Sample
             {
                 Dimension sz = panel.getSize();
                 int hei = sz.height;
-				// draw digital traces
+
+                // draw digital traces
 				Signal<BusSample<DigitalSample>> ds = (Signal<BusSample<DigitalSample>>)ws.getSignal();
-                Signal.View<RangeSample<BusSample<DigitalSample> > > view =
-                    (Signal.View<RangeSample<BusSample<DigitalSample> > >)ds.getRasterView(panel.convertXScreenToData(0),
-                                                                                           panel.convertXScreenToData(sz.width),
-                                                                                           sz.width);
-                boolean curDefined = true;
-                long curYValue = 0;  // wow, this is pretty lame that Electric can't draw buses with more than 64 bits
+                Signal.View<RangeSample<BusSample<DigitalSample> > > view = ds.getRasterView(panel.convertXScreenToData(0),
+                    panel.convertXScreenToData(sz.width), sz.width);
                 int lastX = 0;
+                int trueLen = (subsignals.length + 3) / 4 * 4;
+                int [] values = new int[trueLen];
                 for(int i=0; i<view.getNumEvents(); i++)
                 {
                     double xValue = view.getTime(i);
                     RangeSample<BusSample<DigitalSample> > rs = view.getSample(i);
                     // XXX: shouldn't ignore the max!
                     BusSample<DigitalSample> bs = rs.getMin();
+                    int invert = trueLen - 1;
                     for(int j=0; j<bs.getWidth(); j++)
                     {
                         switch (DigitalSample.getState(bs.getTrace(j)) & Stimuli.LOGIC)
                         {
-                            case Stimuli.LOGIC_LOW:  curYValue &= ~(1<<j);   break;
-                            case Stimuli.LOGIC_HIGH: curYValue |= (1<<j);   break;
-                            case Stimuli.LOGIC_X:
-                            case Stimuli.LOGIC_Z:    break;
+                            case Stimuli.LOGIC_LOW:  values[invert] = 0;   break;
+                            case Stimuli.LOGIC_HIGH: values[invert] = 1;   break;
+                            case Stimuli.LOGIC_X:    values[invert] = 2;   break;
+                            case Stimuli.LOGIC_Z:    values[invert] = 3;   break;
+                            default:                 values[invert] = 4;   break;
                         }
+                        invert--;
                     }
+
                     int x = panel.convertXDataToScreen(xValue);
                     if (x >= panel.getVertAxisPos())
                     {
@@ -301,8 +346,27 @@ public class BusSample<S extends Sample> implements Sample
                             if (panel.processALine(g, lastX+5, 5, x-5, 5, bounds, forPs, selectedObjects, ws, -1)) return;
                             if (panel.processALine(g, lastX+5, hei-5, x-5, hei-5, bounds, forPs, selectedObjects, ws, -1)) return;
                         }
-                        String valString = "XX";
-                        if (curDefined) valString = Long.toString(curYValue);
+
+                        String valString = "0x";
+                        for(int j=0; j<trueLen; j++)
+                        {
+                        	if (values[j] == 4) { valString = "?";   break; }
+                        	if (values[j] == 3) { valString = "Z";   break; }
+                        	if (values[j] == 2) { valString = "X";   break; }
+                        }
+                        if (valString.length() > 1)
+                        {
+                        	for(int j=0; j<trueLen; j += 4)
+                        	{
+                        		int hexDigit = 0;
+                        		if (values[j] == 1) hexDigit += 8;
+                        		if (values[j+1] == 1) hexDigit += 4;
+                        		if (values[j+2] == 1) hexDigit += 2;
+                        		if (values[j+3] == 1) hexDigit += 1;
+                        		if (hexDigit < 10) valString += (char)('0'+hexDigit); else
+                        			valString += (char)('A'+hexDigit-10);
+                        	}
+                        }
                         if (g != null)
                         {
                             g.setFont(panel.getWaveWindow().getFont());

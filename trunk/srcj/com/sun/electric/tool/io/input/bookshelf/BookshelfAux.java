@@ -35,10 +35,10 @@ import java.util.Map;
 import java.util.StringTokenizer;
 
 /**
- * @author fschmidt
+ * @author Felix Schmidt
  * 
  */
-public class BookshelfAux {
+public class BookshelfAux implements BookshelfInputParser<Map<BookshelfFiles, String>> {
 
 	private String auxFile = null;
 
