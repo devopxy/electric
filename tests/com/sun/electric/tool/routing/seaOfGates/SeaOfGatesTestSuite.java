@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: IDebug.java
+ * File: SeaOfGatesTestSuite.java
  *
  * Copyright (c) 2010 Sun Microsystems and Static Free Software
  *
@@ -21,14 +21,18 @@
  * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, Mass 02111-1307, USA.
  */
-package com.sun.electric.tool.util.concurrent.debug;
+package com.sun.electric.tool.routing.seaOfGates;
+
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /**
  * @author Felix Schmidt
- *
+ * 
  */
-public interface IDebug {	
-	
-	public void printStatistics();
+@RunWith(Suite.class)
+@SuiteClasses( { SeaOfGatesOldTest.class, SeaOfGatesNew1Test.class, SeaOfGatesNew2Test.class, SeaOfGatesNew3Test.class })
+public class SeaOfGatesTestSuite {
 
 }

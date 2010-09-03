@@ -23,7 +23,7 @@
  */
 package com.sun.electric.tool.util.concurrent.runtime.taskParallel;
 
-import com.sun.electric.tool.util.IStructure;
+import com.sun.electric.tool.util.concurrent.datastructures.IStructure;
 import com.sun.electric.tool.util.concurrent.patterns.PTask;
 import com.sun.electric.tool.util.concurrent.runtime.ThreadID;
 
@@ -36,11 +36,9 @@ import com.sun.electric.tool.util.concurrent.runtime.ThreadID;
  */
 public class SimpleWorker extends PoolWorkerStrategy {
 
-	protected IStructure<PTask> taskPool = null;
-
 	public SimpleWorker(IStructure<PTask> taskPool) {
 		super();
-		this.taskPool = taskPool;
+		this.setTaskPool(taskPool);
 		this.abort = false;
 	}
 
@@ -64,7 +62,7 @@ public class SimpleWorker extends PoolWorkerStrategy {
 			this.checkForWait();
 
 			// retrieve a new task
-			PTask task = taskPool.remove();
+			PTask task = getTaskPool().remove();
 			if (task != null) {
 				try {
 					// set the current thread id

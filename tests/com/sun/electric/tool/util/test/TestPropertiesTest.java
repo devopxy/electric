@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: AbstractRoutingBaseClass.java
+ * File: TestPropertiesTest.java
  *
  * Copyright (c) 2010 Sun Microsystems and Static Free Software
  *
@@ -21,37 +21,21 @@
  * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, Mass 02111-1307, USA.
  */
-package com.sun.electric.tool.routing;
+package com.sun.electric.tool.util.test;
 
 import org.junit.Test;
 
-import com.sun.electric.database.hierarchy.Cell;
-import com.sun.electric.tool.util.test.AbstractJunitBaseClass;
 import com.sun.electric.util.test.TestProperties;
 
 /**
  * @author Felix Schmidt
- * 
+ *
  */
-public abstract class AbstractRoutingBaseClass extends AbstractJunitBaseClass {
-
-	protected int testRoutingAlgorithm(RoutingFrame router, String libName, String cellName, String fileName)
-			throws Exception {
-		Cell cell = this.loadCell(libName, cellName, fileName);
-		return testRoutingAlgorithm(router, cell);
-	}
-
-	protected int testRoutingAlgorithm(RoutingFrame router, Cell cell) {
-		return router.doRouting(cell);
-	}
-
-	protected abstract RoutingFrame getRoutingFrame();
-
+public class TestPropertiesTest {
+	
 	@Test
-	public void testRouter() throws Exception {
-		Cell cell = this.loadCell("PlacementTest", "PlacementTest4", TestProperties.getInstance().getRegressionPath()
-				+ TestProperties.getInstance().getRoutingTestData(), LoadLibraryType.fileSystem);
-		this.testRoutingAlgorithm(getRoutingFrame(), cell);
+	public void getRegressionPath() {
+		System.out.println(TestProperties.getInstance().getRegressionPath());
 	}
 
 }

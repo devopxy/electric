@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: IDebug.java
+ * File: BaseProperties.java
  *
  * Copyright (c) 2010 Sun Microsystems and Static Free Software
  *
@@ -21,14 +21,38 @@
  * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, Mass 02111-1307, USA.
  */
-package com.sun.electric.tool.util.concurrent.debug;
+package com.sun.electric.util;
+
+import java.io.File;
+import java.util.Properties;
 
 /**
  * @author Felix Schmidt
- *
+ * 
  */
-public interface IDebug {	
+public abstract class BaseProperties {
+
+	protected Properties properties = null;
+	private final String propertiesFile;
+
 	
-	public void printStatistics();
+	/**
+	 * 
+	 */
+	protected BaseProperties(String fileName) {
+		propertiesFile = fileName;
+	}
+
+	public void reload() throws Exception {
+		this.reload(propertiesFile);
+	}
+
+	public void reload(String fileName) throws Exception {
+		properties = PropertiesUtils.load(new File(fileName));
+	}
+
+	public Object getProperty(String property) {
+		return properties.get(property);
+	}
 
 }

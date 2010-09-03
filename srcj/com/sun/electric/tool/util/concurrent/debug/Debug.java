@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: Timer.java
+ * File: Debug.java
  *
  * Copyright (c) 2010 Sun Microsystems and Static Free Software
  *
@@ -21,43 +21,22 @@
  * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, Mass 02111-1307, USA.
  */
-package com.sun.electric.tool.util;
-
-import com.sun.electric.database.text.TextUtils;
+package com.sun.electric.tool.util.concurrent.debug;
 
 /**
  * @author Felix Schmidt
  * 
  */
-public class Timer {
+public class Debug {
 
-	private long start = 0;
-	private long end = 0;
+	private static boolean debug = false;
 
-	public static Timer createInstance() {
-		return new Timer();
+	public static boolean isDebug() {
+		return debug;
 	}
 
-	public void start() {
-		this.start = System.currentTimeMillis();
-	}
-
-	public void end() {
-		this.end = System.currentTimeMillis();
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see java.lang.Object#toString()
-	 */
-	@Override
-	public String toString() {
-		return TextUtils.getElapsedTime(end - start);
-	}
-
-	public void print(String preText) {
-		System.out.println(preText + this.toString());
+	public static void setDebug(boolean debug) {
+		Debug.debug = debug;
 	}
 
 }

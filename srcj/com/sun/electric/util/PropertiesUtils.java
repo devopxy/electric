@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: IDebug.java
+ * File: PropertiesUtils.java
  *
  * Copyright (c) 2010 Sun Microsystems and Static Free Software
  *
@@ -21,14 +21,48 @@
  * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, Mass 02111-1307, USA.
  */
-package com.sun.electric.tool.util.concurrent.debug;
+package com.sun.electric.util;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.net.URL;
+import java.util.Properties;
 
 /**
  * @author Felix Schmidt
- *
+ * 
  */
-public interface IDebug {	
-	
-	public void printStatistics();
+public class PropertiesUtils {
+
+	private PropertiesUtils() {
+
+	}
+
+	/**
+	 * 
+	 * @param propsName
+	 * @return
+	 * @throws Exception
+	 */
+	public static Properties load(String propsName) throws Exception {
+		Properties props = new Properties();
+		URL url = ClassLoader.getSystemResource(propsName);
+		props.load(url.openStream());
+		return props;
+	}
+
+	/**
+	 * 
+	 * @param propsFile
+	 * @return
+	 * @throws Exception
+	 */
+	public static Properties load(File propsFile) throws Exception {
+		Properties props = new Properties();
+		FileInputStream fis = new FileInputStream(propsFile);
+		props.load(fis);
+		fis.close();
+		return props;
+	}
 
 }

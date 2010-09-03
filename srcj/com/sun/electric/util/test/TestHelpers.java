@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: IDebug.java
+ * File: TestHelpers.java
  *
  * Copyright (c) 2010 Sun Microsystems and Static Free Software
  *
@@ -21,14 +21,41 @@
  * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, Mass 02111-1307, USA.
  */
-package com.sun.electric.tool.util.concurrent.debug;
+package com.sun.electric.util.test;
+
+import java.lang.reflect.Method;
+
 
 /**
  * @author Felix Schmidt
- *
+ * 
  */
-public interface IDebug {	
-	
-	public void printStatistics();
+public class TestHelpers {
 
+	public static Object invokePrivateMethod(String name, Object obj, Object... parameters) throws Exception {
+
+		Class<?>[] classes = null;
+
+		if (parameters != null) {
+			classes = new Class<?>[parameters.length];
+			int i = 0;
+			for (Object paramObj : parameters) {
+				classes[i] = paramObj.getClass();
+				i++;
+			}
+		}
+
+		Method method = obj.getClass().getDeclaredMethod(name, classes);
+
+		if (method.isAnnotationPresent(TestByReflection.class)) {
+			TestByReflection testby = method.getAnnotation(TestByReflection.class);
+			if (testby.testMethodName().equals(name)) {
+				method.setAccessible(true);
+				return method.invoke(obj, parameters);
+			} else {
+				throw new Exception("");
+			}
+		}
+		return null;
+	}
 }

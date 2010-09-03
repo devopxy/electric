@@ -25,13 +25,14 @@ package com.sun.electric.tool.util.concurrent.test;
 
 import org.junit.Test;
 
-import com.sun.electric.tool.util.CollectionFactory;
-import com.sun.electric.tool.util.IStructure;
+import com.sun.electric.tool.util.concurrent.datastructures.IStructure;
 import com.sun.electric.tool.util.concurrent.exceptions.PoolExistsException;
 import com.sun.electric.tool.util.concurrent.patterns.PJob;
 import com.sun.electric.tool.util.concurrent.patterns.PWhileJob;
 import com.sun.electric.tool.util.concurrent.patterns.PWhileJob.PWhileTask;
+import com.sun.electric.tool.util.concurrent.runtime.Scheduler.UnknownSchedulerException;
 import com.sun.electric.tool.util.concurrent.runtime.taskParallel.ThreadPool;
+import com.sun.electric.util.CollectionFactory;
 
 /**
  * @author Felix Schmidt
@@ -40,7 +41,7 @@ import com.sun.electric.tool.util.concurrent.runtime.taskParallel.ThreadPool;
 public class PWhileJobTest {
 
 	@Test
-	public void testPWhileJob() throws PoolExistsException, InterruptedException {
+	public void testPWhileJob() throws PoolExistsException, InterruptedException, UnknownSchedulerException {
 		ThreadPool.initialize();
 
 		IStructure<Integer> data = CollectionFactory.createLockFreeStack();

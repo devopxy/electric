@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: TestHelpers.java
+ * File: TestByReflection.java
  *
  * Copyright (c) 2010 Sun Microsystems and Static Free Software
  *
@@ -21,41 +21,21 @@
  * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, Mass 02111-1307, USA.
  */
-package com.sun.electric.tool.util.test;
+package com.sun.electric.util.test;
 
-import java.lang.reflect.Method;
-
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * @author Felix Schmidt
  * 
  */
-public class TestHelpers {
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface TestByReflection {
 
-	public static Object invokePrivateMethod(String name, Object obj, Object... parameters) throws Exception {
+	public String testMethodName();
 
-		Class<?>[] classes = null;
-
-		if (parameters != null) {
-			classes = new Class<?>[parameters.length];
-			int i = 0;
-			for (Object paramObj : parameters) {
-				classes[i] = paramObj.getClass();
-				i++;
-			}
-		}
-
-		Method method = obj.getClass().getDeclaredMethod(name, classes);
-
-		if (method.isAnnotationPresent(TestByReflection.class)) {
-			TestByReflection testby = method.getAnnotation(TestByReflection.class);
-			if (testby.testMethodName().equals(name)) {
-				method.setAccessible(true);
-				return method.invoke(obj, parameters);
-			} else {
-				throw new Exception("");
-			}
-		}
-		return null;
-	}
 }

@@ -29,21 +29,22 @@ import org.junit.Test;
 
 import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.tool.Job;
-import com.sun.electric.tool.util.CollectionFactory;
-import com.sun.electric.tool.util.IStructure;
+import com.sun.electric.tool.util.concurrent.datastructures.IStructure;
 import com.sun.electric.tool.util.concurrent.datastructures.LockFreeStack;
 import com.sun.electric.tool.util.concurrent.datastructures.WorkStealingStructure;
 import com.sun.electric.tool.util.concurrent.debug.StealTracker;
 import com.sun.electric.tool.util.concurrent.exceptions.PoolExistsException;
 import com.sun.electric.tool.util.concurrent.patterns.PJob;
 import com.sun.electric.tool.util.concurrent.patterns.PTask;
+import com.sun.electric.tool.util.concurrent.runtime.Scheduler.UnknownSchedulerException;
 import com.sun.electric.tool.util.concurrent.runtime.taskParallel.ThreadPool;
 import com.sun.electric.tool.util.concurrent.runtime.taskParallel.ThreadPool.ThreadPoolState;
+import com.sun.electric.util.CollectionFactory;
 
 public class ThreadPoolTest {
 
 	@Test
-	public void testThreadPool() throws PoolExistsException, InterruptedException {
+	public void testThreadPool() throws PoolExistsException, InterruptedException, UnknownSchedulerException {
 		ThreadPool pool = ThreadPool.initialize();
 		pool.start();
 
@@ -86,7 +87,7 @@ public class ThreadPoolTest {
 	}
 
 	@Test
-	public void testSleepAndWakeUp() throws PoolExistsException, InterruptedException {
+	public void testSleepAndWakeUp() throws PoolExistsException, InterruptedException, UnknownSchedulerException {
 
 		ThreadPool pool = ThreadPool.initialize();
 		pool.start();
