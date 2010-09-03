@@ -23,7 +23,7 @@
  */
 package com.sun.electric.tool.util.test;
 
-import com.sun.electric.tool.util.test.TestByReflection;
+import com.sun.electric.util.test.TestByReflection;
 
 /**
  * @author Felix Schmidt

@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: TestByReflection.java
+ * File: TestProperties.java
  *
  * Copyright (c) 2010 Sun Microsystems and Static Free Software
  *
@@ -21,21 +21,37 @@
  * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, Mass 02111-1307, USA.
  */
-package com.sun.electric.tool.util.test;
+package com.sun.electric.util.test;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import com.sun.electric.util.BaseProperties;
 
 /**
  * @author Felix Schmidt
  * 
  */
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.METHOD)
-public @interface TestByReflection {
+public class TestProperties extends BaseProperties {
 
-	public String testMethodName();
+	private static final String testPropertiesFile = "srcj/test.properties";
+	private static TestProperties instance = new TestProperties();
+
+	private TestProperties() {
+		super(testPropertiesFile);
+	}
+
+	public static TestProperties getInstance() {
+		return instance;
+	}
+
+	public String getRegressionPath() {
+		return (String) getProperty("regression.path");
+	}
+
+	public String getPlacementTestData() {
+		return (String) getProperty("placement.testData");
+	}
+
+	public String getRoutingTestData() {
+		return (String) getProperty("routing.testData");
+	}
 
 }
