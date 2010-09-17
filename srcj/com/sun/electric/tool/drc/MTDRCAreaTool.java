@@ -27,12 +27,14 @@ import com.sun.electric.technology.*;
 import com.sun.electric.tool.Consumer;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.user.ErrorLogger;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.math.DBMath;
+import com.sun.electric.util.math.GenMath;
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.HierarchyEnumerator;
 import com.sun.electric.database.hierarchy.Nodable;
 import com.sun.electric.database.geometry.*;
 import com.sun.electric.database.variable.VarContext;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.topology.NodeInst;
 import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.network.Network;
@@ -96,13 +98,12 @@ public class MTDRCAreaTool extends MTDRCTool
         HashSet<Cell> goodAreaDRCDate = new HashSet<Cell>();
         HashSet<Cell> cleanAreaDRCDate = new HashSet<Cell>();
 
-        long endTime = System.currentTimeMillis();
+        timer.end();
         int errorCount = errorLogger.getNumErrors();
         int warnCount = errorLogger.getNumWarnings();
         System.out.println(errorCount + " errors and " + warnCount + " warnings found in " + msg
-                + " (took " + TextUtils.getElapsedTime(endTime - startTime) + " in thread " + Thread.currentThread().getName() + ")");
-        long accuEndTime = System.currentTimeMillis() - globalStartTime;
-        System.out.println("Accumulative time " + TextUtils.getElapsedTime(accuEndTime));
+                + " (took " + timer + " in thread " + Thread.currentThread().getName() + ")");
+        System.out.println("Accumulative time " + globalStartTime.currentTimeString());
         if (totalNumErrors == 0)
         {
             goodAreaDRCDate.add(topCell);

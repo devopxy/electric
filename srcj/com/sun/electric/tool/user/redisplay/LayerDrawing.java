@@ -24,17 +24,14 @@
 package com.sun.electric.tool.user.redisplay;
 
 import com.sun.electric.database.ImmutableNodeInst;
-import com.sun.electric.database.geometry.DBMath;
 import com.sun.electric.database.geometry.EGraphics;
 import com.sun.electric.database.geometry.EPoint;
-import com.sun.electric.database.geometry.GenMath;
 import com.sun.electric.database.geometry.Orientation;
 import com.sun.electric.database.geometry.Poly;
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.Export;
 import com.sun.electric.database.id.CellId;
 import com.sun.electric.database.prototype.NodeProto;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.topology.NodeInst;
 import com.sun.electric.database.variable.EditWindow0;
 import com.sun.electric.database.variable.TextDescriptor;
@@ -51,6 +48,10 @@ import com.sun.electric.tool.user.UserInterfaceMain;
 import com.sun.electric.tool.user.ui.EditWindow;
 import com.sun.electric.tool.user.ui.LayerVisibility;
 import com.sun.electric.tool.user.ui.WindowFrame;
+import com.sun.electric.tool.util.concurrent.utils.ElapseTimer;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.math.DBMath;
+import com.sun.electric.util.math.GenMath;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -1387,11 +1388,12 @@ class LayerDrawing {
      */
     private void drawImage(Drawing drawing, boolean fullInstantiate, Rectangle2D drawLimitBounds,
             double patternedScaleLimit, double alphaBlendingOvercolorLimit) {
-        long startTime = 0, clearTime = 0, countTime = 0;
+        long clearTime = 0, countTime = 0;
+        ElapseTimer timer = ElapseTimer.createInstance();
         long initialUsed = 0;
         if (TAKE_STATS) {
 //			Runtime.getRuntime().gc();
-            startTime = System.currentTimeMillis();
+            timer.start();
             initialUsed = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
             tinyCells = tinyPrims = totalCells = renderedCells = totalPrims = tinyArcs = linedArcs = totalArcs = 0;
             offscreensCreated = offscreenPixelsCreated = offscreensUsed = offscreenPixelsUsed = cellsRendered = 0;
@@ -1489,11 +1491,11 @@ class LayerDrawing {
         }
 
         if (TAKE_STATS) {
-            long endTime = System.currentTimeMillis();
+            timer.end();
             long curUsed = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
             long memConsumed = curUsed - initialUsed;
-            System.out.println("Took " + TextUtils.getElapsedTime(endTime - startTime)
-                    + "(" + (clearTime - startTime) + "+" + (countTime - clearTime) + "+" + (endTime - countTime) + ")"
+            System.out.println("Took " + timer.toString()
+                    + "(" + (clearTime - timer.getStart()) + "+" + (countTime - clearTime) + "+" + (timer.getEnd() - countTime) + ")"
                     + ", rendered " + cellsRendered + " cells, used " + offscreensUsed + " (" + offscreenPixelsUsed + " pixels) " + offscreensUsedSet.size() + "cached cells, created "
                     + offscreensCreated + " (" + offscreenPixelsCreated + " pixels) new cell caches (my size is " + total + " pixels), memory used=" + memConsumed);
             System.out.println("   Cells (" + totalCells + ") " + tinyCells + " are tiny;"

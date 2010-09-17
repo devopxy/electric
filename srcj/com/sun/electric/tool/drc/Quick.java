@@ -35,7 +35,6 @@ import com.sun.electric.database.network.Network;
 import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.prototype.PortOriginal;
 import com.sun.electric.database.prototype.PortProto;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.Geometric;
 import com.sun.electric.database.topology.NodeInst;
@@ -47,6 +46,10 @@ import com.sun.electric.technology.*;
 import com.sun.electric.technology.technologies.Generic;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.user.ErrorLogger;
+import com.sun.electric.tool.util.concurrent.utils.ElapseTimer;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.math.DBMath;
+import com.sun.electric.util.math.GenMath;
 
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
@@ -243,13 +246,13 @@ public class Quick
 		reportInfo.checkTimeStamp = 0;
 		checkEnumerateInstances(cell);
 
-        long startTime = System.currentTimeMillis();
+		ElapseTimer timer = ElapseTimer.createInstance().start();
         System.out.print("Checking again hierarchy");
         // Another hierarchy traverse ....
         CheckCellLayerEnumerator layerCellCheck = new CheckCellLayerEnumerator(cellLayersCon);
         HierarchyEnumerator.enumerateCell(topCell, VarContext.globalContext, layerCellCheck);
-        long endTime = System.currentTimeMillis();
-        System.out.println(" .... (" + TextUtils.getElapsedTime(endTime - startTime)+ ")");
+        timer.end();
+        System.out.println(" .... (" + timer+ ")");
 
         // now allocate space for hierarchical network arrays
 		//int totalNetworks = 0;
@@ -477,7 +480,7 @@ public class Quick
 		}
 
 		// announce progress
-        long startTime = System.currentTimeMillis();
+        ElapseTimer timer = ElapseTimer.createInstance().start();
 		System.out.println("Checking " + cell);
 
 		// now look at every node and arc here
@@ -569,7 +572,7 @@ public class Quick
 		{
 			int localErrors = reportInfo.errorLogger.getNumErrors() - prevErrors;
 			int localWarnings = reportInfo.errorLogger.getNumWarnings() - prevWarns;
-            long endTime = System.currentTimeMillis();
+            timer.end();
 			if (localErrors == 0 &&  localWarnings == 0)
 			{
 				System.out.println("\tNo errors/warnings found");
@@ -581,7 +584,7 @@ public class Quick
 					System.out.println("\tFOUND " + localWarnings + " WARNINGS");
 			}
             if (Job.getDebug())
-                System.out.println("\t(took " + TextUtils.getElapsedTime(endTime - startTime) + ")");
+                System.out.println("\t(took " + timer + ")");
 		}
 
 		return reportInfo.totalSpacingMsgFound;

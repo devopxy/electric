@@ -25,12 +25,10 @@
  */
 package com.sun.electric.tool.io.input;
 
-import com.sun.electric.database.geometry.GenMath;
 import com.sun.electric.database.id.CellId;
 import com.sun.electric.database.id.IdManager;
 import com.sun.electric.database.id.LibId;
 import com.sun.electric.database.text.CellName;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.text.Version;
 import com.sun.electric.database.variable.Variable;
 import com.sun.electric.tool.io.ELIBConstants;
@@ -39,6 +37,8 @@ import com.sun.electric.tool.io.input.JelibParser;
 import com.sun.electric.tool.io.output.Output;
 import com.sun.electric.tool.ncc.basic.NccCellAnnotations;
 import com.sun.electric.tool.user.ErrorLogger;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.math.GenMath;
 
 import java.io.BufferedReader;
 import java.io.File;

@@ -24,13 +24,11 @@
 package com.sun.electric.tool.io.output;
 
 import com.sun.electric.database.geometry.Orientation;
-import com.sun.electric.database.geometry.GenMath.MutableInteger;
 import com.sun.electric.database.hierarchy.Export;
 import com.sun.electric.database.hierarchy.Library;
 import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.prototype.PortCharacteristic;
 import com.sun.electric.database.prototype.PortProto;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.topology.NodeInst;
 import com.sun.electric.database.topology.PortInst;
 import com.sun.electric.technology.PrimitiveNode;
@@ -40,6 +38,8 @@ import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.io.IOTool;
 import com.sun.electric.tool.io.input.EDIF;
 import com.sun.electric.tool.io.input.EDIF.EDIFPreferences;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.math.GenMath.MutableInteger;
 
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;

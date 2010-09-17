@@ -23,9 +23,7 @@
  */
 package com.sun.electric.tool.user;
 
-import com.sun.electric.database.geometry.DBMath;
 import com.sun.electric.database.geometry.ERectangle;
-import com.sun.electric.database.geometry.GenMath;
 import com.sun.electric.database.geometry.Poly;
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.EDatabase;
@@ -38,7 +36,6 @@ import com.sun.electric.database.network.NetworkTool;
 import com.sun.electric.database.prototype.PortCharacteristic;
 import com.sun.electric.database.prototype.PortProto;
 import com.sun.electric.database.text.Name;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.topology.Geometric;
 import com.sun.electric.database.topology.NodeInst;
 import com.sun.electric.database.topology.PortInst;
@@ -53,6 +50,9 @@ import com.sun.electric.tool.user.menus.MenuCommands;
 import com.sun.electric.tool.user.ui.EditWindow;
 import com.sun.electric.tool.user.ui.TopLevel;
 import com.sun.electric.tool.user.ui.WindowFrame;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.math.DBMath;
+import com.sun.electric.util.math.GenMath;
 
 import java.awt.Font;
 import java.awt.Point;

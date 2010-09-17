@@ -25,7 +25,6 @@
  */
 package com.sun.electric.tool.io.output;
 
-import com.sun.electric.database.geometry.GenMath;
 import com.sun.electric.database.geometry.Poly;
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.Export;
@@ -36,7 +35,6 @@ import com.sun.electric.database.network.Network;
 import com.sun.electric.database.prototype.PortCharacteristic;
 import com.sun.electric.database.prototype.PortOriginal;
 import com.sun.electric.database.prototype.PortProto;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.text.Version;
 import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.NodeInst;
@@ -46,6 +44,8 @@ import com.sun.electric.technology.Layer;
 import com.sun.electric.technology.PrimitiveNode;
 import com.sun.electric.technology.PrimitivePort;
 import com.sun.electric.technology.Technology;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.math.GenMath;
 
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;

@@ -24,19 +24,19 @@
  */
 package com.sun.electric.database;
 
-import com.sun.electric.database.geometry.DBMath;
 import com.sun.electric.database.geometry.Dimension2D;
 import com.sun.electric.database.geometry.EPoint;
 import com.sun.electric.database.id.ArcProtoId;
 import com.sun.electric.database.id.PrimitiveNodeId;
 import com.sun.electric.database.text.PrefPackage;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.variable.MutableTextDescriptor;
 import com.sun.electric.database.variable.TextDescriptor;
 import com.sun.electric.technology.ArcProto;
 import com.sun.electric.technology.PrimitiveNode;
 import com.sun.electric.technology.TechPool;
 import com.sun.electric.technology.Technology;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.math.DBMath;
 
 import java.util.ArrayList;
 import java.util.Arrays;

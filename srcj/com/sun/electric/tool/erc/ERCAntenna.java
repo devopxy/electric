@@ -23,7 +23,6 @@
  */
 package com.sun.electric.tool.erc;
 
-import com.sun.electric.database.geometry.DBMath;
 import com.sun.electric.database.geometry.Poly;
 import com.sun.electric.database.geometry.PolyBase;
 import com.sun.electric.database.geometry.PolyMerge;
@@ -32,7 +31,6 @@ import com.sun.electric.database.hierarchy.Export;
 import com.sun.electric.database.id.ArcProtoId;
 import com.sun.electric.database.prototype.PortProto;
 import com.sun.electric.database.text.PrefPackage;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.Connection;
 import com.sun.electric.database.topology.Geometric;
@@ -49,6 +47,9 @@ import com.sun.electric.technology.TransistorSize;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.user.ErrorLogger;
+import com.sun.electric.tool.util.concurrent.utils.ElapseTimer;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.math.DBMath;
 
 import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
@@ -264,7 +265,7 @@ public class ERCAntenna
 		}
 
 		// initialize error logging
-		long startTime = System.currentTimeMillis();
+		ElapseTimer timer = ElapseTimer.createInstance().start();
 		errorLogger = ErrorLogger.newInstance("ERC Antenna Rules Check");
 
 		// now check each layer of the cell
@@ -287,14 +288,14 @@ public class ERCAntenna
 			}
 		}
 
-		long endTime = System.currentTimeMillis();
+		timer.end();
 		int errorCount = errorLogger.getNumErrors();
 		if (errorCount == 0)
 		{
-			System.out.println("No antenna errors found (took " + TextUtils.getElapsedTime(endTime - startTime) + ")");
+			System.out.println("No antenna errors found (took " + timer + ")");
 		} else
 		{
-			System.out.println("FOUND " + errorCount + " ANTENNA ERRORS (took " + TextUtils.getElapsedTime(endTime - startTime) + ")");
+			System.out.println("FOUND " + errorCount + " ANTENNA ERRORS (took " + timer + ")");
 		}
 		errorLogger.termLogging(true);
         return errorCount;

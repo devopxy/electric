@@ -25,7 +25,6 @@ package com.sun.electric.tool.io.input;
 
 import com.sun.electric.database.IdMapper;
 import com.sun.electric.database.ImmutableNodeInst;
-import com.sun.electric.database.geometry.DBMath;
 import com.sun.electric.database.geometry.EPoint;
 import com.sun.electric.database.geometry.Orientation;
 import com.sun.electric.database.hierarchy.Cell;
@@ -36,7 +35,6 @@ import com.sun.electric.database.id.*;
 import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.prototype.PortProto;
 import com.sun.electric.database.text.Setting;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.text.Version;
 import com.sun.electric.database.topology.NodeInst;
 import com.sun.electric.database.topology.PortInst;
@@ -59,6 +57,8 @@ import com.sun.electric.tool.user.ErrorLogger;
 import com.sun.electric.tool.user.CircuitChangeJobs;
 import com.sun.electric.tool.user.IconParameters;
 import com.sun.electric.tool.user.dialogs.OpenFile;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.math.DBMath;
 
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
