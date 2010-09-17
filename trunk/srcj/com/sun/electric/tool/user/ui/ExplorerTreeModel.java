@@ -23,16 +23,16 @@
  */
 package com.sun.electric.tool.user.ui;
 
-import com.sun.electric.database.geometry.DBMath;
 import com.sun.electric.database.hierarchy.Cell;
 import com.sun.electric.database.hierarchy.Library;
 import com.sun.electric.database.text.Pref;
-import com.sun.electric.database.text.TextUtils;
 import com.sun.electric.database.text.WeakReferences;
 import com.sun.electric.database.topology.NodeInst;
 import com.sun.electric.tool.user.tecEdit.ArcInfo;
 import com.sun.electric.tool.user.tecEdit.LayerInfo;
 import com.sun.electric.tool.user.tecEdit.NodeInfo;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.math.DBMath;
 
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;

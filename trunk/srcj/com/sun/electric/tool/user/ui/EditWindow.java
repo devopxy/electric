@@ -27,7 +27,6 @@ import com.sun.electric.database.EditingPreferences;
 import com.sun.electric.database.Snapshot;
 import com.sun.electric.database.change.DatabaseChangeEvent;
 import com.sun.electric.database.change.DatabaseChangeListener;
-import com.sun.electric.database.geometry.DBMath;
 import com.sun.electric.database.geometry.EPoint;
 import com.sun.electric.database.geometry.ERectangle;
 import com.sun.electric.database.geometry.Orientation;
@@ -44,8 +43,6 @@ import com.sun.electric.database.network.Netlist;
 import com.sun.electric.database.network.Network;
 import com.sun.electric.database.prototype.NodeProto;
 import com.sun.electric.database.text.Name;
-import com.sun.electric.database.text.TextUtils;
-import com.sun.electric.database.text.TextUtils.WhatToSearch;
 import com.sun.electric.database.topology.ArcInst;
 import com.sun.electric.database.topology.Geometric;
 import com.sun.electric.database.topology.NodeInst;
@@ -76,6 +73,9 @@ import com.sun.electric.tool.user.redisplay.AbstractDrawing;
 import com.sun.electric.tool.user.redisplay.PixelDrawing;
 import com.sun.electric.tool.user.redisplay.VectorCache;
 import com.sun.electric.tool.user.waveform.WaveformWindow;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.TextUtils.WhatToSearch;
+import com.sun.electric.util.math.DBMath;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -205,7 +205,7 @@ public class EditWindow extends JPanel
 	/** scheduled or running rendering job */				private static RenderJob runningNow = null;
 	/** Logger of this package. */							private static Logger logger = Logger.getLogger("com.sun.electric.tool.user.ui");
 	/** Class name for logging. */							private static String CLASS_NAME = EditWindow.class.getName();
-    /** Timer object for pulsating errors */                private Timer pulsatingTimer;
+    /** ElapseTimer object for pulsating errors */                private Timer pulsatingTimer;
     /** if true, repaint entire screen (not just errors) */ private boolean dirty;
 
 	private static final int SCROLLBARRESOLUTION = 200;
