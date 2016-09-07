@@ -598,15 +598,15 @@ public final class Main
             } else {
             	// make sure library isn't already there
             	boolean alreadyThere = false;
-System.out.println("CHECKING REDUNDANCY FOR LIBRARY "+url.toString());
+//System.out.println("CHECKING REDUNDANCY FOR LIBRARY "+url.toString());
             	for(Iterator<Library> it = Library.getLibraries(); it.hasNext(); )
             	{
             		Library lib = it.next();
             		URL lURL = lib.getLibFile();
-System.out.println("   FOUND LIBRARY "+lib.getName()+" ("+lURL+")");
+//System.out.println("   FOUND LIBRARY "+lib.getName()+" ("+lURL+")");
             		if (lURL != null && lURL.equals(url))
             		{
-System.out.println("SKIPPING "+url);		// TODO: debug
+//System.out.println("SKIPPING "+url);		// TODO: debug
             			alreadyThere = true;  break;
             		}
             	}
