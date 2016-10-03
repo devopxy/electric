@@ -69,6 +69,7 @@ import java.util.List;
 public class HSpiceOut extends Input<Stimuli>
 {
 	private static final boolean DEBUGCONDITIONS = false;
+	private static final int BINARYBUFFERSIZE = 8192;
 	/** true if tr/ac/sw file is binary */						private boolean isTRACDCBinary;
 	/** true if binary tr/ac/sw file has bytes swapped */		private boolean isTRACDCBinarySwapped;
 	/** the raw file base */									private String fileBase;
@@ -966,10 +967,10 @@ public class HSpiceOut extends Input<Stimuli>
 		updateProgressDialog(4);
 
 		// now read the data
-		if (bytes > 8192)
+		if (bytes > BINARYBUFFERSIZE)
 		{
-			System.out.println("ERROR: block is " + bytes + " long, but limit is 8192");
-			bytes = 8192;
+			System.out.println("ERROR: block is " + bytes + " long, but limit is " + BINARYBUFFERSIZE);
+			bytes = BINARYBUFFERSIZE;
 		}
 		int amtread = dataInputStream.read(binaryTRACDCBuffer, 0, bytes);
 		if (amtread != bytes)
@@ -1019,7 +1020,7 @@ public class HSpiceOut extends Input<Stimuli>
 				isTRACDCBinary = true;
 				isTRACDCBinarySwapped = false;
 				if (i == 4) isTRACDCBinarySwapped = true;
-				binaryTRACDCBuffer = new byte[8192];
+				binaryTRACDCBuffer = new byte[BINARYBUFFERSIZE];
 				if (readBinaryTRACDCBlock(true)) return(-1);
 			} else
 			{
