@@ -1,4 +1,4 @@
----------------- This is Electric, Version 9.06 ----------------
+---------------- This is Electric, Version 9.07 ----------------
 
 Electric is written in the Java programming language and is distributed in a
 single ".jar" file.  There are two variations on the ".jar" file:
