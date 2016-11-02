@@ -564,7 +564,7 @@ public class Edit {
      * See if the specified Editor is referring to me on this host,
      * returns true if so, false otherwise.
      * @param editor
-     * @return
+     * @return true if so.
      */
     static boolean isMe(Editor editor) {
         if (editor.getUser().equals(getUserName()) && editor.getHostname().equals(getHostName()))

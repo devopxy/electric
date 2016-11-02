@@ -113,7 +113,7 @@ public class SteinerTree
     /**
 	 * Constructor takes a list of 
 	 * @param portList a List of SteinerTreePort objects that are to be organized into a Steiner Tree.
-	 * @param advancedCode true to try private, advanced code for this.
+	 * @param disableAdvancedCode true to ignore private, advanced code for this.
 	 */
 	public SteinerTree(List<SteinerTreePort> portList, boolean disableAdvancedCode)
 	{

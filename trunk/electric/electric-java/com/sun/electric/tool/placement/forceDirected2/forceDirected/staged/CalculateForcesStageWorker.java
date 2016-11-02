@@ -65,7 +65,7 @@ public class CalculateForcesStageWorker extends StageWorker {
 	/**
 	 *
 	 * @param node
-	 * @return
+	 * @return the calculated forces.
 	 */
 	private Force2D calculateForces(PlacementNode node) {
 		Force2D result = new Force2D();

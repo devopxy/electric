@@ -487,7 +487,7 @@ public class PolyBase implements Shape, PolyNodeMerge {
      * Method to determine if a point is inside a polygon. The method is based on counting
      * how many time an imaginary line cuts the polygon in one direction.
      * @param pt
-     * @return
+     * @return true if point is inside polygon.
      */
     private boolean isPointInsideCutAlgorithm(Point2D pt) {
         // general polygon containment by counting reference line intersections
@@ -1059,7 +1059,7 @@ public class PolyBase implements Shape, PolyNodeMerge {
     /**
      * Method to return the scaling factor between database and screen for the given text.
      * @param wnd the window with the text.
-     * @param gv the GlyphVector describing the text.
+     * @param glyphBounds the bounds of text.
      * @param style the anchor information for the text.
      * @param lX the low X bound of the polygon containing the text.
      * @param hX the high X bound of the polygon containing the text.

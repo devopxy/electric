@@ -128,7 +128,7 @@ public class LEFDEF extends Input<Object>
 	 * @param layer
 	 * @param mask
 	 * @param unknownLayerHandling instruction on what do if layer not found
-	 * @return
+	 * @return GetLayerInformation for the layer.
 	 */
 	protected GetLayerInformation getLayerBasedOnNameAndMask(String layer, Integer mask, int unknownLayerHandling)
 	{

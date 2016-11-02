@@ -470,7 +470,7 @@ public class PolySweepMerge extends GeometryHandler
     /**
      * Method to return the unique set of points in the polygon.
      * @param area
-     * @return
+     * @return points to describe the polygon.
      */
     private static Set<Point2D> getPoints(Area area)
     {

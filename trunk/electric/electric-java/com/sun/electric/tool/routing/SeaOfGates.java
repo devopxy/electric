@@ -1910,7 +1910,6 @@ public class SeaOfGates
 		 * @param net the name of the network.
 		 * @param ap the ArcProto being routed on the network.
 		 * @param spacing the arc spacing to use (null to remove the override).
-		 * @param axis direction for the spacing value
 		 */
 		public void setSpacingOverrideForArcOnNet(String net, ArcProto ap, Double spacing)
 		{

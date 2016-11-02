@@ -262,7 +262,7 @@ public class Foundry {
 
     /**
      * Generate key name for GDS value depending on the foundry
-     * @return
+     * @return key name.
      */
     private String getGDSPrefName()
     {

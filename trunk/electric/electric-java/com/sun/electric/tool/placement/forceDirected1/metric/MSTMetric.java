@@ -53,7 +53,7 @@ public class MSTMetric extends AbstractMetric
 	 * Method returns the absolute Position of all Port in the list placementNets
 	 * It is used to create the data structure for placement.metrics
 	 * @param placementNets
-	 * @return
+	 * @return port positions.
 	 */
 	private List<Point2D.Double[]> getPositionsOfPorts(List<PlacementNetwork> placementNets) {
 		LinkedList<Point2D.Double[]> posOfPorts = new LinkedList<Point2D.Double[]>();
@@ -77,7 +77,7 @@ public class MSTMetric extends AbstractMetric
 	/**
 	 * auxiliary function for getPositionOfPorts
 	 * @param placementPort
-	 * @return
+	 * @return the port point.
 	 */
 	private Point2D.Double getAbsolutePositionOf(PlacementPort placementPort) {
 		return new Point2D.Double(

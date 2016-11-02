@@ -98,7 +98,7 @@ public class GenerationTest extends AbstractTest
 
 	/**
 	 * Method to run Template Fill test. Must be public/static due to regressions.
-	 * @param tech
+	 * @param rootPath
 	 * @return true if test successfully run.
 	 */
 	public static Boolean basicTemplateFillTest(String rootPath)

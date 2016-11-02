@@ -320,7 +320,7 @@ public class PlacementSimulatedAnnealing extends PlacementFrame {
 	 * Method that calculates how many moves per temperature step are necessary
 	 * 
 	 * @param nodes
-	 * @return
+	 * @return the number of moves.
 	 */
 	private int getDesiredMoves(List<PlacementNode> nodes) {
 		// TODO THIS IS TWEAKING DATA
@@ -331,7 +331,7 @@ public class PlacementSimulatedAnnealing extends PlacementFrame {
 	 * Method that estimates how many moves can be evaluated with the current
 	 * settings
 	 * 
-	 * @return
+	 * @return the time per move
 	 */
 	private double guessMillisecondsPerMove() {
 		double time = System.currentTimeMillis();
@@ -544,7 +544,7 @@ public class PlacementSimulatedAnnealing extends PlacementFrame {
 	 * no use in moving nodes "miles" away ...
 	 * 
 	 * @param nodesToPlace
-	 * @return
+	 * @return the maximum length
 	 */
 	private double getMaxChipLength(List<PlacementNode> nodesToPlace) {
 		double totalArea = 0;

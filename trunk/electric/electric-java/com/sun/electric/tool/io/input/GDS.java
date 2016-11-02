@@ -1100,7 +1100,7 @@ public class GDS extends Input<Object>
      * Method to find missing cells in the GDS and substitute references to cells in other libraries.
      * @param missingCells
      * @param theLibrary
-     * @return
+     * @return Map of missing Cells.
      */
     private Map<Cell,Cell> substituteExternalCells(Set<Cell> missingCells, Library theLibrary)
     {

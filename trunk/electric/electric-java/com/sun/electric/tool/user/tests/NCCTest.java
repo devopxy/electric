@@ -465,7 +465,7 @@ public class NCCTest extends AbstractTest
 	 * assume that current directory is "regression/tool/NCC"
 	 * @param libPath library file path relative to regressionDir
 	 * @param cellNm the name of the schematic and layout Cells in library to compare
-	 * @return
+	 * @return the root cells.
 	 */
 	private static RootCells getRootCells(String regressionDirPath, String libPath, String cellNm)
 	{

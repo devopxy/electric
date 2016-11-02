@@ -625,7 +625,7 @@ public class FillCellGenJob extends FillGenJob {
 	 * topCell. A hash map is kept to avoid calculation of the center point
 	 * every time the export is in consideration.
 	 *
-	 * @return
+	 * @return closest Export.
 	 */
 	private Export searchForClosestPort(PortInst pi, List<Export> list, Map<Export, Point2D> centerMap,
 			FixpTransform conTransOut) {

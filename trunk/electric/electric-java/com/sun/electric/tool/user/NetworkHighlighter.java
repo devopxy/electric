@@ -197,7 +197,7 @@ public class NetworkHighlighter extends HierarchyEnumerator.Visitor {
 
     /**
      * Retrieves the User's preference color for NodeInst objects
-     * @return
+     * @return the preference color.
      */
     private static Color getNodeOrPortColor()
     {

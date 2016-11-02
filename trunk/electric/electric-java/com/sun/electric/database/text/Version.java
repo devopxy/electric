@@ -62,7 +62,7 @@ public class Version implements Comparable<Version>, Serializable {
      * THE TEXT ON THAT LINE IS PARSED BY the Ant file (packaging/build.xml)
      * AND THE PARSING MAY FAIL IF THE LINE IS ALTERED.
      */
-	public static final String ELECTRIC_VERSION = "9.07-h";
+	public static final String ELECTRIC_VERSION = "9.07";
 
     private final String version;
     private final String oldStyle;

@@ -39,7 +39,7 @@ public class SoGWireQualityMetric extends WireQualityMetric
 
 	/**
 	 * Method to calculate net quality
-	 * @param net Network to analyze
+	 * @param batch batch of routes to examine.
 	 */
 	public QualityResults calculate(RouteBatch batch)
 	{

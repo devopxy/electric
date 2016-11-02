@@ -162,7 +162,7 @@ public class MSTMetric extends AbstractMetric {
 	/**
 	 * 
 	 * @param net
-	 * @return
+	 * @return the metric.
 	 */
 	private double compute(PlacementNetwork net) {
 
@@ -194,7 +194,7 @@ public class MSTMetric extends AbstractMetric {
 	 * 
 	 * @param port1
 	 * @param port2
-	 * @return
+	 * @return the distance between ports.
 	 */
 	private double getDistance(PlacementPort port1, PlacementPort port2) {
 		double deltaX = this.getPlacementX(port1) - this.getPlacementX(port2);

@@ -469,7 +469,7 @@ public class CVS extends Listener {
      * the first library found.
      * @param libs
      * @param cells
-     * @return
+     * @return user directory.
      */
     static String getUseDir(List<Library> libs, List<Cell> cells) {
         if (libs != null) {
@@ -499,7 +499,7 @@ public class CVS extends Listener {
      * 'files' argument to a CVS command.  Any files in 'useDir' will
      * be relative names, otherwise they will be absolute file names.
      * @param libs
-     * @return
+     * @return file names.
      */
     static StringBuffer getLibraryFiles(List<Library> libs, String useDir) {
         StringBuffer libsBuf = new StringBuffer();
@@ -522,7 +522,7 @@ public class CVS extends Listener {
      * @param libs
      * @param cells
      * @param useDir
-     * @return
+     * @return header files
      */
     static StringBuffer getHeaderFilesForCommit(List<Library> libs, List<Cell> cells, String useDir) {
         if (libs == null) libs = new ArrayList<Library>();
@@ -547,7 +547,7 @@ public class CVS extends Listener {
      * 'files' argument to a CVS command.  Any files in 'useDir' will
      * be relative names, otherwise they will be absolute file names.
      * @param cells
-     * @return
+     * @return file names
      */
     static StringBuffer getCellFiles(List<Cell> cells, String useDir) {
         StringBuffer cellsBuf = new StringBuffer();
@@ -568,7 +568,7 @@ public class CVS extends Listener {
      * not of the correct format, if the library cannot be found, or
      * if the cell cannot be found.
      * @param path
-     * @return
+     * @return named Cell.
      */
     static Cell getCellFromPath(String path) {
         int delibExt = path.toLowerCase().indexOf(".delib"+File.separator);
@@ -605,7 +605,7 @@ public class CVS extends Listener {
      * Returns null if not of the correct format,
      * or if the library cannot be found.
      * @param headerPath
-     * @return
+     * @return Library object.
      */
     static Library getLibraryFromHeader(String headerPath) {
         int delibExt = headerPath.toLowerCase().indexOf(".delib"+File.separator);
@@ -677,7 +677,7 @@ public class CVS extends Listener {
     /**
      * Get the repository.  In the future, there may be some
      * dialog to let the user choose between multiple respositories.
-     * @return
+     * @return repository path.
      */
     static String getRepository() {
         return getCVSRepository();

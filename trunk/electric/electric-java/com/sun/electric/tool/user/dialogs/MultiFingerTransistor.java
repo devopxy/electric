@@ -215,7 +215,7 @@ public class MultiFingerTransistor extends EDialog
 	/** 
 	 * Function to look for the corresponding M1 ArcProto in the technology
 	 * @param tech
-	 * @return
+	 * @return the ArcProto for Metal 1.
 	 */
 	private static ArcProto getMetal1(Technology tech)
 	{
