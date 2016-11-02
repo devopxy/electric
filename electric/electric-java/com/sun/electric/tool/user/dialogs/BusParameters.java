@@ -163,7 +163,7 @@ public class BusParameters extends EDialog
 	 * Added for ArchGen Plugin - BVE
 	 * @param libParam
 	 * @param libPopup
-	 * @return
+	 * @return the Library with parameters.
 	 */
 	private static Library initializeLibParameters(Map<Library,String[]> libParam, JComboBox libPopup)
 	{
@@ -422,13 +422,12 @@ public class BusParameters extends EDialog
 	}
 	
 	/**
-	 * Internal method for replacing a bus parameter in a string.  Refactored to
-	 * permit reuse.
+	 * Internal method for replacing a bus parameter in a string.  Refactored to permit reuse.
 	 * Added for ArchGen Plugin - BVE
 	 * @param var
 	 * @param lib
 	 * @param libParameters
-	 * @return
+	 * @return the new Variable string.
 	 */
 	private static String replaceVariableInString(String var, Library lib, Map<Library,String[]> libParameters) {
 		String varString = var;

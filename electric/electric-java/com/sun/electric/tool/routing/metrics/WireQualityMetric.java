@@ -306,7 +306,7 @@ public class WireQualityMetric extends RoutingMetric<QualityResults> {
 	 * Method to initialize quality measurements including
 	 * machine information and instance to store quality values
 	 * @param name net or cell name associated with results.
-	 * @return
+	 * @return the quality results.
 	 * @throws Exception UnknownHostException in case machine address can't be open
 	 */
 	protected QualityResults startLogging(String name) throws UnknownHostException

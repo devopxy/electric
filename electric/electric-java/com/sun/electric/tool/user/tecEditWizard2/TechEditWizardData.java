@@ -1643,7 +1643,7 @@ public class TechEditWizardData
 
     /**
      * Method to create the XML version of a PrimitiveNode representing a pin
-     * @return
+     * @return new XML.
      */
     private Xml.PrimitiveNodeGroup makeXmlPrimitivePin(Xml.Technology t, String name, double size,
                                                        SizeOffset so, List<String> portNames, Xml.NodeLayer... list)
@@ -1670,8 +1670,8 @@ public class TechEditWizardData
     }
 
     /**
-     * Method to creat the XML version of a PrimitiveNode representing a contact
-     * @return
+     * Method to create the XML version of a PrimitiveNode representing a contact
+     * @return new XML.
      */
     private Xml.PrimitiveNodeGroup makeXmlPrimitiveCon(List<Xml.PrimitiveNodeGroup> nodeGroups, String name,
                                                        PrimitiveNode.Function function, double sizeX, double sizeY,
@@ -1692,8 +1692,8 @@ public class TechEditWizardData
     }
 
     /**
-     * Method to creat the XML version of a PrimitiveNode representing a contact
-     * @return
+     * Method to create the XML version of a PrimitiveNode representing a contact
+     * @return new XML.
      */
     private Xml.PrimitiveNodeGroup makeXmlCapacitor(List<Xml.PrimitiveNodeGroup> nodeGroups, String name,
                                                     PrimitiveNode.Function function, double sizeX, double sizeY,
@@ -1720,7 +1720,7 @@ public class TechEditWizardData
 
     /**
      * Method to create the XML version of a PrimitiveNode
-     * @return
+     * @return new XML.
      */
     private Xml.PrimitiveNodeGroup makeXmlPrimitive(List<Xml.PrimitiveNodeGroup> nodeGroups,
                                                     String name, PrimitiveNode.Function function,
@@ -1896,7 +1896,7 @@ public class TechEditWizardData
      * Method to create the XML version of a ArcProto
      * @param name
      * @param function
-     * @return
+     * @return new XML.
      */
     private Xml.ArcProto makeXmlArc(Xml.Technology t, String name, com.sun.electric.technology.ArcProto.Function function,
                                     double ant, Xml.ArcLayer ... arcLayers)
@@ -1927,7 +1927,7 @@ public class TechEditWizardData
 
     /**
      * Method to create the XML version of a Layer.
-     * @return
+     * @return new XML.
      */
     private Xml.Layer makeXmlLayer(List<Xml.Layer> layers, Map<Xml.Layer, WizardField> layerMap, String name,
                                    Layer.Function function, int extraf, EGraphics graph,
@@ -1941,7 +1941,7 @@ public class TechEditWizardData
 
     /**
      * Method to create the XML version of a Layer.
-     * @return
+     * @return new XML.
      */
     private Xml.Layer makeXmlLayer(List<Xml.Layer> layers, String name, Layer.Function function, int extraf, EGraphics graph,
                                    double width, boolean pureLayerNode, boolean pureLayerPortArc, String... portArcNames)
@@ -2059,7 +2059,7 @@ public class TechEditWizardData
 
     /**
      * Method to create the default XML version of a MultiCUt NodeLayer
-     * @return
+     * @return new XML.
      */
     private Xml.NodeLayer makeXmlMulticut(Xml.Layer lb, double sizeRule, double sepRule, double sepRule2D)
     {
@@ -2068,7 +2068,7 @@ public class TechEditWizardData
 
     /**
      * Method to create the default XML version of a MultiCUt NodeLayer
-     * @return
+     * @return new XML.
      */
     private Xml.NodeLayer makeXmlMulticut(double lx, double hx, double ly, double hy, Xml.Layer lb,
                                           double sizeRule, double sepRule, double sepRule2D)
@@ -2078,7 +2078,7 @@ public class TechEditWizardData
     
     /**
      * Method to create the default XML version of a MultiCUt NodeLayer
-     * @return
+     * @return new XML.
      */
     private Xml.NodeLayer makeXmlMulticut(double lx, int lxk, double hx, int hxk, double ly, int lyk, double hy, int hyk,
                                           Xml.Layer lb, double sizeRule, double sepRule, double sepRule2D)

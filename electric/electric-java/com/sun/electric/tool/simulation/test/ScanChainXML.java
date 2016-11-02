@@ -2276,7 +2276,7 @@ public class ScanChainXML extends HierarchyEnumerator.Visitor {
      * Get the network attached to port 'portName' on nodable 'no'.
      * @param no
      * @param portName
-     * @return
+     * @return attached Network
      */
     private static Network getNetwork(Nodable no, Netlist netlist, String portName) {
         for (Iterator<PortProto> it = no.getProto().getPorts(); it.hasNext(); ) {

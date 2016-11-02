@@ -1187,7 +1187,7 @@ public final class J3DUtils
      * From Selman's book
      * @param axis
      * @param angle
-     * @return
+     * @return the angle.
      */
 	private static Quat4f createQuaternionFromAxisAndAngle( Vector3d axis, double angle )
 	{

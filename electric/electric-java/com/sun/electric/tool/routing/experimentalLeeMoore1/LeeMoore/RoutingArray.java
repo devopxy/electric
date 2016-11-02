@@ -464,7 +464,7 @@ public class RoutingArray {
 	 * @param r route to save the result in
 	 * @param length length of the route to find
 	 * @param b borders to trace in
-	 * @return
+	 * @return the Route.
 	 */
     private Route trace(Route r, int length, ThreadBorders b) {
         if (DEBUG) {

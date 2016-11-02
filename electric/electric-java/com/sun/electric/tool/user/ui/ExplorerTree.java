@@ -329,7 +329,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
      * @param path
      * @param node
      * @param count
-     * @return
+     * @return the number of children.
      */
     private int countChildrenAndExpandInPath(Cell cell, TreeModel treeModel, TreePath path, Object node, int count)
     {

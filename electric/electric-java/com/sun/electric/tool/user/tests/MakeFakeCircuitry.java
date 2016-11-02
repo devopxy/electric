@@ -102,7 +102,7 @@ public class MakeFakeCircuitry extends Job
 	 * External static call for regressions
 	 * @param library
 	 * @param technology
-	 * @return
+	 * @return the generated Cell.
 	 */
 	private static Cell doItInternal(String library, String technology, Map<CellId,BitSet> nodesToExpand, EditingPreferences ep)
 	{

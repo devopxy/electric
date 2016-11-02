@@ -234,7 +234,7 @@ public abstract class AbstractTest implements Serializable
 	/**
 	 * Change foundry preference of given technology and return new version for this technology.
 	 * @param tech technology to change foundry
-	 * @param foundry foundry name
+	 * @param foundryName foundry name
 	 * @return new version of technology
 	 */
 	public static Technology setFoundry(Technology tech, String foundryName)
@@ -288,7 +288,7 @@ public abstract class AbstractTest implements Serializable
 	 * @param rootName
 	 * @param outLib
 	 * @param lineKeys Set of first characters in lines to ignore to proper compare the data.
-	 * @return
+	 * @return true if they are the same.
 	 */
 	static boolean compareLibraryResults(String trueRootPath, String rootName, Library outLib, char[] lineKeys)
 	{
@@ -313,7 +313,7 @@ public abstract class AbstractTest implements Serializable
 	 * analysis and also the trimmed version of it.
 	 * @param cell Cell to compare.
 	 * @param resultName
-	 * @return
+	 * @return true if they are the same.
 	 */
 	boolean compareCellResults(Cell cell, String resultName)
 	{
@@ -502,8 +502,8 @@ public abstract class AbstractTest implements Serializable
 	/**
 	 * Method to compare two binary files.
 	 * @param index the index of the image (-1 if it is not relevant).
-	 * @param file1 the first file.
-	 * @param file2 the second file.
+	 * @param file the first file.
+	 * @param exFile the second file.
 	 * @return true if they are the same, false if they differ.
 	 */
 	public static boolean compareImages(int index, String file, String exFile)

@@ -530,7 +530,7 @@ public class EGraphics implements Serializable
      * If < 0, reset it to zero.
      * If > 1, reset it to one.
      * @param opacity
-     * @return
+     * @return valid opacity
      */
     private static double validateOpacity(double opacity)
     {

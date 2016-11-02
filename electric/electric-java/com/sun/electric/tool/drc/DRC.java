@@ -784,7 +784,7 @@ public class DRC extends Listener
      * @param tech
      * @param reportInfo
      * @param ni
-     * @return
+     * @return Polys for the NodeInst.
      */
     static Poly [] getShapeOfNodeBasedOnRules(Technology tech, ReportInfo reportInfo, NodeInst ni)
     {
@@ -799,7 +799,7 @@ public class DRC extends Listener
      * Method to retrieve only Polyss from an ArcInst associated with layers with rules.
      * @param tech
      * @param ai
-     * @return
+     * @return Polys for the ArcInst.
      */
     static Poly[] getShapeOfArcBasedOnRules(Technology tech, ArcInst ai)
     {

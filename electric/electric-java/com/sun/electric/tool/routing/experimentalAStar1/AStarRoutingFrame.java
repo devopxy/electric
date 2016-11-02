@@ -260,7 +260,7 @@ public class AStarRoutingFrame extends BenchmarkRouter {
 	 * @param blockages
 	 * @param cell
 	 * @param segmentsToRoute
-	 * @return
+	 * @return parameters.
 	 */
 	private Map findBoundingBox(List<RoutingGeometry> blockages, Cell cell, List<RoutingSegment> segmentsToRoute) {
 

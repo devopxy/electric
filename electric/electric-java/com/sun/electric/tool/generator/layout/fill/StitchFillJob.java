@@ -1058,28 +1058,28 @@ public class StitchFillJob extends Job
         }
     }
 
-    /**
-         * Method to collect arcs found in a given area. It doesn't check if the arc is horizontal or top level
-         * @param resultBnd Search area
-         * @param at List with arcs to search from
-         * @return
-         */
-        private static ArcInst getArcInstOverlappingWithArea(Rectangle2D resultBnd, List<ArcInst> at)
+	/**
+     * Method to collect arcs found in a given area. It doesn't check if the arc is horizontal or top level
+     * @param resultBnd Search area
+     * @param at List with arcs to search from
+     * @return ArcInst in the area.
+     */
+    private static ArcInst getArcInstOverlappingWithArea(Rectangle2D resultBnd, List<ArcInst> at)
+    {
+        Area topArea = new Area(resultBnd);
+        for (ArcInst ai : at)
         {
-            Area topArea = new Area(resultBnd);
-            for (ArcInst ai : at)
-            {
-                Rectangle2D r = ai.getBounds();
+            Rectangle2D r = ai.getBounds();
 
-                // test if the current ai inserts with the given area
-                // and it is fully contained along the axis the arc is aligned
-                if (r.intersects(resultBnd))
-                {
-                    return ai;
-                }
+            // test if the current ai inserts with the given area
+            // and it is fully contained along the axis the arc is aligned
+            if (r.intersects(resultBnd))
+            {
+                return ai;
             }
-            return null;
         }
+        return null;
+    }
 
     /**
      * Method to collect arcs found in a given area
@@ -1087,7 +1087,7 @@ public class StitchFillJob extends Job
      * @param at List with arcs to search from
      * @param horizontal
      * @param topLayer
-     * @return
+     * @return ArcInst in the area.
      */
     private static ArcInst getArcInstOverlappingWithArea(Rectangle2D resultBnd, List<ArcInst> at, boolean horizontal, boolean topLayer)
     {

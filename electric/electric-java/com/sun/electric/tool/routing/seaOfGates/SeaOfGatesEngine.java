@@ -2668,7 +2668,7 @@ public abstract class SeaOfGatesEngine
 		 * @param y the Y coordinate to search.
 		 * @param metalNo the metal number to consider.
 		 * @param netID the netID that must be on the metal (null to ignore this).
-		 * @return
+		 * @return true if the point is in metal.
 		 */
 		private boolean isPointInMetal(double x, double y, int metalNo, MutableInteger netID)
 		{

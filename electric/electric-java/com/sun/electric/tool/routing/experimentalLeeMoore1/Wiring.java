@@ -359,7 +359,7 @@ public class Wiring {
      * this method is used for multiterminal routing (not yet functional)
      * @param rs
      * @param edgePoints
-     * @return
+     * @return true if ends are reversed.
      */
     private static boolean containsEndReversed(RoutingSegment rs, List<Tupel> edgePoints) {
         Tupel t1 = edgePoints.get(0);

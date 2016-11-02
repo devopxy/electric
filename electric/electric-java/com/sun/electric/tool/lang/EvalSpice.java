@@ -258,7 +258,7 @@ public class EvalSpice {
      * number[g|meg|k|m|u|n|p|f]
      * <p>
      * number(e)[-]number
-     * @return
+     * @return the parsed number.
      * @throws IOException
      * @throws ParseException
      */

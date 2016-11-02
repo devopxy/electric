@@ -84,7 +84,7 @@ public class ErrorLogger implements Serializable
     /**
      * Method to replace invalid characters in XML such as > or <
      * @param message
-     * @return
+     * @return corrected String.
      */
     private static String correctXmlString(String message)
     {

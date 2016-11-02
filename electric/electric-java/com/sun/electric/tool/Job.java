@@ -511,7 +511,7 @@ public abstract class Job implements Serializable {
 	 * retrieve abort status from another class, use checkAbort which also
 	 * checks if job is scheduled to be aborted.
 	 * 
-	 * @return
+	 * @return abort status.
 	 */
 	private synchronized boolean getAborted() {
 		return aborted;

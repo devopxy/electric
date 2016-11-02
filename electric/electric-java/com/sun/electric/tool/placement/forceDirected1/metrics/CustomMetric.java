@@ -88,7 +88,7 @@ public abstract class CustomMetric {
 	 * Auxiliary method for getPositionOfPorts()
 	 * 
 	 * @param placementPort
-	 * @return
+	 * @return the point.
 	 */
 	private Point2D.Double getAbsolutePositionOf(PlacementPort placementPort) {
 		return new Point2D.Double(

@@ -1644,7 +1644,7 @@ public class Verilog extends Topology
      * @param line
      * @param no
      * @param context
-     * @return
+     * @return the parameter string.
      */
     private String writeDefparam(String line, Nodable no, VarContext context)
     {
@@ -1704,7 +1704,7 @@ public class Verilog extends Topology
 	 * @param varName
 	 * @param no
 	 * @param context
-	 * @return
+	 * @return the Variable string.
 	 */
     private String replaceVariable(String varName, Nodable no, VarContext context)
     {
@@ -1737,7 +1737,7 @@ public class Verilog extends Topology
 	 *
 	 * @param varName
 	 * @param cell
-	 * @return
+	 * @return the Variable string.
 	 */
     private String replaceVariable(String varName, Cell cell)
     {
@@ -1772,7 +1772,7 @@ public class Verilog extends Topology
 	 *
 	 * @param line
 	 * @param cell
-	 * @return
+	 * @return the Variable string.
 	 */
     private String replaceVarInString(String line, Cell cell)
     {

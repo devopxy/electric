@@ -1833,7 +1833,7 @@ public class Layer implements Serializable, Comparable {
 
     /**
      * Method to create XML version of a Layer.
-     * @return
+     * @return the Xml.Layer for the Layer.
      */
     Xml.Layer makeXml() {
         Xml.Layer l = new Xml.Layer();

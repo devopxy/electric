@@ -94,7 +94,7 @@ public class Telesis extends Geometry {
 	 * @param name
 	 * @param f
 	 * @param l
-	 * @return
+	 * @return root name.
 	 */
 	private static String extractRootNameAndArrayIndices(String name, MutableInteger f, MutableInteger l,
 			List<String> secondArray)

@@ -7,9 +7,9 @@ Introduction
  Building Electric from Source Code
   Introduction to Source Code                 =chap01-04-01
   Source code in the JAR Files                =chap01-04-02
-  Command-line Access to the java.net Repository =chap01-04-03
-  Netbeans Access to the java.net Repository  =chap01-04-04
-  Eclipse Access to the java.net Repository   =chap01-04-05
+  Command-line Access to the savannah.gnu.org Repository =chap01-04-03
+  Netbeans Access to the savannah.gnu.org Repository  =chap01-04-04
+  Eclipse Access to the savannah.gnu.org Repository   =chap01-04-05
  Plug-Ins                                     =chap01-05
  Fundamental Concepts                         =chap01-06
  The Display                                  =chap01-07

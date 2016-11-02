@@ -571,7 +571,7 @@ public class VerticalRoute {
     /**
      * Method to check whether an equivalent PortProto has been added to the list.
      * @param pp
-     * @return
+     * @return true if it is in the list.
      */
     private boolean isPortProtoContained(Object pp)
     {

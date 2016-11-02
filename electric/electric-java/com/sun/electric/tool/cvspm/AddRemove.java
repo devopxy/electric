@@ -354,10 +354,11 @@ public class AddRemove {
                     CVSLibrary.setState(cell, State.NONE);
             }
         }
+
         /**
          * Return true if succeeded, false otherwise
          * @param FD
-         * @return
+         * @return true if succeeded, false otherwise
          */
         private boolean undo(File FD) {
             if (FD.isDirectory()) return false;

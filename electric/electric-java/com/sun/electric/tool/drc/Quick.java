@@ -3040,7 +3040,7 @@ public class Quick
 	 * Method to find intersection in ref from p1 by using a perpendicular line.
 	 * Point must be contained in the line
 	 * x = (b2-b1)*a/(a^2 -1)
-	 * @return
+	 * @return intersection point.
 	 */
 	Point2D getIntersectionToPolygon(Point2D p3, Poly ref)
 	{

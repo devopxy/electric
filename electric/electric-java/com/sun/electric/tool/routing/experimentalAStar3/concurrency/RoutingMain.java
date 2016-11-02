@@ -340,7 +340,7 @@ public class RoutingMain // implements Runnable
 	 * @param terminalGlobalCellY
 	 *            = job.routingSegment.getStartEnd().getLocation().getY()
 	 * @param job
-	 * @return
+	 * @return the quadrant number.
 	 */
 	private int getQuadrantOfTerminalInGlobalNode(Point3D terminalGlobalNodeCoords,
 			double terminalGlobalCellX, double terminalGlobalCellY, RouteJob job) {

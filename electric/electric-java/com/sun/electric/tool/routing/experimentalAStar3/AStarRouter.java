@@ -124,7 +124,7 @@ public class AStarRouter extends BenchmarkRouter
    * coordinates, or other similar unit conversions.
    * 
    * @param c
-   * @return
+   * @return the unit coordinates.
    */
   private int cellUnitToNode(double c)
   {

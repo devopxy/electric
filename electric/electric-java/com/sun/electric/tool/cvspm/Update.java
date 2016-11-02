@@ -416,7 +416,7 @@ public class Update {
      * checks the status of the given files.
      * Returns true if all files are up-to-date, false otherwise
      * @param reader
-     * @return
+     * @return true if files are up-to-date
      */
     private static StatusResult parseOutput(LineNumberReader reader, int exitVal) {
         StatusResult result = new StatusResult(exitVal);

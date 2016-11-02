@@ -458,7 +458,7 @@ public class PlacementForceDirectedTeam5 extends PlacementFrame {
      *
      * @param overlapWeightingFactor
      * @param shapeRatio
-     * @return
+     * @return status.
      */
     boolean resolveOverlaps(double overlapWeightingFactor, double shapeRatio) {
         // inputs : nodesToPlace, centerOfMass, W, H
@@ -523,7 +523,7 @@ public class PlacementForceDirectedTeam5 extends PlacementFrame {
      *
      * @param overlapWeightingFactor
      * @param shapeRatio
-     * @return
+     * @return status.
      */
     boolean resolveOverlapsFast(double overlapWeightingFactor, double shapeRatio) {
         // inputs : nodesToPlace, centerOfMass, W, H
@@ -1115,7 +1115,7 @@ public class PlacementForceDirectedTeam5 extends PlacementFrame {
      * auxiliary function for getPositionOfPorts
      *
      * @param placementPort
-     * @return
+     * @return a Point.
      */
     private Point2D.Double getAbsolutePositionOf(PlacementPort placementPort) {
         return new Point2D.Double(placementPort.getRotatedOffX()
