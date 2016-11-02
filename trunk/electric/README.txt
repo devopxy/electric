@@ -1,4 +1,4 @@
----------------- This is Electric, Version 9.06 ----------------
+---------------- This is Electric, Version 9.07 ----------------
 
 
 Electric is written in the Java programming language and is distributed in a
@@ -8,7 +8,7 @@ single ".jar" file.  There are two variations on the ".jar" file:
 Both of these files have the binary ".class" files needed to run Electric,
 but the one with source-code is larger because it also has all of the Java code.
 Latest source code can be downloaded from Electric Home Page:
-http://java.net/projects/electric .
+http://savannah.gnu.org/projects/electric .
 
 ---------------- Requirements:
 
@@ -104,16 +104,16 @@ When rebuilding Electric, there are some Macintosh vs. non-Macintosh issues to c
   can be downloaded from Apple at
     http://developer.apple.com/samplecode/AppleJavaExtensions/index.html.
 
----------------- Building from Sources hosted on java.net in NetBeans IDE
+---------------- Building from Sources hosted on savannah.gnu.org in NetBeans IDE
 
-1) Register on java.net . Start NetBeans 7.0 or later.
+1) Start NetBeans 7.0 or later.
 2) Install the Team Server Plugin:
    2.1) Use Tools / Plugins and choose the "Available Plugins" tab in the Plugins manager.
    2.2) In the left pane, check the "Team Server" plugin and click "Install".
    2.3) Click "Close" to exit the Plugins manager.
    2.4) Use Window / Services to open the "Services" tab
-   2.5) Expand the "Team Server" node and check that the "java.net" Team Server is listed.
-3) Download Electric Sources from java.net .
+   2.5) Expand the "Team Server" node and check that the "savannah.gnu.org" Team Server is listed.
+3) Download Electric Sources from savannah.gnu.org .
    3.1) Choose File / Open Team Project... from the main menu.
    3.2) Search for electric project
    3.3) Select "Electric: VLSI Design System" and click Open From Team Server
@@ -156,7 +156,7 @@ When rebuilding Electric, there are some Macintosh vs. non-Macintosh issues to c
 2) Obtain the latest sources using Subversion
    a) For the first time
       cd WORK-DIRECTORY
-      svn checkout https://svn.java.net/svn/electric~svn/trunk/electric
+      svn checkout http://svn.savannah.gnu.org/svn/electric
       cd electric
    b) Next time
       cd WORK-DIRECTORY/electric
@@ -171,21 +171,6 @@ When rebuilding Electric, there are some Macintosh vs. non-Macintosh issues to c
 
    You might execute Electric with larger heap size if your design is large.
       java -Xmx2g -jar WORK-DIRECTORY/electric/packaging/electricPublic-X.XX.jar
-
-5) If you have access to the project electric-private (Oracle extensions to Electric),
-   obtain the latest sources using Subversion
-   a) For the first time
-      cd WORK-DIRECTORY 
-      svn --username USERNAME checkout https://svn.java.net/svn/electric-private~svn/trunk electric-all
-      cd electric-all
-   b) Next time
-      cd WORK-DIRECTORY/electric-all
-      svn update
-   c) Compile
-      cd WORK-DIRECTORY/electric-all/packaging
-      ant jarForOracle
-   d) Run
-      java -Xmx1g -jar WORK-DIRECTORY/electric/packaging/electricSOE-X.XX.jar
 
 ---------------- Discussion:
 
