@@ -177,7 +177,8 @@
 
 	<target name="compilePublic" description="Compile the public part of Electric">
 		<!-- deprecation flag: deprecation="true" -->
-		<javac debug="true" includeantruntime="false" destdir="${antBuild}" srcdir="${ElectricJavaLoc}" fork="true" memoryMaximumSize="1024m" source="1.7" target="1.7">
+		<javac debug="true" includeantruntime="false" destdir="${antBuild}" srcdir="${ElectricJavaLoc}" fork="true" memoryMaximumSize="1024m"
+		       encoding="UTF-8" source="1.7" target="1.7">
 			<classpath>
 				<pathelement location="${slf4j-api}" />
 				<pathelement location="${slf4j-jdk}" />
@@ -214,7 +215,8 @@
 	</target>
 
 	<target name="compilePrivate" description="Compile the private part of Electric">
-		<javac debug="true" includeantruntime="false" destdir="${antBuild}" srcdir="${ElectricPrivateLoc}" fork="true" memoryMaximumSize="1024m" source="1.7" target="1.7">
+	  <javac debug="true" includeantruntime="false" destdir="${antBuild}" srcdir="${ElectricPrivateLoc}" fork="true" memoryMaximumSize="1024m"
+		 encoding="UTF-8" source="1.7" target="1.7">
 			<classpath>
 				<pathelement location="${slf4j-api}" />
 				<pathelement location="${slf4j-jdk}" />
@@ -299,16 +301,11 @@
 		<delete dir="${antBuild}" />
 	</target>
 
-	<target name="mac-app" description="Build Macintosh Application">
-		<!--
-		<java classpath="." classname="com.sun.electric.Main" fork="true" outputproperty="version">
-				<arg value="-v"/>
-		</java>
-		-->
-		<java jar="electric.jar" fork="true" outputproperty="version">
+	<target name="mac-app" depends="jarForGNUSource" description="Build Macintosh Application">
+		<!--java jar="electric.jar" fork="true" outputproperty="version">
 			<arg value="-v" />
 			<jvmarg value="-Xmx1000m" />
-		</java>
+		</java-->
 		<property name="releasedir" value="Release${version}" />
 		<property name="appdir" value="${releasedir}/Electric.app" />
 		<mkdir dir="${releasedir}" />
@@ -323,8 +320,13 @@
 		<replace file="${appdir}/Contents/Info.plist" token="@VERSION" value="${version}" />
 		<copy file="${packaging}/PkgInfo" todir="${appdir}/Contents" />
 		<copy file="${packaging}/electric.icns" todir="${appdir}/Contents/Resources" />
-		<copy file="electric.jar" todir="${appdir}/Contents/Resources/Java" />
-		<exec executable="/Developer/Tools/SetFile">
+		<copy file="${packaging}/electric-${version}.jar" todir="${appdir}/Contents/Resources/Java" />
+		<!--exec executable="/Developer/Tools/SetFile">
+			<arg value="-a" />
+			<arg value="B" />
+			<arg value="${appdir}" />
+		</exec-->
+		<exec executable="/usr/bin/SetFile">
 			<arg value="-a" />
 			<arg value="B" />
 			<arg value="${appdir}" />
@@ -340,8 +342,10 @@
 		<delete quiet="false">
 			<fileset dir=".">
 				<include name="electric*.jar" />
+				<include name="Electric*.img" />
 			</fileset>
 		</delete>
+		<delete dir="Release${version}" />
 	</target>
 
 </project>
