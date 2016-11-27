@@ -2,8 +2,6 @@
 
 NOTE: Please place changes under the version that will be released next.
 
-************************* Version 9.08-a: ******************************
-
 ************************* Version 9.07: ******************************
 
 BUG: (8/4/16, SMR) Cell extraction does not work on schematics.
