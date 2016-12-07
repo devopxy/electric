@@ -464,6 +464,7 @@ public class ERCAntenna
 	private int followNode(NodeInst ni, PortProto pp, Layer lay, FixpTransform trans, Job job)
 	{
 		// presume that nothing was found
+		int ret = ERCANTPATHNULL;
 		firstSpreadAntennaObj = new ArrayList<AntennaObject>();
 		NodeInst [] antstack = new NodeInst[200];
 		int depth = 0;
@@ -494,26 +495,28 @@ public class ERCAntenna
 				{
 					TransistorSize dim = thisni.getTransistorSize(VarContext.globalContext);
 					totalGateArea += dim.getDoubleLength() * dim.getDoubleWidth();
-					return ERCANTPATHGATE;
+					ret = ERCANTPATHGATE;
+				} else
+				{
+					// diffusion or bias port: stop tracing
+					return ERCANTPATHACTIVE;
 				}
-
-				// diffusion or bias port: stop tracing
-				return ERCANTPATHACTIVE;
-			}
-
-			// normal primitive: propagate
-			if (hasDiffusion(thisni)) return ERCANTPATHACTIVE;
-			AntennaObject ao = new AntennaObject(ni);
-			ao.loadAntennaObject(antstack, depth);
-
-			if (haveAntennaObject(ao))
-			{
-				// already in the list
-				seen = true;
 			} else
 			{
-				// not in the list: add it
-				addAntennaObject(ao);
+				// normal primitive: propagate
+				if (hasDiffusion(thisni)) return ERCANTPATHACTIVE;
+				AntennaObject ao = new AntennaObject(ni);
+				ao.loadAntennaObject(antstack, depth);
+
+				if (haveAntennaObject(ao))
+				{
+					// already in the list
+					seen = true;
+				} else
+				{
+					// not in the list: add it
+					addAntennaObject(ao);
+				}
 			}
 
 			// look at all arcs on the node
@@ -530,7 +533,7 @@ public class ERCAntenna
 
 			// look for an unspread antenna object and keep walking
 			if (firstSpreadAntennaObj.size() == 0) break;
-			ao = firstSpreadAntennaObj.get(0);
+			AntennaObject ao = firstSpreadAntennaObj.get(0);
 			firstSpreadAntennaObj.remove(0);
 
 			ArcInst ai = (ArcInst)ao.geom;
@@ -540,7 +543,7 @@ public class ERCAntenna
 			for(int i=0; i<depth; i++)
 				antstack[i] = ao.hierstack[i];
 		}
-		return ERCANTPATHNULL;
+		return ret;
 	}
 
 	/**

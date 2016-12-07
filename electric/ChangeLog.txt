@@ -4,6 +4,9 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.08-a: ******************************
 
+BUG: (12/6/16, SMR) Antenna check fails, per user complaint.
+FIX: Revert to 9.05 version of ERCAntenna.java
+
 ************************* Version 9.07: ******************************
 
 BUG: (8/4/16, SMR) Cell extraction does not work on schematics.
