@@ -45,7 +45,6 @@ import com.sun.electric.tool.user.ActivityLogger;
  * For example:
  *    "8.00"      major=8, minor=0, detail=999     (a release)
  *    "8.01a"     major=8, minor=1, detail=1       (a prerelease)
- *    "8.01-a"    major=8, minor=1, detail=1       (a prerelease)
  *    "8.01z"     major=8, minor=1, detail=26      (a prerelease)
  *    "8.01aa"    major=8, minor=1, detail=27      (a prerelease)
  *    "8.01az"    major=8, minor=1, detail=52      (a prerelease)
