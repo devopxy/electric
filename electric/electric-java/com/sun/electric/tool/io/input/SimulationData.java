@@ -150,7 +150,7 @@ public final class SimulationData {
 				sd.setNetDelimiter(netDelimeter);
 				sd.setCell(cell);
                 try {
-                    is.processInput(fileURL, cell, sd);
+                    sd = is.processInput(fileURL, cell, sd);
                 } catch (java.io.EOFException ee) {
                     System.out.println("Warning: EOF encountered in data; displaying partial results: " + ee);
                     is.stopProgressDialog();

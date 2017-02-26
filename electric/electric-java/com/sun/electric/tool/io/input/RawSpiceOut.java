@@ -69,7 +69,7 @@ public class RawSpiceOut extends Input<Stimuli>
 		startProgressDialog("LTSpice output", fileURL.getFile());
 
 		// read the actual signal data from the .raw file
-		readRawSpice3File(cell, sd);
+		sd = readRawSpice3File(cell, sd);
 
 		// stop progress dialog, close the file
 		stopProgressDialog();
@@ -77,7 +77,7 @@ public class RawSpiceOut extends Input<Stimuli>
         return sd;
 	}
 
-	private void readRawSpice3File(Cell cell, Stimuli sd)
+	private Stimuli readRawSpice3File(Cell cell, Stimuli sd)
 		throws IOException
 	{
 		complexValues = false;
@@ -110,7 +110,7 @@ public class RawSpiceOut extends Input<Stimuli>
 					{
 						System.out.println("This is an HSPICE file, not a RAWFILE file");
 						System.out.println("Change the SPICE format (in Preferences) and reread");
-						return;
+						return null;
 					}
 				}
 			}
@@ -190,7 +190,7 @@ public class RawSpiceOut extends Input<Stimuli>
                     if (signalCount < 0)
                     {
                         System.out.println("Missing variable count in file");
-                        return;
+                        return null;
                     }
                     signalNames = new String[signalCount];
                     int trueSignalCount = 0;
@@ -206,7 +206,7 @@ public class RawSpiceOut extends Input<Stimuli>
                             if (line == null)
                             {
                                 System.out.println("Error: end of file during signal names");
-                                return;
+                                return null;
                             }
                         }
                         line = line.trim();
@@ -239,12 +239,17 @@ public class RawSpiceOut extends Input<Stimuli>
                     if (signalCount < 0)
                     {
                         System.out.println("Missing variable count in file");
-                        return;
+                        return null;
                     }
                     if (rowCount < 0)
                     {
                         System.out.println("Missing point count in file");
-                        return;
+                        return null;
+                    }
+                    if (rowCount == 0)
+                    {
+                        System.out.println("No points in file");
+                        return null;
                     }
                     double[][] values = new double[signalCount][rowCount];
                     for(int j=0; j<rowCount; j++)
@@ -259,7 +264,7 @@ public class RawSpiceOut extends Input<Stimuli>
                             if (line == null)
                             {
                                 System.out.println("Error: end of file during data points (read " + j + " out of " + rowCount);
-                                return;
+                                return null;
                             }
                             line = line.trim();
                             if (line.length() == 0) continue;
@@ -296,12 +301,17 @@ public class RawSpiceOut extends Input<Stimuli>
                     if (signalCount < 0)
                     {
                         System.out.println("Missing variable count in file");
-                        return;
+                        return null;
                     }
                     if (rowCount < 0)
                     {
                         System.out.println("Missing point count in file");
-                        return;
+                        return null;
+                    }
+                    if (rowCount == 0)
+                    {
+                        System.out.println("No points in file");
+                        return null;
                     }
 
                     // read the data
@@ -325,7 +335,7 @@ if (OLD) firstFieldIsTime = true;
                     if (signalCount < 0)
                     {
                         System.out.println("Missing variable count in file");
-                        return;
+                        return null;
                     }
                     signalNames = new String[signalCount];
                     int trueSignalCount = 0;
@@ -368,12 +378,17 @@ if (OLD) continue;
                     if (signalCount < 0)
                     {
                         System.out.println("Missing variable count in file");
-                        return;
+                        return null;
                     }
                     if (rowCount < 0)
                     {
                         System.out.println("Missing point count in file");
-                        return;
+                        return null;
+                    }
+                    if (rowCount == 0)
+                    {
+                        System.out.println("No points in file");
+                        return null;
                     }
                     if (DEBUG)
                     {
@@ -462,10 +477,11 @@ if (OLD) continue;
                     	SweptSample.createSignal(sc, sd, name, context, false, (Signal<ScalarSample>[])signals[i]);
                     }
                     sc.setSweepNames(sweepNames);
-                    return;
+                    return sd;
                 }
             }
         }
+        return sd;
 	}
 
 	private double getNextDouble()
