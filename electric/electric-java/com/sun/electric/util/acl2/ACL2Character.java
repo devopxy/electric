@@ -25,14 +25,14 @@ package com.sun.electric.util.acl2;
  * ACL2 character.
  * This is an atom. Its value is 8-bit ASCII character.
  */
-public class ACL2Character extends ACL2Atom
+class ACL2Character extends ACL2Object
 {
 
-    public final char c;
+    final char c;
 
-    ACL2Character(int id, char c)
+    ACL2Character(char c)
     {
-        super(id, false);
+        super(false);
         if (c >= 0x100)
         {
             throw new IllegalArgumentException();
@@ -55,8 +55,6 @@ public class ACL2Character extends ACL2Atom
     @Override
     public int hashCode()
     {
-        int hash = 5;
-        hash = 73 * hash + this.c;
-        return hash;
+        return 73 + c;
     }
 }

@@ -26,21 +26,139 @@ import java.math.BigInteger;
 /**
  * ACL2 integer number.
  */
-public class ACL2Integer extends ACL2Number
+class ACL2Integer extends ACL2Object
 {
 
     public final BigInteger v;
 
-    ACL2Integer(int id, BigInteger v)
+    ACL2Integer(BigInteger v)
     {
-        super(id);
+        super(false);
         this.v = v;
     }
 
     @Override
-    public ACL2Integer asInt()
+    public int intValueExact()
     {
+        return v.intValueExact();
+    }
+
+    @Override
+    public long longValueExact()
+    {
+        return v.longValueExact();
+    }
+
+    @Override
+    boolean isACL2Number()
+    {
+        return true;
+    }
+
+    @Override
+    Rational ratfix()
+    {
+        return Rational.valueOf(v, BigInteger.ONE);
+    }
+
+    @Override
+    ACL2Object unaryMinus()
+    {
+        return new ACL2Integer(v.negate());
+    }
+
+    @Override
+    ACL2Object unarySlash()
+    {
+        int sig = v.signum();
+        if (sig > 0)
+        {
+            return v.bitLength() <= 1 ? this : new ACL2Rational(Rational.valueOf(BigInteger.ONE, v));
+        }
+        if (sig < 0)
+        {
+            BigInteger a = v.negate();
+            return a.bitLength() <= 1 ? this : new ACL2Rational(Rational.valueOf(BigInteger.valueOf(-1), a));
+        }
         return this;
+    }
+
+    @Override
+    ACL2Object binaryPlus(ACL2Object y)
+    {
+        return v.signum() == 0 ? y.fix() : y.binaryPlus(this);
+    }
+
+    @Override
+    ACL2Object binaryPlus(ACL2Integer y)
+    {
+        return v.signum() == 0 ? y : new ACL2Integer(v.add(y.v));
+    }
+
+    @Override
+    ACL2Object binaryPlus(ACL2Rational y)
+    {
+        return v.signum() == 0 ? y : y.binaryPlus(this);
+    }
+
+    @Override
+    ACL2Object binaryPlus(ACL2Complex y)
+    {
+        return v.signum() == 0 ? y : y.binaryPlus(this);
+    }
+
+    @Override
+    ACL2Object binaryStar(ACL2Object y)
+    {
+        return v.signum() == 0 ? this : y.binaryStar(this);
+    }
+
+    @Override
+    ACL2Object binaryStar(ACL2Integer y)
+    {
+        return v.signum() == 0 ? this : new ACL2Integer(v.multiply(y.v));
+    }
+
+    @Override
+    ACL2Object binaryStar(ACL2Rational y)
+    {
+        return v.signum() == 0 ? this : y.binaryStar(this);
+    }
+
+    @Override
+    ACL2Object binaryStar(ACL2Complex y)
+    {
+        return v.signum() == 0 ? this : y.binaryStar(this);
+    }
+
+    @Override
+    int signum()
+    {
+        return v.signum();
+    }
+
+    @Override
+    int compareTo(ACL2Object y)
+    {
+        return v.signum() == 0 ? -y.signum() : -y.compareTo(this);
+    }
+
+    @Override
+    int compareTo(ACL2Integer y)
+    {
+        return v.signum() == 0 ? -y.signum() : v.compareTo(y.v);
+    }
+
+    @Override
+    int compareTo(ACL2Rational y)
+    {
+        return v.signum() == 0 ? -y.signum() : -y.compareTo(this);
+    }
+
+    @Override
+    int compareTo(ACL2Complex y)
+    {
+        return v.signum() == 0 ? -y.signum() : -y.compareTo(this);
     }
 
     @Override

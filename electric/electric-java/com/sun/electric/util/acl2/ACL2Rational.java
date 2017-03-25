@@ -21,55 +21,142 @@
  */
 package com.sun.electric.util.acl2;
 
-import java.math.BigInteger;
-
 /**
  * ACL2 rational number.
- * Its value is a rational number
+ * Its value is a rational number but not an integer number.
  */
-public class ACL2Rational extends ACL2Number
+class ACL2Rational extends ACL2Object
 {
+    final Rational r;
 
-    public final BigInteger n;
-    public final BigInteger d;
-
-    ACL2Rational(int id, BigInteger n, BigInteger d)
+    ACL2Rational(Rational r)
     {
-        super(id);
-        if (d.compareTo(BigInteger.ONE) <= 0 || !n.gcd(d).equals(BigInteger.ONE))
+        super(false);
+        if (r.isInteger())
         {
             throw new IllegalArgumentException();
         }
-        this.n = n;
-        this.d = d;
+        this.r = r;
     }
 
     @Override
-    public ACL2Rational asRat()
+    boolean isACL2Number()
     {
-        return this;
+        return true;
+    }
+
+    @Override
+    Rational ratfix()
+    {
+        return r;
+    }
+
+    @Override
+    ACL2Object unaryMinus()
+    {
+        return valueOf(r.negate());
+    }
+
+    @Override
+    ACL2Object unarySlash()
+    {
+        return valueOf(r.inverse());
+    }
+
+    @Override
+    ACL2Object binaryPlus(ACL2Object y)
+    {
+        return y.binaryPlus(this);
+    }
+
+    @Override
+    ACL2Object binaryPlus(ACL2Integer y)
+    {
+        return new ACL2Rational(r.add(y.v));
+    }
+
+    @Override
+    ACL2Object binaryPlus(ACL2Rational y)
+    {
+        return valueOf(r.add(y.r));
+    }
+
+    @Override
+    ACL2Object binaryPlus(ACL2Complex y)
+    {
+        return y.binaryPlus(this);
+    }
+
+    @Override
+    ACL2Object binaryStar(ACL2Object y)
+    {
+        return y.binaryStar(this);
+    }
+
+    @Override
+    ACL2Object binaryStar(ACL2Integer y)
+    {
+        return valueOf(r.mul(y.v));
+    }
+
+    @Override
+    ACL2Object binaryStar(ACL2Rational y)
+    {
+        return valueOf(r.mul(y.r));
+    }
+
+    @Override
+    ACL2Object binaryStar(ACL2Complex y)
+    {
+        return y.binaryStar(this);
+    }
+
+    @Override
+    int signum()
+    {
+        return r.signum();
+    }
+
+    @Override
+    int compareTo(ACL2Object y)
+    {
+        return -y.compareTo(this);
+    }
+
+    @Override
+    int compareTo(ACL2Integer y)
+    {
+        return r.compareTo(y.v);
+    }
+
+    @Override
+    int compareTo(ACL2Rational y)
+    {
+        return r.compareTo(y.r);
+    }
+
+    @Override
+    int compareTo(ACL2Complex y)
+    {
+        return -y.compareTo(this);
     }
 
     @Override
     public String rep()
     {
-        return n.toString() + "/" + d.toString();
+        return r.toString();
     }
 
     @Override
     public boolean equals(Object o)
     {
         return o instanceof ACL2Rational
-            && n.equals(((ACL2Rational)o).n)
-            && d.equals(((ACL2Rational)o).d);
+            && r.equals(((ACL2Rational)o).r);
     }
 
     @Override
     public int hashCode()
     {
-        int hash = 7;
-        hash = 71 * hash + n.hashCode();
-        hash = 71 * hash + d.hashCode();
-        return hash;
+        return r.hashCode();
     }
 }

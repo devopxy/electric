@@ -27,27 +27,31 @@ package com.sun.electric.util.acl2;
  * In this case {@link #car} is the first element
  * and {@link #cdr} is the tail.
  */
-public class ACL2Cons extends ACL2Object
+class ACL2Cons extends ACL2Object
 {
 
     /**
      * The left son.
      */
-    public final ACL2Object car;
+    final ACL2Object car;
     /**
      * The right sun.
      */
-    public final ACL2Object cdr;
+    final ACL2Object cdr;
 
-    ACL2Cons(int id, boolean norm, ACL2Object car, ACL2Object cdr)
+    ACL2Cons(boolean norm, ACL2Object car, ACL2Object cdr)
     {
-        super(id, norm);
+        super(norm);
+        if (car == null || cdr == null)
+        {
+            throw new NullPointerException();
+        }
         this.car = car;
         this.cdr = cdr;
     }
 
     @Override
-    public int len()
+    int len()
     {
         ACL2Object o = this;
         int n = 0;
@@ -60,15 +64,9 @@ public class ACL2Cons extends ACL2Object
     }
 
     @Override
-    public ACL2Cons asCons()
-    {
-        return this;
-    }
-
-    @Override
     public String toString()
     {
-        return id + "!" + len();
+        return id() + "!" + len();
     }
 
     @Override

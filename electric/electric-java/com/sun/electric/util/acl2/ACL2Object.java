@@ -21,106 +21,202 @@
  */
 package com.sun.electric.util.acl2;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.math.BigInteger;
 
 /**
  * ACL2 Object is a binary tree.
- * Its leafs are atoms represented by {@link com.sun.electric.util.acl2.ACL2Atom}.
- * Its non-leaf nodes are conses representred by {@link com.sun.electric.util.acl2.ACL2Atom}.
+ * Its non-leaf nodes are conses. They are represented by {@link com.sun.electric.util.acl2.ACL2Atom}.
+ * Its leafs are atoms represented by concrete subclasses:
+ * {@link com.sun.electric.util.acl2.ACL2Integer}
+ * {@link com.sun.electric.util.acl2.ACL2Rational}
+ * {@link com.sun.electric.util.acl2.ACL2Complex}
+ * {@link com.sun.electric.util.acl2.ACL2Character},
+ * {@link com.sun.electric.util.acl2.ACL2String},
+ * {@link com.sun.electric.util.acl2.ACL2Symbol},
  */
 public abstract class ACL2Object
 {
 
-    public static void check(boolean p)
-    {
-        if (!p)
-        {
-            throw new RuntimeException();
-        }
-    }
+    private static long nextId = 0;
+    private long id = -1;
+    private boolean norm;
 
-    public int id;
-    public boolean norm;
-
-    ACL2Object(int id, boolean norm)
+    ACL2Object(boolean norm)
     {
-        this.id = id;
         this.norm = norm;
     }
 
-    public int len()
+    public static ACL2Object valueOf(BigInteger v)
+    {
+        return new ACL2Integer(v);
+    }
+
+    public static ACL2Object valueOf(long v)
+    {
+        return new ACL2Integer(BigInteger.valueOf(v));
+    }
+
+    public static ACL2Object valueOf(int v)
+    {
+        return new ACL2Integer(BigInteger.valueOf(v));
+    }
+
+    static ACL2Object zero()
+    {
+        return new ACL2Integer(BigInteger.ZERO);
+    }
+
+    static ACL2Object valueOf(Rational r)
+    {
+        return r.isInteger() ? new ACL2Integer(r.n) : new ACL2Rational(r);
+    }
+
+    static ACL2Object valueOf(Rational re, Rational im)
+    {
+        return im.signum() == 0 ? valueOf(re) : new ACL2Complex(re, im);
+    }
+
+    public static ACL2Object valueOf(String pk, String nm)
+    {
+        return ACL2Symbol.getPackage(pk).getSymbol(nm);
+    }
+
+    public static ACL2Object valueOf(boolean v)
+    {
+        return v ? ACL2Symbol.T : ACL2Symbol.NIL;
+    }
+
+    public boolean bool()
+    {
+        return !ACL2Symbol.NIL.equals(this);
+    }
+
+    public int intValueExact()
+    {
+        throw new ArithmeticException();
+    }
+
+    public long longValueExact()
+    {
+        throw new ArithmeticException();
+    }
+
+    public String stringValueExact()
+    {
+        throw new ArithmeticException();
+    }
+
+    int len()
     {
         return 0;
     }
 
-    public ACL2Integer asInt()
+    boolean isACL2Number()
     {
-        check(false);
-        return null;
+        return false;
     }
 
-    public ACL2Rational asRat()
+    ACL2Object fix()
     {
-        check(false);
-        return null;
+        return isACL2Number() ? this : zero();
     }
 
-    public ACL2Symbol asSym()
+    Rational ratfix()
     {
-        check(false);
-        return null;
+        return Rational.valueOf(BigInteger.ZERO, BigInteger.ONE);
     }
 
-    public ACL2String asStr()
+    ACL2Object unaryMinus()
     {
-        check(false);
-        return null;
+        return zero();
     }
 
-    public ACL2Cons asCons()
+    ACL2Object unarySlash()
     {
-        check(false);
-        return null;
+        return zero();
     }
 
-    public static void checkSym(ACL2Object x, String pk, String nm)
+    ACL2Object binaryPlus(ACL2Object y)
     {
-        ACL2Symbol sym = x.asSym();
-        ACL2Object.check(sym.pk.equals(pk));
-        ACL2Object.check(sym.nm.equals(nm));
+        return y.fix();
     }
 
-    public static void checkNil(ACL2Object x)
+    ACL2Object binaryPlus(ACL2Integer y)
     {
-        checkSym(x, "COMMON-LISP", "NIL");
+        return y;
     }
 
-    public static void checkT(ACL2Object x)
+    ACL2Object binaryPlus(ACL2Rational y)
     {
-        checkSym(x, "COMMON-LISP", "T");
+        return y;
     }
 
-    public static List<ACL2Object> getList(ACL2Object l, boolean trueList)
+    ACL2Object binaryPlus(ACL2Complex y)
     {
-        List<ACL2Object> result = new ArrayList<>();
-        while (l instanceof ACL2Cons)
-        {
-            result.add(((ACL2Cons)l).car);
-            l = ((ACL2Cons)l).cdr;
-        }
-        if (trueList)
-        {
-            checkNil(l);
-        }
-        return result;
+        return y;
+    }
+
+    ACL2Object binaryStar(ACL2Object y)
+    {
+        return y.fix();
+    }
+
+    ACL2Object binaryStar(ACL2Integer y)
+    {
+        return y;
+    }
+
+    ACL2Object binaryStar(ACL2Rational y)
+    {
+        return y;
+    }
+
+    ACL2Object binaryStar(ACL2Complex y)
+    {
+        return y;
+    }
+
+    int signum()
+    {
+        return 0;
+    }
+
+    int compareTo(ACL2Object y)
+    {
+        return -y.signum();
+    }
+
+    int compareTo(ACL2Integer y)
+    {
+        return -y.signum();
+    }
+
+    int compareTo(ACL2Rational y)
+    {
+        return -y.signum();
+    }
+
+    int compareTo(ACL2Complex y)
+    {
+        return -y.signum();
     }
 
     public abstract String rep();
 
+    public long id()
+    {
+        if (id >= 0)
+        {
+            return id;
+        } else
+        {
+            return id = nextId++;
+        }
+    }
+
     @Override
     public String toString()
     {
-        return id + ":" + rep();
+        return id() + ":" + rep();
     }
 }
