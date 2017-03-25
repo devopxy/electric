@@ -21,26 +21,31 @@
  */
 package com.sun.electric.util.acl2;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * ACL2 symbol.
  * This is an atom. It has package name and symbol name
  * which are nonempty ACII strings.
  */
-public class ACL2Symbol extends ACL2Atom
+class ACL2Symbol extends ACL2Object
 {
 
-    public final String pk;
     public final String nm;
+    private final Package pkg;
 
-    ACL2Symbol(int id, String pk, String nm)
+    private static Map<String, Package> knownPackages = new HashMap<>();
+
+    static final ACL2Symbol NIL = valueOf("COMMON-LISP", "NIL");
+    static final ACL2Symbol T = valueOf("COMMON-LISP", "T");
+
+    private ACL2Symbol(Package pkg, String nm)
     {
-        super(id, true);
-        for (int i = 0; i < pk.length(); i++)
+        super(true);
+        if (nm.isEmpty())
         {
-            if (pk.charAt(i) >= 0x100)
-            {
-                throw new IllegalArgumentException();
-            }
+            throw new IllegalArgumentException();
         }
         for (int i = 0; i < nm.length(); i++)
         {
@@ -49,23 +54,83 @@ public class ACL2Symbol extends ACL2Atom
                 throw new IllegalArgumentException();
             }
         }
-        if (pk.isEmpty() || nm.isEmpty())
-        {
-            throw new IllegalArgumentException();
-        }
-        this.pk = pk;
+        this.pkg = pkg;
         this.nm = nm;
     }
 
-    @Override
-    public ACL2Symbol asSym()
+    public static ACL2Symbol valueOf(String pk, String nm)
     {
-        return this;
+        return getPackage(pk).getSymbol(nm);
+    }
+
+    public String getPkgName()
+    {
+        return pkg.name;
     }
 
     @Override
     public String rep()
     {
-        return pk + "::" + nm;
+        return pkg.name + "::" + nm;
     }
+
+    @Override
+    public int hashCode()
+    {
+        int hash = 3;
+        hash = 97 * hash + nm.hashCode();
+        hash = 97 * hash + pkg.hashCode();
+        return hash;
+    }
+
+    static class Package
+    {
+        private final String name;
+        private final Map<String, ACL2Symbol> symbols = new HashMap<>();
+
+        Package(String name)
+        {
+            if (name.isEmpty())
+            {
+                throw new IllegalArgumentException();
+            }
+            for (int i = 0; i < name.length(); i++)
+            {
+                if (name.charAt(i) >= 0x100)
+                {
+                    throw new IllegalArgumentException();
+                }
+            }
+            this.name = name;
+        }
+
+        ACL2Symbol getSymbol(String symName)
+        {
+            ACL2Symbol sym = symbols.get(symName);
+            if (sym == null)
+            {
+                sym = new ACL2Symbol(this, symName);
+                symbols.put(symName, sym);
+            }
+            return sym;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return name.hashCode();
+        }
+    }
+
+    static Package getPackage(String pkgName)
+    {
+        Package pkg = knownPackages.get(pkgName);
+        if (pkg == null)
+        {
+            pkg = new Package(pkgName);
+            knownPackages.put(pkgName, pkg);
+        }
+        return pkg;
+    }
+
 }

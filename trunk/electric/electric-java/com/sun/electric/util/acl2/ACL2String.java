@@ -25,14 +25,20 @@ package com.sun.electric.util.acl2;
  * ACL2 string.
  * This is an atom. Its value is 8-bit ASCII string.
  */
-public class ACL2String extends ACL2Atom {
+class ACL2String extends ACL2Object
+{
 
     public final String s;
 
-    ACL2String(int id, boolean norm, String s) {
-        super(id, norm);
-        for (int i = 0; i < s.length(); i++) {
-            if (s.charAt(i) >= 0x100) {
+    static final ACL2String EMPTY = new ACL2String(false, "");
+
+    ACL2String(boolean norm, String s)
+    {
+        super(norm);
+        for (int i = 0; i < s.length(); i++)
+        {
+            if (s.charAt(i) >= 0x100)
+            {
                 throw new IllegalArgumentException();
             }
         }
@@ -40,22 +46,26 @@ public class ACL2String extends ACL2Atom {
     }
 
     @Override
-    public ACL2String asStr() {
-        return this;
+    public String stringValueExact()
+    {
+        return s;
     }
 
     @Override
-    public String rep() {
+    public String rep()
+    {
         return "\"" + s + "\"";
     }
 
     @Override
-    public boolean equals(Object o) {
-        return o instanceof ACL2String && s.equals(((ACL2String) o).s);
+    public boolean equals(Object o)
+    {
+        return o instanceof ACL2String && s.equals(((ACL2String)o).s);
     }
 
     @Override
-    public int hashCode() {
+    public int hashCode()
+    {
         return s.hashCode();
     }
 

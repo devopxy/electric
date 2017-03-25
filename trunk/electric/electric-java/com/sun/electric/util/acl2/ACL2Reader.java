@@ -37,11 +37,17 @@ public class ACL2Reader
     public final ACL2Object root;
 
     private final List<ACL2Object> allObjs = new ArrayList<>();
-
-
     {
-        allObjs.add(new ACL2Symbol(allObjs.size(), "COMMON-LISP", "NIL"));
-        allObjs.add(new ACL2Symbol(allObjs.size(), "COMMON-LISP", "T"));
+        allObjs.add(ACL2Symbol.NIL);
+        allObjs.add(ACL2Symbol.T);
+    }
+
+    private static void check(boolean p)
+    {
+        if (!p)
+        {
+            throw new RuntimeException();
+        }
     }
 
     private static BigInteger readInt(DataInputStream in) throws IOException
@@ -77,7 +83,7 @@ public class ACL2Reader
         try (DataInputStream in = new DataInputStream(new FileInputStream(fileName)))
         {
             int magic = in.readInt();
-            ACL2Object.check(magic == 0xAC120BC9);
+            check(magic == 0xAC120BC9);
             int len = readInt(in).intValueExact();
 //            System.out.println("len=" + len);
             int natsLen = readInt(in).intValueExact();
@@ -86,14 +92,14 @@ public class ACL2Reader
             {
                 BigInteger n = readInt(in);
 //                System.out.println(allObjs.size() + ": " + n.toString(16));
-                allObjs.add(new ACL2Integer(allObjs.size(), n));
+                allObjs.add(new ACL2Integer(n));
             }
             int ratsLen = readInt(in).intValueExact();
 //            System.out.println("RATS " + ratsLen);
             for (int i = 0; i < ratsLen; i++)
             {
                 BigInteger sign = readInt(in);
-                ACL2Object.check(sign.equals(BigInteger.ZERO) || sign.equals(BigInteger.ONE));
+                check(sign.equals(BigInteger.ZERO) || sign.equals(BigInteger.ONE));
                 BigInteger num = readInt(in);
                 BigInteger denom = readInt(in);
                 if (sign.signum() != 0)
@@ -102,15 +108,15 @@ public class ACL2Reader
                 }
 //                System.out.println(allObjs.size() + ": " + num + "/" + denom);
                 allObjs.add(denom.equals(BigInteger.ONE)
-                    ? new ACL2Integer(allObjs.size(), num)
-                    : new ACL2Rational(allObjs.size(), num, denom));
+                    ? new ACL2Integer(num)
+                    : new ACL2Rational(Rational.valueOf(num, denom)));
             }
             int complexesLen = readInt(in).intValueExact();
 //            System.out.println("COMPLEXES " + complexesLen);
             for (int i = 0; i < complexesLen; i++)
             {
                 BigInteger signR = readInt(in);
-                ACL2Object.check(signR.equals(BigInteger.ZERO) || signR.equals(BigInteger.ONE));
+                check(signR.equals(BigInteger.ZERO) || signR.equals(BigInteger.ONE));
                 BigInteger numR = readInt(in);
                 BigInteger denomR = readInt(in);
                 if (signR.signum() != 0)
@@ -118,7 +124,7 @@ public class ACL2Reader
                     numR = numR.negate();
                 }
                 BigInteger signI = readInt(in);
-                ACL2Object.check(signI.equals(BigInteger.ZERO) || signI.equals(BigInteger.ONE));
+                check(signI.equals(BigInteger.ZERO) || signI.equals(BigInteger.ONE));
                 BigInteger numI = readInt(in);
                 BigInteger denomI = readInt(in);
                 if (signI.signum() != 0)
@@ -126,7 +132,7 @@ public class ACL2Reader
                     numI = numI.negate();
                 }
 //                System.out.println(allObjs.size() + ": " + numR + "/" + denomR + " " + numI + "/" + denomI);
-                allObjs.add(new ACL2Complex(allObjs.size(), numR, denomR, numI, denomI));
+                allObjs.add(new ACL2Complex(Rational.valueOf(numR, denomR), Rational.valueOf(numI, denomI)));
             }
             int charsLen = readInt(in).intValueExact();
 //            System.out.println("CHARS " + charsLen);
@@ -134,7 +140,7 @@ public class ACL2Reader
             {
                 char c = (char)(in.readByte() & 0xFF);
 //                System.out.println(allObjs.size() + ": " + c);
-                allObjs.add(new ACL2Character(allObjs.size(), c));
+                allObjs.add(new ACL2Character(c));
             }
             int strsLen = readInt(in).intValueExact();
 //            System.out.println("STRS " + strsLen);
@@ -142,7 +148,7 @@ public class ACL2Reader
             {
                 String s = readStr(in);
 //                System.out.println(allObjs.size() + ": " + s);
-                allObjs.add(new ACL2String(allObjs.size(), false, s));
+                allObjs.add(new ACL2String(false, s));
             }
             int packagesLen = readInt(in).intValueExact();
 //            System.out.println("PACKAGES " + packagesLen);
@@ -155,7 +161,7 @@ public class ACL2Reader
                 {
                     String name = readStr(in);
 //                    System.out.println(allObjs.size() + ": " + pkgName + "::" + name);
-                    allObjs.add(new ACL2Symbol(allObjs.size(), pkgName, name));
+                    allObjs.add(ACL2Symbol.valueOf(pkgName, name));
                 }
             }
             int consesLen = readInt(in).intValueExact();
@@ -167,7 +173,7 @@ public class ACL2Reader
                 boolean norm = (car & 1) != 0;
                 car >>>= 1;
 //                System.out.println(allObjs.size() + ": (" + car + "." + cdr + ")");
-                allObjs.add(new ACL2Cons(allObjs.size(), norm, allObjs.get(car), allObjs.get(cdr)));
+                allObjs.add(new ACL2Cons(norm, allObjs.get(car), allObjs.get(cdr)));
             }
 //            System.out.println("FALS");
             for (;;)
@@ -181,7 +187,7 @@ public class ACL2Reader
 //                System.out.println(" " + fal0 + " " + fal1);
             }
             int magicEnd = in.readInt();
-            ACL2Object.check(magicEnd == 0xAC120BC9);
+            check(magicEnd == 0xAC120BC9);
             root = allObjs.get(len);
         }
     }
