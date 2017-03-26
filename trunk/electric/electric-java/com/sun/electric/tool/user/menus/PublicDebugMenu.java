@@ -31,6 +31,7 @@ import com.sun.electric.database.id.CellId;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.drc.MinArea;
+import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.io.input.JELIB2;
 import com.sun.electric.tool.routing.Routing;
 import com.sun.electric.tool.routing.SeaOfGates;
@@ -38,6 +39,9 @@ import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesEngine;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesEngineFactory;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesHandlers;
 import com.sun.electric.tool.user.UserInterfaceMain;
+import com.sun.electric.tool.user.dialogs.OpenFile;
+import com.sun.electric.util.acl2.ACL2Object;
+import com.sun.electric.util.acl2.GenPkgImports;
 import java.io.PrintStream;
 
 /**
@@ -67,6 +71,17 @@ public class PublicDebugMenu {
 					}
 				}),
                 
+                new EMenu("ACL2",
+                    
+                new EMenuItem("Generate pkg-imports.dat") {
+                    @Override
+                    public void run()
+                    {
+                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized pkg-imports", false);
+                        GenPkgImports.gen(saoPath);
+                    }
+                }),
+            
                 new EMenu("Fast JELIB reader",
 
                 jelibItem("Database", true, true, true, true, true),
