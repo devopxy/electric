@@ -37,6 +37,8 @@ public class ACL2Reader
     public final ACL2Object root;
 
     private final List<ACL2Object> allObjs = new ArrayList<>();
+
+    
     {
         allObjs.add(ACL2Symbol.NIL);
         allObjs.add(ACL2Symbol.T);
@@ -155,12 +157,12 @@ public class ACL2Reader
             for (int i = 0; i < packagesLen; i++)
             {
                 String pkgName = readStr(in);
-//                System.out.println("  " + pkgName);
                 int numSyms = readInt(in).intValueExact();
+//                System.out.println("  " + pkgName + " " + numSyms);
                 for (int j = 0; j < numSyms; j++)
                 {
                     String name = readStr(in);
-//                    System.out.println(allObjs.size() + ": " + pkgName + "::" + name);
+//                    System.out.println(j + " " + pkgName + "::" + name);
                     allObjs.add(ACL2Symbol.valueOf(pkgName, name));
                 }
             }

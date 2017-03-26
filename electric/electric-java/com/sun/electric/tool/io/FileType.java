@@ -104,6 +104,7 @@ public class FileType implements Serializable {
 	/** Describes Raw LTSpice output. */	public static final FileType RAWLTSPICEOUT= makeFileType("Raw LTSpice Output", new String[] {"raw"}, "LTSPICE Raw Output File (raw)", FileTypeGroup.SPICESIMGRP);
 	/** Describes Readable Dump files. */	public static final FileType READABLEDUMP = makeFileType("ReadableDump", new String[] {"txt"}, "Readable Dump Library File (txt)", FileTypeGroup.DATABASEGRP);
 	/** Describes RSIM output. */			public static final FileType RSIM         = makeFileType("RSIM", new String[] {"sim"}, "RSIM File (sim)", FileTypeGroup.OTHERSIMGRP);
+	/** Describes ACL2 serialized data.*/	public static final FileType SAO          = makeFileType("SAO", new String[] {"sao"}, "ACL2 File (sao)", FileTypeGroup.JARGRP);
 	/** Describes Silos decks.*/			public static final FileType SILOS        = makeFileType("Silos", new String[] {"sil"}, "Silos Deck (sil)", FileTypeGroup.OTHERSIMGRP);
 	/** Describes Skill decks.*/			public static final FileType SKILL        = makeFileType("Skill", new String[] {"il"}, "Skill Deck (il)", FileTypeGroup.EXPORTIMPORTGRP);
     /** Describes Skill decks.*/			public static final FileType SKILLEXPORTSONLY = makeFileType("SkillExports Only", new String[] {"il"}, "Skill Deck (il)", FileTypeGroup.EXPORTIMPORTGRP);

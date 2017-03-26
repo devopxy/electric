@@ -4,6 +4,8 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.08-a: ******************************
 
+IMP: (3/26/17, DN) Add FileType.SAO - serialized ACL2 data.
+
 BUG: (1/26/17, DN) Raw file reader hangs when pointCount=0.
 FIX: Softly cancel reading when raw file contains 0 points.
 

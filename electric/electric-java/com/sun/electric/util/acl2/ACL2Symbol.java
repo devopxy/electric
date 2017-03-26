@@ -21,13 +21,19 @@
  */
 package com.sun.electric.util.acl2;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.LineNumberReader;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * ACL2 symbol.
  * This is an atom. It has package name and symbol name
- * which are nonempty ACII strings.
+ * which are ACII strings.
  */
 class ACL2Symbol extends ACL2Object
 {
@@ -37,16 +43,119 @@ class ACL2Symbol extends ACL2Object
 
     private static Map<String, Package> knownPackages = new HashMap<>();
 
+    static
+    {
+        readPkgImports();
+    }
     static final ACL2Symbol NIL = valueOf("COMMON-LISP", "NIL");
     static final ACL2Symbol T = valueOf("COMMON-LISP", "T");
+
+    private static void readPkgImports()
+    {
+        try (LineNumberReader in = new LineNumberReader(
+            new InputStreamReader(ACL2Symbol.class.getResourceAsStream("pkg-imports.dat"))))
+        {
+            String line;
+            String curPkgName = null;
+            Set<ACL2Symbol> curImports = null;
+            while ((line = in.readLine()) != null)
+            {
+                line = line.trim();
+                if (line.isEmpty() || line.charAt(0) == ';')
+                {
+                    continue;
+                }
+                switch (line.charAt(0))
+                {
+                    case '+':
+                    case '-':
+                        int ind;
+                        String pkgName;
+                        if (line.charAt(1) == '|') {
+                            ind = line.indexOf(2, '|');
+                            pkgName = line.substring(2, ind);
+                            ind++;
+                        } else {
+                            ind = line.indexOf(':');
+                            pkgName = line.substring(1, ind);
+                        }
+                        Package pkg = knownPackages.get(pkgName);
+                        assert line.charAt(ind) == ':';
+                        String symName = unquote(line.substring(ind + 1));
+                        if (line.charAt(0) == '-') {
+                            boolean ok = curImports.remove(pkg.symbols.get(symName));
+                            assert ok;
+                        } else {
+                            assert !pkg.imports.containsKey(symName);
+                            boolean ok = curImports.add(pkg.getSymbol(symName));
+                            assert ok;
+                        }
+                        break;
+                    default:
+                        if (curPkgName != null)
+                        {
+                            Package newPackage = new Package(curPkgName, curImports);
+                            Package old = knownPackages.put(curPkgName, newPackage);
+                            assert old == null;
+                        }
+                        if (line.charAt(0) == '|')
+                        {
+                            ind = line.indexOf('|', 1);
+                            curPkgName = line.substring(1, ind);
+                            ind++;
+                        } else
+                        {
+                            ind = line.indexOf(' ');
+                            if (ind < 0) {
+                                ind = line.length();
+                            }
+                            curPkgName = line.substring(0, ind);
+                        }
+                        while (ind < line.length() && line.charAt(ind) == ' ')
+                        {
+                            ind++;
+                        }
+                        if (ind == line.length())
+                        {
+                            curImports = new HashSet<>();
+                        } else
+                        {
+                            String oldPkg = unquote(line.substring(ind));
+                            curImports = new HashSet<>(knownPackages.get(oldPkg).imports.values());
+                        }
+                }
+            };
+            if (curPkgName != null)
+            {
+                Package newPackage = new Package(curPkgName, curImports);
+                Package old = knownPackages.put(curPkgName, newPackage);
+                assert old == null;
+            }
+        } catch (IOException e)
+        {
+        }
+    }
+
+    private static String unquote(String s)
+    {
+        if (s.charAt(0) == '|')
+        {
+            if (s.charAt(s.length() - 1) != '|')
+            {
+                return null;
+            }
+            return s.substring(1, s.length() - 1);
+        }
+        return s;
+    }
 
     private ACL2Symbol(Package pkg, String nm)
     {
         super(true);
-        if (nm.isEmpty())
-        {
-            throw new IllegalArgumentException();
-        }
+//        if (nm.isEmpty())
+//        {
+//            throw new IllegalArgumentException();
+//        }
         for (int i = 0; i < nm.length(); i++)
         {
             if (nm.charAt(i) >= 0x100)
@@ -86,9 +195,10 @@ class ACL2Symbol extends ACL2Object
     static class Package
     {
         private final String name;
+        private final Map<String, ACL2Symbol> imports = new HashMap<>();
         private final Map<String, ACL2Symbol> symbols = new HashMap<>();
 
-        Package(String name)
+        Package(String name, Set<ACL2Symbol> importsSyms)
         {
             if (name.isEmpty())
             {
@@ -102,11 +212,21 @@ class ACL2Symbol extends ACL2Object
                 }
             }
             this.name = name;
+            for (ACL2Symbol impSym : importsSyms)
+            {
+                ACL2Symbol old = imports.put(impSym.nm, impSym);
+                assert old == null;
+            }
         }
 
         ACL2Symbol getSymbol(String symName)
         {
-            ACL2Symbol sym = symbols.get(symName);
+            ACL2Symbol sym = imports.get(symName);
+            if (sym != null)
+            {
+                return sym;
+            }
+            sym = symbols.get(symName);
             if (sym == null)
             {
                 sym = new ACL2Symbol(this, symName);
@@ -127,7 +247,7 @@ class ACL2Symbol extends ACL2Object
         Package pkg = knownPackages.get(pkgName);
         if (pkg == null)
         {
-            pkg = new Package(pkgName);
+            pkg = new Package(pkgName, Collections.<ACL2Symbol>emptySet());
             knownPackages.put(pkgName, pkg);
         }
         return pkg;
