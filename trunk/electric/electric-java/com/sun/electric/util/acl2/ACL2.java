@@ -31,6 +31,8 @@ public class ACL2
     public static final ACL2Object NIL = ACL2Object.valueOf("COMMON-LISP", "NIL");
     public static final ACL2Object T = ACL2Object.valueOf("COMMON-LISP", "T");
     public static final ACL2Object QUOTE = ACL2Object.valueOf("COMMON-LISP", "QUOTE");
+    public static final ACL2Object LAMBDA = ACL2Object.valueOf("COMMON-LISP", "LAMBDA");
+    public static final ACL2Object IF = ACL2Object.valueOf("COMMON-LISP", "IF");
 
     public static ACL2Object acl2_numberp(ACL2Object x)
     {
@@ -190,7 +192,11 @@ public class ACL2
 
     public static ACL2Object internInPackageOfSymbol(ACL2Object x, ACL2Object y)
     {
-        throw new UnsupportedOperationException();
+        if (x instanceof ACL2String && y instanceof ACL2Symbol)
+        {
+            return ACL2Object.valueOf(((ACL2Symbol)y).getPkgName(), ((ACL2String)x).s);
+        }
+        return NIL;
     }
 
     public static ACL2Object numerator(ACL2Object x)
