@@ -29,7 +29,7 @@
         <version>5</version>
     </parent>
 
-    <groupId>com.staticfreesoft.electric</groupId>
+    <groupId>com.staticfreesoft</groupId>
     <artifactId>electric</artifactId>
     <version>9.08-a-SNAPSHOT</version>
     <packaging>jar</packaging>

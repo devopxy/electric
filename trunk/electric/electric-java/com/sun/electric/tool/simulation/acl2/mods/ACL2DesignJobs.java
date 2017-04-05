@@ -140,16 +140,16 @@ public class ACL2DesignJobs
     }
 
     public static void genAlu(String saoFileName, String outFileName) {
-        new GenFsmJob(Alu.class, saoFileName, outFileName).startJob();
+        new GenFsmJob<>(Alu.class, saoFileName, outFileName).startJob();
     }
     
-    private static class GenFsmJob<T extends GenFsm> extends Job
+    public static class GenFsmJob<T extends GenFsm> extends Job
     {
         private final Class<T> cls;
         private final String saoFileName;
         private final String outFileName;
 
-        GenFsmJob(Class<T> cls, String saoFileName, String outFileName)
+        public GenFsmJob(Class<T> cls, String saoFileName, String outFileName)
         {
             super("Gen Fsm in ACL2", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
             this.cls = cls;
