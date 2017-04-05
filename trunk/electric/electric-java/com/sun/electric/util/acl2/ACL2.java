@@ -28,11 +28,12 @@ import java.math.BigInteger;
  */
 public class ACL2
 {
-    public static final ACL2Object NIL = ACL2Object.valueOf("COMMON-LISP", "NIL");
-    public static final ACL2Object T = ACL2Object.valueOf("COMMON-LISP", "T");
-    public static final ACL2Object QUOTE = ACL2Object.valueOf("COMMON-LISP", "QUOTE");
-    public static final ACL2Object LAMBDA = ACL2Object.valueOf("COMMON-LISP", "LAMBDA");
-    public static final ACL2Object IF = ACL2Object.valueOf("COMMON-LISP", "IF");
+    public static final ACL2Object NIL = ACL2Symbol.NIL;
+    public static final ACL2Object T = ACL2Symbol.T;
+    public static final ACL2Object IF = ACL2Symbol.COMMON_LISP.getSymbol("IF");
+    public static final ACL2Object LAMBDA = ACL2Symbol.COMMON_LISP.getSymbol("LAMBDA");
+    public static final ACL2Object LIST = ACL2Symbol.COMMON_LISP.getSymbol("LIST");
+    public static final ACL2Object QUOTE = ACL2Symbol.COMMON_LISP.getSymbol("QUOTE");
 
     public static ACL2Object acl2_numberp(ACL2Object x)
     {
@@ -121,7 +122,7 @@ public class ACL2
 
     public static ACL2Object coerce(ACL2Object x, ACL2Object y)
     {
-        if (y.equals(ACL2Symbol.valueOf("COMMON-LISP", "LIST")))
+        if (LIST.equals(y))
         {
             ACL2Object result = ACL2Symbol.NIL;
             if (x instanceof ACL2String)
@@ -194,7 +195,7 @@ public class ACL2
     {
         if (x instanceof ACL2String && y instanceof ACL2Symbol)
         {
-            return ACL2Object.valueOf(((ACL2Symbol)y).getPkgName(), ((ACL2String)x).s);
+            return ((ACL2Symbol)y).pkg.getSymbol(((ACL2String)x).s);
         }
         return NIL;
     }
@@ -244,7 +245,7 @@ public class ACL2
     {
         if (x instanceof ACL2Symbol)
         {
-            return new ACL2String(false, ((ACL2Symbol)x).getPkgName());
+            return new ACL2String(false, ((ACL2Symbol)x).pkg.name);
         }
         return ACL2String.EMPTY;
     }
@@ -253,5 +254,26 @@ public class ACL2
     {
         return ACL2Symbol.valueOf(x instanceof ACL2Symbol);
     }
+    
+    //////////////
+    
+    public static ACL2Object booleanp(ACL2Object x) {
+        return ACL2Object.valueOf(NIL.equals(x) || T.equals(x));
+    }
 
+    public static ACL2Object keywordp(ACL2Object x) {
+        return ACL2Object.valueOf(x instanceof ACL2Symbol && ((ACL2Symbol) x).pkg == ACL2Symbol.KEYWORD);
+    }
+    
+    public static ACL2Object fix(ACL2Object x) {
+        return x.isACL2Number() ? x : ACL2Object.valueOf(0);
+    }
+    
+    public static ACL2Object rfix(ACL2Object x) {
+        return x instanceof ACL2Rational || x instanceof ACL2Integer ? x : ACL2Object.valueOf(0);
+    }
+    
+    public static ACL2Object ifix(ACL2Object x) {
+        return x instanceof ACL2Integer ? x : ACL2Object.valueOf(0);
+    }
 }

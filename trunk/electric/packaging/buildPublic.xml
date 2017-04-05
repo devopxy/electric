@@ -66,7 +66,7 @@
 
 	<target name="compile" description="Compile Electric">
 		<javac debug="true" includeantruntime="false" destdir="${antBuild}" srcdir="${ElectricJavaLoc}"
-			   fork="true" memoryMaximumSize="1024m" source="1.6" target="1.6">
+			   fork="true" memoryMaximumSize="1024m" source="1.8" target="1.8">
 			<classpath>
 				<pathelement location="${packaging}" />
 				<pathelement location="${AppleJava}" />

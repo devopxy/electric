@@ -101,6 +101,11 @@ public abstract class ACL2Object
         throw new ArithmeticException();
     }
 
+    public BigInteger bigIntegerValueExact()
+    {
+        throw new ArithmeticException();
+    }
+
     public String stringValueExact()
     {
         throw new ArithmeticException();

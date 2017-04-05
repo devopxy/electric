@@ -31,7 +31,7 @@
 
     <groupId>com.staticfreesoft.electric</groupId>
     <artifactId>electric</artifactId>
-    <version>9.07-h-SNAPSHOT</version>
+    <version>9.08-a-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>electric</name>
@@ -155,8 +155,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.3</version>
                 <configuration>
-                    <source>1.7</source>
-                    <target>1.7</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                     <showDeprecation>true</showDeprecation>
                 </configuration>
             </plugin>

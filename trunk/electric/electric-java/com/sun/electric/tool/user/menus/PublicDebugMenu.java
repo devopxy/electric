@@ -38,10 +38,13 @@ import com.sun.electric.tool.routing.SeaOfGates;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesEngine;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesEngineFactory;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesHandlers;
+import com.sun.electric.tool.simulation.acl2.mods.ACL2DesignJobs;
+import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.UserInterfaceMain;
 import com.sun.electric.tool.user.dialogs.OpenFile;
-import com.sun.electric.util.acl2.ACL2Object;
+import com.sun.electric.util.TextUtils;
 import com.sun.electric.util.acl2.GenPkgImports;
+import java.io.File;
 import java.io.PrintStream;
 
 /**
@@ -80,7 +83,32 @@ public class PublicDebugMenu {
                         String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized pkg-imports", false);
                         GenPkgImports.gen(saoPath);
                     }
-                }),
+                },
+                
+                new EMenuItem("Dump SVEX design") {
+                    @Override
+                    public void run()
+                    {
+                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized SVEX design", false);
+                        String defaultOutName = User.getWorkingDirectory()
+                            + File.separator + "alu-auto.lisp";
+                        String outPath = OpenFile.chooseOutputFile(FileType.TEXT, "SVEX design dump", defaultOutName);
+                        ACL2DesignJobs.dump(saoPath, outPath);
+                    }
+                },
+        
+                new EMenuItem("Gen FSM for ALU") {
+                    @Override
+                    public void run()
+                    {
+                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized ALU design", false);
+                        String defaultOutName = "alu-auto.lisp";
+                        String outPath = OpenFile.chooseOutputFile(FileType.LISP, "ALU FSM in ACL2", defaultOutName);
+                        ACL2DesignJobs.genAlu(saoPath, outPath);
+                    }
+        
+                }    
+                ),
             
                 new EMenu("Fast JELIB reader",
 

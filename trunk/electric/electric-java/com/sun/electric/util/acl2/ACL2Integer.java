@@ -50,6 +50,12 @@ class ACL2Integer extends ACL2Object
     }
 
     @Override
+    public BigInteger bigIntegerValueExact()
+    {
+        return v;
+    }
+
+    @Override
     boolean isACL2Number()
     {
         return true;

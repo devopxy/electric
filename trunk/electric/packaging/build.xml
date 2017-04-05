@@ -117,7 +117,7 @@
 
 	<target name="javadoc" depends="initialize" description="Create Javadoc">
 		<mkdir dir="apidoc" />
-		<javadoc destdir="apidoc" private="false" use="true" source="1.5" maxmemory="400m">
+		<javadoc destdir="apidoc" private="false" use="true" source="1.8" maxmemory="400m">
 			<packageset dir="electric-java">
 				<include name="com/sun/electric/**" />
 				<exclude name="com/sun/electric/plugins/**" />
@@ -178,7 +178,7 @@
 	<target name="compilePublic" description="Compile the public part of Electric">
 		<!-- deprecation flag: deprecation="true" -->
 		<javac debug="true" includeantruntime="false" destdir="${antBuild}" srcdir="${ElectricJavaLoc}" fork="true" memoryMaximumSize="1024m"
-		       encoding="UTF-8" source="1.7" target="1.7">
+		       encoding="UTF-8" source="1.8" target="1.8">
 			<classpath>
 				<pathelement location="${slf4j-api}" />
 				<pathelement location="${slf4j-jdk}" />
@@ -216,7 +216,7 @@
 
 	<target name="compilePrivate" description="Compile the private part of Electric">
 	  <javac debug="true" includeantruntime="false" destdir="${antBuild}" srcdir="${ElectricPrivateLoc}" fork="true" memoryMaximumSize="1024m"
-		 encoding="UTF-8" source="1.7" target="1.7">
+		 encoding="UTF-8" source="1.8" target="1.8">
 			<classpath>
 				<pathelement location="${slf4j-api}" />
 				<pathelement location="${slf4j-jdk}" />

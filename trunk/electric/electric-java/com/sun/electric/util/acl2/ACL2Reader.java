@@ -163,7 +163,7 @@ public class ACL2Reader
                 {
                     String name = readStr(in);
 //                    System.out.println(j + " " + pkgName + "::" + name);
-                    allObjs.add(ACL2Symbol.valueOf(pkgName, name));
+                    allObjs.add(ACL2Object.valueOf(pkgName, name));
                 }
             }
             int consesLen = readInt(in).intValueExact();

@@ -38,8 +38,8 @@ import java.util.Set;
 class ACL2Symbol extends ACL2Object
 {
 
-    public final String nm;
-    private final Package pkg;
+    final String nm;
+    final Package pkg;
 
     private static Map<String, Package> knownPackages = new HashMap<>();
 
@@ -47,8 +47,10 @@ class ACL2Symbol extends ACL2Object
     {
         readPkgImports();
     }
-    static final ACL2Symbol NIL = valueOf("COMMON-LISP", "NIL");
-    static final ACL2Symbol T = valueOf("COMMON-LISP", "T");
+    static final Package COMMON_LISP = getPackage("COMMON-LISP");
+    static final Package KEYWORD = getPackage("KEWWORD");
+    static final ACL2Symbol NIL = COMMON_LISP.getSymbol("NIL");
+    static final ACL2Symbol T = COMMON_LISP.getSymbol("T");
 
     private static void readPkgImports()
     {
@@ -167,16 +169,6 @@ class ACL2Symbol extends ACL2Object
         this.nm = nm;
     }
 
-    public static ACL2Symbol valueOf(String pk, String nm)
-    {
-        return getPackage(pk).getSymbol(nm);
-    }
-
-    public String getPkgName()
-    {
-        return pkg.name;
-    }
-
     @Override
     public String rep()
     {
@@ -194,7 +186,7 @@ class ACL2Symbol extends ACL2Object
 
     static class Package
     {
-        private final String name;
+        final String name;
         private final Map<String, ACL2Symbol> imports = new HashMap<>();
         private final Map<String, ACL2Symbol> symbols = new HashMap<>();
 
