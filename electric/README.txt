@@ -146,7 +146,7 @@ When rebuilding Electric, there are some Macintosh vs. non-Macintosh issues to c
 ---------------- Building from latest Sources in command-line:
 
 1) Check that these tools are installed on your computer:
-   JDK 1.6 or later
+   JDK 1.8 or later
    Subversion
    Apache Ant version 1.8.0 or later (http://ant.apache.org)
 

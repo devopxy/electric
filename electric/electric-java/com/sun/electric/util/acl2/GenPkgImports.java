@@ -47,7 +47,7 @@ public class GenPkgImports
 
     private static void checkNotNil(ACL2Object x)
     {
-        check(!x.equals(NIL));
+        check(!NIL.equals(x));
     }
 
     private int calcDiff(Map<String, String> table, Map<String, String> real)
