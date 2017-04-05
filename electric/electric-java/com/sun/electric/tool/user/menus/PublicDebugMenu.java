@@ -42,7 +42,6 @@ import com.sun.electric.tool.simulation.acl2.mods.ACL2DesignJobs;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.UserInterfaceMain;
 import com.sun.electric.tool.user.dialogs.OpenFile;
-import com.sun.electric.util.TextUtils;
 import com.sun.electric.util.acl2.GenPkgImports;
 import java.io.File;
 import java.io.PrintStream;
@@ -106,9 +105,7 @@ public class PublicDebugMenu {
                         String outPath = OpenFile.chooseOutputFile(FileType.LISP, "ALU FSM in ACL2", defaultOutName);
                         ACL2DesignJobs.genAlu(saoPath, outPath);
                     }
-        
-                }    
-                ),
+                }),
             
                 new EMenu("Fast JELIB reader",
 
