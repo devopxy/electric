@@ -12,9 +12,9 @@ http://savannah.gnu.org/projects/electric .
 
 ---------------- Requirements:
 
-Electric requires OpenJDK, Apache Harmony, or Oracle Java version 1.7.
+Electric requires OpenJDK, Apache Harmony, or Oracle Java version 1.8.
 It is developed with Oracle Java, so if you run into problems with
-other versions, try installing Java 1.7 or later from Oracle.
+other versions, try installing Java 1.8 or later from Oracle.
 
 ---------------- Running:
 
