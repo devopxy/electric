@@ -194,7 +194,8 @@
 			</classpath>
 		</javac>
 		<copy todir="${antBuild}/com">
-			<fileset dir="${ElectricJavaLoc}/com" includes="**/*.jelib,**/*.prm,**/*.xml,**/*.dtd,**/*.xsd,**/*.gif,**/*.html,**/*.png,**/toc.txt,**/*.wav,**/*.j3d" />
+			<fileset dir="${ElectricJavaLoc}/com"
+                         includes="**/*.jelib,**/*.prm,**/*.xml,**/*.dtd,**/*.xsd,**/*.gif,**/*.html,**/*.png,**/toc.txt,**/*.wav,**/*.j3d,**/*.dat" />
 		</copy>
 
 		<taskdef resource="scala/tools/ant/antlib.xml">

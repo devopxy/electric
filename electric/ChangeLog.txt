@@ -4,6 +4,9 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.08-a: ******************************
 
+BUG: (4/7/17, DN) Ant doesn't put ".dat" resource file int jars.
+FIX: Copy "**/*.dat" in Ant build scripts.
+
 BUG: (4/5/17, DN) Can use Java 8 feature.
 FIX: Set source="1.8" and target="1.8" in build scripts.
 
