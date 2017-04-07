@@ -126,9 +126,6 @@ public class ACL2Reader
                 {
                     allObjs.add(new ACL2Rational(Rational.valueOf(num, denom)));
                 }
-                allObjs.add(denom.equals(BigInteger.ONE)
-                    ? new ACL2Integer(num)
-                    : new ACL2Rational(Rational.valueOf(num, denom)));
             }
             nInt = nNat + nNegInt;
             nRat = ratsLen - nNegInt;
