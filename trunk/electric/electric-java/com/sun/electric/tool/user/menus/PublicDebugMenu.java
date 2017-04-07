@@ -67,8 +67,9 @@ public class PublicDebugMenu {
                     public void run() {
                         String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized ACL2", false);
                         if (saoPath == null) return;
+                        String saoName = TextUtils.getFileNameWithoutPath(saoPath);
                         try {
-                            System.out.println(saoPath + " contains " + new ACL2Reader(saoPath).getStats());
+                            System.out.println(saoName + " contains " + new ACL2Reader(saoPath).getStats());
                         } catch (IOException e) {
                             System.out.println(e);
                         }
