@@ -219,7 +219,9 @@ public class ACL2Reader
             BigInteger count = memoize.get(cons);
             if (count == null)
             {
-                count = treeCount(cons.car, memoize).add(treeCount(cons.cdr, memoize));
+                count = BigInteger.ONE
+                    .add(treeCount(cons.car, memoize))
+                    .add(treeCount(cons.cdr, memoize));
                 memoize.put(cons, count);
             }
             return count;
