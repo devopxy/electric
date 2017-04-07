@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex;
 
+import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 
@@ -39,6 +40,10 @@ public class Vec2 extends Vec4
             throw new NullPointerException();
         }
         this.val = val;
+    }
+    
+    public Vec2(ACL2Object rep) {
+        val = rep.bigIntegerValueExact();
     }
 
     public BigInteger getVal()

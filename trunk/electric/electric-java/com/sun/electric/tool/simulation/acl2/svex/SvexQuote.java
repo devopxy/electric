@@ -33,11 +33,14 @@ public class SvexQuote extends Svex
 
     public final Vec4 val;
 
-    SvexQuote(ACL2Object impl)
-    {
-        this.val = Vec4.valueOf(impl);
+    public SvexQuote(Vec4 val) {
+        if (val == null) {
+            throw new NullPointerException();
+        }
+        this.val = val;
     }
-
+    
+    @Override
     public ACL2Object makeACL2Object()
     {
         if (val.isVec2())

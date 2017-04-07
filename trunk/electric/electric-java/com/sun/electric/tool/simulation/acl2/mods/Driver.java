@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
@@ -80,7 +81,7 @@ public class Driver
         }
 
         @Override
-        public Void visitCall(ACL2Object fn, Svex[] args, Map<ModName, Module> p)
+        public Void visitCall(SvexFunction fun, Svex[] args, Map<ModName, Module> p)
         {
             for (Svex a : args)
             {

@@ -214,6 +214,22 @@ public class ACL2DesignJobs
         {
             super("alu", "alu16");
         }
-
+/*
+Used Svex functions:
+SV::BITNOT
+SV::CONCAT
+SV::BITAND
+SV::RSH
+SV::?
+SV::ZEROX
+SV::==
+SV::PARTSEL
+COMMON-LISP::+
+COMMON-LISP::*
+COMMON-LISP::<
+SV::BITXOR
+SV::BITOR
+SV::B-
+        */
     }
 }

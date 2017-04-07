@@ -98,17 +98,17 @@ public abstract class Lhatom
             {
                 if (car(impl).equals(Util.KEYWORD_VAR) && consp(cdr(impl)).bool())
                 {
-                    name = parent.createVar(impl);
+                    name = parent.fromACL2(impl);
                     rsh = 0;
                 } else
                 {
-                    name = parent.createVar(car(impl));
+                    name = parent.fromACL2(car(impl));
                     rsh = cdr(impl).intValueExact();
                     Util.check(rsh >= 0);
                 }
             } else
             {
-                name = parent.createVar(impl);
+                name = parent.fromACL2(impl);
                 rsh = 0;
             }
         }
