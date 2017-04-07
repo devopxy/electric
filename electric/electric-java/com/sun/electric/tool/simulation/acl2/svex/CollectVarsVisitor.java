@@ -65,7 +65,7 @@ class CollectVarsVisitor<T extends Svar> implements Svex.Visitor<Set<T>, Set<T>>
     }
 
     @Override
-    public Set<T> visitCall(ACL2Object fn, Svex[] args, Set<T> p)
+    public Set<T> visitCall(SvexFunction fun, Svex[] args, Set<T> p)
     {
         for (Svex a : args)
         {

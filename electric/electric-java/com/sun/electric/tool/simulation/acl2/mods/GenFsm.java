@@ -149,7 +149,7 @@ public abstract class GenFsm
             s("(" + s + "-ext st in)");
         } else if (sv instanceof SvexCall)
         {
-            String nm = symbol_name(((SvexCall)sv).fn).stringValueExact();
+            String nm = symbol_name(((SvexCall)sv).fun.fn).stringValueExact();
             String lnm = "<" + nm + ">";
             boolean boolBit = false;
             boolean neBit = false;

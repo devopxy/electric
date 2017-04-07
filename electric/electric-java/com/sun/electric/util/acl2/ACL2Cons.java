@@ -38,6 +38,7 @@ class ACL2Cons extends ACL2Object
      * The right sun.
      */
     final ACL2Object cdr;
+    private int hashCode;
 
     ACL2Cons(boolean norm, ACL2Object car, ACL2Object cdr)
     {
@@ -78,17 +79,30 @@ class ACL2Cons extends ACL2Object
     @Override
     public boolean equals(Object o)
     {
-        return o instanceof ACL2Cons
-            && car.equals(((ACL2Cons)o).car)
-            && cdr.equals(((ACL2Cons)o).cdr);
+        if (o instanceof ACL2Cons)
+        {
+            ACL2Cons that = (ACL2Cons)o;
+            if (this.hashCode() != that.hashCode())
+            {
+                return false;
+            }
+            return this == that
+                || car.equals(that.car) && this.cdr.equals(that.cdr);
+        }
+        return false;
     }
 
     @Override
     public int hashCode()
     {
-        int hash = 7;
-        hash = 29 * hash + car.hashCode();
-        hash = 29 * hash + cdr.hashCode();
+        int hash = hashCode;
+        if (hash == 0)
+        {
+            hash = 7;
+            hash = 29 * hash + car.hashCode();
+            hash = 29 * hash + cdr.hashCode();
+            hashCode = hash;
+        }
         return hash;
     }
 }

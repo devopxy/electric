@@ -46,17 +46,9 @@ public abstract class Vec4
         return upper.equals(lower) ? new Vec2(upper) : new Impl(upper, lower);
     }
 
-    public static Vec4 valueOf(ACL2Object impl)
+    public static Vec4 valueOf(ACL2Object x)
     {
-        if (consp(impl).bool())
-        {
-            return valueOf(ifix(car(impl)).bigIntegerValueExact(), ifix(cdr(impl)).bigIntegerValueExact());
-        }
-        if (integerp(impl).bool())
-        {
-            return new Vec2(impl.bigIntegerValueExact());
-        }
-        return X;
+        return consp(x).bool() ? new Impl(x) : new Vec2(x);
     }
 
     static class Impl extends Vec4
@@ -72,6 +64,10 @@ public abstract class Vec4
             }
             this.upper = upper;
             this.lower = lower;
+        }
+        
+        Impl(ACL2Object rep) {
+            this(car(rep).bigIntegerValueExact(), cdr(rep).bigIntegerValueExact());
         }
 
         @Override

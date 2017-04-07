@@ -161,7 +161,7 @@ public class Module implements Svar.Builder<SVarExt>
     }
 
     @Override
-    public SVarExt buildVar(ACL2Object name, int delay, boolean nonblocking)
+    public SVarExt newVar(ACL2Object name, int delay, boolean nonblocking)
     {
         return new SVarExt(this, name, delay, nonblocking);
     }

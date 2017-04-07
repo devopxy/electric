@@ -33,36 +33,51 @@ import java.util.Set;
  */
 public abstract class Svex
 {
-    public static Svex valueOf(Svar.Builder sb, ACL2Object impl)
+    public static Svex valueOf(Svar.Builder sb, ACL2Object rep)
     {
-        if (consp(impl).bool())
+        if (consp(rep).bool())
         {
-            ACL2Object sym = car(impl);
-            if (Svar.KEYWORD_VAR.equals(sym))
+            ACL2Object fn = car(rep);
+            ACL2Object args = cdr(rep);
+            if (Svar.KEYWORD_VAR.equals(fn))
             {
-                return new SvexVar(sb, impl);
-            } else if (sym.equals(QUOTE))
+                return new SvexVar(sb.fromACL2(rep));
+            } else if (fn.equals(QUOTE))
             {
-                ACL2Object cons = cdr(impl);
-                if (!NIL.equals(cdr(cons)) || !consp(car(cons)).bool())
+                if (NIL.equals(cdr(args)) && consp(car(args)).bool())
                 {
-                    throw new IllegalArgumentException();
+                    return new SvexQuote(Vec4.valueOf(car(args)));
                 }
-                return new SvexQuote(car(cons));
             } else
             {
-                return new SvexCall(sb, impl);
+                int n = 0;
+                for (ACL2Object as = args; consp(as).bool(); as = cdr(as))
+                {
+                    n++;
+                }
+                Svex[] argsArray = new Svex[n];
+                for (n = 0; n < argsArray.length; n++)
+                {
+                    if (!consp(args).bool())
+                    {
+                        throw new IllegalArgumentException();
+                    }
+                    argsArray[n] = valueOf(sb, car(args));
+                    args = cdr(args);
+                }
+                if (NIL.equals(args))
+                {
+                    return SvexCall.newCall(fn, argsArray);
+                }
             }
-        } else if (stringp(impl).bool() || symbolp(impl).bool())
+        } else if (stringp(rep).bool() || symbolp(rep).bool())
         {
-            return new SvexVar(sb, impl);
-        } else if (integerp(impl).bool())
+            return new SvexVar(sb.fromACL2(rep));
+        } else if (integerp(rep).bool())
         {
-            return new SvexQuote(impl);
-        } else
-        {
-            throw new IllegalArgumentException();
+            return new SvexQuote(new Vec2(rep));
         }
+        throw new IllegalArgumentException();
     }
 
     public abstract ACL2Object makeACL2Object();
@@ -97,6 +112,6 @@ public abstract class Svex
 
         R visitVar(Svar name, P p);
 
-        R visitCall(ACL2Object fn, Svex[] args, P p);
+        R visitCall(SvexFunction fun, Svex[] args, P p);
     }
 }

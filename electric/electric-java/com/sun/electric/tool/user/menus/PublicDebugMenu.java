@@ -42,8 +42,11 @@ import com.sun.electric.tool.simulation.acl2.mods.ACL2DesignJobs;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.UserInterfaceMain;
 import com.sun.electric.tool.user.dialogs.OpenFile;
+import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.acl2.ACL2Reader;
 import com.sun.electric.util.acl2.GenPkgImports;
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintStream;
 
 /**
@@ -57,6 +60,58 @@ public class PublicDebugMenu {
 		return new EMenu("Debug",
 
 		// SEPARATOR,
+                new EMenu("ACL2",
+                    
+                new EMenuItem("Count objects in SAO file") {
+                    @Override
+                    public void run() {
+                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized ACL2", false);
+                        if (saoPath == null) return;
+                        try {
+                            System.out.println(saoPath + " contains " + new ACL2Reader(saoPath).getStats());
+                        } catch (IOException e) {
+                            System.out.println(e);
+                        }
+                    }
+                },
+                
+                new EMenuItem("Generate pkg-imports.dat") {
+                    @Override
+                    public void run()
+                    {
+                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized pkg-imports", false);
+                        if (saoPath == null) return;
+                        GenPkgImports.gen(saoPath);
+                    }
+                },
+                
+                new EMenuItem("Dump SVEX design") {
+                    @Override
+                    public void run()
+                    {
+                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized SVEX design", false);
+                        if (saoPath == null) return;
+                        String defaultOutName = User.getWorkingDirectory()
+                            + File.separator + TextUtils.getFileNameWithoutExtension(saoPath) + ".txt";
+                        String outPath = OpenFile.chooseOutputFile(FileType.TEXT, "SVEX design dump", defaultOutName);
+                        if (outPath == null) return;
+                        ACL2DesignJobs.dump(saoPath, outPath);
+                    }
+                },
+        
+                new EMenuItem("Gen FSM for ALU") {
+                    @Override
+                    public void run()
+                    {
+                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized ALU design", false);
+                        if (saoPath == null) return;
+                        String defaultOutName = "alu-auto.lisp";
+                        String outPath = OpenFile.chooseOutputFile(FileType.LISP, "ALU FSM in ACL2", defaultOutName);
+                        if (outPath == null) return;
+                        ACL2DesignJobs.genAlu(saoPath, outPath);
+                    }
+                }),
+            
 				new EMenu("DRC",
 
 				new EMenuItem("Check _Minimum Area...") {
@@ -73,40 +128,6 @@ public class PublicDebugMenu {
 					}
 				}),
                 
-                new EMenu("ACL2",
-                    
-                new EMenuItem("Generate pkg-imports.dat") {
-                    @Override
-                    public void run()
-                    {
-                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized pkg-imports", false);
-                        GenPkgImports.gen(saoPath);
-                    }
-                },
-                
-                new EMenuItem("Dump SVEX design") {
-                    @Override
-                    public void run()
-                    {
-                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized SVEX design", false);
-                        String defaultOutName = User.getWorkingDirectory()
-                            + File.separator + "alu-auto.lisp";
-                        String outPath = OpenFile.chooseOutputFile(FileType.TEXT, "SVEX design dump", defaultOutName);
-                        ACL2DesignJobs.dump(saoPath, outPath);
-                    }
-                },
-        
-                new EMenuItem("Gen FSM for ALU") {
-                    @Override
-                    public void run()
-                    {
-                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized ALU design", false);
-                        String defaultOutName = "alu-auto.lisp";
-                        String outPath = OpenFile.chooseOutputFile(FileType.LISP, "ALU FSM in ACL2", defaultOutName);
-                        ACL2DesignJobs.genAlu(saoPath, outPath);
-                    }
-                }),
-            
                 new EMenu("Fast JELIB reader",
 
                 jelibItem("Database", true, true, true, true, true),
@@ -144,7 +165,7 @@ public class PublicDebugMenu {
 	}
     
     // Dima's menu items
-    
+
     private static EMenuItem jelibItem(String text,
             final boolean instantiate,
             final boolean doBackup,

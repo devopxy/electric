@@ -75,46 +75,44 @@ public abstract class Svar
 
     public static abstract interface Builder<T extends Svar>
     {
-        default T createVar(ACL2Object impl)
+        default T fromACL2(ACL2Object rep)
         {
-            if (stringp(impl).bool() || symbolp(impl).bool() && !booleanp(impl).bool())
+            if (consp(rep).bool())
             {
-                return buildVar(impl);
+                ACL2Object name = car(cdr(rep));
+                int delay = cdr(cdr(rep)).intValueExact(); // Support only int delay
+                boolean nonblocking = false;
+                if (delay < 0)
+                {
+                    delay = ~delay;
+                    nonblocking = true;
+                }
+                if (KEYWORD_VAR.equals(car(rep)))
+                {
+                    if (!(stringp(name).bool() || symbolp(name).bool() && !booleanp(name).bool())
+                        || delay != 0
+                        || nonblocking)
+                    {
+                        return Builder.this.newVar(name, delay, nonblocking);
+                    }
+                }
+            } else if (stringp(rep).bool() || symbolp(rep).bool() && !booleanp(rep).bool())
+            {
+                return newVar(rep);
             }
-            if (!consp(impl).bool() || !KEYWORD_VAR.equals(car(impl)))
-            {
-                throw new IllegalArgumentException();
-            }
-            ACL2Object o = cdr(impl);
-            if (!consp(o).bool())
-            {
-                throw new IllegalArgumentException();
-            }
-            ACL2Object name = car(o);
-            int d = cdr(o).intValueExact();
-            if (d == 0 && (stringp(name).bool() || symbolp(name).bool() && !booleanp(name).bool()))
-            {
-                throw new IllegalArgumentException();
-            }
-            if (d >= 0)
-            {
-                return buildVar(name, d);
-            } else
-            {
-                return buildVar(name, -d - 1, true);
-            }
+            throw new IllegalArgumentException();
         }
 
-        default T buildVar(ACL2Object name)
+        default T newVar(ACL2Object name)
         {
-            return buildVar(name, 0);
+            return Builder.this.newVar(name, 0);
         }
 
-        default T buildVar(ACL2Object name, int delay)
+        default T newVar(ACL2Object name, int delay)
         {
-            return buildVar(name, delay, false);
+            return Builder.this.newVar(name, delay, false);
         }
 
-        T buildVar(ACL2Object name, int delay, boolean nonblocking);
+        T newVar(ACL2Object name, int delay, boolean nonblocking);
     }
 }

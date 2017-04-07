@@ -26,7 +26,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Reader of ACL2 serialized format.
@@ -34,7 +36,17 @@ import java.util.List;
 public class ACL2Reader
 {
 
+    public final String fileName;
     public final ACL2Object root;
+    public final int nNat;
+    public final int nInt;
+    public final int nRat;
+    public final int nComplex;
+    public final int nChar;
+    public final int nStr;
+    public final int nPkg;
+    public final int nSym;
+    public final int nCons;
 
     private final List<ACL2Object> allObjs = new ArrayList<>();
 
@@ -82,22 +94,20 @@ public class ACL2Reader
 
     public ACL2Reader(String fileName) throws IOException
     {
+        this.fileName = fileName;
         try (DataInputStream in = new DataInputStream(new FileInputStream(fileName)))
         {
             int magic = in.readInt();
             check(magic == 0xAC120BC9);
             int len = readInt(in).intValueExact();
-//            System.out.println("len=" + len);
-            int natsLen = readInt(in).intValueExact();
-//            System.out.println("NATS " + natsLen);
-            for (int i = 0; i < natsLen; i++)
+            nNat = readInt(in).intValueExact();
+            for (int i = 0; i < nNat; i++)
             {
                 BigInteger n = readInt(in);
-//                System.out.println(allObjs.size() + ": " + n.toString(16));
                 allObjs.add(new ACL2Integer(n));
             }
             int ratsLen = readInt(in).intValueExact();
-//            System.out.println("RATS " + ratsLen);
+            int nNegInt = 0;
             for (int i = 0; i < ratsLen; i++)
             {
                 BigInteger sign = readInt(in);
@@ -108,14 +118,22 @@ public class ACL2Reader
                 {
                     num = num.negate();
                 }
-//                System.out.println(allObjs.size() + ": " + num + "/" + denom);
+                if (denom.equals(BigInteger.ONE))
+                {
+                    allObjs.add(new ACL2Integer(num));
+                    nNegInt++;
+                } else
+                {
+                    allObjs.add(new ACL2Rational(Rational.valueOf(num, denom)));
+                }
                 allObjs.add(denom.equals(BigInteger.ONE)
                     ? new ACL2Integer(num)
                     : new ACL2Rational(Rational.valueOf(num, denom)));
             }
-            int complexesLen = readInt(in).intValueExact();
-//            System.out.println("COMPLEXES " + complexesLen);
-            for (int i = 0; i < complexesLen; i++)
+            nInt = nNat + nNegInt;
+            nRat = ratsLen - nNegInt;
+            nComplex = readInt(in).intValueExact();
+            for (int i = 0; i < nComplex; i++)
             {
                 BigInteger signR = readInt(in);
                 check(signR.equals(BigInteger.ZERO) || signR.equals(BigInteger.ONE));
@@ -133,48 +151,41 @@ public class ACL2Reader
                 {
                     numI = numI.negate();
                 }
-//                System.out.println(allObjs.size() + ": " + numR + "/" + denomR + " " + numI + "/" + denomI);
                 allObjs.add(new ACL2Complex(Rational.valueOf(numR, denomR), Rational.valueOf(numI, denomI)));
             }
-            int charsLen = readInt(in).intValueExact();
-//            System.out.println("CHARS " + charsLen);
-            for (int i = 0; i < charsLen; i++)
+            nChar = readInt(in).intValueExact();
+            for (int i = 0; i < nChar; i++)
             {
                 char c = (char)(in.readByte() & 0xFF);
-//                System.out.println(allObjs.size() + ": " + c);
                 allObjs.add(new ACL2Character(c));
             }
-            int strsLen = readInt(in).intValueExact();
-//            System.out.println("STRS " + strsLen);
-            for (long i = 0; i < strsLen; i++)
+            nStr = readInt(in).intValueExact();
+            for (long i = 0; i < nStr; i++)
             {
                 String s = readStr(in);
-//                System.out.println(allObjs.size() + ": " + s);
                 allObjs.add(new ACL2String(false, s));
             }
-            int packagesLen = readInt(in).intValueExact();
-//            System.out.println("PACKAGES " + packagesLen);
-            for (int i = 0; i < packagesLen; i++)
+            nPkg = readInt(in).intValueExact();
+            int numSymsTotal = 0;
+            for (int i = 0; i < nPkg; i++)
             {
                 String pkgName = readStr(in);
-                int numSyms = readInt(in).intValueExact();
-//                System.out.println("  " + pkgName + " " + numSyms);
+                long numSyms = readInt(in).longValueExact();
                 for (int j = 0; j < numSyms; j++)
                 {
                     String name = readStr(in);
-//                    System.out.println(j + " " + pkgName + "::" + name);
                     allObjs.add(ACL2Object.valueOf(pkgName, name));
                 }
+                numSymsTotal += numSyms;
             }
-            int consesLen = readInt(in).intValueExact();
-//            System.out.println("CONSES " + consesLen);
-            for (int i = 0; i < consesLen; i++)
+            nSym = numSymsTotal;
+            nCons = readInt(in).intValueExact();
+            for (int i = 0; i < nCons; i++)
             {
                 int car = readInt(in).intValueExact();
                 int cdr = readInt(in).intValueExact();
                 boolean norm = (car & 1) != 0;
                 car >>>= 1;
-//                System.out.println(allObjs.size() + ": (" + car + "." + cdr + ")");
                 allObjs.add(new ACL2Cons(norm, allObjs.get(car), allObjs.get(cdr)));
             }
 //            System.out.println("FALS");
@@ -193,4 +204,29 @@ public class ACL2Reader
             root = allObjs.get(len);
         }
     }
+
+    public String getStats()
+    {
+        return ((nInt + nRat + nComplex + nChar + nStr + nSym) + " atoms and "
+            + nCons + " conses. TreeCount=" + treeCount(root, new HashMap<>()));
+    }
+
+    private static BigInteger treeCount(ACL2Object top, Map<ACL2Cons, BigInteger> memoize)
+    {
+        if (top instanceof ACL2Cons)
+        {
+            ACL2Cons cons = (ACL2Cons)top;
+            BigInteger count = memoize.get(cons);
+            if (count == null)
+            {
+                count = treeCount(cons.car, memoize).add(treeCount(cons.cdr, memoize));
+                memoize.put(cons, count);
+            }
+            return count;
+        } else
+        {
+            return BigInteger.ONE;
+        }
+    }
+
 }

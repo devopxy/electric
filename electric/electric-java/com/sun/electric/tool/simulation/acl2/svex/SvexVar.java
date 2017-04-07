@@ -31,11 +31,13 @@ public class SvexVar extends Svex
 {
     public Svar svar;
 
-    SvexVar(Svar.Builder sb, ACL2Object impl)
-    {
-        svar = sb.createVar(impl);
+    public SvexVar(Svar svar) {
+        if (svar == null) {
+            throw new NullPointerException();
+        }
+        this.svar = svar;
     }
-
+    
     @Override
     public ACL2Object makeACL2Object()
     {
