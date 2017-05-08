@@ -24,6 +24,7 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 
 /**
  * Bitwise wired AND resolution of two 4vecs.
@@ -53,6 +54,18 @@ public class Vec4Resand extends SvexCall
         public Vec4Resand build(Svex... args)
         {
             return new Vec4Resand(args[0], args[1]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 x = args[0];
+            Vec4 y = args[1];
+            return Vec4.valueOf(
+                x.getUpper().or(x.getLower())
+                    .and(y.getUpper().or(y.getLower())
+                        .and(x.getUpper().or(y.getUpper()))),
+                x.getLower().and(y.getLower()));
         }
     }
 }

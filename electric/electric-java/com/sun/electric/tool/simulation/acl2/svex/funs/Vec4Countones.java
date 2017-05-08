@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * Count of 1 bits in a 4vec (X-monotonic).
@@ -51,6 +54,21 @@ public class Vec4Countones extends SvexCall
         public Vec4Countones build(Svex... args)
         {
             return new Vec4Countones(args[0]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 x = args[0];
+            if (x.isVec2())
+            {
+                BigInteger xv = ((Vec2)x).getVal();
+                if (xv.signum() >= 0)
+                {
+                    return new Vec2(BigInteger.valueOf(xv.bitCount()));
+                }
+            }
+            return Vec4.X;
         }
     }
 }

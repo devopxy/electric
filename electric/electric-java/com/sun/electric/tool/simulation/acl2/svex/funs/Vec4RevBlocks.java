@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * Similar to a streaming concatenation operation in SystemVerilog.
@@ -55,6 +58,44 @@ public class Vec4RevBlocks extends SvexCall
         public Vec4RevBlocks build(Svex... args)
         {
             return new Vec4RevBlocks(args[0], args[1], args[2]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 nbits = args[0];
+            Vec4 blocksz = args[1];
+            Vec4 x = args[1];
+            if (nbits.isVec2() && blocksz.isVec2())
+            {
+                int nbitsVal = ((Vec2)nbits).getVal().intValueExact();
+                int blockszVal = ((Vec2)nbits).getVal().intValueExact();
+                if (nbitsVal >= 0 && blockszVal > 0)
+                {
+                    return Vec4.valueOf(
+                        revBlocks(nbitsVal, blockszVal, x.getUpper()),
+                        revBlocks(nbitsVal, blockszVal, x.getLower()));
+                }
+            }
+            return Vec4.X;
+        }
+
+        private BigInteger revBlocks(int nbits, int blocksz, BigInteger x)
+        {
+            BigInteger mask = BigInteger.ONE.shiftLeft(blocksz).subtract(BigInteger.ONE);
+            BigInteger result = BigInteger.ZERO;
+            while (nbits >= blocksz)
+            {
+                result = result.shiftLeft(blocksz).or(x.and(mask));
+                x = x.shiftRight(blocksz);
+                nbits -= blocksz;
+            }
+            if (nbits > 0)
+            {
+                mask = BigInteger.ONE.shiftLeft(nbits).subtract(BigInteger.ONE);
+                result = result.shiftLeft(nbits).or(x.and(mask));
+            }
+            return result;
         }
     }
 }

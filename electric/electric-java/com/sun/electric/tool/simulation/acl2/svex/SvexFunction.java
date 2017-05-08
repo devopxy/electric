@@ -24,6 +24,7 @@ package com.sun.electric.tool.simulation.acl2.svex;
 import com.sun.electric.tool.simulation.acl2.svex.funs.*;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -103,15 +104,7 @@ public abstract class SvexFunction
             assert fun.fn.equals(fn);
         } else
         {
-            fun = new SvexFunction(fn, arity)
-            {
-                @Override
-                public SvexCall build(Svex... args)
-                {
-                    assert args.length == arity;
-                    return new SvexCall(this, args);
-                }
-            };
+            fun = new Undefined(fn, arity);
         }
         return fun;
     }
@@ -128,8 +121,71 @@ public abstract class SvexFunction
 
     public abstract SvexCall build(Svex... args);
 
+    public abstract Vec4 apply(Vec4... args);
+
+    protected Vec4 shiftCore(int amt, Vec4 src)
+    {
+        if (amt >= Vec4.BIT_LIMIT)
+        {
+            if (src.getUpper().signum() != 0 || src.getLower().signum() != 0)
+            {
+                throw new IllegalArgumentException("very large integer");
+            }
+        }
+        if (src.isVec2())
+        {
+            BigInteger srcv = ((Vec2)src).getVal();
+            return new Vec2(srcv.shiftLeft(amt));
+        }
+        return Vec4.valueOf(
+            src.getUpper().shiftLeft(amt),
+            src.getLower().shiftLeft(amt));
+    }
+
+    protected Vec4 eq(Vec4 x, Vec4 y, BigInteger zMask)
+    {
+        if (x.isVec2() && y.isVec2() && zMask.signum() == 0)
+        {
+            BigInteger xv = ((Vec2)x).getVal();
+            BigInteger yv = ((Vec2)y).getVal();
+            return Vec2.valueOf(xv.equals(yv));
+        }
+        BigInteger xMask = x.getUpper().xor(x.getLower())
+            .or(y.getUpper().xor(y.getLower()));
+        // 3vec-bitnot(4vec-bitxor(x,y))
+        BigInteger u = x.getLower().xor(y.getLower()).andNot(xMask).not();
+        BigInteger l = x.getUpper().xor(y.getUpper()).or(xMask).not();
+        u = u.or(zMask);
+        l = l.or(zMask);
+        if (l.equals(u)) {
+            return Vec2.valueOf(u.equals(Vec2.BI_MINUS_ONE));
+        }
+        return u.equals(Vec2.BI_MINUS_ONE) ? Vec4.X : Vec2.ZERO;
+    }
+
     public static boolean isFnSym(ACL2Object o)
     {
         return symbolp(o).bool() && !QUOTE.equals(o) && !keywordp(o).bool();
+    }
+
+    private static class Undefined extends SvexFunction
+    {
+        public Undefined(ACL2Object fn, int arity)
+        {
+            super(fn, arity);
+        }
+
+        @Override
+        public SvexCall build(Svex... args)
+        {
+            assert args.length == arity;
+            return new SvexCall(this, args);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
     }
 }

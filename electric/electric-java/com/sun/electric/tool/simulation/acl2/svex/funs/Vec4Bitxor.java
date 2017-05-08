@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * Bitwise logical XOR of 4vecs.
@@ -53,6 +56,24 @@ public class Vec4Bitxor extends SvexCall
         public Vec4Bitxor build(Svex... args)
         {
             return new Vec4Bitxor(args[0], args[1]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 x = args[0];
+            Vec4 y = args[1];
+            if (x.isVec2() && y.isVec2())
+            {
+                BigInteger xv = ((Vec2)x).getVal();
+                BigInteger yv = ((Vec2)x).getVal();
+                return new Vec2(xv.xor(yv));
+            }
+            BigInteger xmask = x.getUpper().xor(x.getLower())
+                .or(y.getUpper().xor(y.getLower()));
+            return Vec4.valueOf(
+                x.getUpper().xor(y.getUpper()).or(xmask),
+                x.getLower().xor(y.getLower()).andNot(xmask));
         }
     }
 }

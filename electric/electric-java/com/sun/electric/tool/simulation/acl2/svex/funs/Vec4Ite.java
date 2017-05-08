@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * Atomic if-then-else of 4vecs; doesn’t unfloat then/else values.
@@ -55,6 +58,28 @@ public class Vec4Ite extends SvexCall
         public Vec4Ite build(Svex... args)
         {
             return new Vec4Ite(args[0], args[1], args[2]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            return apply3(args[0].fix3(), args[1], args[2]);
+        }
+
+        private Vec4 apply3(Vec4 test, Vec4 th, Vec4 el)
+        {
+            if (test.isVec2())
+            {
+                BigInteger testv = ((Vec2)test).getVal();
+                return testv.equals(Vec2.BI_MINUS_ONE) ? th : el;
+            }
+            if (!test.getUpper().equals(Vec2.BI_MINUS_ONE))
+            {
+                return el;
+            }
+            return Vec4.valueOf(
+                th.getUpper().or(el.getUpper()).or(th.getLower()).or(el.getLower()),
+                th.getUpper().and(el.getUpper()).and(th.getLower()).and(el.getLower()));
         }
     }
 }

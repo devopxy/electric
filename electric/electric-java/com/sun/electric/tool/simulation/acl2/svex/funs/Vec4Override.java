@@ -24,6 +24,7 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 
 /**
  * Resolution for when one signal is stronger than the other.
@@ -53,6 +54,16 @@ public class Vec4Override extends SvexCall
         public Vec4Override build(Svex... args)
         {
             return new Vec4Override(args[0], args[1]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 strong = args[0];
+            Vec4 weak = args[1];
+            return Vec4.valueOf(
+                strong.getLower().and(weak.getUpper()).or(strong.getUpper()),
+                strong.getUpper().or(weak.getLower()).and(strong.getLower()));
         }
     }
 }

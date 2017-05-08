@@ -24,6 +24,7 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 
 /**
  * Like logbit for 4vecs; the bit position may be a 4vec.
@@ -51,6 +52,13 @@ public class Vec3Fix extends SvexCall
         public Vec3Fix build(Svex... args)
         {
             return new Vec3Fix(args[0]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 x = args[0];
+            return x.fix3();
         }
     }
 }

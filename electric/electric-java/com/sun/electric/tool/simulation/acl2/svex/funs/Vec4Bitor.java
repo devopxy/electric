@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * Bitwise logical OR of 4vecs.
@@ -53,6 +56,26 @@ public class Vec4Bitor extends SvexCall
         public Vec4Bitor build(Svex... args)
         {
             return new Vec4Bitor(args[0], args[1]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            return apply3(args[0].fix3(), args[1].fix3());
+        }
+
+        private Vec4 apply3(Vec4 x, Vec4 y)
+        {
+            if (x.isVec2() && y.isVec2())
+            {
+                BigInteger xv = ((Vec2)x).getVal();
+                BigInteger yv = ((Vec2)x).getVal();
+                return new Vec2(xv.or(yv));
+            }
+            return Vec4.valueOf(
+                x.getUpper().or(y.getUpper()),
+                x.getLower().or(y.getLower()));
+
         }
     }
 }
