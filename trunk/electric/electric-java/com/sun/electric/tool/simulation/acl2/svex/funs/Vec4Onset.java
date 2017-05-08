@@ -24,6 +24,7 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 
 /**
  * Identity, except Z bits become 0.
@@ -51,6 +52,15 @@ public class Vec4Onset extends SvexCall
         public Vec4Onset build(Svex... args)
         {
             return new Vec4Onset(args[0]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 x = args[0];
+            return Vec4.valueOf(
+                x.getUpper(),
+                x.getUpper().and(x.getLower()));
         }
     }
 }

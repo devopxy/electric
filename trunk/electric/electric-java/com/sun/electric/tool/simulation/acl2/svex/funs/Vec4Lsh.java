@@ -24,6 +24,8 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 
 /**
  * Left “arithmetic” shift of 4vecs.
@@ -53,6 +55,19 @@ public class Vec4Lsh extends SvexCall
         public Vec4Lsh build(Svex... args)
         {
             return new Vec4Lsh(args[0], args[1]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 shift = args[0];
+            Vec4 x = args[1];
+            if (shift.isVec2())
+            {
+                int shiftv = ((Vec2)shift).getVal().intValueExact();
+                return shiftCore(shiftv, x);
+            }
+            return Vec4.X;
         }
     }
 }

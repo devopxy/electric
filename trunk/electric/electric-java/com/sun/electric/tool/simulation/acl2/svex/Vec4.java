@@ -31,7 +31,14 @@ import java.math.BigInteger;
  */
 public abstract class Vec4
 {
+    public static final Vec4 X = new Impl(BigInteger.valueOf(-1), BigInteger.valueOf(0));
+    public static final Vec4 Z = new Impl(BigInteger.valueOf(1), BigInteger.valueOf(-1));
+    public static final Vec4 X1 = new Impl(BigInteger.valueOf(1), BigInteger.valueOf(0));
+    public static final Vec4 Z1 = new Impl(BigInteger.valueOf(1), BigInteger.valueOf(1));
+
     public abstract boolean isVec2();
+
+    public abstract boolean isVec3();
 
     public abstract BigInteger getUpper();
 
@@ -39,7 +46,7 @@ public abstract class Vec4
 
     public abstract ACL2Object makeAcl2Object();
 
-    public static Vec4 X = new Impl(BigInteger.valueOf(-1), BigInteger.valueOf(0));
+    public static final int BIT_LIMIT = 1 << 24;
 
     public static Vec4 valueOf(BigInteger upper, BigInteger lower)
     {
@@ -50,6 +57,8 @@ public abstract class Vec4
     {
         return consp(x).bool() ? new Impl(x) : new Vec2(x);
     }
+
+    public abstract Vec4 fix3();
 
     static class Impl extends Vec4
     {
@@ -65,8 +74,9 @@ public abstract class Vec4
             this.upper = upper;
             this.lower = lower;
         }
-        
-        Impl(ACL2Object rep) {
+
+        Impl(ACL2Object rep)
+        {
             this(car(rep).bigIntegerValueExact(), cdr(rep).bigIntegerValueExact());
         }
 
@@ -74,6 +84,12 @@ public abstract class Vec4
         public boolean isVec2()
         {
             return false;
+        }
+
+        @Override
+        public boolean isVec3()
+        {
+            return lower.andNot(upper).signum() == 0;
         }
 
         @Override
@@ -86,6 +102,18 @@ public abstract class Vec4
         public BigInteger getLower()
         {
             return lower;
+        }
+
+        @Override
+        public Vec4 fix3()
+        {
+            if (isVec3())
+            {
+                return this;
+            } else
+            {
+                return valueOf(upper.or(lower), upper.and(lower));
+            }
         }
 
         @Override

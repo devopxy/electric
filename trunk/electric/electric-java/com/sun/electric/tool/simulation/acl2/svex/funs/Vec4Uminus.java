@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * Integer negation of a 4vec.
@@ -51,6 +54,18 @@ public class Vec4Uminus extends SvexCall
         public Vec4Uminus build(Svex... args)
         {
             return new Vec4Uminus(args[0]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 x = args[0];
+            if (x.isVec2())
+            {
+                BigInteger xv = ((Vec2)x).getVal();
+                return new Vec2(xv.negate());
+            }
+            return Vec4.X;
         }
     }
 }

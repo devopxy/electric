@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * True if for every pair of corresponding bits of a and b, either they are equal or the bit from b is Z.
@@ -53,6 +56,15 @@ public class Vec4WildeqSafe extends SvexCall
         public Vec4WildeqSafe build(Svex... args)
         {
             return new Vec4WildeqSafe(args[0], args[1]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 a = args[0];
+            Vec4 b = args[1];
+            BigInteger zMask = b.getLower().andNot(b.getUpper());
+            return eq(a, b, zMask);
         }
     }
 }

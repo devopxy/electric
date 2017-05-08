@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * Coerces an arbitrary 4vec to a 3vec by “unfloating” it, i.e., by turning any Zs into Xes.
@@ -53,6 +56,30 @@ public class Vec4BitExtract extends SvexCall
         public Vec4BitExtract build(Svex... args)
         {
             return new Vec4BitExtract(args[0], args[1]);
+
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 index = args[0];
+            Vec4 x = args[1];
+            if (index.isVec2())
+            {
+                int indv = ((Vec2)index).getVal().intValueExact();
+                if (indv >= 0)
+                {
+                    if (x.isVec2())
+                    {
+                        BigInteger xv = ((Vec2)x).getVal();
+                        return xv.testBit(indv) ? Vec2.ONE : Vec2.ZERO;
+                    }
+                    return x.getUpper().testBit(indv)
+                        ? (x.getLower().testBit(indv) ? Vec2.ONE : Vec4.X1)
+                        : (x.getLower().testBit(indv) ? Vec2.Z1 : Vec2.ZERO);
+                }
+            }
+            return Vec4.X1;
         }
     }
 }

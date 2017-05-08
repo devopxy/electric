@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * Power operator (** in SystemVerilog).
@@ -53,6 +56,27 @@ public class Vec4Pow extends SvexCall
         public Vec4Pow build(Svex... args)
         {
             return new Vec4Pow(args[0], args[1]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 base = args[0];
+            Vec4 exp = args[1];
+            if (base.isVec2() && exp.isVec2())
+            {
+                BigInteger basev = ((Vec2)base).getVal();
+                int expv = ((Vec2)exp).getVal().intValueExact();
+                if (expv >= 0 || basev.abs().equals(BigInteger.ONE))
+                {
+                    return new Vec2(basev.pow(expv));
+                }
+                if (basev.signum() != 0)
+                {
+                    return Vec2.ZERO;
+                }
+            }
+            return Vec4.X;
         }
     }
 }

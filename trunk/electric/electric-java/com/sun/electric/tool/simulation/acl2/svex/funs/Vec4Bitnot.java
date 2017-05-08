@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * Bitwise logical NOT of a 4vec.
@@ -51,6 +54,22 @@ public class Vec4Bitnot extends SvexCall
         public Vec4Bitnot build(Svex... args)
         {
             return new Vec4Bitnot(args[0]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            return apply3(args[0].fix3());
+        }
+
+        private Vec4 apply3(Vec4 x)
+        {
+            if (x.isVec2())
+            {
+                BigInteger xv = ((Vec2)x).getVal();
+                return new Vec2(xv.not());
+            }
+            return Vec4.valueOf(x.getLower().not(), x.getUpper().not());
         }
     }
 }

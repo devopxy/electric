@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * Integer addition of two 4vecs.
@@ -53,6 +56,20 @@ public class Vec4Plus extends SvexCall
         public Vec4Plus build(Svex... args)
         {
             return new Vec4Plus(args[0], args[1]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 x = args[0];
+            Vec4 y = args[1];
+            if (x.isVec2() && y.isVec2())
+            {
+                BigInteger xv = ((Vec2)x).getVal();
+                BigInteger yv = ((Vec2)y).getVal();
+                return new Vec2(xv.add(yv));
+            }
+            return Vec4.X;
         }
     }
 }

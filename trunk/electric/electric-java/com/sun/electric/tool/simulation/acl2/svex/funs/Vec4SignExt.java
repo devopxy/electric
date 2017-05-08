@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * Like logext for 4vecs; the width is also a 4vec.
@@ -53,6 +56,52 @@ public class Vec4SignExt extends SvexCall
         public Vec4SignExt build(Svex... args)
         {
             return new Vec4SignExt(args[0], args[1]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 width = args[0];
+            Vec4 x = args[1];
+            if (width.isVec2())
+            {
+                int wval = ((Vec2)width).getVal().intValueExact();
+                if (wval > 0)
+                {
+                    if (wval >= Vec4.BIT_LIMIT)
+                    {
+                        if (x.getUpper().signum() < 0 || x.getLower().signum() < 0)
+                        {
+                            throw new IllegalArgumentException("very large integer");
+
+                        }
+                    }
+                    BigInteger pow = BigInteger.ONE.shiftLeft(wval - 1);
+                    BigInteger mask = pow.subtract(BigInteger.ONE);
+                    if (x.isVec2())
+                    {
+                        BigInteger xv = ((Vec2)x).getVal();
+                        BigInteger xm = xv.and(mask);
+                        return new Vec2(xv.testBit(wval) ? xm.subtract(pow) : xm);
+                    }
+                    BigInteger uv = x.getUpper();
+                    BigInteger lv = x.getLower();
+                    BigInteger um = uv.and(mask);
+                    BigInteger lm = lv.and(mask);
+                    return Vec4.valueOf(
+                        uv.testBit(wval) ? um.subtract(pow) : um,
+                        lv.testBit(wval) ? lm.subtract(pow) : lm);
+                }
+            }
+            return Vec4.X;
+        }
+
+        private static BigInteger logext(int wval, BigInteger x)
+        {
+            BigInteger pow = BigInteger.ONE.shiftLeft(wval - 1);
+            BigInteger mask = pow.subtract(BigInteger.ONE);
+            BigInteger xm = x.and(mask);
+            return x.testBit(wval - 1) ? xm.subtract(pow) : xm;
         }
     }
 }

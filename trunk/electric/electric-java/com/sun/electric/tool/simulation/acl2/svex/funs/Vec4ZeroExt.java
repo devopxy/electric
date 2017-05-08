@@ -24,6 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 
 /**
  * Like loghead for 4vecs; the width is also a 4vec.
@@ -53,6 +56,38 @@ public class Vec4ZeroExt extends SvexCall
         public Vec4ZeroExt build(Svex... args)
         {
             return new Vec4ZeroExt(args[0], args[1]);
+        }
+
+        @Override
+        public Vec4 apply(Vec4... args)
+        {
+            Vec4 width = args[0];
+            Vec4 x = args[1];
+            if (width.isVec2())
+            {
+                int wval = ((Vec2)width).getVal().intValueExact();
+                if (wval >= 0)
+                {
+                    if (wval >= Vec4.BIT_LIMIT)
+                    {
+                        if (x.getUpper().signum() < 0 || x.getLower().signum() < 0)
+                        {
+                            throw new IllegalArgumentException("very large integer");
+
+                        }
+                    }
+                    BigInteger mask = BigInteger.ONE.shiftLeft(wval).subtract(BigInteger.ONE);
+                    if (x.isVec2())
+                    {
+                        BigInteger xv = ((Vec2)x).getVal();
+                        return new Vec2(xv.and(mask));
+                    }
+                    return Vec4.valueOf(
+                        x.getUpper().and(mask),
+                        x.getLower().add(mask));
+                }
+            }
+            return Vec4.X;
         }
     }
 }
