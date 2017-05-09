@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.ArrayList;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,46 +33,120 @@ import java.util.Map;
  * SVEX design.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____DESIGN>.
  */
-public class Design {
+public class Design
+{
     final ACL2Object impl;
 
-    final Map<ModName,Module> modalist = new LinkedHashMap<>();
+//    final Map<ModName,Module> modalist = new LinkedHashMap<>();
     public final ModName top;
 
-    public final Map<ModName,Module> downTop = new LinkedHashMap<>();
+    public final Map<ModName, Module> downTop = new LinkedHashMap<>();
+    public final Map<ModName, Module> topDown = new LinkedHashMap<>();
 
-    public Design(ACL2Object impl) {
+    public Design(ACL2Object impl)
+    {
         this.impl = impl;
         List<ACL2Object> fields = Util.getList(impl, true);
         Util.check(fields.size() == 2);
         ACL2Object pair;
         pair = fields.get(0);
         Util.check(car(pair).equals(Util.SV_MODALIST));
-        List<ACL2Object> modules = Util.getList(cdr(pair), true);
-        for (ACL2Object so: modules) {
-            Module old = modalist.put(ModName.valueOf(car(so)), new Module(cdr(so)));
+        Map<ModName, ACL2Object> rawMods = new LinkedHashMap<>();
+        ACL2Object modalist = cdr(pair);
+        while (consp(modalist).bool())
+        {
+            ModName modName = ModName.valueOf(car(car(modalist)));
+            ACL2Object old = rawMods.put(modName, cdr(car(modalist)));
             Util.check(old == null);
+            modalist = cdr(modalist);
         }
-
+        Util.checkNil(modalist);
         pair = fields.get(1);
         Util.check(car(pair).equals(Util.SV_TOP));
         top = ModName.valueOf(cdr(pair));
-        Util.check(modalist.containsKey(top));
-        addToDownTop(top);
-        Util.check(downTop.size() == modalist.size());
-        for (Module m: downTop.values()) {
-            m.check(modalist);
+        addToDownTop(top, rawMods);
+
+//        for (ModName mn: rawMods.keySet())
+//        {
+//            addToDownTop(mn, rawMods);
+//        }
+        Util.check(downTop.size() == rawMods.size());
+
+        List<ModName> keys = new ArrayList<>(downTop.keySet());
+        for (int i = keys.size() - 1; i >= 0; i--)
+        {
+            ModName key = keys.get(i);
+            topDown.put(key, downTop.get(key));
+        }
+        Util.check(topDown.size() == rawMods.size());
+        for (Module m : downTop.values())
+        {
+            m.check(downTop);
+        }
+        topDown.get(top).useCount = 1;
+        for (Wire w : topDown.get(top).wires)
+        {
+            if (w.width == 1 && w.low_idx == 0)
+            {
+                w.global = w.name.toLispString();
+            }
+        }
+        for (Map.Entry<ModName, Module> e : topDown.entrySet())
+        {
+            Module m = e.getValue();
+            int useCount = m.useCount;
+            for (ModInst mi : m.insts)
+            {
+                mi.proto.useCount += useCount;
+            }
+            for (Map.Entry<Lhs, Lhs> e1 : m.aliaspairs.entrySet())
+            {
+                Lhs lhs = e1.getKey();
+                Lhs rhs = e1.getValue();
+                if (rhs.ranges.size() == 1
+                    && rhs.ranges.get(0).w == 1
+                    && rhs.ranges.get(0).atom instanceof Lhatom.Var
+                    && ((Lhatom.Var)rhs.ranges.get(0).atom).rsh == 0)
+                {
+                    SVarExt svar = ((Lhatom.Var)rhs.ranges.get(0).atom).name;
+                    if (svar instanceof SVarExt.LocalWire)
+                    {
+                        Wire w = ((SVarExt.LocalWire)svar).wire;
+                        if (w.isGlobal()
+                            && lhs.ranges.size() == 1
+                            && lhs.ranges.get(0).w == 1
+                            && lhs.ranges.get(0).atom instanceof Lhatom.Var
+                            && ((Lhatom.Var)rhs.ranges.get(0).atom).rsh == 0)
+                        {
+                            SVarExt svar1 = ((Lhatom.Var)lhs.ranges.get(0).atom).name;
+                            if (svar1 instanceof SVarExt.PortInst)
+                            {
+                                ((SVarExt.PortInst)svar1).wire.markGlobal(w.global);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
-    private void addToDownTop(ModName mn) {
-        if (downTop.containsKey(mn)) {
+    private void addToDownTop(ModName mn, Map<ModName, ACL2Object> rawMods)
+    {
+        if (downTop.containsKey(mn))
+        {
             return;
         }
-        Module m = modalist.get(mn);
-        for (ModInst mi: m.insts) {
-            addToDownTop(mi.modname);
+        ACL2Object rawMod = rawMods.get(mn);
+        List<ACL2Object> fields = Util.getList(rawMod, true);
+        Util.check(fields.size() == 4);
+
+        ACL2Object pair = fields.get(1);
+        Util.check(car(pair).equals(Util.SV_INSTS));
+        for (ACL2Object o : Util.getList(cdr(pair), true))
+        {
+            addToDownTop(ModName.valueOf(cdr(o)), rawMods);
         }
+        Module m = new Module(mn, rawMod, downTop);
         Module old = downTop.put(mn, m);
         Util.check(old == null);
     }

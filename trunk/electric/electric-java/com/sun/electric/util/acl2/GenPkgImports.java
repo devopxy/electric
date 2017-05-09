@@ -22,6 +22,7 @@
 package com.sun.electric.util.acl2;
 
 import static com.sun.electric.util.acl2.ACL2.*;
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -192,11 +193,11 @@ public class GenPkgImports
         }
     }
 
-    public static void gen(String fileName)
+    public static void gen(File f)
     {
         try
         {
-            ACL2Reader sr = new ACL2Reader(fileName);
+            ACL2Reader sr = new ACL2Reader(f);
             new GenPkgImports(sr.root);
         } catch (IOException e)
         {

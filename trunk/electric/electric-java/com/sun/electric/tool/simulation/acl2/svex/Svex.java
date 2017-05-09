@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.svex;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.Map;
 
 import java.util.Set;
 
@@ -33,20 +34,25 @@ import java.util.Set;
  */
 public abstract class Svex
 {
-    public static Svex valueOf(Svar.Builder sb, ACL2Object rep)
+    public static Svex valueOf(Svar.Builder sb, ACL2Object rep, Map<ACL2Object, Svex> cache)
     {
+        Svex svex = cache != null ? cache.get(rep) : null;
+        if (svex != null)
+        {
+            return svex;
+        }
         if (consp(rep).bool())
         {
             ACL2Object fn = car(rep);
             ACL2Object args = cdr(rep);
             if (Svar.KEYWORD_VAR.equals(fn))
             {
-                return new SvexVar(sb.fromACL2(rep));
+                svex = new SvexVar(sb.fromACL2(rep));
             } else if (fn.equals(QUOTE))
             {
                 if (NIL.equals(cdr(args)) && consp(car(args)).bool())
                 {
-                    return new SvexQuote(Vec4.valueOf(car(args)));
+                    svex = new SvexQuote(Vec4.valueOf(car(args)));
                 }
             } else
             {
@@ -62,20 +68,28 @@ public abstract class Svex
                     {
                         throw new IllegalArgumentException();
                     }
-                    argsArray[n] = valueOf(sb, car(args));
+                    argsArray[n] = valueOf(sb, car(args), cache);
                     args = cdr(args);
                 }
                 if (NIL.equals(args))
                 {
-                    return SvexCall.newCall(fn, argsArray);
+                    svex = SvexCall.newCall(fn, argsArray);
                 }
             }
         } else if (stringp(rep).bool() || symbolp(rep).bool())
         {
-            return new SvexVar(sb.fromACL2(rep));
+            svex = new SvexVar(sb.fromACL2(rep));
         } else if (integerp(rep).bool())
         {
-            return new SvexQuote(new Vec2(rep));
+            svex = new SvexQuote(new Vec2(rep));
+        }
+        if (svex != null)
+        {
+            if (cache != null)
+            {
+                cache.put(rep, svex);
+            }
+            return svex;
         }
         throw new IllegalArgumentException();
     }

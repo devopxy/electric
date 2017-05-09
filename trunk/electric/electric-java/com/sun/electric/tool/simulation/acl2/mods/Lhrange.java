@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
 
 import java.util.Map;
 
@@ -69,6 +70,12 @@ public class Lhrange
     public String toLispString()
     {
         return atom.toLispString(w);
+    }
+
+    public void markAssigned(BigInteger assignedBits)
+    {
+        BigInteger mask = BigInteger.ONE.shiftLeft(w).subtract(BigInteger.ONE);
+        atom.markAssigned(assignedBits.and(mask));
     }
 
     public void check(Map<ModName, Module> modalist, boolean assign)

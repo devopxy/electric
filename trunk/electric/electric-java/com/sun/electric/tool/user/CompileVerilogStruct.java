@@ -44,7 +44,17 @@ import com.sun.electric.technology.technologies.Generic;
 import com.sun.electric.technology.technologies.Schematics;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
+import com.sun.electric.tool.simulation.acl2.mods.Design;
+import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
+import com.sun.electric.tool.simulation.acl2.mods.Lhs;
+import com.sun.electric.tool.simulation.acl2.mods.ModInst;
+import com.sun.electric.tool.simulation.acl2.mods.ModName;
+import com.sun.electric.tool.simulation.acl2.mods.Module;
+import com.sun.electric.tool.simulation.acl2.mods.Name;
+import com.sun.electric.tool.simulation.acl2.mods.SVarExt;
+import com.sun.electric.tool.simulation.acl2.mods.Wire;
 import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.acl2.ACL2Reader;
 import com.sun.electric.util.math.DBMath;
 import com.sun.electric.util.math.Orientation;
 
@@ -139,7 +149,7 @@ public class CompileVerilogStruct
 		 * @return false if the cell is not defined
 		 */
 		public boolean isDefined() { return defined; }
-		
+
 		/**
 		 * Method to return the Electric Cell associated with this VModule.
 		 * @return the Cell (null if none found).
@@ -326,6 +336,109 @@ public class CompileVerilogStruct
 	}
 
 	/**
+	 * The constructor compiles ACL2 Verilog in a Verilog-view Cell.
+	 * @param saoFile the serialized ACL2 file
+	 */
+    public CompileVerilogStruct(File saoFile)
+    {
+        ACL2Reader sr;
+        try
+        {
+            sr = new ACL2Reader(saoFile);
+        } catch (IOException e)
+        {
+			System.out.println("Error reading file: " + e.getMessage());
+			hasErrors = true;
+			return;
+        }
+        Design design = new Design(sr.root);
+        Map<ModName, VModule> modulesByModName = new HashMap<>();
+		allModules = new ArrayList<VModule>();
+        for (Map.Entry<ModName, Module> e : design.downTop.entrySet())
+        {
+            ModName modName = e.getKey();
+            Module m = e.getValue();
+            VModule vModule;
+            if (modName.isString)
+            {
+                vModule = new VModule(modName.impl.stringValueExact(), true, false);
+            } else if (modName.isGate)
+            {
+                vModule = new VModule(modName.toString(), true, true);
+            } else
+            {
+                continue;
+            }
+            for (Wire wire : m.wires)
+            {
+                if (wire.exported)
+                {
+                    VExport vExport = new VExport(wire.name.toLispString());
+                    if (wire.isAssigned())
+                    {
+                        vExport.mode = MODE_OUT;
+                    } else if (wire.used)
+                    {
+                        vExport.mode = MODE_IN;
+                    }
+                    int firstIndex = wire.getFirstIndex();
+                    int secondIndex = wire.getSecondIndex();
+                    if (firstIndex != 0 || secondIndex != 0)
+                    {
+                        vExport.firstIndex = secondIndex;
+                        vExport.secondIndex = firstIndex;
+                    }
+                    vModule.ports.add(vExport);
+                }
+                else
+                {
+                    vModule.wires.add(wire.toLispString(wire.width, 0));
+                }
+            }
+            Map<Name,VInstance> instances = new HashMap<>();
+            for (ModInst inst : m.insts)
+            {
+                VModule module = modulesByModName.get(inst.modname);
+                if (module != null)
+                {
+                    String instanceName = inst.instname.toLispString();
+                    VInstance vInstance = new VInstance(module, instanceName);
+                    vModule.instances.add(vInstance);
+                    VInstance old = instances.put(inst.instname, vInstance);
+                    assert old == null;
+                }
+            }
+            for (Map.Entry<Lhs,Lhs> e1: m.aliaspairs.entrySet())
+            {
+                Lhs lhs = e1.getKey();
+                Lhs rhs = e1.getValue();
+                assert lhs.ranges.size() == 1;
+                if (!(((Lhatom.Var) lhs.ranges.get(0).atom).name instanceof SVarExt.PortInst))
+                {
+                    continue;
+                }
+                SVarExt.PortInst pi = (SVarExt.PortInst) ((Lhatom.Var) lhs.ranges.get(0).atom).name;
+                VInstance vInstance = instances.get(pi.inst.instname);
+                if (vInstance == null)
+                {
+                    continue;
+                }
+                String portName = pi.wire.toLispString(pi.wire.width, 0);
+                String[] signals = new String[rhs.ranges.size()];
+                for (int i = 0; i < rhs.ranges.size(); i++)
+                {
+                    signals[signals.length - i - 1] = rhs.ranges.get(i).toLispString();
+                }
+                VPort vPort = new VPort(vInstance, portName, signals.length > 1);
+                assert !vInstance.ports.containsKey(vPort);
+                vInstance.addConnection(vPort, signals);
+            }
+            modulesByModName.put(modName, vModule);
+        }
+        processModules();
+    }
+
+	/**
 	 * Method to report the validity of the Verilog.
 	 * @return true if the Verilog compile found errors.
 	 */
@@ -360,6 +473,14 @@ public class CompileVerilogStruct
 		if (verbose)
 			Job.getUserInterface().stopProgressDialog();
 
+        processModules();
+
+        if (errorLogger != null && !hasParentLogger) errorLogger.termLogging(true);
+//		dumpData();
+	}
+
+    private void processModules()
+    {
 		// make network list
 		for(VModule module : allModules)
 		{
@@ -414,10 +535,8 @@ public class CompileVerilogStruct
 				}
 			}
 		}
-        if (errorLogger != null && !hasParentLogger) errorLogger.termLogging(true);
-//		dumpData();
-	}
-	
+    }
+
 //	private void dumpData()
 //	{
 //		// write what was found
@@ -1143,14 +1262,14 @@ public class CompileVerilogStruct
 
 		// check for opening bracket of FORMAL_PORT_LIST
 		token = needNextToken(TokenType.LEFTPAREN);
-		if (token == null) 
+		if (token == null)
 			return null;
 
 		// gather FORMAL_PORT_LIST
 		for(;;)
 		{
 			token = needNextToken(TokenType.IDENTIFIER);
-			if (token == null) 
+			if (token == null)
 				return null;
 			VExport port = new VExport((String)token.pointer);
 			module.ports.add(port);
@@ -1169,7 +1288,7 @@ public class CompileVerilogStruct
 
 		// check for SEMICOLON
 		token = needNextToken(TokenType.SEMICOLON);
-		if (token == null) 
+		if (token == null)
 			return null;
 
 		return module;
@@ -1185,7 +1304,7 @@ public class CompileVerilogStruct
 		}
 		int mode = MODE_IN;
 		VKeyword vk = (VKeyword)declareToken.pointer;
-		if (vk == VKeyword.OUTPUT) mode = MODE_OUT; else 
+		if (vk == VKeyword.OUTPUT) mode = MODE_OUT; else
 			if (vk == VKeyword.INOUT) mode = MODE_INOUT;
 		TokenList token = getNextToken();
 		int firstRange = -1, secondRange = -1;
@@ -1303,10 +1422,10 @@ public class CompileVerilogStruct
 		{
 			// skip the delay value
 			token = needNextToken(TokenType.DECIMAL);
-			
+
 			token = needNextToken(TokenType.IDENTIFIER);
 		}
-		
+
 		String[] firstNames;
 		if (getTokenType(token) == TokenType.LEFTBRACE)
 		{
@@ -1327,7 +1446,7 @@ public class CompileVerilogStruct
 
 		// get second identifier
 		token = getNextToken();
-		
+
 		// ignore the tilde case
 		if (getTokenType(token) == TokenType.TILDE)
 			token = getNextToken();
@@ -1341,7 +1460,7 @@ public class CompileVerilogStruct
 				if (getTokenType(token) == TokenType.RIGHTPAREN) break;
 			}
 			token = needNextToken(TokenType.SEMICOLON);
-			return; // skipping 
+			return; // skipping
 		}
 
 		// handle stuff inside braces
@@ -1358,7 +1477,7 @@ public class CompileVerilogStruct
 			if (getTokenType(token) != TokenType.IDENTIFIER && getTokenType(token) != TokenType.BITS) return;
 			secondNames = getSignalNames(token);
 		}
-		
+
 		// get semicolon
 		token = needNextToken(TokenType.SEMICOLON);
 		if (token == null) return;
@@ -1736,7 +1855,7 @@ public class CompileVerilogStruct
 		// ignore the at sign
 		TokenList token = needNextToken(TokenType.ATSIGN);
 		if (token == null) return;
-		
+
 		// next scan the condition inside parentheses
 		ignoreParentheticalClause();
 
@@ -1886,7 +2005,7 @@ public class CompileVerilogStruct
             errorLogger.logWarning(msg + " " + buffer.toString(), null, 0);
 		}
 	}
-	
+
 	private void reportErrorMsg(TokenList tList, String errMsg)
 	{
 		hasErrors = true;
@@ -1953,7 +2072,7 @@ public class CompileVerilogStruct
 		{
 			if (!mod.isDefined() && mod.cell == null)
 			{
-				System.out.println("Creating dummy cell for module " + mod.name);				
+				System.out.println("Creating dummy cell for module " + mod.name);
 				mod.cell = Cell.makeInstance(ep, destLib, mod.name + "{ic}");
 				double YSPACING = 4;
 				double yPos = YSPACING/2;
@@ -1993,7 +2112,7 @@ public class CompileVerilogStruct
 	            // put the original cell name on it
 	            TextDescriptor td = ep.getAnnotationTextDescriptor().withRelSize(ep.getIconGenBodyTextSize());
 	            bbNi.newVar(Schematics.SCHEM_FUNCTION, mod.getName(), td);
-				continue;
+    		    continue;
 			}
 			secondPass.add(mod);
 		}
@@ -2258,7 +2377,7 @@ public class CompileVerilogStruct
 						VPort vPort = scalarPorts.get(0);
 						NodeInst ni = placed.get(vPort.in);
 						PortInst pi = findPortOnNode(ni, vPort.portName);
-						EPoint portLoc = pi.getCenter();	
+						EPoint portLoc = pi.getCenter();
 						Point2D pinLoc = new Point2D.Double(portLoc.getX() - 5, portLoc.getY());
 						NodeInst stubPin = NodeInst.makeInstance(np, ep, pinLoc, np.getDefWidth(ep), np.getDefHeight(ep), cell);
 						ArcInst.makeInstance(ap, ep, pi, stubPin.getOnlyPortInst(), portLoc, pinLoc, name);
@@ -2398,6 +2517,7 @@ public class CompileVerilogStruct
 				try
 				{
 					Cell iconCell = ip.makeIconForCell(cell, ep);
+                    mod.cell = iconCell;
 					int exampleLocation = ep.getIconGenInstanceLocation();
 					if (exampleLocation != 4)
 					{

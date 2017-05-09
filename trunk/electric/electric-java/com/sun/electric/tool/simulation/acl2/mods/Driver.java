@@ -21,10 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
-import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
-import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
-import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 
@@ -48,7 +45,7 @@ public class Driver
     {
         this.parent = parent;
         this.impl = impl;
-        svex = Svex.valueOf(parent, car(impl));
+        svex = Svex.valueOf(parent, car(impl), parent.svexCache);
         strength = cdr(impl).intValueExact();
         Util.check(strength >= 0);
     }
@@ -59,35 +56,9 @@ public class Driver
         return "(" + strength + ") " + svex;
     }
 
-    public void check(Map<ModName, Module> modalist)
+    void check(Module.CheckRhsVisitor checkVisitor, Map<ModName, Module> modalist)
     {
-        svex.accept(new CheckVisitor(), modalist);
+        svex.accept(checkVisitor, modalist);
     }
 
-    private static class CheckVisitor implements Svex.Visitor<Void, Map<ModName, Module>>
-    {
-
-        @Override
-        public Void visitConst(Vec4 val, Map<ModName, Module> p)
-        {
-            return null;
-        }
-
-        @Override
-        public Void visitVar(Svar name, Map<ModName, Module> p)
-        {
-            ((SVarExt)name).check(p, false);
-            return null;
-        }
-
-        @Override
-        public Void visitCall(SvexFunction fun, Svex[] args, Map<ModName, Module> p)
-        {
-            for (Svex a : args)
-            {
-                a.accept(this, p);
-            }
-            return null;
-        }
-    }
 }

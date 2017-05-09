@@ -30,6 +30,7 @@ import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import com.sun.electric.util.acl2.ACL2Reader;
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.math.BigInteger;
@@ -102,8 +103,8 @@ public abstract class GenFsm
             throw new UnsupportedOperationException();
         }
         String s = w.name.impl.stringValueExact();
-        assert svar.delay == 0;
-        assert !svar.nonblocking;
+        assert svar.getDelay() == 0;
+        assert !svar.isNonblocking();
         s();
         s("(define " + s + "-ext");
         sb(" ((st " + projName + "-st-p)");
@@ -408,20 +409,22 @@ public abstract class GenFsm
         for (Map.Entry<Lhs, Lhs> e1 : m.aliaspairs.entrySet())
         {
             Lhs l = e1.getKey();
-            Lhs r = e1.getValue();
             assert l.ranges.size() == 1;
             Lhrange lr = l.ranges.get(0);
             Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
             assert atomVar.rsh == 0;
-            SVarExt svar = atomVar.name;
-            assert svar.delay == 0;
-            assert !svar.nonblocking;
-            ModInst inst = svar.inst;
-            if (isFlipFlopOut(inst.modname.impl.stringValueExact(),
-                svar.wire.name.impl.stringValueExact()))
+            if (atomVar.name instanceof SVarExt.PortInst)
             {
-                String s = inst.instname.impl.stringValueExact();
-                s(":" + s + " (" + s + "-next st in)");
+                SVarExt.PortInst pi = (SVarExt.PortInst)atomVar.name;
+                assert pi.getDelay() == 0;
+                assert !pi.isNonblocking();
+                ModInst inst = pi.inst;
+                if (isFlipFlopOut(inst.modname.impl.stringValueExact(),
+                    pi.wire.name.impl.stringValueExact()))
+                {
+                    String s = inst.instname.impl.stringValueExact();
+                    s(":" + s + " (" + s + "-next st in)");
+                }
             }
         }
         out.print("))");
@@ -437,7 +440,7 @@ public abstract class GenFsm
         s("; Primary inputs");
         for (Wire w : m.wires)
         {
-            if (!w.assigned && w.used && !ignore_wire(w))
+            if (!w.isAssigned() && w.used && !ignore_wire(w))
             {
                 knownWires.add(w);
                 genInput(w);
@@ -454,24 +457,27 @@ public abstract class GenFsm
             Lhrange lr = l.ranges.get(0);
             Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
             assert atomVar.rsh == 0;
-            SVarExt svar = atomVar.name;
-            assert svar.delay == 0;
-            assert !svar.nonblocking;
-            ModInst inst = svar.inst;
-            int ffWidth = svar.wire.width;
-            if (isFlipFlopOut(inst.modname.impl.stringValueExact(),
-                svar.wire.name.impl.stringValueExact()))
+            if (atomVar.name instanceof SVarExt.PortInst)
             {
-                int rsh = 0;
-                for (Lhrange lr1 : r.ranges)
+                SVarExt.PortInst pi = (SVarExt.PortInst)atomVar.name;
+                assert pi.getDelay() == 0;
+                assert !pi.isNonblocking();
+                ModInst inst = pi.inst;
+                int ffWidth = pi.wire.width;
+                if (isFlipFlopOut(inst.modname.impl.stringValueExact(),
+                    pi.wire.name.impl.stringValueExact()))
                 {
-                    atomVar = (Lhatom.Var)lr1.atom;
-                    svar = atomVar.name;
-                    assert svar.delay == 0;
-                    assert !svar.nonblocking;
-                    knownWires.add(svar.wire);
-                    genCurrentState(inst.instname, ffWidth, lr1, rsh);
-                    rsh += lr1.w;
+                    int rsh = 0;
+                    for (Lhrange lr1 : r.ranges)
+                    {
+                        atomVar = (Lhatom.Var)lr1.atom;
+                        SVarExt svar = atomVar.name;
+                        assert svar.getDelay() == 0;
+                        assert !svar.isNonblocking();
+                        knownWires.add(svar.wire);
+                        genCurrentState(inst.instname, ffWidth, lr1, rsh);
+                        rsh += lr1.w;
+                    }
                 }
             }
         }
@@ -486,12 +492,13 @@ public abstract class GenFsm
             {
                 Lhrange lr = l.ranges.get(i);
                 Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
+                SVarExt.LocalWire lw = (SVarExt.LocalWire)atomVar.name;
                 SVarExt svar = atomVar.name;
-                if (svar.inst != null)
-                {
-                    System.out.println("Inst " + svar);
-                    continue;
-                }
+//                if (svar.inst != null)
+//                {
+//                    System.out.println("Inst " + svar);
+//                    continue;
+//                }
                 Map<Lhs, Driver> drv = wireDrivers.get(svar.wire);
                 if (drv == null)
                 {
@@ -524,20 +531,23 @@ public abstract class GenFsm
             Lhrange lr = l.ranges.get(0);
             Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
             assert atomVar.rsh == 0;
-            SVarExt svar = atomVar.name;
-            assert svar.delay == 0;
-            assert !svar.nonblocking;
-            ModInst inst = svar.inst;
-            if (isFlipFlopIn(inst.modname.impl.stringValueExact(),
-                svar.wire.name.impl.stringValueExact()))
+            if (atomVar.name instanceof SVarExt.PortInst)
             {
-                for (Lhrange lr1 : r.ranges)
+                SVarExt.PortInst pi = (SVarExt.PortInst)atomVar.name;
+                assert pi.getDelay() == 0;
+                assert !pi.isNonblocking();
+                ModInst inst = pi.inst;
+                if (isFlipFlopIn(inst.modname.impl.stringValueExact(),
+                    pi.wire.name.impl.stringValueExact()))
                 {
-                    atomVar = (Lhatom.Var)lr1.atom;
-                    svar = atomVar.name;
-                    assert svar.delay == 0;
-                    assert !svar.nonblocking;
-                    topSort(svar.wire);
+                    for (Lhrange lr1 : r.ranges)
+                    {
+                        atomVar = (Lhatom.Var)lr1.atom;
+                        SVarExt svar = atomVar.name;
+                        assert svar.getDelay() == 0;
+                        assert !svar.isNonblocking();
+                        topSort(svar.wire);
+                    }
                 }
             }
         }
@@ -562,15 +572,18 @@ public abstract class GenFsm
             Lhrange lr = l.ranges.get(0);
             Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
             assert atomVar.rsh == 0;
-            SVarExt svar = atomVar.name;
-            assert svar.delay == 0;
-            assert !svar.nonblocking;
-            ModInst inst = svar.inst;
-            int ffWidth = svar.wire.width;
-            if (isFlipFlopIn(inst.modname.impl.stringValueExact(),
-                svar.wire.name.impl.stringValueExact()))
+            if (atomVar.name instanceof SVarExt.PortInst)
             {
-                genNextFlipFlop(inst.instname, ffWidth, r);
+                SVarExt.PortInst svar = (SVarExt.PortInst)atomVar.name;
+                assert svar.getDelay() == 0;
+                assert !svar.isNonblocking();
+                ModInst inst = svar.inst;
+                int ffWidth = svar.wire.width;
+                if (isFlipFlopIn(inst.modname.impl.stringValueExact(),
+                    svar.wire.name.impl.stringValueExact()))
+                {
+                    genNextFlipFlop(inst.instname, ffWidth, r);
+                }
             }
         }
         s();
@@ -579,9 +592,9 @@ public abstract class GenFsm
         s();
     }
 
-    public void gen(String saoFileName, String outFileName) throws IOException
+    public void gen(File saoFile, String outFileName) throws IOException
     {
-        ACL2Reader sr = new ACL2Reader(saoFileName);
+        ACL2Reader sr = new ACL2Reader(saoFile);
         Design design = new Design(sr.root);
         ModName nm = null;
         Module m = null;
@@ -599,7 +612,8 @@ public abstract class GenFsm
         {
             this.out = out;
             gen(m);
-        } finally {
+        } finally
+        {
             this.out = null;
         }
     }

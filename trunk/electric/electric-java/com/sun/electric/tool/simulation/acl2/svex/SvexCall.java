@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.svex;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.Arrays;
 
 /**
  * A function applied to some expressions.
@@ -32,6 +33,7 @@ public class SvexCall extends Svex
 {
     public final SvexFunction fun;
     private final Svex[] args;
+    private final int hashCode;
 
     static SvexCall newCall(ACL2Object fn, Svex... args)
     {
@@ -51,6 +53,13 @@ public class SvexCall extends Svex
                 throw new NullPointerException();
             }
         }
+        int hash = 3;
+        hash = 83 * hash + fun.hashCode();
+        for (Svex arg : args)
+        {
+            hash = 31 * hash + arg.hashCode();
+        }
+        hashCode = hash;
     }
 
     public Svex[] getArgs()
@@ -75,4 +84,24 @@ public class SvexCall extends Svex
         return visitor.visitCall(fun, args, data);
     }
 
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o instanceof SvexCall)
+        {
+            SvexCall that = (SvexCall)o;
+            if (!this.fun.equals(that.fun))
+            {
+                return false;
+            }
+            return Arrays.equals(this.args, that.args);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return hashCode;
+    }
 }

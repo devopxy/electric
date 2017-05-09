@@ -25,9 +25,11 @@ import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.util.acl2.ACL2Reader;
+import java.io.File;
 import java.io.IOException;
 
 import java.io.PrintStream;
+import java.math.BigInteger;
 import java.util.Map;
 
 /**
@@ -35,20 +37,20 @@ import java.util.Map;
  */
 public class ACL2DesignJobs
 {
-    public static void dump(String saoFileName, String outFileName)
+    public static void dump(File saoFile, String outFileName)
     {
-        new DumpDesignJob(saoFileName, outFileName).startJob();
+        new DumpDesignJob(saoFile, outFileName).startJob();
     }
 
     private static class DumpDesignJob extends Job
     {
-        private final String saoFileName;
+        private final File saoFile;
         private final String outFileName;
 
-        private DumpDesignJob(String saoFileName, String outFileName)
+        private DumpDesignJob(File saoFile, String outFileName)
         {
             super("Dump SV Design", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
-            this.saoFileName = saoFileName;
+            this.saoFile = saoFile;
             this.outFileName = outFileName;
         }
 
@@ -57,10 +59,11 @@ public class ACL2DesignJobs
         {
             try
             {
-                ACL2Reader sr = new ACL2Reader(saoFileName);
+                ACL2Reader sr = new ACL2Reader(saoFile);
                 Design design = new Design(sr.root);
                 try (PrintStream out = new PrintStream(outFileName))
                 {
+                    int totalUseCount = 0;
                     for (Map.Entry<ModName, Module> e : design.downTop.entrySet())
                     {
                         ModName nm = e.getKey();
@@ -69,16 +72,26 @@ public class ACL2DesignJobs
                             + m.wires.size() + " wires "
                             + m.insts.size() + " insts "
                             + m.assigns.size() + " assigns "
-                            + m.aliaspairs.size() + " aliaspairs");
+                            + m.aliaspairs.size() + " aliaspairs "
+                            + m.useCount + " useCount");
+                        totalUseCount += m.useCount;
                         out.println(" wires");
                         for (Wire w : m.wires)
                         {
-                            if (w.assigned)
+                            if (w.isGlobal())
                             {
-                                out.print(w.used ? "  input  " : "  unused ");
-                            } else
+                                out.print("  global-" + w.global);
+                            } else if (w.isAssigned())
                             {
                                 out.print(w.used ? "  out    " : "  output ");
+                                if (w.assignedBits != null && !BigInteger.ONE.shiftLeft(w.width).subtract(BigInteger.ONE).equals(w.assignedBits))
+                                {
+                                    out.print("!" + w.getAssignedBits().toString(16) + "!");
+                                }
+                            } else
+                            {
+                                Util.check(w.getAssignedBits().signum() == 0);
+                                out.print(w.used ? "  input  " : "  unused ");
                             }
                             out.print(w.exported ? "* " : "  ");
                             out.println(w);
@@ -99,8 +112,8 @@ public class ACL2DesignJobs
                                 Lhrange lr = l.ranges.get(i);
                                 Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
                                 SVarExt svar = atomVar.name;
-                                assert svar.delay == 0;
-                                assert !svar.nonblocking;
+                                assert svar.getDelay() == 0;
+                                assert !svar.isNonblocking();
                                 out.print((i == 0 ? "  " : ",") + lr);
                             }
                             out.println(" = " + d);
@@ -115,20 +128,21 @@ public class ACL2DesignJobs
                             Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
                             assert atomVar.rsh == 0;
                             SVarExt svar = atomVar.name;
-                            assert svar.delay == 0;
-                            assert !svar.nonblocking;
+                            assert svar.getDelay() == 0;
+                            assert !svar.isNonblocking();
                             out.print("  " + lr + " <->");
                             for (Lhrange lr1 : r.ranges)
                             {
                                 atomVar = (Lhatom.Var)lr1.atom;
                                 svar = atomVar.name;
-                                assert svar.delay == 0;
-                                assert !svar.nonblocking;
+                                assert svar.getDelay() == 0;
+                                assert !svar.isNonblocking();
                                 out.print(" " + lr1);
                             }
                             out.println();
                         }
                     }
+                    out.println("totalUseCount=" + totalUseCount);
                     out.println("design.top=" + design.top);
                 }
             } catch (IOException e)
@@ -139,21 +153,22 @@ public class ACL2DesignJobs
         }
     }
 
-    public static void genAlu(String saoFileName, String outFileName) {
-        new GenFsmJob<>(Alu.class, saoFileName, outFileName).startJob();
+    public static void genAlu(File saoFile, String outFileName)
+    {
+        new GenFsmJob<>(Alu.class, saoFile, outFileName).startJob();
     }
-    
+
     public static class GenFsmJob<T extends GenFsm> extends Job
     {
         private final Class<T> cls;
-        private final String saoFileName;
+        private final File saoFile;
         private final String outFileName;
 
-        public GenFsmJob(Class<T> cls, String saoFileName, String outFileName)
+        public GenFsmJob(Class<T> cls, File saoFile, String outFileName)
         {
             super("Gen Fsm in ACL2", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
             this.cls = cls;
-            this.saoFileName = saoFileName;
+            this.saoFile = saoFile;
             this.outFileName = outFileName;
         }
 
@@ -163,7 +178,7 @@ public class ACL2DesignJobs
             try
             {
                 GenFsm gen = cls.newInstance();
-                gen.gen(saoFileName, outFileName);
+                gen.gen(saoFile, outFileName);
             } catch (InstantiationException | IllegalAccessException | IOException e)
             {
                 System.out.println(e.getMessage());
@@ -214,7 +229,7 @@ public class ACL2DesignJobs
         {
             super("alu", "alu16");
         }
-/*
+        /*
 Used Svex functions:
 SV::BITNOT
 SV::CONCAT
@@ -230,6 +245,6 @@ COMMON-LISP::<
 SV::BITXOR
 SV::BITOR
 SV::B-
-        */
+         */
     }
 }

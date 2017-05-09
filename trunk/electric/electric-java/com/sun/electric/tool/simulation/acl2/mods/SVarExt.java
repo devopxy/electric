@@ -30,23 +30,18 @@ import java.util.Map;
 /**
  * SVAR extended by parent, instance and wire.
  */
-public class SVarExt extends Svar
+public abstract class SVarExt extends Svar
 {
 
     final Module parent;
     public final ACL2Object name;
-    public final int delay;
-    public final boolean nonblocking;
 
-    public ModInst inst;
     public Wire wire;
 
-    SVarExt(Module parent, ACL2Object name, int delay, boolean nonblocking)
+    SVarExt(Module parent, ACL2Object name)
     {
         this.parent = parent;
         this.name = name;
-        this.delay = delay;
-        this.nonblocking = nonblocking;
     }
 
     @Override
@@ -56,39 +51,14 @@ public class SVarExt extends Svar
     }
 
     @Override
-    public int getDelay()
-    {
-        return delay;
-    }
-
-    @Override
     public boolean isNonblocking()
     {
-        return nonblocking;
+        return false;
     }
 
-    public String toString(int width, int rsh)
-    {
-        return (inst == null ? "" : inst.instname + ".")
-            + wire.toString(width, rsh)
-            + (delay != 0 ? "@" + delay : "")
-            + (nonblocking ? "NONBLOCKING" : "");
-    }
+    public abstract String toString(int width, int rsh);
 
-    public String toLispString(int width, int rsh)
-    {
-        if (inst != null || delay != 0 || nonblocking)
-        {
-            throw new UnsupportedOperationException();
-        }
-        if (width == wire.width)
-        {
-            return wire.name.toLispString();
-        } else
-        {
-            return wire.toLispString(width, rsh);
-        }
-    }
+    public abstract String toLispString(int width, int rsh);
 
     @Override
     public String toString()
@@ -96,42 +66,92 @@ public class SVarExt extends Svar
         return toString(wire.width, 0);
     }
 
-    public void check(Map<ModName, Module> modalist)
+    public static class PortInst extends SVarExt
     {
-        Wire w;
-        if (consp(name).bool())
+        public final ModInst inst;
+
+        public PortInst(Module parent, ACL2Object name)
         {
+            super(parent, name);
             inst = parent.instsIndex.get(new Name(car(name)));
-            Module sm = modalist.get(inst.modname);
-            w = sm.wiresIndex.get(new Name(cdr(name)));
-            w.exported = true;
-        } else
-        {
-            inst = null;
-            w = parent.wiresIndex.get(new Name(name));
+            Module sm = inst.proto;
+            wire = sm.wiresIndex.get(new Name(cdr(name)));
+            wire.exported = true;
         }
-        Util.check(w != null);
-        if (wire == null)
+
+        @Override
+        public int getDelay()
         {
-            wire = w;
-        } else
-        {
-            Util.check(wire == w);
+            return 0;
         }
+
+        @Override
+        public String toString(int width, int rsh)
+        {
+            return inst.instname + "." + wire.toString(width, rsh);
+        }
+
+        @Override
+        public String toLispString(int width, int rsh)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String toString()
+        {
+            return toString(wire.width, 0);
+        }
+
     }
 
-    public void check(Map<ModName, Module> modalist, boolean assign)
+    public static class LocalWire extends SVarExt
     {
-        check(modalist);
-        if (inst == null)
+        public final int delay;
+
+        public LocalWire(Module parent, ACL2Object name, int delay)
         {
-            if (assign)
-            {
-                wire.assigned = true;
-            } else
+            super(parent, name);
+            this.delay = delay;
+            wire = parent.wiresIndex.get(new Name(name));
+        }
+
+        @Override
+        public int getDelay()
+        {
+            return delay;
+        }
+
+        public void check(Map<ModName, Module> modalist, boolean assign)
+        {
+            if (!assign)
             {
                 wire.used = true;
             }
         }
+
+        @Override
+        public String toString(int width, int rsh)
+        {
+            return wire.toString(width, rsh)
+                + (delay != 0 ? "@" + delay : "");
+        }
+
+        @Override
+        public String toLispString(int width, int rsh)
+        {
+            if (delay != 0)
+            {
+                throw new UnsupportedOperationException();
+            }
+            if (width == wire.width)
+            {
+                return wire.name.toLispString();
+            } else
+            {
+                return wire.toLispString(width, rsh);
+            }
+        }
+
     }
 }

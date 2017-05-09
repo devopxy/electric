@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 
 import java.util.HashMap;
@@ -33,10 +34,35 @@ import java.util.Map;
 public class ModName
 {
     public final ACL2Object impl;
+    public final boolean isString;
+    public final boolean isCoretype;
+    public final boolean isGate;
 
     private ModName(ACL2Object impl)
     {
         this.impl = impl;
+        if (consp(impl).bool())
+        {
+            if (car(impl).equals(ACL2Object.valueOf("KEYWORD", "VL-CORETYPE")))
+            {
+                isCoretype = true;
+                isString = isGate = false;
+            } else if (car(impl).equals(ACL2Object.valueOf("KEWWORD", "GATE")))
+            {
+                isGate = true;
+                isString = isCoretype = false;
+            } else
+            {
+                isString = isCoretype = isGate = false;
+            }
+        } else if (stringp(impl).bool())
+        {
+            isString = true;
+            isCoretype = isGate = false;
+        } else
+        {
+            isString = isCoretype = isGate = false;
+        }
     }
 
     private static final Map<ACL2Object, ModName> allModNames = new HashMap<>();

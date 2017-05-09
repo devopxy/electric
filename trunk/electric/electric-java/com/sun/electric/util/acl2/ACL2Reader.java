@@ -22,6 +22,7 @@
 package com.sun.electric.util.acl2;
 
 import java.io.DataInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -36,7 +37,6 @@ import java.util.Map;
 public class ACL2Reader
 {
 
-    public final String fileName;
     public final ACL2Object root;
     public final int nNat;
     public final int nInt;
@@ -50,7 +50,7 @@ public class ACL2Reader
 
     private final List<ACL2Object> allObjs = new ArrayList<>();
 
-    
+
     {
         allObjs.add(ACL2Symbol.NIL);
         allObjs.add(ACL2Symbol.T);
@@ -92,10 +92,9 @@ public class ACL2Reader
         return sb.toString();
     }
 
-    public ACL2Reader(String fileName) throws IOException
+    public ACL2Reader(File f) throws IOException
     {
-        this.fileName = fileName;
-        try (DataInputStream in = new DataInputStream(new FileInputStream(fileName)))
+        try (DataInputStream in = new DataInputStream(new FileInputStream(f)))
         {
             int magic = in.readInt();
             check(magic == 0xAC120BC9);

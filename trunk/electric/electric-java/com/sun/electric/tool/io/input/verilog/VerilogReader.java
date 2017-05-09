@@ -58,10 +58,17 @@ public class VerilogReader extends Input<Object>
 		public boolean makeLayoutCells = IOTool.isFactoryVerilogMakeLayoutCells();
 		public Placement.PlacementPreferences placementPrefs;
 		public IconParameters iconParameters;
+        public boolean acl2;
 
         public VerilogPreferences(boolean factory)
         {
+            this(factory, false);
+        }
+
+        public VerilogPreferences(boolean factory, boolean acl2)
+        {
             super(factory);
+            this.acl2 = acl2;
             if (!factory)
             {
                 runPlacement = SimulationTool.getVerilogRunPlacementTool();
@@ -76,7 +83,9 @@ public class VerilogReader extends Input<Object>
         	Map<CellId,BitSet> nodesToExpand, Job job)
         {
         	File f = TextUtils.getFile(fileURL);
-        	CompileVerilogStruct cvs = new CompileVerilogStruct(f, false, null);
+        	CompileVerilogStruct cvs = acl2
+                ? new CompileVerilogStruct(f)
+                : new CompileVerilogStruct(f, false, null);
         	Cell cell = cvs.genCell(lib, !makeLayoutCells, ep, iconParameters);
 
         	// running placement tool if selected

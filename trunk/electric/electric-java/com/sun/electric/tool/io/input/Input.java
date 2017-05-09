@@ -200,6 +200,7 @@ public class Input<ResultType>
 		if (type == FileType.SPICE) return new Spice.SpicePreferences(factory);
 		if (type == FileType.SUE) return new Sue.SuePreferences(factory);
 		if (type == FileType.VERILOG) return new VerilogReader.VerilogPreferences(factory);
+		if (type == FileType.SAO) return new VerilogReader.VerilogPreferences(factory, true);
 		if (type == FileType.DSPF) return new DSPFReader.DSPFReaderPreferences(factory);
 		if (type == FileType.BOOKSHELF) return new Bookshelf.BookshelfPreferences(factory);
 //		if (type == FileType.CALIBREDRV) return new CalibreDRV.CalibreDRVPreferences(factory);

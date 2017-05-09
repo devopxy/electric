@@ -39,33 +39,21 @@ public class ModInst
     public final ModName modname;
 
     final Module parent;
-    Module proto;
+    final Module proto;
 
-    ModInst(Module parent, ACL2Object impl)
+    ModInst(Module parent, ACL2Object impl, Map<ModName, Module> downTop)
     {
         this.impl = impl;
         this.parent = parent;
         instname = new Name(car(impl));
         modname = ModName.valueOf(cdr(impl));
+        proto = downTop.get(modname);
+        Util.check(proto != null);
     }
 
     @Override
     public String toString()
     {
         return instname + ":" + modname;
-    }
-
-    void check(Map<ModName, Module> modalist)
-    {
-        Module proto = modalist.get(modname);
-        Util.check(proto != null);
-        if (this.proto == null)
-        {
-            this.proto = proto;
-        } else
-        {
-            Util.check(this.proto == proto);
-        }
-
     }
 }

@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
 
 import java.util.Map;
 
@@ -54,6 +55,8 @@ public abstract class Lhatom
 
     public abstract void check(Map<ModName, Module> modalist, boolean assign);
 
+    public abstract void markAssigned(BigInteger assignedBits);
+
     public abstract String toString(int w);
 
     public abstract String toLispString(int w);
@@ -70,6 +73,11 @@ public abstract class Lhatom
         public void check(Map<ModName, Module> modalist, boolean assign)
         {
             Util.check(!assign);
+        }
+
+        @Override
+        public void markAssigned(BigInteger assignedBits)
+        {
         }
 
         @Override
@@ -114,9 +122,28 @@ public abstract class Lhatom
         }
 
         @Override
+        public void markAssigned(BigInteger assignedBits)
+        {
+            if (name instanceof SVarExt.LocalWire)
+            {
+                SVarExt.LocalWire lw = (SVarExt.LocalWire)name;
+                lw.wire.markAssigned(assignedBits.shiftLeft(rsh));
+            } else
+            {
+                SVarExt.PortInst pi = (SVarExt.PortInst)name;
+                assignedBits = assignedBits.shiftLeft(rsh);
+                Util.check(assignedBits.signum() >= 0 && assignedBits.bitLength() <= pi.wire.width);
+                Util.check(assignedBits.and(pi.wire.getAssignedBits()).signum() == 0);
+            }
+        }
+
+        @Override
         public void check(Map<ModName, Module> modalist, boolean assign)
         {
-            name.check(modalist, assign);
+            if (name instanceof SVarExt.LocalWire)
+            {
+                ((SVarExt.LocalWire)name).check(modalist, assign);
+            }
         }
 
         @Override
