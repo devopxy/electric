@@ -21,7 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex;
 
-import com.sun.electric.util.acl2.ACL2Object;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -30,22 +30,22 @@ import java.util.Set;
  */
 class CollectVarsVisitor<T extends Svar> implements Svex.Visitor<Set<T>, Set<T>>
 {
-    private static final CollectVarsVisitor<Svar> SVAR_VISITOR = new CollectVarsVisitor<>(Svar.class);
     private final Class<T> cls;
+    private final Set<Svex> visited = new HashSet<>();
 
     CollectVarsVisitor(Class<T> cls)
     {
         this.cls = cls;
     }
 
+    public static Set<Svar> collectVars(Svex svex)
+    {
+        return collectVars(svex, Svar.class);
+    }
+
     public static <T extends Svar> Set<T> collectVars(Svex svex, Class<T> cls)
     {
         return svex.accept(new CollectVarsVisitor<>(cls), new LinkedHashSet<>());
-    }
-
-    public static Set<Svar> collectVars(Svex svex)
-    {
-        return svex.accept(SVAR_VISITOR, new LinkedHashSet<>());
     }
 
     @Override
@@ -69,7 +69,11 @@ class CollectVarsVisitor<T extends Svar> implements Svex.Visitor<Set<T>, Set<T>>
     {
         for (Svex a : args)
         {
-            a.accept(this, p);
+            if (!visited.contains(a))
+            {
+                a.accept(this, p);
+                visited.add(a);
+            }
         }
         return p;
     }

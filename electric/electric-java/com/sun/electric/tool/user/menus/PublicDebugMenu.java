@@ -42,17 +42,19 @@ import com.sun.electric.tool.simulation.acl2.mods.ACL2DesignJobs;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.UserInterfaceMain;
 import com.sun.electric.tool.user.dialogs.OpenFile;
+import static com.sun.electric.tool.user.menus.FileMenu.importLibraryCommand;
 import com.sun.electric.util.TextUtils;
 import com.sun.electric.util.acl2.ACL2Reader;
 import com.sun.electric.util.acl2.GenPkgImports;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.net.URL;
 
 /**
- * 
+ *
  * @author Felix Schmdit
- * 
+ *
  */
 public class PublicDebugMenu {
 
@@ -61,58 +63,68 @@ public class PublicDebugMenu {
 
 		// SEPARATOR,
                 new EMenu("ACL2",
-                    
+
+                new EMenuItem("Import _SAO...") {	public void run() {
+                    importLibraryCommand(FileType.SAO, false, false, false, false); }},
                 new EMenuItem("Count objects in SAO file") {
                     @Override
                     public void run() {
                         String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized ACL2", false);
                         if (saoPath == null) return;
+                        URL fileURL = TextUtils.makeURLToFile(saoPath);
+                        File f = TextUtils.getFile(fileURL);
                         String saoName = TextUtils.getFileNameWithoutPath(saoPath);
                         try {
-                            System.out.println(saoName + " contains " + new ACL2Reader(saoPath).getStats());
+                            System.out.println(saoName + " contains " + new ACL2Reader(f).getStats());
                         } catch (IOException e) {
                             System.out.println(e);
                         }
                     }
                 },
-                
+
                 new EMenuItem("Generate pkg-imports.dat") {
                     @Override
                     public void run()
                     {
                         String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized pkg-imports", false);
                         if (saoPath == null) return;
-                        GenPkgImports.gen(saoPath);
+                        URL fileURL = TextUtils.makeURLToFile(saoPath);
+                        File f = TextUtils.getFile(fileURL);
+                        GenPkgImports.gen(f);
                     }
                 },
-                
+
                 new EMenuItem("Dump SVEX design") {
                     @Override
                     public void run()
                     {
                         String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized SVEX design", false);
                         if (saoPath == null) return;
+                        URL fileURL = TextUtils.makeURLToFile(saoPath);
+                        File f = TextUtils.getFile(fileURL);
                         String defaultOutName = User.getWorkingDirectory()
                             + File.separator + TextUtils.getFileNameWithoutExtension(saoPath) + ".txt";
                         String outPath = OpenFile.chooseOutputFile(FileType.TEXT, "SVEX design dump", defaultOutName);
                         if (outPath == null) return;
-                        ACL2DesignJobs.dump(saoPath, outPath);
+                        ACL2DesignJobs.dump(f, outPath);
                     }
                 },
-        
+
                 new EMenuItem("Gen FSM for ALU") {
                     @Override
                     public void run()
                     {
                         String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized ALU design", false);
                         if (saoPath == null) return;
+                        URL fileURL = TextUtils.makeURLToFile(saoPath);
+                        File f = TextUtils.getFile(fileURL);
                         String defaultOutName = "alu-auto.lisp";
                         String outPath = OpenFile.chooseOutputFile(FileType.LISP, "ALU FSM in ACL2", defaultOutName);
                         if (outPath == null) return;
-                        ACL2DesignJobs.genAlu(saoPath, outPath);
+                        ACL2DesignJobs.genAlu(f, outPath);
                     }
                 }),
-            
+
 				new EMenu("DRC",
 
 				new EMenuItem("Check _Minimum Area...") {
@@ -128,7 +140,7 @@ public class PublicDebugMenu {
 						MinArea.writeMinareaLay();
 					}
 				}),
-                
+
                 new EMenu("Fast JELIB reader",
 
                 jelibItem("Database", true, true, true, true, true),
@@ -137,7 +149,7 @@ public class PublicDebugMenu {
                 jelibItem("doBackup", true, true, false, false, false),
                 jelibItem("instantiate", true, false, false, false, false),
                 jelibItem("only parse", false, false, false, false, false)),
-                
+
                 new EMenu("SeaOfGatesRouter",
 
                 sogItem("Animation", SeaOfGatesHandlers.Save.SAVE_SNAPSHOTS),
@@ -164,7 +176,7 @@ public class PublicDebugMenu {
                     }
                 }));
 	}
-    
+
     // Dima's menu items
 
     private static EMenuItem jelibItem(String text,
@@ -181,7 +193,7 @@ public class PublicDebugMenu {
             }
         };
     }
-    
+
     private static EMenuItem sogItem(String text, final SeaOfGatesHandlers.Save save) {
         return new EMenuItem(text) {
 
@@ -194,7 +206,7 @@ public class PublicDebugMenu {
             }
         };
     }
-    
+
     private static EMenuItem sogItem(String text, final Job.Type jobType) {
         return new EMenuItem(text) {
 
@@ -207,7 +219,7 @@ public class PublicDebugMenu {
             }
         };
     }
-    
+
     /**
      * Class to run sea-of-gates routing in a separate Job.
      */
@@ -231,13 +243,13 @@ public class PublicDebugMenu {
         private final Snapshot snapshot;
         private final CellId cellId;
         private final EditingPreferences ep;
-        
+
         private SeaOfGatesThread(Cell cell, EditingPreferences ep) {
             snapshot = cell.getDatabase().backup();
             cellId = cell.getId();
             this.ep = ep;
         }
-        
+
         @Override
         public void run() {
             EDatabase database = new EDatabase(snapshot, "dummy");
@@ -245,7 +257,7 @@ public class PublicDebugMenu {
             routeIt(cell, ep, System.err);
         }
     }
-     
+
     private static void routeIt(Cell cell, EditingPreferences ep, PrintStream out) {
         SeaOfGatesEngine router = SeaOfGatesEngineFactory.createSeaOfGatesEngine();
         SeaOfGates.SeaOfGatesOptions prefs = new SeaOfGates.SeaOfGatesOptions();

@@ -31,13 +31,15 @@ public class SvexVar extends Svex
 {
     public Svar svar;
 
-    public SvexVar(Svar svar) {
-        if (svar == null) {
+    public SvexVar(Svar svar)
+    {
+        if (svar == null)
+        {
             throw new NullPointerException();
         }
         this.svar = svar;
     }
-    
+
     @Override
     public ACL2Object makeACL2Object()
     {
@@ -48,5 +50,17 @@ public class SvexVar extends Svex
     public <R, D> R accept(Visitor<R, D> visitor, D data)
     {
         return visitor.visitVar(svar, data);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        return o instanceof SvexVar && svar.equals(((SvexVar)o).svar);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return svar.hashCode();
     }
 }

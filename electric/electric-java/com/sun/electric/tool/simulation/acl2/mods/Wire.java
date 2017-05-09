@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
 
 /**
  * Wire info as stored in an svex module.
@@ -30,8 +31,6 @@ import com.sun.electric.util.acl2.ACL2Object;
  */
 public class Wire
 {
-    final ACL2Object impl;
-
     public final Name name;
     public final int width;
     final int low_idx;
@@ -41,14 +40,20 @@ public class Wire
 
     final Module parent;
 
-    public boolean assigned, used, exported;
+    public boolean used, exported;
+    BigInteger assignedBits;
+    String global;
 
     Wire(Module parent, ACL2Object impl)
     {
         this.parent = parent;
-        this.impl = impl;
         ACL2Object cons00 = car(impl);
         name = new Name(car(cons00));
+        if (!stringp(name.impl).bool())
+        {
+            Util.check(integerp(name.impl).bool() || Util.KEYWORD_SELF.equals(name.impl));
+            Util.check(parent.modName.isCoretype);
+        }
         ACL2Object cons001 = cdr(cons00);
         width = car(cons001).intValueExact();
         Util.check(width >= 1);
@@ -92,6 +97,24 @@ public class Wire
         }
     }
 
+    public int getFirstIndex()
+    {
+        if (revp)
+        {
+            throw new UnsupportedOperationException();
+        }
+        return low_idx + width - 1;
+    }
+
+    public int getSecondIndex()
+    {
+        if (revp)
+        {
+            throw new UnsupportedOperationException();
+        }
+        return low_idx;
+    }
+
     public String toString(int width, int rsh)
     {
         if (revp)
@@ -121,4 +144,49 @@ public class Wire
         return toString(width, 0)
             + (delay != 0 ? "@" + delay : "");
     }
+
+    public void markAssigned(BigInteger assignedBits)
+    {
+        if (assignedBits.signum() == 0)
+        {
+            return;
+        }
+        Util.check(assignedBits.signum() >= 0 && assignedBits.bitLength() <= width);
+        if (this.assignedBits == null)
+        {
+            this.assignedBits = BigInteger.ZERO;
+        }
+        if (assignedBits.and(this.assignedBits).signum() != 0)
+        {
+            System.out.println(this + " has multiple assignement");
+        }
+        this.assignedBits = this.assignedBits.or(assignedBits);
+    }
+
+    public boolean isAssigned()
+    {
+        return assignedBits != null;
+    }
+
+    public BigInteger getAssignedBits()
+    {
+        return assignedBits != null ? assignedBits : BigInteger.ZERO;
+    }
+
+    public void markGlobal(String name)
+    {
+        if (global == null)
+        {
+            global = name;
+        } else if (!global.equals(name))
+        {
+            global = "";
+        }
+    }
+
+    public boolean isGlobal()
+    {
+        return global != null && !global.isEmpty();
+    }
+
 }

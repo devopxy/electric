@@ -32,9 +32,9 @@ import java.math.BigInteger;
 public abstract class Vec4
 {
     public static final Vec4 X = new Impl(BigInteger.valueOf(-1), BigInteger.valueOf(0));
-    public static final Vec4 Z = new Impl(BigInteger.valueOf(1), BigInteger.valueOf(-1));
+    public static final Vec4 Z = new Impl(BigInteger.valueOf(0), BigInteger.valueOf(-1));
     public static final Vec4 X1 = new Impl(BigInteger.valueOf(1), BigInteger.valueOf(0));
-    public static final Vec4 Z1 = new Impl(BigInteger.valueOf(1), BigInteger.valueOf(1));
+    public static final Vec4 Z1 = new Impl(BigInteger.valueOf(0), BigInteger.valueOf(1));
 
     public abstract boolean isVec2();
 

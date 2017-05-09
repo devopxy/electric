@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -61,10 +62,43 @@ public class Lhs
         return (int)impl.id();
     }
 
+    public int size()
+    {
+        int size = 0;
+        for (Lhrange lr : ranges)
+        {
+            size += lr.w;
+        }
+        return size;
+    }
+
     @Override
     public String toString()
     {
         return impl.rep();
+    }
+
+    public String toElectricString()
+    {
+        String s = "";
+        for (int i = ranges.size() - 1; i >= 0; i--)
+        {
+            s += ranges.get(i).toLispString();
+            if (i > 0)
+            {
+                s += ",";
+            }
+        }
+        return s;
+    }
+
+    public void markAssigned(BigInteger assignedBits)
+    {
+        for (Lhrange lr : ranges)
+        {
+            lr.markAssigned(assignedBits);
+            assignedBits = assignedBits.shiftRight(lr.w);
+        }
     }
 
     public void check(Map<ModName, Module> modalist, boolean assign)

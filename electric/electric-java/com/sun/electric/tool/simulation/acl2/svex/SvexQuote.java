@@ -33,13 +33,15 @@ public class SvexQuote extends Svex
 
     public final Vec4 val;
 
-    public SvexQuote(Vec4 val) {
-        if (val == null) {
+    public SvexQuote(Vec4 val)
+    {
+        if (val == null)
+        {
             throw new NullPointerException();
         }
         this.val = val;
     }
-    
+
     @Override
     public ACL2Object makeACL2Object()
     {
@@ -54,5 +56,17 @@ public class SvexQuote extends Svex
     public <R, D> R accept(Visitor<R, D> visitor, D data)
     {
         return visitor.visitConst(val, data);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        return o instanceof SvexQuote && val.equals(((SvexQuote)o).val);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return val.hashCode();
     }
 }
