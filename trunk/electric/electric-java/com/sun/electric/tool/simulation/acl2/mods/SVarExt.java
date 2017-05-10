@@ -25,8 +25,6 @@ import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 
-import java.util.Map;
-
 /**
  * SVAR extended by parent, instance and wire.
  */
@@ -122,12 +120,9 @@ public abstract class SVarExt extends Svar
             return delay;
         }
 
-        public void check(Map<ModName, Module> modalist, boolean assign)
+        public void markUsed()
         {
-            if (!assign)
-            {
-                wire.used = true;
-            }
+            wire.used = true;
         }
 
         @Override

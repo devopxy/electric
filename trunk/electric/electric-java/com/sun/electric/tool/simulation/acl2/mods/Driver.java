@@ -21,11 +21,12 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 
-import java.util.Map;
+import java.util.Set;
 
 /**
  * Driver - SVEX expression with strength.
@@ -47,6 +48,10 @@ public class Driver
         this.impl = impl;
         svex = Svex.valueOf(parent, car(impl), parent.svexCache);
         strength = cdr(impl).intValueExact();
+        for (Svar svar : svex.collectVars())
+        {
+            Util.check(svar instanceof SVarExt.LocalWire);
+        }
         Util.check(strength >= 0);
     }
 
@@ -56,9 +61,16 @@ public class Driver
         return "(" + strength + ") " + svex;
     }
 
-    void check(Module.CheckRhsVisitor checkVisitor, Map<ModName, Module> modalist)
+    public Set<SVarExt.LocalWire> collectVars()
     {
-        svex.accept(checkVisitor, modalist);
+        return svex.collectVars(SVarExt.LocalWire.class);
     }
 
+    void markUsed()
+    {
+        for (SVarExt.LocalWire svar : collectVars())
+        {
+            svar.markUsed();
+        }
+    }
 }

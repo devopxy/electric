@@ -21,61 +21,127 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex;
 
-import java.util.HashSet;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Bitand;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4IteStmt;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
  * Collect variables from SVEX expression.
  */
-class CollectVarsVisitor<T extends Svar> implements Svex.Visitor<Set<T>, Set<T>>
+class CollectVarsVisitor<T extends Svar> implements Svex.Visitor<Vec2, Set<T>>
 {
     private final Class<T> cls;
-    private final Set<Svex> visited = new HashSet<>();
+    private final Map<Svex, Vec2> visited = new HashMap<>();
+    private final Map<Svar, Vec2> env;
 
-    CollectVarsVisitor(Class<T> cls)
+    CollectVarsVisitor(Class<T> cls, Map<Svar, Vec2> env)
     {
         this.cls = cls;
+        this.env = env;
     }
 
     public static Set<Svar> collectVars(Svex svex)
     {
-        return collectVars(svex, Svar.class);
+        return collectVars(svex, Svar.class, null);
     }
 
-    public static <T extends Svar> Set<T> collectVars(Svex svex, Class<T> cls)
+    public static <T extends Svar> Set<T> collectVars(Svex svex, Class<T> cls, Map<Svar, Vec2> env)
     {
-        return svex.accept(new CollectVarsVisitor<>(cls), new LinkedHashSet<>());
-    }
-
-    @Override
-    public Set<T> visitConst(Vec4 val, Set<T> p)
-    {
-        return p;
+        Set<T> result = new LinkedHashSet<>();
+        svex.accept(new CollectVarsVisitor<>(cls, env), result);
+        return result;
     }
 
     @Override
-    public Set<T> visitVar(Svar name, Set<T> p)
+    public Vec2 visitConst(Vec4 val, Set<T> p)
     {
+        return val.isVec2() ? (Vec2)val : null;
+    }
+
+    @Override
+    public Vec2 visitVar(Svar name, Set<T> p)
+    {
+        if (env != null)
+        {
+            Vec2 val = env.get(name);
+            if (val != null)
+            {
+                return val;
+            }
+        }
         if (cls.isInstance(name))
         {
             p.add(cls.cast(name));
         }
-        return p;
+        return null;
+    }
+
+    private Vec2 visitArg(Svex arg, Set<T> p)
+    {
+        if (visited.containsKey(arg))
+        {
+            return visited.get(arg);
+        }
+        Vec2 result = arg.accept(this, p);
+        visited.put(arg, result);
+        return result;
     }
 
     @Override
-    public Set<T> visitCall(SvexFunction fun, Svex[] args, Set<T> p)
+    public Vec2 visitCall(SvexFunction fun, Svex[] args, Set<T> p)
     {
-        for (Svex a : args)
+        if (fun == Vec4IteStmt.FUNCTION)
         {
-            if (!visited.contains(a))
+            Svex test = args[0];
+            Svex th = args[1];
+            Svex el = args[2];
+            Vec2 testVal = visitArg(test, p);
+            if (Vec2.ZERO.equals(testVal))
             {
-                a.accept(this, p);
-                visited.add(a);
+                return visitArg(el, p);
+            } else if (testVal != null)
+            {
+                return visitArg(th, p);
+            }
+        } else if (fun == Vec4Bitand.FUNCTION)
+        {
+            Svex x = args[0];
+            Svex y = args[1];
+            Vec2 xVal = visitArg(x, p);
+            if (Vec2.ZERO.equals(xVal))
+            {
+                return Vec2.ZERO;
+            } else if (xVal != null)
+            {
+                Vec2 yVal = visitArg(y, p);
+                if (yVal != null)
+                {
+                    Vec4 result = Vec4Bitand.FUNCTION.apply(xVal, yVal);
+                    return result.isVec2() ? (Vec2)result : null;
+                }
             }
         }
-        return p;
+        Vec4[] argVals = new Vec4[args.length];
+        boolean allVec2 = true;
+        for (int i = 0; i < args.length; i++)
+        {
+            Svex a = args[i];
+            Vec4 aVal = visitArg(a, p);
+            allVec2 = allVec2 && aVal != null && aVal.isVec2();
+            argVals[i] = aVal;
+        }
+        if (allVec2)
+        {
+            Vec4 result = fun.apply(argVals);
+            if (result.isVec2())
+            {
+                return (Vec2)result;
+            }
+        }
+        return null;
     }
 
 }

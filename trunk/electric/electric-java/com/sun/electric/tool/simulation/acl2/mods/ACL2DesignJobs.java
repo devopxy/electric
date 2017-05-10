@@ -23,6 +23,9 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.util.acl2.ACL2Reader;
 import java.io.File;
@@ -30,7 +33,11 @@ import java.io.IOException;
 
 import java.io.PrintStream;
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Dump serialized file with SVEX design
@@ -46,6 +53,7 @@ public class ACL2DesignJobs
     {
         private final File saoFile;
         private final String outFileName;
+        private final String clkName = "l2clk";
 
         private DumpDesignJob(File saoFile, String outFileName)
         {
@@ -68,7 +76,9 @@ public class ACL2DesignJobs
                     {
                         ModName nm = e.getKey();
                         Module m = e.getValue();
-                        out.println(nm + " => "
+                        Map<SVarExt, Set<SVarExt.LocalWire>> graph0 = evalAssigns(m, clkName, Vec2.ZERO);
+                        Map<SVarExt, Set<SVarExt.LocalWire>> graph1 = evalAssigns(m, clkName, Vec2.ONE);
+                        out.println("module " + nm + " has "
                             + m.wires.size() + " wires "
                             + m.insts.size() + " insts "
                             + m.assigns.size() + " assigns "
@@ -78,23 +88,22 @@ public class ACL2DesignJobs
                         out.println(" wires");
                         for (Wire w : m.wires)
                         {
-                            if (w.isGlobal())
-                            {
-                                out.print("  global-" + w.global);
-                            } else if (w.isAssigned())
+                            if (w.isAssigned())
                             {
                                 out.print(w.used ? "  out    " : "  output ");
                                 if (w.assignedBits != null && !BigInteger.ONE.shiftLeft(w.width).subtract(BigInteger.ONE).equals(w.assignedBits))
                                 {
-                                    out.print("!" + w.getAssignedBits().toString(16) + "!");
+                                    out.print("#x" + w.getAssignedBits().toString(16));
                                 }
                             } else
                             {
                                 Util.check(w.getAssignedBits().signum() == 0);
                                 out.print(w.used ? "  input  " : "  unused ");
                             }
-                            out.print(w.exported ? "* " : "  ");
+                            out.print(w.isGlobal() ? "! " : w.exported ? "* " : "  ");
                             out.println(w);
+//                            SVarExt svar = m.newVar(w.name.impl);
+//                            out.println(" | 0 => " + graph0.get(svar) + " | 1 => " + graph1.get(svar));
                         }
                         out.println(" insts");
                         for (ModInst mi : m.insts)
@@ -116,7 +125,22 @@ public class ACL2DesignJobs
                                 assert !svar.isNonblocking();
                                 out.print((i == 0 ? "  " : ",") + lr);
                             }
-                            out.println(" = " + d);
+
+                            out.print(" = " + d);
+                            Set<Svar> deps = d.svex.collectVars();
+                            Set<SVarExt.LocalWire> dep0 = getDeps(d.svex, m, clkName, Vec2.ZERO);
+                            Set<SVarExt.LocalWire> dep1 = getDeps(d.svex, m, clkName, Vec2.ONE);
+                            if (!dep0.equals(deps) || !dep1.equals(deps))
+                            {
+                                if (dep0.equals(dep1))
+                                {
+                                    out.print(" | => " + dep0);
+                                } else
+                                {
+                                    out.print(" | 0 => " + dep0 + " | 1 => " + dep1);
+                                }
+                            }
+                            out.println();
                         }
                         out.println(" aliaspairs");
                         for (Map.Entry<Lhs, Lhs> e1 : m.aliaspairs.entrySet())
@@ -150,6 +174,74 @@ public class ACL2DesignJobs
                 return false;
             }
             return true;
+        }
+
+        private Map<SVarExt, Set<SVarExt.LocalWire>> evalAssigns(Module m, String clkName, Vec2 val)
+        {
+            Map<SVarExt, Set<SVarExt.LocalWire>> graph = new HashMap<>();
+            evalAssigns(m, clkName, val, graph);
+            return graph;
+        }
+
+        private void evalAssigns(Module m, String clkName, Vec2 val, Map<SVarExt, Set<SVarExt.LocalWire>> graph)
+        {
+            for (Map.Entry<Lhs, Driver> e1 : m.assigns.entrySet())
+            {
+                Lhs l = e1.getKey();
+                Driver d = e1.getValue();
+                Set<SVarExt.LocalWire> dDeps = getDeps(d.svex, m, clkName, val);
+                assert !l.ranges.isEmpty();
+                for (int i = 0; i < l.ranges.size(); i++)
+                {
+                    Lhrange lr = l.ranges.get(i);
+                    Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
+                    SVarExt svar = atomVar.name;
+                    assert svar.getDelay() == 0;
+                    assert !svar.isNonblocking();
+                    Set<SVarExt.LocalWire> decendants = graph.get(svar);
+                    if (decendants == null)
+                    {
+                        decendants = new LinkedHashSet<>();
+                        graph.put(svar, decendants);
+                    }
+                    decendants.addAll(dDeps);
+                }
+            }
+        }
+
+        private Set<SVarExt.LocalWire> getDeps(Svex svex, Module m, String clkName, Vec2 val)
+        {
+            Map<Svar, Vec2> env = new HashMap<>();
+            for (Wire w : m.wires)
+            {
+                if (w.isGlobal() && w.global.equals(clkName))
+                {
+                    SVarExt svar = m.newVar(w.name.impl);
+                    env.put(svar, val);
+                }
+            }
+
+            Set<SVarExt.LocalWire> dep = svex.collectVars(SVarExt.LocalWire.class, env);
+            for (Iterator<SVarExt.LocalWire> it = dep.iterator(); it.hasNext();)
+            {
+                SVarExt.LocalWire svar = it.next();
+                if (svar.getDelay() != 0)
+                {
+                    it.remove();
+                }
+            }
+            return dep;
+        }
+
+        private String showDeps(Svex svex, Module m, String clkName)
+        {
+            if (clkName == null)
+            {
+                return "";
+            }
+            Set<SVarExt.LocalWire> dep0 = getDeps(svex, m, clkName, Vec2.ZERO);
+            Set<SVarExt.LocalWire> dep1 = getDeps(svex, m, clkName, Vec2.ONE);
+            return " | 0 => " + dep0 + " | 1 => " + dep1;
         }
     }
 

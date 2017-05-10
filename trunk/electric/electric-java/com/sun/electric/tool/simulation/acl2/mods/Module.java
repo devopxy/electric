@@ -23,20 +23,16 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
-import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
-import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * SV module.
@@ -86,9 +82,16 @@ public class Module implements Svar.Builder<SVarExt>
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
-            Lhs l = new Lhs(this, car(pair));
-            Driver old = assigns.put(l, new Driver(this, cdr(pair)));
+            Lhs lhs = new Lhs(this, car(pair));
+            for (Lhrange lhr : lhs.ranges)
+            {
+                Util.check(lhr.atom instanceof Lhatom.Var);
+            }
+            Driver drv = new Driver(this, cdr(pair));
+            Driver old = assigns.put(lhs, drv);
             Util.check(old == null);
+            lhs.markAssigned(Vec2.BI_MINUS_ONE);
+            drv.markUsed();
         }
 
         pair = fields.get(3);
@@ -96,77 +99,104 @@ public class Module implements Svar.Builder<SVarExt>
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
-            Lhs l = new Lhs(this, car(pair));
-            Util.check(l.ranges.size() == 1);
-            Lhrange l0 = l.ranges.get(0);
-            Util.check(l0.atom instanceof Lhatom.Var);
-            Lhatom.Var atomVar = (Lhatom.Var)l0.atom;
-            Util.check(atomVar.rsh == 0);
-            SVarExt var = atomVar.name;
-            Util.check(var.getDelay() == 0 && !var.isNonblocking());
-            if (stringp(var.name).bool())
+            Lhs lhs = new Lhs(this, car(pair));
+            Util.check(lhs.ranges.size() == 1);
+            Lhrange lhsRange = lhs.ranges.get(0);
+            Util.check(lhsRange.atom instanceof Lhatom.Var);
+            Lhatom.Var lhsAtom = (Lhatom.Var)lhsRange.atom;
+            Util.check(lhsAtom.rsh == 0);
+            SVarExt lhsVar = lhsAtom.name;
+            Util.check(lhsVar.getDelay() == 0 && !lhsVar.isNonblocking());
+            Lhs rhs = new Lhs(this, cdr(pair));
+            Lhs old = aliaspairs.put(lhs, rhs);
+            Util.check(old == null);
+            Util.check(lhs.size() == rhs.size());
+            if (lhsVar instanceof SVarExt.PortInst)
             {
-                var = var;
-            } else if (integerp(var.name).bool())
-            {
+                SVarExt.PortInst pi = (SVarExt.PortInst)lhsVar;
+                Util.check(lhsRange.w == pi.wire.width);
+                for (Lhrange rhsRange : rhs.ranges)
+                {
+                    Util.check(((Lhatom.Var)rhsRange.atom).name instanceof SVarExt.LocalWire);
+                }
+                BigInteger assignedBits = pi.wire.getAssignedBits();
+                rhs.markAssigned(assignedBits);
+                if (pi.wire.used)
+                {
+                    rhs.markUsed();
+                }
             } else
             {
-                Util.checkNotNil(consp(var.name));
+                SVarExt.LocalWire lw = (SVarExt.LocalWire)lhsVar;
+                if (stringp(lw.name).bool())
+                {
+                    Util.check(rhs.ranges.size() == 1);
+                    SVarExt.PortInst rhsPi = (SVarExt.PortInst)((Lhatom.Var)rhs.ranges.get(0).atom).name;
+                    Util.check(rhsPi.inst.modname.isCoretype);
+//                    System.out.println("lw string " + lw + " in " + modName);
+                } else if (integerp(lw.name).bool())
+                {
+                    Util.check(modName.isCoretype);
+                } else
+                {
+                    Util.check(false);
+                }
             }
-            Lhs r = new Lhs(this, cdr(pair));
-            Lhs old = aliaspairs.put(l, r);
-            Util.check(old == null);
         }
     }
 
-    void check(Map<ModName, Module> downTop)
+    void markTop()
     {
-        CheckRhsVisitor checkVisitor = new CheckRhsVisitor();
-        for (Map.Entry<Lhs, Driver> e : assigns.entrySet())
+        useCount = 1;
+        for (Wire w : wires)
         {
-            e.getKey().markAssigned(Vec2.BI_MINUS_ONE);
-            e.getKey().check(downTop, true);
-            e.getValue().check(checkVisitor, downTop);
+            if (w.width == 1 && w.low_idx == 0)
+            {
+                w.global = w.name.toLispString();
+            }
         }
-        for (Map.Entry<Lhs, Lhs> e : aliaspairs.entrySet())
+    }
+
+    void markDown(Map<String, Integer> globalCounts)
+    {
+        for (ModInst mi : insts)
         {
-            Lhs l = e.getKey();
-            Lhs r = e.getValue();
-            Util.check(l.size() == r.size());
-            Util.check(l.ranges.size() == 1);
-            Lhrange lr = l.ranges.get(0);
-            Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
-            Util.check(atomVar.rsh == 0);
-            SVarExt svar = atomVar.name;
-            Util.check(svar.getDelay() == 0);
-            assert !svar.isNonblocking();
-//            svar.check(modalist);
-            if (svar instanceof SVarExt.PortInst)
+            mi.proto.useCount += useCount;
+        }
+        for (Map.Entry<Lhs, Lhs> e1 : aliaspairs.entrySet())
+        {
+            Lhs lhs = e1.getKey();
+            Lhs rhs = e1.getValue();
+            if (rhs.ranges.size() == 1
+                && rhs.ranges.get(0).w == 1
+                && rhs.ranges.get(0).atom instanceof Lhatom.Var
+                && ((Lhatom.Var)rhs.ranges.get(0).atom).rsh == 0)
             {
-                SVarExt.PortInst pi = (SVarExt.PortInst)svar;
-                Util.check(lr.w == pi.wire.width);
-                BigInteger assignedBits = pi.wire.getAssignedBits();
-                r.markAssigned(assignedBits);
-                r.check(downTop, svar.wire.isAssigned());
-            } else
-            {
-                SVarExt.LocalWire lw = (SVarExt.LocalWire)svar;
-                Util.check(lr.w == lw.wire.width);
-                // Is it memory ?
-                assert r.ranges.size() == 1;
-                Lhrange rr = r.ranges.get(0);
-                Lhatom.Var atomVar2 = (Lhatom.Var)rr.atom;
-                SVarExt svar2 = atomVar2.name;
-                assert svar2.getDelay() == 0;
-                assert !svar2.isNonblocking();
-                if (symbolp(svar2.name).bool())
+                SVarExt svar = ((Lhatom.Var)rhs.ranges.get(0).atom).name;
+                if (svar instanceof SVarExt.LocalWire)
                 {
-                    Util.check(svar2.name.equals(Util.KEYWORD_SELF));
-                } else
-                {
-                    Util.check(cdr(svar2.name).equals(Util.KEYWORD_SELF));
+                    Wire w = ((SVarExt.LocalWire)svar).wire;
+                    if (w.isGlobal()
+                        && lhs.ranges.size() == 1
+                        && lhs.ranges.get(0).w == 1
+                        && lhs.ranges.get(0).atom instanceof Lhatom.Var
+                        && ((Lhatom.Var)rhs.ranges.get(0).atom).rsh == 0)
+                    {
+                        SVarExt svar1 = ((Lhatom.Var)lhs.ranges.get(0).atom).name;
+                        if (svar1 instanceof SVarExt.PortInst)
+                        {
+                            ((SVarExt.PortInst)svar1).wire.markGlobal(w.global);
+                        }
+                    }
                 }
-//                svar2.check(modalist);
+            }
+        }
+        for (Wire w : wires)
+        {
+            if (w.isGlobal())
+            {
+                Integer count = globalCounts.get(w.global);
+                globalCounts.put(w.global, count == null ? 1 : count + 1);
             }
         }
     }
@@ -185,39 +215,4 @@ public class Module implements Svar.Builder<SVarExt>
         }
     }
 
-    static class CheckRhsVisitor implements Svex.Visitor<Void, Map<ModName, Module>>
-    {
-        private final Set<Svex> visited = new HashSet<>();
-
-        @Override
-        public Void visitConst(Vec4 val, Map<ModName, Module> p)
-        {
-            return null;
-        }
-
-        @Override
-        public Void visitVar(Svar name, Map<ModName, Module> p)
-        {
-            if (name instanceof SVarExt.LocalWire)
-            {
-                SVarExt.LocalWire lw = (SVarExt.LocalWire)name;
-                lw.check(p, false);
-            }
-            return null;
-        }
-
-        @Override
-        public Void visitCall(SvexFunction fun, Svex[] args, Map<ModName, Module> p)
-        {
-            for (Svex a : args)
-            {
-                if (!visited.contains(a))
-                {
-                    a.accept(this, p);
-                    visited.add(a);
-                }
-            }
-            return null;
-        }
-    }
 }

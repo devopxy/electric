@@ -108,9 +108,14 @@ public abstract class Svex
         return sb.toString();
     }
 
+    public <T extends Svar> Set<T> collectVars(Class<T> cls, Map<Svar, Vec2> env)
+    {
+        return CollectVarsVisitor.collectVars(this, cls, env);
+    }
+
     public <T extends Svar> Set<T> collectVars(Class<T> cls)
     {
-        return CollectVarsVisitor.collectVars(this, cls);
+        return CollectVarsVisitor.collectVars(this, cls, null);
     }
 
     public Set<Svar> collectVars()
