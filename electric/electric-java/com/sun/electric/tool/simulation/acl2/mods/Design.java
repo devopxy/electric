@@ -21,13 +21,17 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.util.TextUtils;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * SVEX design.
@@ -64,12 +68,12 @@ public class Design
         pair = fields.get(1);
         Util.check(car(pair).equals(Util.SV_TOP));
         top = ModName.valueOf(cdr(pair));
-        addToDownTop(top, rawMods);
+//        addToDownTop(top, rawMods);
 
-//        for (ModName mn: rawMods.keySet())
-//        {
-//            addToDownTop(mn, rawMods);
-//        }
+        for (ModName mn : rawMods.keySet())
+        {
+            addToDownTop(mn, rawMods);
+        }
         Util.check(downTop.size() == rawMods.size());
 
         List<ModName> keys = new ArrayList<>(downTop.keySet());
@@ -79,54 +83,47 @@ public class Design
             topDown.put(key, downTop.get(key));
         }
         Util.check(topDown.size() == rawMods.size());
-        for (Module m : downTop.values())
+
+        topDown.get(top).markTop();
+        Map<String, Integer> globalCounts = new TreeMap<>();
+        for (Module m : topDown.values())
         {
-            m.check(downTop);
+            m.markDown(globalCounts);
         }
-        topDown.get(top).useCount = 1;
-        for (Wire w : topDown.get(top).wires)
+
+        List<Map.Entry<String, Integer>> filteredGlobalCounts = new ArrayList<>();
+        for (Map.Entry<String, Integer> e : globalCounts.entrySet())
         {
-            if (w.width == 1 && w.low_idx == 0)
+            String canonicGlobal = TextUtils.canonicString(e.getKey());
+            if (canonicGlobal.contains("clk") || canonicGlobal.contains("clock"))
             {
-                w.global = w.name.toLispString();
+                filteredGlobalCounts.add(e);
             }
         }
-        for (Map.Entry<ModName, Module> e : topDown.entrySet())
+        if (!globalCounts.isEmpty())
         {
-            Module m = e.getValue();
-            int useCount = m.useCount;
-            for (ModInst mi : m.insts)
+            Collections.sort(filteredGlobalCounts, new Comparator<Map.Entry<String, Integer>>()
             {
-                mi.proto.useCount += useCount;
-            }
-            for (Map.Entry<Lhs, Lhs> e1 : m.aliaspairs.entrySet())
-            {
-                Lhs lhs = e1.getKey();
-                Lhs rhs = e1.getValue();
-                if (rhs.ranges.size() == 1
-                    && rhs.ranges.get(0).w == 1
-                    && rhs.ranges.get(0).atom instanceof Lhatom.Var
-                    && ((Lhatom.Var)rhs.ranges.get(0).atom).rsh == 0)
+                @Override
+                public int compare(Map.Entry<String, Integer> o1, Map.Entry<String, Integer> o2)
                 {
-                    SVarExt svar = ((Lhatom.Var)rhs.ranges.get(0).atom).name;
-                    if (svar instanceof SVarExt.LocalWire)
-                    {
-                        Wire w = ((SVarExt.LocalWire)svar).wire;
-                        if (w.isGlobal()
-                            && lhs.ranges.size() == 1
-                            && lhs.ranges.get(0).w == 1
-                            && lhs.ranges.get(0).atom instanceof Lhatom.Var
-                            && ((Lhatom.Var)rhs.ranges.get(0).atom).rsh == 0)
-                        {
-                            SVarExt svar1 = ((Lhatom.Var)lhs.ranges.get(0).atom).name;
-                            if (svar1 instanceof SVarExt.PortInst)
-                            {
-                                ((SVarExt.PortInst)svar1).wire.markGlobal(w.global);
-                            }
-                        }
-                    }
+                    return Integer.compare(o2.getValue(), o1.getValue());
                 }
+
+            });
+            System.out.print("Probable clocks:");
+            int n = 0;
+            for (Map.Entry<String, Integer> e : filteredGlobalCounts)
+            {
+                String global = e.getKey();
+                Integer count = e.getValue();
+                if (n++ >= 5)
+                {
+                    break;
+                }
+                System.out.print(" " + global + "(" + count + ")");
             }
+            System.out.println();
         }
     }
 

@@ -25,8 +25,6 @@ import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 
-import java.util.Map;
-
 /**
  * An atom with width from left-hand side of SVEX assignment.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____LHRANGE>.
@@ -78,8 +76,8 @@ public class Lhrange
         atom.markAssigned(assignedBits.and(mask));
     }
 
-    public void check(Map<ModName, Module> modalist, boolean assign)
+    public void markUsed()
     {
-        atom.check(modalist, assign);
+        atom.markUsed();
     }
 }

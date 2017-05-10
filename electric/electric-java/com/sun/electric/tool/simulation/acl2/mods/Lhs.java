@@ -26,7 +26,6 @@ import java.math.BigInteger;
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * A shorthand format for an expression consisting of a concatenation of parts of variables.
@@ -101,11 +100,11 @@ public class Lhs
         }
     }
 
-    public void check(Map<ModName, Module> modalist, boolean assign)
+    public void markUsed()
     {
         for (Lhrange lr : ranges)
         {
-            lr.check(modalist, assign);
+            lr.markUsed();
         }
     }
 }

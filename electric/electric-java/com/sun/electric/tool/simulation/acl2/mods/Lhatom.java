@@ -25,8 +25,6 @@ import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 
-import java.util.Map;
-
 /**
  * An SVar or X at left-hand side of SVEX assignment.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____LHATOM>.
@@ -53,9 +51,9 @@ public abstract class Lhatom
         return new Var(parent, impl);
     }
 
-    public abstract void check(Map<ModName, Module> modalist, boolean assign);
-
     public abstract void markAssigned(BigInteger assignedBits);
+
+    public abstract void markUsed();
 
     public abstract String toString(int w);
 
@@ -70,13 +68,12 @@ public abstract class Lhatom
         }
 
         @Override
-        public void check(Map<ModName, Module> modalist, boolean assign)
+        public void markAssigned(BigInteger assignedBits)
         {
-            Util.check(!assign);
         }
 
         @Override
-        public void markAssigned(BigInteger assignedBits)
+        public void markUsed()
         {
         }
 
@@ -138,12 +135,10 @@ public abstract class Lhatom
         }
 
         @Override
-        public void check(Map<ModName, Module> modalist, boolean assign)
+        public void markUsed()
         {
-            if (name instanceof SVarExt.LocalWire)
-            {
-                ((SVarExt.LocalWire)name).check(modalist, assign);
-            }
+            Util.check(name instanceof SVarExt.LocalWire);
+            ((SVarExt.LocalWire)name).markUsed();
         }
 
         @Override

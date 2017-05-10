@@ -65,7 +65,7 @@ public class Vec4Concat extends SvexCall
         {
             Vec4 width = args[0];
             Vec4 l = args[1];
-            Vec4 h = args[1];
+            Vec4 h = args[2];
             if (width.isVec2())
             {
                 int wval = ((Vec2)width).getVal().intValueExact();
