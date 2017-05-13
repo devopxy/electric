@@ -26,8 +26,13 @@ import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
+import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
+import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.user.User;
+import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Reader;
 import java.io.File;
 import java.io.IOException;
@@ -80,7 +85,7 @@ public class ACL2DesignJobs
                         Map<SVarExt, Set<SVarExt>> graph1 = evalAssigns(m, clkName, Vec2.ONE);
 //                        Map<SVarExt, Set<SVarExt>> closure0 = closure(graph0);
 //                        Map<SVarExt, Set<SVarExt>> closure1 = closure(graph1);
-                        
+
                         out.println("module " + nm + " has "
                             + m.wires.size() + " wires "
                             + m.insts.size() + " insts "
@@ -104,8 +109,8 @@ public class ACL2DesignJobs
                                 out.print(w.used ? "  input  " : "  unused ");
                             }
                             out.print(w.isGlobal() ? "! " : w.exported ? "* " : "  ");
-                            out.println(w);
-                                SVarExt svar = m.newVar(w.name.impl);
+                            out.print(w);
+                            SVarExt svar = m.newVar(w.name.impl);
                             out.println(" | 0 => " + graph0.get(svar) + " | 1 => " + graph1.get(svar));
 //                            out.println(" | 0 => " + closure0.get(svar) + " | 1 => " + closure1.get(svar));
                         }
@@ -179,7 +184,8 @@ public class ACL2DesignJobs
             }
             return true;
         }
-/*
+
+        /*
         private Map<SVarExt, Set<SVarExt>> closure(Map<SVarExt, Set<SVarExt>> rel)
         {
             Map<SVarExt, Set<SVarExt>> closure = new HashMap<>();
@@ -191,7 +197,7 @@ public class ACL2DesignJobs
             Util.check(closure.size() == visited.size());
             return closure;
         }
-        
+
         private Set<SVarExt> closure(SVarExt top,
             Map<SVarExt, Set<SVarExt>> rel,
             Map<SVarExt, Set<SVarExt>> closure,
@@ -220,7 +226,7 @@ public class ACL2DesignJobs
             }
             return ret;
         }
-*/        
+         */
         private Map<SVarExt, Set<SVarExt>> evalAssigns(Module m, String clkName, Vec2 val)
         {
             Map<SVarExt, Set<SVarExt>> graph = new HashMap<>();
@@ -322,6 +328,119 @@ public class ACL2DesignJobs
                 return false;
             }
             return true;
+        }
+    }
+
+    public static void dedup(File saoFile, String designName, String outFileName)
+    {
+        new DedupSvexJob(saoFile, designName, outFileName).startJob();
+    }
+
+    private static class DedupSvexJob extends Job
+    {
+        private final File saoFile;
+        private final String designName;
+        private final String outFileName;
+
+        private DedupSvexJob(File saoFile, String designName, String outFileName)
+        {
+            super("Dedup SVEX in Design", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
+            this.saoFile = saoFile;
+            this.designName = designName;
+            this.outFileName = outFileName;
+        }
+
+        @Override
+        public boolean doIt() throws JobException
+        {
+            try
+            {
+                ACL2Reader sr = new ACL2Reader(saoFile);
+                Design design = new Design(sr.root);
+                Map<Svex, String> svexLabels = new HashMap<>();
+                try (PrintStream out = new PrintStream(outFileName))
+                {
+                    out.println("(in-package \"SV\")");
+                    out.println("(include-book \"std/util/defconsts\" :dir :system)");
+                    out.println("(include-book \"centaur/sv/svex/svex\" :dir :system)");
+                    out.println();
+                    out.println("(defconsts (*" + designName + "-dedup*) `(");
+                    for (Module m : design.downTop.values())
+                    {
+                        for (Driver dr : m.assigns.values())
+                        {
+                            traverse(out, dr.svex, svexLabels);
+                        }
+                    }
+                    out.println("))");
+                }
+            } catch (IOException e)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        private String traverse(PrintStream out, Svex svex, Map<Svex, String> svexLabels)
+        {
+            String label = svexLabels.get(svex);
+            if (label == null)
+            {
+                if (svex instanceof SvexQuote)
+                {
+                    SvexQuote sq = (SvexQuote)svex;
+                    label = "l" + svexLabels.size();
+                    svexLabels.put(svex, label);
+                    out.print(" (" + label + " :quote ");
+                    Vec4 val = sq.val;
+                    if (val instanceof Vec2)
+                    {
+                        out.print("#x" + ((Vec2)val).getVal().toString(16));
+                    } else
+                    {
+                        out.print("'(#x" + val.getUpper().toString(16) + " . " + val.getLower().toString(16) + ")");
+                    }
+                    out.println(")");
+                } else if (svex instanceof SvexVar)
+                {
+                    SvexVar sv = (SvexVar)svex;
+                    label = "l" + svexLabels.size();
+                    svexLabels.put(svex, label);
+                    out.print(" (" + label + " :var ,(make-svar :name ");
+                    if (sv.svar instanceof SVarExt.PortInst)
+                    {
+                        SVarExt.PortInst pi = (SVarExt.PortInst)sv.svar;
+                        out.print("'(\"" + pi.inst.instname.toLispString() + "\" . \"" + pi.wire.name.toLispString() + "\")");
+                    } else
+                    {
+                        SVarExt.LocalWire lw = (SVarExt.LocalWire)sv.svar;
+                        out.print("\"" + lw.wire.name.toLispString() + "\"");
+                        if (lw.delay != 0)
+                        {
+                            out.print(" :delay " + lw.delay);
+                        }
+                    }
+                    out.println("))");
+                } else
+                {
+                    SvexCall sc = (SvexCall)svex;
+                    Svex[] args = sc.getArgs();
+                    String[] labels = new String[args.length];
+                    for (int i = 0; i < labels.length; i++)
+                    {
+                        labels[i] = traverse(out, args[i], svexLabels);
+                    }
+                    label = "l" + svexLabels.size();
+                    svexLabels.put(svex, label);
+                    out.print(" (" + label + " :call " + symbol_name(sc.fun.fn).stringValueExact());
+                    for (String l : labels)
+                    {
+                        out.print(" " + l);
+                    }
+                    out.println(")");
+                }
+            }
+            return label;
         }
     }
 

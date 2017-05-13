@@ -110,6 +110,23 @@ public class PublicDebugMenu {
                     }
                 },
 
+                new EMenuItem("Dedup SVEX design") {
+                    @Override
+                    public void run()
+                    {
+                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized SVEX design", false);
+                        if (saoPath == null) return;
+                        URL fileURL = TextUtils.makeURLToFile(saoPath);
+                        File f = TextUtils.getFile(fileURL);
+                        String designName = TextUtils.getFileNameWithoutExtension(saoPath);
+                        String defaultOutName = User.getWorkingDirectory()
+                            + File.separator + designName + "-dedup.lisp";
+                        String outPath = OpenFile.chooseOutputFile(FileType.LISP, "LISP with deduplication of SVEX", defaultOutName);
+                        if (outPath == null) return;
+                        ACL2DesignJobs.dedup(f, designName, outPath);
+                    }
+                },
+
                 new EMenuItem("Gen FSM for ALU") {
                     @Override
                     public void run()
