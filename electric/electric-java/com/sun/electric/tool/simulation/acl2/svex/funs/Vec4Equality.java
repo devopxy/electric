@@ -24,9 +24,9 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
-import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Bitwise equality of 4vecs.
@@ -64,6 +64,15 @@ public class Vec4Equality extends SvexCall
             Vec4 x = args[0];
             Vec4 y = args[1];
             return eq(x, y, BigInteger.ZERO);
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            return new BigInteger[]
+            {
+                v4maskAllOrNone(mask), v4maskAllOrNone(mask)
+            };
         }
     }
 }

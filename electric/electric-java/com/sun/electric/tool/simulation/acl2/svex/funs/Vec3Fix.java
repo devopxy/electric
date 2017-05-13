@@ -25,6 +25,8 @@ import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Like logbit for 4vecs; the bit position may be a 4vec.
@@ -59,6 +61,15 @@ public class Vec3Fix extends SvexCall
         {
             Vec4 x = args[0];
             return x.fix3();
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            return new BigInteger[]
+            {
+                mask
+            };
         }
     }
 }

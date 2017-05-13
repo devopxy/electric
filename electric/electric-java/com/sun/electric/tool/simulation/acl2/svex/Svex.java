@@ -133,4 +133,16 @@ public abstract class Svex
 
         R visitCall(SvexFunction fun, Svex[] args, P p);
     }
+
+    public abstract Vec4 xeval(Map<Svex, Vec4> memoize);
+    
+    public static Vec4[] listXeval(Svex[] list, Map<Svex,Vec4> memoize)
+    {
+        Vec4[] result = new Vec4[list.length];
+        for (int i = 0; i < result.length; i++)
+        {
+            result[i] = list[i].xeval(memoize);
+        }
+        return result;
+    }
 }

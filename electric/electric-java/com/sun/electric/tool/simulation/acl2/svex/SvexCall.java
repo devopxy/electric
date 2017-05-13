@@ -24,6 +24,7 @@ package com.sun.electric.tool.simulation.acl2.svex;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.Arrays;
+import java.util.Map;
 
 /**
  * A function applied to some expressions.
@@ -32,7 +33,7 @@ import java.util.Arrays;
 public class SvexCall extends Svex
 {
     public final SvexFunction fun;
-    private final Svex[] args;
+    protected final Svex[] args;
     private final int hashCode;
 
     static SvexCall newCall(ACL2Object fn, Svex... args)
@@ -82,6 +83,18 @@ public class SvexCall extends Svex
     public <R, D> R accept(Visitor<R, D> visitor, D data)
     {
         return visitor.visitCall(fun, args, data);
+    }
+
+    @Override
+    public Vec4 xeval(Map<Svex, Vec4> memoize)
+    {
+        Vec4 result = memoize.get(this);
+        if (result == null)
+        {
+            result = fun.apply(Svex.listXeval(args, memoize));
+            memoize.put(this, result);
+        }
+        return result;
     }
 
     @Override

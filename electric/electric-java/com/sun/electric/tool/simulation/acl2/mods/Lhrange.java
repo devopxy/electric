@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
@@ -72,8 +73,7 @@ public class Lhrange
 
     public void markAssigned(BigInteger assignedBits)
     {
-        BigInteger mask = BigInteger.ONE.shiftLeft(w).subtract(BigInteger.ONE);
-        atom.markAssigned(assignedBits.and(mask));
+        atom.markAssigned(BigIntegerUtil.loghead(w, assignedBits));
     }
 
     public void markUsed()

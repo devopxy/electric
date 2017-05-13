@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
@@ -32,7 +33,6 @@ import java.io.File;
 import java.io.IOException;
 
 import java.io.PrintStream;
-import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -76,8 +76,11 @@ public class ACL2DesignJobs
                     {
                         ModName nm = e.getKey();
                         Module m = e.getValue();
-                        Map<SVarExt, Set<SVarExt.LocalWire>> graph0 = evalAssigns(m, clkName, Vec2.ZERO);
-                        Map<SVarExt, Set<SVarExt.LocalWire>> graph1 = evalAssigns(m, clkName, Vec2.ONE);
+                        Map<SVarExt, Set<SVarExt>> graph0 = evalAssigns(m, clkName, Vec2.ZERO);
+                        Map<SVarExt, Set<SVarExt>> graph1 = evalAssigns(m, clkName, Vec2.ONE);
+//                        Map<SVarExt, Set<SVarExt>> closure0 = closure(graph0);
+//                        Map<SVarExt, Set<SVarExt>> closure1 = closure(graph1);
+                        
                         out.println("module " + nm + " has "
                             + m.wires.size() + " wires "
                             + m.insts.size() + " insts "
@@ -91,7 +94,7 @@ public class ACL2DesignJobs
                             if (w.isAssigned())
                             {
                                 out.print(w.used ? "  out    " : "  output ");
-                                if (w.assignedBits != null && !BigInteger.ONE.shiftLeft(w.width).subtract(BigInteger.ONE).equals(w.assignedBits))
+                                if (w.assignedBits != null && !BigIntegerUtil.logheadMask(w.width).equals(w.assignedBits))
                                 {
                                     out.print("#x" + w.getAssignedBits().toString(16));
                                 }
@@ -102,8 +105,9 @@ public class ACL2DesignJobs
                             }
                             out.print(w.isGlobal() ? "! " : w.exported ? "* " : "  ");
                             out.println(w);
-//                            SVarExt svar = m.newVar(w.name.impl);
-//                            out.println(" | 0 => " + graph0.get(svar) + " | 1 => " + graph1.get(svar));
+                                SVarExt svar = m.newVar(w.name.impl);
+                            out.println(" | 0 => " + graph0.get(svar) + " | 1 => " + graph1.get(svar));
+//                            out.println(" | 0 => " + closure0.get(svar) + " | 1 => " + closure1.get(svar));
                         }
                         out.println(" insts");
                         for (ModInst mi : m.insts)
@@ -175,15 +179,56 @@ public class ACL2DesignJobs
             }
             return true;
         }
-
-        private Map<SVarExt, Set<SVarExt.LocalWire>> evalAssigns(Module m, String clkName, Vec2 val)
+/*
+        private Map<SVarExt, Set<SVarExt>> closure(Map<SVarExt, Set<SVarExt>> rel)
         {
-            Map<SVarExt, Set<SVarExt.LocalWire>> graph = new HashMap<>();
+            Map<SVarExt, Set<SVarExt>> closure = new HashMap<>();
+            Set<SVarExt> visited = new HashSet<>();
+            for (SVarExt svar: rel.keySet())
+            {
+                closure(svar, rel, closure, visited);
+            }
+            Util.check(closure.size() == visited.size());
+            return closure;
+        }
+        
+        private Set<SVarExt> closure(SVarExt top,
+            Map<SVarExt, Set<SVarExt>> rel,
+            Map<SVarExt, Set<SVarExt>> closure,
+            Set<SVarExt> visited)
+        {
+            Set<SVarExt> ret = closure.get(top);
+            if (ret == null)
+            {
+                boolean ok = visited.add(top);
+                if (!ok)
+                {
+                    System.out.println("CombinationalLoop!!! in wire " + top);
+                }
+                Set<SVarExt> dep = rel.get(top);
+                if (dep == null)
+                {
+                    ret = Collections.singleton(top);
+                } else {
+                    ret = new LinkedHashSet<>();
+                    for (SVarExt svar: dep)
+                    {
+                        ret.addAll(closure(svar, rel, closure, visited));
+                    }
+                }
+                closure.put(top, ret);
+            }
+            return ret;
+        }
+*/        
+        private Map<SVarExt, Set<SVarExt>> evalAssigns(Module m, String clkName, Vec2 val)
+        {
+            Map<SVarExt, Set<SVarExt>> graph = new HashMap<>();
             evalAssigns(m, clkName, val, graph);
             return graph;
         }
 
-        private void evalAssigns(Module m, String clkName, Vec2 val, Map<SVarExt, Set<SVarExt.LocalWire>> graph)
+        private void evalAssigns(Module m, String clkName, Vec2 val, Map<SVarExt, Set<SVarExt>> graph)
         {
             for (Map.Entry<Lhs, Driver> e1 : m.assigns.entrySet())
             {
@@ -198,7 +243,7 @@ public class ACL2DesignJobs
                     SVarExt svar = atomVar.name;
                     assert svar.getDelay() == 0;
                     assert !svar.isNonblocking();
-                    Set<SVarExt.LocalWire> decendants = graph.get(svar);
+                    Set<SVarExt> decendants = graph.get(svar);
                     if (decendants == null)
                     {
                         decendants = new LinkedHashSet<>();

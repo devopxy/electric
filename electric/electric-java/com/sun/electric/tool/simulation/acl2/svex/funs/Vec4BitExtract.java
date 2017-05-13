@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Coerces an arbitrary 4vec to a 3vec by “unfloating” it, i.e., by turning any Zs into Xes.
@@ -80,6 +81,35 @@ public class Vec4BitExtract extends SvexCall
                 }
             }
             return Vec4.X1;
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            Svex index = args[0];
+            Vec4 indexVal = index.xeval(xevalMemoize);
+            BigInteger nMask = v4maskAllOrNone(mask);
+            if (!indexVal.isVec2())
+            {
+                return new BigInteger[]
+                {
+                    nMask, nMask
+                };
+            }
+            int indexV = ((Vec2)indexVal).getVal().intValueExact();
+            if (indexV >= 0 && mask.testBit(0))
+            {
+                return new BigInteger[]
+                {
+                    nMask, BigInteger.ONE.shiftLeft(indexV)
+                };
+            } else
+            {
+                return new BigInteger[]
+                {
+                    nMask, BigInteger.ZERO
+                };
+            }
         }
     }
 }

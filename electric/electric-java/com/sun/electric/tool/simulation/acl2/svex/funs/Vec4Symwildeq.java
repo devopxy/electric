@@ -26,6 +26,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Symmetric wildcard equality: true if for every pair of corresponding bits of a and b,
@@ -66,6 +67,39 @@ public class Vec4Symwildeq extends SvexCall
             BigInteger zMask = b.getLower().andNot(b.getUpper())
                 .or(a.getLower().andNot(a.getUpper()));
             return eq(a, b, zMask);
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            Svex a = args[0];
+            Svex b = args[1];
+            Vec4 aVal = a.xeval(xevalMemoize);
+            Vec4 bVal = b.xeval(xevalMemoize);
+            BigInteger aIsZ = aVal.getLower().andNot(aVal.getUpper());
+            BigInteger bIsZ = bVal.getLower().andNot(bVal.getUpper());
+            BigInteger bothAreZ = aIsZ.and(bIsZ);
+            if (bothAreZ.signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    bIsZ.not(), aIsZ.not()
+                };
+            }
+            BigInteger bX = bVal.getUpper().andNot(bVal.getLower());
+            if (bX.signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    bIsZ.not(), aIsZ.andNot(bothAreZ).not()
+                };
+            } else
+            {
+                return new BigInteger[]
+                {
+                    bIsZ.andNot(bothAreZ).not(), aIsZ.not()
+                };
+            }
         }
     }
 }

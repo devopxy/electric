@@ -25,6 +25,8 @@ import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Identity function for 2vecs, or all Xes when there are any X or Z bits.
@@ -59,6 +61,15 @@ public class Vec4Xdet extends SvexCall
         {
             Vec4 x = args[0];
             return x.isVec2() ? x : Vec4.X;
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            return new BigInteger[]
+            {
+                v4maskAllOrNone(mask)
+            };
         }
     }
 }

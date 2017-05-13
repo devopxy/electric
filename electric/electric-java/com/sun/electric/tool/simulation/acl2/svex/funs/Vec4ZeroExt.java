@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Like loghead for 4vecs; the width is also a 4vec.
@@ -88,6 +89,34 @@ public class Vec4ZeroExt extends SvexCall
                 }
             }
             return Vec4.X;
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            Svex width = args[0];
+            BigInteger nMask = v4maskAllOrNone(mask);
+            Vec4 widthVal = width.xeval(xevalMemoize);
+            if (!widthVal.isVec2())
+            {
+                return new BigInteger[]
+                {
+                    nMask, nMask
+                };
+            }
+            int widthV = ((Vec2)widthVal).getVal().intValueExact();
+            if (widthV < 0)
+            {
+                return new BigInteger[]
+                {
+                    nMask, BigInteger.ZERO
+                };
+            }
+            BigInteger widthMask = BigInteger.ONE.shiftLeft(widthV).subtract(BigInteger.ONE);
+            return new BigInteger[]
+            {
+                nMask, mask.and(widthMask)
+            };
         }
     }
 }

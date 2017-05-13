@@ -24,7 +24,10 @@ package com.sun.electric.tool.simulation.acl2.svex.funs;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Resolution for when one signal is stronger than the other.
@@ -64,6 +67,19 @@ public class Vec4Override extends SvexCall
             return Vec4.valueOf(
                 strong.getLower().and(weak.getUpper()).or(strong.getUpper()),
                 strong.getUpper().or(weak.getLower()).and(strong.getLower()));
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            Svex strong = args[0];
+            Vec4 sVal = strong.xeval(xevalMemoize);
+            BigInteger strongNonbool = sVal.getUpper().xor(sVal.getLower());
+            BigInteger weakMask = mask.and(strongNonbool);
+            return new BigInteger[]
+            {
+                mask, weakMask
+            };
         }
     }
 }

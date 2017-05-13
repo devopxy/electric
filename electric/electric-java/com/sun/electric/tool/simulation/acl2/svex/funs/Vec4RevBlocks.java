@@ -21,12 +21,14 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Similar to a streaming concatenation operation in SystemVerilog.
@@ -82,7 +84,7 @@ public class Vec4RevBlocks extends SvexCall
 
         private BigInteger revBlocks(int nbits, int blocksz, BigInteger x)
         {
-            BigInteger mask = BigInteger.ONE.shiftLeft(blocksz).subtract(BigInteger.ONE);
+            BigInteger mask = BigIntegerUtil.logheadMask(blocksz);
             BigInteger result = BigInteger.ZERO;
             while (nbits >= blocksz)
             {
@@ -94,6 +96,49 @@ public class Vec4RevBlocks extends SvexCall
             {
                 mask = BigInteger.ONE.shiftLeft(nbits).subtract(BigInteger.ONE);
                 result = result.shiftLeft(nbits).or(x.and(mask));
+            }
+            return result;
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            if (mask.signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO
+                };
+            }
+            Svex n = args[0];
+            Svex b = args[1];
+            Vec4 nVal = n.xeval(xevalMemoize);
+            Vec4 bVal = b.xeval(xevalMemoize);
+            if (nVal.isVec2() && bVal.isVec2())
+            {
+                int nv = ((Vec2)nVal).getVal().intValueExact();
+                int bv = ((Vec2)bVal).getVal().intValueExact();
+                if (nv >= 0 && bv > 0)
+                {
+                    return new BigInteger[]
+                    {
+                        BigIntegerUtil.MINUS_ONE, BigIntegerUtil.MINUS_ONE, unrevBlocks(arity, bv, mask)
+                    };
+                }
+            }
+            return new BigInteger[]
+            {
+                BigIntegerUtil.MINUS_ONE, BigIntegerUtil.MINUS_ONE, BigIntegerUtil.MINUS_ONE
+            };
+        }
+
+        private BigInteger unrevBlocks(int nbits, int blcksz, BigInteger x)
+        {
+            BigInteger result = BigIntegerUtil.loghead(nbits % blcksz, x);
+            for (int n = nbits / blcksz; n >= 0; n--)
+            {
+                result = BigIntegerUtil.logapp(blcksz, BigIntegerUtil.loghead(blcksz, x), result);
+                x = x.shiftRight(blcksz);
             }
             return result;
         }

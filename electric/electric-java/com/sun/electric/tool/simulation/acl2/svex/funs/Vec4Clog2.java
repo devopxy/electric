@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Ceiling of the log2 of a, or X if any non-2-valued bits. Must be truncated to its width (nonnegative).
@@ -67,6 +68,15 @@ public class Vec4Clog2 extends SvexCall
                 return new Vec2(BigInteger.valueOf(ceil));
             }
             return Vec4.X;
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            return new BigInteger[]
+            {
+                v4maskAllOrNone(mask)
+            };
         }
     }
 }
