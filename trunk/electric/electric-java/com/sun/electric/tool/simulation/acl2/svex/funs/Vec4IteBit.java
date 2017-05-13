@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Bitwise multiple if-then-elses of 4vecs; doesn’t unfloat then/else values.
@@ -85,6 +86,19 @@ public class Vec4IteBit extends SvexCall
                 th.getLower().and(test.getLower())
                     .or(el.getLower().andNot(test.getUpper()))
                     .or(testX.and(th.getUpper()).and(th.getLower()).and(el.getUpper()).and(el.getLower())));
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            Svex tests = args[0];
+            Vec4 tval = tests.xeval(xevalMemoize);
+            BigInteger testsNon0 = tval.getUpper().or(tval.getLower());
+            BigInteger testsNon1 = tval.getUpper().and(tval.getLower()).not();
+            return new BigInteger[]
+            {
+                mask, mask.and(testsNon0), mask.and(testsNon1)
+            };
         }
     }
 }

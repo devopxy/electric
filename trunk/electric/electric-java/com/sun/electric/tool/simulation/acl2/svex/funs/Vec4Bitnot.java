@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Bitwise logical NOT of a 4vec.
@@ -70,6 +71,15 @@ public class Vec4Bitnot extends SvexCall
                 return new Vec2(xv.not());
             }
             return Vec4.valueOf(x.getLower().not(), x.getUpper().not());
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            return new BigInteger[]
+            {
+                mask
+            };
         }
     }
 }

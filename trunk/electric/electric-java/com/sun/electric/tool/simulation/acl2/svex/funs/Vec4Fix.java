@@ -25,6 +25,8 @@ import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Fix an arbitrary object to a 4vec.
@@ -59,6 +61,15 @@ public class Vec4Fix extends SvexCall
         {
             Vec4 x = args[0];
             return x;
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            return new BigInteger[]
+            {
+                mask
+            };
         }
     }
 }

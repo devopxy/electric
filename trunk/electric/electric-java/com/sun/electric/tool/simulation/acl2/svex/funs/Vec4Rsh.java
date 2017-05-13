@@ -21,11 +21,14 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Right “arithmetic” shift of 4vecs.
@@ -68,6 +71,32 @@ public class Vec4Rsh extends SvexCall
                 return shiftCore(Math.negateExact(shiftv), x);
             }
             return Vec4.X;
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            if (mask.signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    BigInteger.ZERO, BigInteger.ZERO
+                };
+            }
+            Svex shift = args[0];
+            Vec4 shiftVal = shift.xeval(xevalMemoize);
+            if (!shiftVal.isVec2())
+            {
+                return new BigInteger[]
+                {
+                    BigIntegerUtil.MINUS_ONE, BigIntegerUtil.MINUS_ONE
+                };
+            }
+            int shiftV = ((Vec2)shiftVal).getVal().intValueExact();
+            return new BigInteger[]
+            {
+                BigIntegerUtil.MINUS_ONE, mask.shiftLeft(shiftV)
+            };
         }
     }
 }

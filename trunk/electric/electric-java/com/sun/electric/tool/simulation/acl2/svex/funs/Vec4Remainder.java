@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Integer remainder as in rem for 4vecs.
@@ -73,6 +74,15 @@ public class Vec4Remainder extends SvexCall
                 }
             }
             return Vec4.X;
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            return new BigInteger[]
+            {
+                v4maskAllOrNone(mask), v4maskAllOrNone(mask)
+            };
         }
     }
 }

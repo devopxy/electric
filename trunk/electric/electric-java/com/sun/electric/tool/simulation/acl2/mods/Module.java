@@ -21,9 +21,9 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
-import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
@@ -90,7 +90,7 @@ public class Module implements Svar.Builder<SVarExt>
             Driver drv = new Driver(this, cdr(pair));
             Driver old = assigns.put(lhs, drv);
             Util.check(old == null);
-            lhs.markAssigned(Vec2.BI_MINUS_ONE);
+            lhs.markAssigned(BigIntegerUtil.MINUS_ONE);
             drv.markUsed();
         }
 

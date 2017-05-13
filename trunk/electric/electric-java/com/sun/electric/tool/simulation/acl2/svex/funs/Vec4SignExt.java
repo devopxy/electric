@@ -21,12 +21,14 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Like logext for 4vecs; the width is also a 4vec.
@@ -96,12 +98,42 @@ public class Vec4SignExt extends SvexCall
             return Vec4.X;
         }
 
-        private static BigInteger logext(int wval, BigInteger x)
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
         {
-            BigInteger pow = BigInteger.ONE.shiftLeft(wval - 1);
-            BigInteger mask = pow.subtract(BigInteger.ONE);
-            BigInteger xm = x.and(mask);
-            return x.testBit(wval - 1) ? xm.subtract(pow) : xm;
+            if (mask.signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    BigInteger.ZERO, BigInteger.ZERO
+                };
+            }
+            Svex width = args[0];
+            Vec4 widthVal = width.xeval(xevalMemoize);
+            if (!widthVal.isVec2())
+            {
+                return new BigInteger[]
+                {
+                    BigIntegerUtil.MINUS_ONE, maskForGenericSignx(mask)
+                };
+            }
+            int widthV = ((Vec2)widthVal).getVal().intValueExact();
+            if (widthV <= 0)
+            {
+                return new BigInteger[]
+                {
+                    BigIntegerUtil.MINUS_ONE, BigInteger.ZERO
+                };
+            }
+            BigInteger xMask = BigInteger.ONE.shiftLeft(widthV).subtract(BigInteger.ONE).and(mask);
+            if (mask.signum() < 0 || mask.bitLength() >= widthV)
+            {
+                xMask = xMask.setBit(widthV - 1);
+            }
+            return new BigInteger[]
+            {
+                BigIntegerUtil.MINUS_ONE, xMask
+            };
         }
     }
 }

@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Bitwise logical XOR of 4vecs.
@@ -74,6 +75,40 @@ public class Vec4Bitxor extends SvexCall
             return Vec4.valueOf(
                 x.getUpper().xor(y.getUpper()).or(xmask),
                 x.getLower().xor(y.getLower()).andNot(xmask));
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            Svex x = args[0];
+            Svex y = args[1];
+            Vec4 xv = x.xeval(xevalMemoize);
+            Vec4 yv = y.xeval(xevalMemoize);
+            BigInteger xZ = xv.getLower().andNot(xv.getUpper());
+            BigInteger yZ = yv.getLower().andNot(yv.getUpper());
+            BigInteger sharedZs = xZ.and(yZ).and(mask);
+            BigInteger xmNonZ = mask.andNot(xZ);
+            BigInteger ymNonZ = mask.andNot(yZ);
+            if (sharedZs.signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    ymNonZ, xmNonZ
+                };
+            }
+            BigInteger yX = yv.getUpper().andNot(yv.getLower());
+            BigInteger ymX = mask.and(yX);
+            if (ymX.signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    ymNonZ, xmNonZ.or(sharedZs)
+                };
+            }
+            return new BigInteger[]
+            {
+                ymNonZ.or(sharedZs), xmNonZ
+            };
         }
     }
 }

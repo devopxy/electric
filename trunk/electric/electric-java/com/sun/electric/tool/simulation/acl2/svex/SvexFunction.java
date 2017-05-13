@@ -25,6 +25,7 @@ import com.sun.electric.tool.simulation.acl2.svex.funs.*;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -157,10 +158,51 @@ public abstract class SvexFunction
         BigInteger l = x.getUpper().xor(y.getUpper()).or(xMask).not();
         u = u.or(zMask);
         l = l.or(zMask);
-        if (l.equals(u)) {
-            return Vec2.valueOf(u.equals(Vec2.BI_MINUS_ONE));
+        if (l.equals(u))
+        {
+            return Vec2.valueOf(u.equals(BigIntegerUtil.MINUS_ONE));
         }
-        return u.equals(Vec2.BI_MINUS_ONE) ? Vec4.X : Vec2.ZERO;
+        return u.equals(BigIntegerUtil.MINUS_ONE) ? Vec4.X : Vec2.ZERO;
+    }
+
+    public BigInteger[] argmasks(BigInteger mask, Svex[] args)
+    {
+        if (args.length != arity)
+        {
+            throw new IllegalArgumentException();
+        }
+        BigInteger[] result = svmaskFor(mask, args, new HashMap<>());
+        assert result.length == arity;
+        return result;
+    }
+
+    protected abstract BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize);
+
+    protected BigInteger v4maskAllOrNone(BigInteger outerMask)
+    {
+        return outerMask.signum() == 0 ? BigInteger.ZERO : BigIntegerUtil.MINUS_ONE;
+    }
+
+    protected BigInteger maskForGenericSignx(BigInteger mask)
+    {
+        if (mask.signum() < 0)
+        {
+            return BigIntegerUtil.MINUS_ONE;
+        }
+        int maskUpperBounds = Math.incrementExact(mask.bitLength());
+        // TODO: int maskUpperBounds = mask.bitLength();
+        return BigInteger.ONE.shiftLeft(maskUpperBounds).subtract(BigInteger.ONE);
+    }
+
+    protected boolean branchesSameUnderMask(BigInteger mask, Svex th, Svex el, Map<Svex, Vec4> xevalMemoize)
+    {
+        Vec4 thVal = th.xeval(xevalMemoize);
+        Vec4 elVal = el.xeval(xevalMemoize);
+        BigInteger thBool = thVal.getUpper().xor(thVal.getLower()).not();
+        BigInteger elBool = elVal.getUpper().xor(elVal.getLower()).not();
+        return BigIntegerUtil.MINUS_ONE.equals(thBool.andNot(mask))
+            && BigIntegerUtil.MINUS_ONE.equals(elBool.andNot(mask))
+            && (mask.and(thVal.getUpper()).equals(mask.and(elVal.getUpper())));
     }
 
     public static boolean isFnSym(ACL2Object o)
@@ -186,6 +228,15 @@ public abstract class SvexFunction
         public Vec4 apply(Vec4... args)
         {
             throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            assert args.length == arity;
+            BigInteger[] result = new BigInteger[args.length];
+            Arrays.fill(result, v4maskAllOrNone(mask));
+            return result;
         }
     }
 }

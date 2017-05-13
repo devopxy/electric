@@ -21,12 +21,14 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Reduction logical AND of a 4vec.
@@ -67,9 +69,18 @@ public class Vec4ReductionAnd extends SvexCall
             if (x.isVec2())
             {
                 BigInteger xv = ((Vec2)x).getVal();
-                return Vec2.valueOf(xv.equals(Vec2.BI_MINUS_ONE));
+                return Vec2.valueOf(xv.equals(BigIntegerUtil.MINUS_ONE));
             }
-            return x.getUpper().equals(Vec2.BI_MINUS_ONE) ? Vec4.X : Vec2.ZERO;
+            return x.getUpper().equals(BigIntegerUtil.MINUS_ONE) ? Vec4.X : Vec2.ZERO;
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            return new BigInteger[]
+            {
+                v4maskAllOrNone(mask)
+            };
         }
     }
 }

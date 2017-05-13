@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Unsafe, Verilog-style “case equality” of 4vecs.
@@ -43,6 +44,18 @@ public class Vec4CaseEquality extends SvexCall
         super(FUNCTION, x, y);
         this.x = x;
         this.y = y;
+    }
+
+    @Override
+    public Vec4 xeval(Map<Svex, Vec4> memoize)
+    {
+        Vec4 result = memoize.get(this);
+        if (result == null)
+        {
+            result = Vec4Equality.FUNCTION.apply(Svex.listXeval(args, memoize));
+            memoize.put(this, result);
+        }
+        return result;
     }
 
     public static class Function extends SvexFunction
@@ -71,6 +84,15 @@ public class Vec4CaseEquality extends SvexCall
             }
             return Vec2.valueOf(x.getUpper().equals(y.getUpper())
                 && x.getLower().equals(y.getLower()));
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            return new BigInteger[]
+            {
+                v4maskAllOrNone(mask), v4maskAllOrNone(mask)
+            };
         }
     }
 }

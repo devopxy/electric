@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Reduction logical OR of a 4vec.
@@ -70,6 +71,15 @@ public class Vec4ReductionOr extends SvexCall
                 return Vec2.valueOf(xv.signum() != 0);
             }
             return x.getLower().signum() == 0 ? Vec4.X : Vec2.ONE;
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            return new BigInteger[]
+            {
+                v4maskAllOrNone(mask)
+            };
         }
     }
 }

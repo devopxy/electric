@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.svex;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.Map;
 
 /**
  * A "quoted constant" 4vec which represents itself.
@@ -58,6 +59,12 @@ public class SvexQuote extends Svex
         return visitor.visitConst(val, data);
     }
 
+    @Override
+    public Vec4 xeval(Map<Svex, Vec4> memoize)
+    {
+        return val;
+    }
+    
     @Override
     public boolean equals(Object o)
     {

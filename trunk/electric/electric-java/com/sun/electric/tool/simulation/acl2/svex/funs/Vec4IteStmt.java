@@ -21,12 +21,14 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Atomic if-then-else of 4vecs. Has the property that when branches are equal, the result is equal to the branch, regardless of the test.
@@ -71,15 +73,59 @@ public class Vec4IteStmt extends SvexCall
             if (test.isVec2())
             {
                 BigInteger testv = ((Vec2)test).getVal();
-                return testv.equals(Vec2.BI_MINUS_ONE) ? th : el;
+                return testv.equals(BigIntegerUtil.MINUS_ONE) ? th : el;
             }
-            if (!test.getUpper().equals(Vec2.BI_MINUS_ONE))
+            if (!test.getUpper().equals(BigIntegerUtil.MINUS_ONE))
             {
                 return el;
             }
             return Vec4.valueOf(
                 th.getUpper().or(el.getUpper()).or(th.getLower().xor(el.getLower())),
                 th.getLower().and(el.getLower()).andNot(th.getUpper()).and(el.getUpper()));
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            if (mask.signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO
+                };
+            }
+            Svex test = args[0];
+            Svex th = args[1];
+            Svex el = args[2];
+            Vec4 testVal = test.xeval(xevalMemoize);
+            BigInteger testOnes = testVal.getUpper().and(testVal.getLower());
+            if (testOnes.signum() != 0)
+            {
+                return new BigInteger[]
+                {
+                    testOnes, mask, BigInteger.ZERO
+                };
+            }
+            if (testVal.getUpper().signum() == 0 && testVal.getLower().signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    BigIntegerUtil.MINUS_ONE, BigInteger.ZERO, mask
+                };
+            }
+            if (th.equals(el) || branchesSameUnderMask(mask, th, el, xevalMemoize))
+            {
+                return new BigInteger[]
+                {
+                    BigInteger.ZERO, mask, mask
+                };
+            } else
+            {
+                return new BigInteger[]
+                {
+                    BigIntegerUtil.MINUS_ONE, mask, mask
+                };
+            }
         }
     }
 }

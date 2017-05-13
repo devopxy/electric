@@ -21,12 +21,14 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Like logapp for 4vecs; the width is also a 4vec.
@@ -82,8 +84,7 @@ public class Vec4Concat extends SvexCall
                                 throw new IllegalArgumentException("very large integer");
                             }
                         }
-                        BigInteger mask = BigInteger.ONE.shiftLeft(wval).subtract(BigInteger.ONE);
-                        return new Vec2(lv.and(mask).or(hv.shiftLeft(wval)));
+                        return new Vec2(BigIntegerUtil.loghead(wval, lv).or(hv.shiftLeft(wval)));
                     }
                     if (wval >= Vec4.BIT_LIMIT)
                     {
@@ -96,7 +97,7 @@ public class Vec4Concat extends SvexCall
                             throw new IllegalArgumentException("very large integer");
                         }
                     }
-                    BigInteger mask = BigInteger.ONE.shiftLeft(wval).subtract(BigInteger.ONE);
+                    BigInteger mask = BigIntegerUtil.logheadMask(wval);
                     return Vec4.valueOf(
                         l.getUpper().and(mask).or(h.getUpper().shiftLeft(wval)),
                         l.getLower().and(mask).or(h.getLower().shiftLeft(wval))
@@ -104,6 +105,42 @@ public class Vec4Concat extends SvexCall
                 }
             }
             return Vec4.X;
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            if (mask.signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO
+                };
+            }
+            Svex width = args[0];
+            Vec4 widthVal = width.xeval(xevalMemoize);
+            if (!widthVal.isVec2())
+            {
+                BigInteger argMask = maskForGenericSignx(mask);
+                return new BigInteger[]
+                {
+                    BigIntegerUtil.MINUS_ONE, argMask, argMask
+                };
+            }
+            int widthV = ((Vec2)widthVal).getVal().intValueExact();
+            if (widthV < 0)
+            {
+                return new BigInteger[]
+                {
+                    BigIntegerUtil.MINUS_ONE, BigInteger.ZERO, BigInteger.ZERO
+                };
+            }
+            return new BigInteger[]
+            {
+                BigIntegerUtil.MINUS_ONE,
+                BigIntegerUtil.loghead(widthV, mask),
+                mask.shiftRight(widthV)
+            };
         }
     }
 }

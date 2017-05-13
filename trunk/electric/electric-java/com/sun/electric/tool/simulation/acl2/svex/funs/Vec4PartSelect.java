@@ -21,12 +21,14 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Part select operation: select width bits of in starting at lsb.
@@ -80,11 +82,76 @@ public class Vec4PartSelect extends SvexCall
                         u = u.or(lsbMask);
                         l = l.or(lsbMask);
                     }
-                    BigInteger mask = BigInteger.ONE.shiftLeft(widthVal).subtract(BigInteger.ONE);
+                    BigInteger mask = BigIntegerUtil.logheadMask(widthVal);
                     return Vec4.valueOf(u.and(mask), l.and(mask));
                 }
             }
             return Vec4.X;
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            if (mask.signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO
+                };
+            }
+            Svex lsb = args[0];
+            Svex width = args[1];
+            Vec4 lsbVal = lsb.xeval(xevalMemoize);
+            Vec4 widthVal = width.xeval(xevalMemoize);
+            if (!widthVal.isVec2())
+            {
+                if (lsbVal.isVec2())
+                {
+                    int lsbV = ((Vec2)lsbVal).getVal().intValueExact();
+                    return new BigInteger[]
+                    {
+                        BigIntegerUtil.MINUS_ONE, BigIntegerUtil.MINUS_ONE, mask.shiftLeft(lsbV)
+                    };
+                } else
+                {
+                    return new BigInteger[]
+                    {
+                        BigIntegerUtil.MINUS_ONE, BigIntegerUtil.MINUS_ONE, BigIntegerUtil.MINUS_ONE
+                    };
+                }
+            }
+            int widthV = ((Vec2)widthVal).getVal().intValueExact();
+
+            if (widthV < 0)
+            {
+                return new BigInteger[]
+                {
+                    BigInteger.ZERO, BigIntegerUtil.MINUS_ONE, BigInteger.ZERO
+                };
+            }
+
+            if (!lsbVal.isVec2())
+            {
+                if (BigIntegerUtil.loghead(widthV, mask).signum() == 0)
+                {
+                    return new BigInteger[]
+                    {
+                        BigIntegerUtil.MINUS_ONE, BigIntegerUtil.MINUS_ONE, BigInteger.ZERO
+                    };
+                } else
+                {
+                    return new BigInteger[]
+                    {
+                        BigIntegerUtil.MINUS_ONE, BigIntegerUtil.MINUS_ONE, BigIntegerUtil.MINUS_ONE
+                    };
+                }
+            }
+            int lsbV = ((Vec2)lsbVal).getVal().intValueExact();
+            BigInteger xMask = BigIntegerUtil.loghead(widthV, mask).shiftLeft(lsbV);
+            return new BigInteger[]
+            {
+                BigIntegerUtil.MINUS_ONE, BigIntegerUtil.MINUS_ONE, xMask
+            };
         }
     }
 }

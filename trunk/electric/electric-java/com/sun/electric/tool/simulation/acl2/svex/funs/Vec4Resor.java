@@ -25,6 +25,8 @@ import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * Bitwise wired OR resolution of two 4vecs.
@@ -66,6 +68,40 @@ public class Vec4Resor extends SvexCall
                 x.getUpper().and(x.getLower())
                     .or(y.getUpper().and(y.getLower())
                         .or(x.getLower().and(y.getLower()))));
+        }
+
+        @Override
+        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        {
+            Svex x = args[0];
+            Svex y = args[1];
+            Vec4 xv = x.xeval(xevalMemoize);
+            Vec4 yv = y.xeval(xevalMemoize);
+            BigInteger xOne = xv.getUpper().and(xv.getLower());
+            BigInteger yOne = yv.getUpper().and(yv.getLower());
+            BigInteger sharedOnes = xOne.and(yOne).and(mask);
+            BigInteger xmNonone = mask.andNot(xOne);
+            BigInteger ymNonone = mask.andNot(yOne);
+            if (sharedOnes.signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    ymNonone, xmNonone
+                };
+            }
+            BigInteger yX = yv.getUpper().andNot(yv.getLower());
+            BigInteger ymX = mask.and(yX);
+            if (ymX.signum() == 0)
+            {
+                return new BigInteger[]
+                {
+                    ymNonone, xmNonone.or(sharedOnes)
+                };
+            }
+            return new BigInteger[]
+            {
+                ymNonone.or(sharedOnes), xmNonone
+            };
         }
     }
 }
