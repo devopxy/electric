@@ -23,6 +23,8 @@ package com.sun.electric.tool.simulation.acl2.svex;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Map;
 
 import java.util.Set;
@@ -135,8 +137,8 @@ public abstract class Svex
     }
 
     public abstract Vec4 xeval(Map<Svex, Vec4> memoize);
-    
-    public static Vec4[] listXeval(Svex[] list, Map<Svex,Vec4> memoize)
+
+    public static Vec4[] listXeval(Svex[] list, Map<Svex, Vec4> memoize)
     {
         Vec4[] result = new Vec4[list.length];
         for (int i = 0; i < result.length; i++)
@@ -145,4 +147,45 @@ public abstract class Svex
         }
         return result;
     }
+
+    void toposort(Set<Svex> downTop)
+    {
+        downTop.add(this);
+    }
+
+    public Svex[] toposort()
+    {
+        Set<Svex> downTop = new LinkedHashSet<>();
+        toposort(downTop);
+        Svex[] topDown = new Svex[downTop.size()];
+        int i = topDown.length;
+        for (Svex svex : downTop)
+        {
+            topDown[--i] = svex;
+        }
+        assert i == 0;
+        return topDown;
+    }
+
+    public static Svex[] listToposort(Collection<Svex> list)
+    {
+        Set<Svex> downTop = new LinkedHashSet<>();
+        for (Svex svex : list)
+        {
+            if (svex == null)
+            {
+                throw new NullPointerException();
+            }
+            svex.toposort(downTop);
+        }
+        Svex[] topDown = new Svex[downTop.size()];
+        int i = topDown.length;
+        for (Svex svex : downTop)
+        {
+            topDown[--i] = svex;
+        }
+        assert i == 0;
+        return topDown;
+    }
+
 }

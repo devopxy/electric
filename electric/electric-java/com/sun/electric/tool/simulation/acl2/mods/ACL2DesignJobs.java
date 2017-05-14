@@ -38,8 +38,10 @@ import java.io.File;
 import java.io.IOException;
 
 import java.io.PrintStream;
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -357,22 +359,116 @@ public class ACL2DesignJobs
             {
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 Design design = new Design(sr.root);
-                Map<Svex, String> svexLabels = new HashMap<>();
+                Map<Svex, String> svexLabels = new LinkedHashMap<>();
+                Map<Svex, BigInteger> svexSizes = new HashMap<>();
                 try (PrintStream out = new PrintStream(outFileName))
                 {
                     out.println("(in-package \"SV\")");
+                    out.println("(include-book \"std/util/defrule\" :dir :system)");
                     out.println("(include-book \"std/util/defconsts\" :dir :system)");
+                    out.println("(include-book \"centaur/sv/mods/svmods\" :dir :system)");
                     out.println("(include-book \"centaur/sv/svex/svex\" :dir :system)");
+                    out.println("(include-book \"centaur/sv/svex/xeval\" :dir :system)");
                     out.println();
-                    out.println("(defconsts (*" + designName + "-dedup*) `(");
+                    out.println("(defconsts (*" + designName + "* state)");
+                    out.println("  (serialize-read \"" + designName + ".sao\"))");
+                    out.println();
+                    out.println("(local (defn extract-labels (labels acc)");
+                    out.println("  (if (atom labels)");
+                    out.println("     ()");
+                    out.println("    (cons (cdr (hons-get (car labels) acc))");
+                    out.println("          (extract-labels (cdr labels) acc)))))");
+                    out.println();
+                    out.println("(local (defun from-dedup (x acc)");
+                    out.println("  (if (atom x)");
+                    out.println("       acc");
+                    out.println("    (let* ((line (car x))");
+                    out.println("           (label (car line))");
+                    out.println("           (kind (cadr line))");
+                    out.println("           (args (cddr line)))");
+                    out.println("      (from-dedup");
+                    out.println("        (cdr x)");
+                    out.println("        (hons-acons");
+                    out.println("          label");
+                    out.println("          (case kind");
+                    out.println("            (:quote (make-svex-quote :val (car args)))");
+                    out.println("            (:var (make-svex-var :name (car args)))");
+                    out.println("            (:call (make-svex-call :fn (car args)");
+                    out.println("                                   :args (extract-labels (cdr args) acc))))");
+                    out.println("          acc))))))");
+                    out.println();
+                    out.println("(defconsts (*" + designName + "-dedup*)");
+                    out.println(" (from-dedup `(");
                     for (Module m : design.downTop.values())
                     {
                         for (Driver dr : m.assigns.values())
                         {
-                            traverse(out, dr.svex, svexLabels);
+                            genDedup(out, dr.svex, svexLabels, svexSizes);
                         }
                     }
+                    out.println(" ) ()))");
+                    out.println();
+                    for (Map.Entry<ModName, Module> e : design.downTop.entrySet())
+                    {
+                        ModName mn = e.getKey();
+                        Module m = e.getValue();
+                        out.println();
+                        out.println("(local (defun |check-" + mn + "| ()");
+                        out.println("  (let ((m (cdr (assoc-equal '" + mn + " (design->modalist *" + designName + "*)))))");
+                        out.println("    (equal (hons-copy (strip-cars (strip-cdrs (module->assigns m))))");
+                        out.print("           (extract-labels '(");
+                        for (Driver dr : m.assigns.values())
+                        {
+                            out.print(" " + svexLabels.get(dr.svex));
+                        }
+                        out.println(")");
+                        out.println("                           *" + designName + "-dedup*)))))");
+                    }
+                    out.println();
+                    out.println("(rule");
+                    out.println("  (and");
+                    for (ModName mn : design.downTop.keySet())
+                    {
+                        out.println("    (|check-" + mn + "|)");
+                    }
                     out.println("))");
+                    out.println();
+                    out.println("(defconsts (*" + designName + "-xeval*) '(");
+                    Map<Svex, Vec4> xevalMemoize = new HashMap<>();
+                    for (Map.Entry<Svex, String> e : svexLabels.entrySet())
+                    {
+                        Svex svex = e.getKey();
+                        String label = e.getValue();
+                        Vec4 xeval = svex.xeval(xevalMemoize);
+                        out.println("  (" + label + " . " + xeval.makeAcl2Object().rep() + ")");
+                    }
+                    out.println(" ))");
+                    out.println();
+                    out.println("(local (defun check-xeval (alist dedup)");
+                    out.println("  (or (atom alist)");
+                    out.println("      (and (equal (svex-xeval (cdr (hons-get (caar alist) dedup)))");
+                    out.println("                  (cdar alist))");
+                    out.println("           (check-xeval (cdr alist) dedup)))))");
+                    out.println();
+                    out.println("(rule");
+                    out.println("  (check-xeval *" + designName + "-xeval* *" + designName + "-dedup*))");
+                    out.println();
+                    out.println("(defconsts (*" + designName + "-toposort*) '(");
+                    for (Map.Entry<Svex, String> e : svexLabels.entrySet())
+                    {
+                        Svex svex = e.getKey();
+                        String label = e.getValue();
+                        Svex[] toposort = svex.toposort();
+                        Vec4 xeval = svex.xeval(xevalMemoize);
+                        Util.check(toposort[0].equals(svex));
+                        out.print("  (" + label);
+                        for (int i = 1; i < toposort.length; i++)
+                        {
+                            out.print(" " + svexLabels.get(toposort[i]));
+                        }
+                        out.println(")");
+                    }
+                    out.println(" ))");
                 }
             } catch (IOException e)
             {
@@ -381,7 +477,28 @@ public class ACL2DesignJobs
             return true;
         }
 
-        private String traverse(PrintStream out, Svex svex, Map<Svex, String> svexLabels)
+        private BigInteger computeSize(Svex svex, Map<Svex, BigInteger> sizes)
+        {
+            BigInteger size = sizes.get(svex);
+            if (size == null)
+            {
+                if (svex instanceof SvexCall)
+                {
+                    size = BigInteger.ONE;
+                    for (Svex arg : ((SvexCall)svex).getArgs())
+                    {
+                        size = size.add(computeSize(arg, sizes));
+                    }
+                } else
+                {
+                    size = BigInteger.ONE;
+                }
+                sizes.put(svex, size);
+            }
+            return size;
+        }
+
+        private String genDedup(PrintStream out, Svex svex, Map<Svex, String> svexLabels, Map<Svex, BigInteger> svexSizes)
         {
             String label = svexLabels.get(svex);
             if (label == null)
@@ -398,7 +515,7 @@ public class ACL2DesignJobs
                         out.print("#x" + ((Vec2)val).getVal().toString(16));
                     } else
                     {
-                        out.print("'(#x" + val.getUpper().toString(16) + " . " + val.getLower().toString(16) + ")");
+                        out.print("(#x" + val.getUpper().toString(16) + " . #x" + val.getLower().toString(16) + ")");
                     }
                     out.println(")");
                 } else if (svex instanceof SvexVar)
@@ -428,7 +545,7 @@ public class ACL2DesignJobs
                     String[] labels = new String[args.length];
                     for (int i = 0; i < labels.length; i++)
                     {
-                        labels[i] = traverse(out, args[i], svexLabels);
+                        labels[i] = genDedup(out, args[i], svexLabels, svexSizes);
                     }
                     label = "l" + svexLabels.size();
                     svexLabels.put(svex, label);
@@ -437,7 +554,7 @@ public class ACL2DesignJobs
                     {
                         out.print(" " + l);
                     }
-                    out.println(")");
+                    out.println(") ; " + computeSize(svex, svexSizes));
                 }
             }
             return label;

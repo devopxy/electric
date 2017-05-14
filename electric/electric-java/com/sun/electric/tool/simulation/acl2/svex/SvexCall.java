@@ -24,7 +24,10 @@ package com.sun.electric.tool.simulation.acl2.svex;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A function applied to some expressions.
@@ -97,6 +100,19 @@ public class SvexCall extends Svex
         return result;
     }
 
+    @Override
+    void toposort(Set<Svex> downTop)
+    {
+        if (!downTop.contains(this))
+        {
+            for (Svex arg : args)
+            {
+                arg.toposort(downTop);
+            }
+            downTop.add(this);
+        }
+    }
+    
     @Override
     public boolean equals(Object o)
     {
