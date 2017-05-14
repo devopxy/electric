@@ -73,11 +73,15 @@ public class Vec4Ite extends SvexCall
             if (test.isVec2())
             {
                 BigInteger testv = ((Vec2)test).getVal();
-                return testv.equals(BigIntegerUtil.MINUS_ONE) ? th : el;
+                return testv.signum() != 0 ? th : el;
             }
-            if (!test.getUpper().equals(BigIntegerUtil.MINUS_ONE))
+            if (test.getUpper().signum() == 0)
             {
                 return el;
+            }
+            if (test.getLower().signum() != 0)
+            {
+                return th;
             }
             return Vec4.valueOf(
                 th.getUpper().or(el.getUpper()).or(th.getLower()).or(el.getLower()),

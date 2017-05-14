@@ -73,7 +73,7 @@ class ACL2Cons extends ACL2Object
     @Override
     public String rep()
     {
-        return "(" + car.rep() + "." + cdr.rep() + ")";
+        return "(" + car.rep() + " . " + cdr.rep() + ")";
     }
 
     @Override

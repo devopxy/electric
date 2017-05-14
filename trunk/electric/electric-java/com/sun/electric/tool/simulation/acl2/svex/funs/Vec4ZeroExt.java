@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -77,7 +78,7 @@ public class Vec4ZeroExt extends SvexCall
 
                         }
                     }
-                    BigInteger mask = BigInteger.ONE.shiftLeft(wval).subtract(BigInteger.ONE);
+                    BigInteger mask = BigIntegerUtil.logheadMask(wval);
                     if (x.isVec2())
                     {
                         BigInteger xv = ((Vec2)x).getVal();
@@ -85,7 +86,7 @@ public class Vec4ZeroExt extends SvexCall
                     }
                     return Vec4.valueOf(
                         x.getUpper().and(mask),
-                        x.getLower().add(mask));
+                        x.getLower().and(mask));
                 }
             }
             return Vec4.X;

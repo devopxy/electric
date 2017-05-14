@@ -84,15 +84,15 @@ public class Vec4SignExt extends SvexCall
                     {
                         BigInteger xv = ((Vec2)x).getVal();
                         BigInteger xm = xv.and(mask);
-                        return new Vec2(xv.testBit(wval) ? xm.subtract(pow) : xm);
+                        return new Vec2(xv.testBit(wval - 1) ? xm.subtract(pow) : xm);
                     }
                     BigInteger uv = x.getUpper();
                     BigInteger lv = x.getLower();
                     BigInteger um = uv.and(mask);
                     BigInteger lm = lv.and(mask);
                     return Vec4.valueOf(
-                        uv.testBit(wval) ? um.subtract(pow) : um,
-                        lv.testBit(wval) ? lm.subtract(pow) : lm);
+                        uv.testBit(wval - 1) ? um.subtract(pow) : um,
+                        lv.testBit(wval - 1) ? lm.subtract(pow) : lm);
                 }
             }
             return Vec4.X;
