@@ -24,8 +24,6 @@ package com.sun.electric.tool.simulation.acl2.svex;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -112,7 +110,7 @@ public class SvexCall extends Svex
             downTop.add(this);
         }
     }
-    
+
     @Override
     public boolean equals(Object o)
     {

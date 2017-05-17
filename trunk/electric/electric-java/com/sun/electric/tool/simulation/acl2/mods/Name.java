@@ -67,11 +67,16 @@ public class Name
     @Override
     public String toString()
     {
-        return impl.rep();
+        if (stringp(impl).bool())
+        {
+            return impl.stringValueExact();
+        } else {
+            return "'" + impl.rep();
+        }
     }
 
     public String toLispString()
     {
-        return impl.stringValueExact();
+        return stringp(impl).bool() || integerp(impl).bool() ? impl.rep() : "'" + impl.rep();
     }
 }

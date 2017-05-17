@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
@@ -144,7 +145,7 @@ public abstract class Lhatom
         @Override
         public String toString(int w)
         {
-            return name.toString(w, rsh);
+            return name.toString(BigIntegerUtil.logheadMask(w).shiftLeft(rsh));
         }
 
         @Override

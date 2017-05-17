@@ -112,7 +112,7 @@ public abstract class GenFsm
         e();
         s(" :returns (" + s + " unsigned-" + w.width + "-p)");
         s(" (declare (ignore in))");
-        String ff = "(" + projName + "-st->" + instname.toLispString() + " st)";
+        String ff = "(" + projName + "-st->" + instname.toString() + " st)";
         if (w.width == ffWidth)
         {
             // ff
@@ -366,7 +366,7 @@ public abstract class GenFsm
         {
             Lhrange lr = r.ranges.get(r.ranges.size() - 1 - i);
             Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
-            String atomStr = "(" + atomVar.name.wire.name.toLispString() + "-ext st in)";
+            String atomStr = "(" + atomVar.name.wire.toString() + "-ext st in)";
             if (atomVar.rsh != 0)
             {
                 atomStr = "(logtail " + atomVar.rsh + " " + atomStr + ")";

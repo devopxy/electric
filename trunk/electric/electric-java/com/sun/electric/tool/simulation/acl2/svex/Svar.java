@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.svex;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
 
 /**
  * A single variable in a symbolic vector expression.
@@ -37,6 +38,8 @@ public abstract class Svar
     public abstract int getDelay();
 
     public abstract boolean isNonblocking();
+    
+    public abstract String toString(BigInteger mask);
 
     public ACL2Object makeACL2Object()
     {

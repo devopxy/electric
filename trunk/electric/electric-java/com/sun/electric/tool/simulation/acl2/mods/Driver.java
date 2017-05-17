@@ -48,20 +48,22 @@ public class Driver
         this.impl = impl;
         svex = Svex.valueOf(parent, car(impl), parent.svexCache);
         strength = cdr(impl).intValueExact();
+        Util.check(strength == 6);
         for (Svar svar : svex.collectVars())
         {
             Util.check(svar instanceof SVarExt.LocalWire);
         }
         Util.check(strength >= 0);
     }
-
+    
     @Override
     public String toString()
     {
-        return "(" + strength + ") " + svex;
+        assert strength == 6;
+        return svex.toString();
     }
 
-    public Set<SVarExt.LocalWire> collectVars()
+    public final Set<SVarExt.LocalWire> collectVars()
     {
         return svex.collectVars(SVarExt.LocalWire.class);
     }
