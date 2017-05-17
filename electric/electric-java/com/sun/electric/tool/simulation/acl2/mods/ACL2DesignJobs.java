@@ -368,6 +368,7 @@ public class ACL2DesignJobs
                     out.println("(include-book \"std/util/defconsts\" :dir :system)");
                     out.println("(include-book \"centaur/sv/mods/svmods\" :dir :system)");
                     out.println("(include-book \"centaur/sv/svex/svex\" :dir :system)");
+                    out.println("(include-book \"centaur/sv/svex/rewrite\" :dir :system)");
                     out.println("(include-book \"centaur/sv/svex/xeval\" :dir :system)");
                     out.println();
                     out.println("(defconsts (*" + designName + "* state)");
@@ -459,7 +460,6 @@ public class ACL2DesignJobs
                         Svex svex = e.getKey();
                         String label = e.getValue();
                         Svex[] toposort = svex.toposort();
-                        Vec4 xeval = svex.xeval(xevalMemoize);
                         Util.check(toposort[0].equals(svex));
                         out.print("  (" + label);
                         for (int i = 1; i < toposort.length; i++)
@@ -469,6 +469,72 @@ public class ACL2DesignJobs
                         out.println(")");
                     }
                     out.println(" ))");
+                    out.println();
+                    out.println("(local (defun check-toposort (list dedup)");
+                    out.println("  (or (atom list)");
+                    out.println("      (b* ((toposort (extract-labels (car list) dedup))");
+                    out.println("           ((mv sort ?contents) (svex-toposort (car toposort) () ()))");
+                    out.println("           (sort (hons-copy sort)))");
+                    out.println("        (and (equal sort toposort)");
+                    out.println("             (check-toposort (cdr list) dedup))))))");
+                    out.println();
+                    out.println("(rule");
+                    out.println("  (check-toposort *" + designName + "-toposort* *" + designName + "-dedup*))");
+                    out.println();
+                    out.println("(defconsts (*" + designName + "-masks*) '(");
+                    for (Map.Entry<Svex, String> e : svexLabels.entrySet())
+                    {
+                        Svex svex = e.getKey();
+                        String label = e.getValue();
+                        Svex[] toposort = svex.toposort();
+                        Util.check(toposort[0].equals(svex));
+                        Map<Svex, BigInteger> masks = svex.maskAlist(BigIntegerUtil.MINUS_ONE);
+                        out.print("  (" + label);
+                        for (int i = 0; i < toposort.length; i++)
+                        {
+                            BigInteger mask = masks.get(toposort[i]);
+                            if (mask == null)
+                            {
+                                mask = BigInteger.ZERO;
+                            }
+                            out.print(" #x" + mask.toString(16));
+                        }
+                        out.println(")");
+                    }
+                    out.println(" ))");
+                    out.println();
+                    out.println("(local (defun toposort-label (label dedup)");
+                    out.println("  (b* ((svex (cdr (hons-get label dedup)))");
+                    out.println("       ((mv toposort ?contents) (svex-toposort svex () ())))");
+                    out.println("    toposort)))");
+                    out.println();
+                    out.println("(local (defun comp-masks (toposort mask-al)");
+                    out.println("  (if (atom toposort)");
+                    out.println("      ()");
+                    out.println("    (cons (svex-mask-lookup (car toposort) mask-al)");
+                    out.println("          (comp-masks (cdr toposort) mask-al)))))");
+                    out.println();
+                    out.println("(local (defun masks-label (label dedup)");
+                    out.println("  (b* ((svex (cdr (hons-get label dedup)))");
+                    out.println("       (toposort (toposort-label label dedup))");
+                    out.println("       (mask-al (svexlist-mask-alist (list svex))))");
+                    out.println("    (comp-masks toposort mask-al))))");
+                    out.println();
+                    out.println("(local (defun show-line (line dedup)");
+                    out.println("  (list");
+                    out.println("   :line line");
+                    out.println("   :toposort (toposort-label (car line) dedup)");
+                    out.println("   :masks (masks-label (car line) dedup)");
+                    out.println("   :ok (equal (masks-label (car line) dedup) (cdr line)))))");
+                    out.println();
+                    out.println("(local (defun check-masks (masks-lines dedup)");
+                    out.println("  (or (atom masks-lines)");
+                    out.println("      (and (let ((line (car masks-lines)))");
+                    out.println("             (equal (masks-label (car line) dedup) (cdr line)))");
+                    out.println("           (check-masks (cdr masks-lines) dedup)))))");
+                    out.println();
+                    out.println("(rule");
+                    out.println("  (check-masks *" + designName + "-masks* *" + designName + "-dedup*))");
                 }
             } catch (IOException e)
             {
@@ -527,11 +593,11 @@ public class ACL2DesignJobs
                     if (sv.svar instanceof SVarExt.PortInst)
                     {
                         SVarExt.PortInst pi = (SVarExt.PortInst)sv.svar;
-                        out.print("'(\"" + pi.inst.instname.toLispString() + "\" . \"" + pi.wire.name.toLispString() + "\")");
+                        out.print("'(" + pi.inst.instname.toLispString() + " . " + pi.wire.name.toLispString() + ")");
                     } else
                     {
                         SVarExt.LocalWire lw = (SVarExt.LocalWire)sv.svar;
-                        out.print("\"" + lw.wire.name.toLispString() + "\"");
+                        out.print(lw.wire.name.toLispString());
                         if (lw.delay != 0)
                         {
                             out.print(" :delay " + lw.delay);
@@ -558,6 +624,136 @@ public class ACL2DesignJobs
                 }
             }
             return label;
+        }
+    }
+
+    public static void showAssigns(File saoFile, String designName, String outFileName)
+    {
+        new ShowAssignsJob(saoFile, designName, outFileName).startJob();
+    }
+
+    private static class ShowAssignsJob extends Job
+    {
+        private final File saoFile;
+        private final String designName;
+        private final String outFileName;
+
+        private ShowAssignsJob(File saoFile, String designName, String outFileName)
+        {
+            super("Show SVEX assigns", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
+            this.saoFile = saoFile;
+            this.designName = designName;
+            this.outFileName = outFileName;
+        }
+
+        @Override
+        public boolean doIt() throws JobException
+        {
+            try
+            {
+                ACL2Reader sr = new ACL2Reader(saoFile);
+                Design design = new Design(sr.root);
+                try (PrintStream out = new PrintStream(outFileName))
+                {
+                    out.println("(in-package \"SV\")");
+                    out.println("(include-book \"std/util/defconsts\" :dir :system)");
+                    out.println("(include-book \"std/util/define\" :dir :system)");
+                    out.println("(include-book \"std/util/defrule\" :dir :system)");
+                    out.println("(include-book \"centaur/sv/mods/svmods\" :dir :system)");
+                    out.println("(include-book \"centaur/sv/svex/svex\" :dir :system)");
+                    out.println("(include-book \"centaur/sv/svex/rewrite\" :dir :system)");
+//                    out.println("(include-book \"centaur/sv/svex/xeval\" :dir :system)");
+                    out.println();
+                    out.println("(defconsts (*" + designName + "* state)");
+                    out.println("  (serialize-read \"" + designName + ".sao\"))");
+                    out.println();
+                    out.println("(local (define filter-vars");
+                    out.println("  ((toposort svexlist-p)");
+                    out.println("   (mask-al svex-mask-alist-p))");
+                    out.println("  :returns (filtered svex-mask-alist-p)");
+                    out.println("  (and (consp toposort)");
+                    out.println("       (let ((svex (svex-fix (car toposort)))");
+                    out.println("             (rest (cdr toposort)))");
+                    out.println("         (svex-case svex");
+                    out.println("           :quote (filter-vars rest mask-al)");
+                    out.println("           :call (filter-vars rest mask-al)");
+                    out.println("           :var (cons (cons svex (svex-mask-lookup svex mask-al))");
+                    out.println("                      (filter-vars rest mask-al)))))))");
+                    out.println();
+                    out.println("(local (define compute-driver-masks");
+                    out.println("  ((x svexlist-p))");
+                    out.println("  (and (consp x)");
+                    out.println("       (b* ((svex (car x))");
+                    out.println("            ((mv toposort ?contents) (svex-toposort svex () ()))");
+                    out.println("            (mask-al (svexlist-mask-alist (list svex))))");
+                    out.println("         (cons (rev (filter-vars toposort mask-al))");
+                    out.println("               (compute-driver-masks (cdr x)))))))");
+
+                    for (Map.Entry<ModName, Module> e : design.downTop.entrySet())
+                    {
+                        ModName mn = e.getKey();
+                        Module m = e.getValue();
+                        out.println();
+                        out.println("(local (define |check-" + mn + "| ()");
+                        out.println("  (let ((m (cdr (assoc-equal '" + mn + " (design->modalist *" + designName + "*)))))");
+                        out.println("    (equal (compute-driver-masks (hons-copy (strip-cars (strip-cdrs (module->assigns m))))) `(");
+                        for (Map.Entry<Lhs, Driver> e1 : m.assigns.entrySet())
+                        {
+                            Lhs l = e1.getKey();
+                            Driver d = e1.getValue();
+
+                            Set<SVarExt.LocalWire> vars = d.collectVars();
+                            Map<Svex, BigInteger> masks = d.svex.maskAlist(BigIntegerUtil.MINUS_ONE);
+                            out.print("      (;");
+                            assert !l.ranges.isEmpty();
+                            for (int i = 0; i < l.ranges.size(); i++)
+                            {
+                                Lhrange lr = l.ranges.get(i);
+                                Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
+                                SVarExt svar = atomVar.name;
+                                assert svar.getDelay() == 0;
+                                assert !svar.isNonblocking();
+                                out.print((i == 0 ? "  " : ",") + lr);
+                            }
+                            out.println();
+                            for (SVarExt.LocalWire lw : vars)
+                            {
+                                out.println();
+                                Svex svex = new SvexVar(lw);
+                                BigInteger mask = masks.get(svex);
+                                if (mask == null)
+                                {
+                                    mask = BigInteger.ZERO;
+                                }
+                                out.print("        (");
+                                if (lw.delay == 0)
+                                {
+                                    out.print(lw.name.rep());
+                                } else
+                                {
+                                    out.print(",(make-svar :name " + lw.name.rep() + " :delay " + lw.delay + ")");
+                                }
+                                out.println(" . #x" + mask.toString(16) + ")");
+                            }
+                            out.print("      )");
+                        }
+                        out.println(" )))))");
+                    }
+                    out.println();
+                    out.println("(rule");
+                    out.println("  (and");
+                    for (ModName mn : design.downTop.keySet())
+                    {
+                        out.println("    (|check-" + mn + "|)");
+                    }
+                    out.println("))");
+
+                }
+            } catch (IOException e)
+            {
+                return false;
+            }
+            return true;
         }
     }
 

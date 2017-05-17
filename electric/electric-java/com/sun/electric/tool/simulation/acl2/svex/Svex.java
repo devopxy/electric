@@ -23,7 +23,10 @@ package com.sun.electric.tool.simulation.acl2.svex;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 
@@ -102,11 +105,20 @@ public abstract class Svex
     public String toString()
     {
         StringBuilder sb = new StringBuilder();
-        sb.append("svex");
-        for (Svar sv : collectVars())
+        sb.append("svex(");
+        Map<Svar, BigInteger> varsWithMasks = collectVarsWithMasks(BigIntegerUtil.MINUS_ONE, Svar.class);
+        boolean first = true;
+        for (Map.Entry<Svar, BigInteger> e: varsWithMasks.entrySet())
         {
-            sb.append(" ").append(sv);
+            Svar svar = e.getKey();
+            BigInteger mask = e.getValue();
+            if (first)
+                first = false;
+            else
+                sb.append(",");
+            sb.append(svar.toString(mask));
         }
+        sb.append(")");
         return sb.toString();
     }
 
@@ -188,4 +200,71 @@ public abstract class Svex
         return topDown;
     }
 
+    private static void svexArgsApplyMasks(Svex[] args, BigInteger[] masks, Map<Svex, BigInteger> maskMap)
+    {
+        if (args.length != masks.length)
+        {
+            throw new IllegalArgumentException();
+        }
+        for (int i = args.length - 1; i >= 0; i--)
+        {
+            if (masks[i].signum() != 0)
+            {
+                BigInteger look = maskMap.get(args[i]);
+                maskMap.put(args[i], look == null ? masks[i] : look.or(masks[i]));
+            }
+        }
+    }
+
+    private static void listComputeMasks(Svex[] x, Map<Svex, BigInteger> maskMap)
+    {
+        for (Svex svex : x)
+        {
+            if (svex instanceof SvexCall)
+            {
+                SvexCall sc = (SvexCall)svex;
+                BigInteger mask = maskMap.get(sc);
+                if (mask != null && mask.signum() != 0)
+                {
+                    BigInteger[] argmasks = sc.fun.argmasks(mask, sc.args);
+                    svexArgsApplyMasks(sc.args, argmasks, maskMap);
+                }
+            }
+        }
+    }
+
+    public Map<Svex, BigInteger> maskAlist(BigInteger mask)
+    {
+        Svex[] toposort = toposort();
+        Map<Svex, BigInteger> maskMap = new HashMap<>();
+        maskMap.put(this, mask);
+        listComputeMasks(toposort, maskMap);
+        return maskMap;
+    }
+
+    public <T extends Svar> Map<T, BigInteger> collectVarsWithMasks(BigInteger mask, Class<T> cls)
+    {
+        Set<T> vars = collectVars(cls);
+        Map<Svex, BigInteger> maskAl = maskAlist(mask);
+        Map<T, BigInteger> result = new LinkedHashMap<>();
+        for (T var : vars)
+        {
+            SvexVar svv = new SvexVar(var);
+            BigInteger varMask = maskAl.get(svv);
+            result.put(var, varMask);
+        }
+        return result;
+    }
+
+    public static Map<Svex, BigInteger> listMaskAlist(Collection<Svex> list)
+    {
+        Svex[] toposort = listToposort(list);
+        Map<Svex, BigInteger> maskMap = new HashMap<>();
+        for (Svex svex : list)
+        {
+            maskMap.put(svex, BigIntegerUtil.MINUS_ONE);
+        }
+        listComputeMasks(toposort, maskMap);
+        return maskMap;
+    }
 }

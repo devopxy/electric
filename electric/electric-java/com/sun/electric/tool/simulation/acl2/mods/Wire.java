@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
@@ -95,6 +96,7 @@ public class Wire
             revp = false;
             wiretype = cdr(impl);
         }
+        Util.check(delay == 0);
     }
 
     public int getFirstIndex()
@@ -126,23 +128,85 @@ public class Wire
             + (low_idx + rsh) + "]";
     }
 
+    public String toString(BigInteger mask)
+    {
+        String s = name.toString();
+        if (mask == null)
+        {
+            mask = BigInteger.ZERO;
+        }
+        BigInteger maskH = mask.shiftRight(width);
+        mask = BigIntegerUtil.loghead(width, mask);
+        String indices = "";
+        int ind = 0;
+        boolean first = true;
+        for (;;)
+        {
+            while (mask.signum() != 0)
+            {
+                int n = mask.getLowestSetBit();
+                assert n >= 0;
+                ind += n;
+                mask = mask.shiftRight(n);
+                int indL = ind;
+                if (BigIntegerUtil.MINUS_ONE.equals(mask))
+                {
+                    if (!first)
+                    {
+                        indices = "," + indices;
+                    }
+                    indices = ":" + Integer.toString(indL) + indices;
+                    break;
+                }
+                n = mask.not().getLowestSetBit();
+                assert n >= 0;
+                ind += n;
+                mask = mask.shiftRight(n);
+                if (indL == 0 && ind == width && maskH.signum() == 0)
+                {
+                    Util.check(mask.signum() == 0);
+                    Util.check(indices.isEmpty());
+                    return s;
+                }
+                Util.check(!revp);
+                if (first)
+                {
+                    first = false;
+                } else
+                {
+                    indices = "," + indices;
+                }
+                indices = Integer.toString(ind - 1) + ":" + Integer.toString(indL) + indices;
+            }
+            if (maskH.signum() == 0)
+                break;
+            indices = "/*?*/" + indices;
+            mask = maskH;
+            maskH = BigInteger.ZERO;
+        }
+        return s + "[" + indices + "]";
+    }
+
     public String toLispString(int width, int rsh)
     {
-        if (revp)
-        {
-            throw new UnsupportedOperationException();
-        }
-        return name.toLispString()
-            + "[" + (width == 1 ? "" : (low_idx + rsh + width - 1) + "..")
-            + (low_idx + rsh) + "]";
+        return toString(BigIntegerUtil.logheadMask(width).shiftLeft(rsh));
     }
 
     @Override
     public String toString()
     {
         Util.checkNil(wiretype);
-        return toString(width, 0)
-            + (delay != 0 ? "@" + delay : "");
+        Util.check(delay == 0);
+        String s = name.toString();
+        if (width != 1)
+        {
+            Util.check(!revp);
+            s += "[" + (low_idx + width - 1) + ":" + low_idx + "]";
+        } else if (low_idx != 0)
+        {
+            s += "[" + low_idx + "]";
+        }
+        return s;
     }
 
     public void markAssigned(BigInteger assignedBits)

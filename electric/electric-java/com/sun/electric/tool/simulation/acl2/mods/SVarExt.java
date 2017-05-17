@@ -21,9 +21,11 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
 
 /**
  * SVAR extended by parent, instance and wire.
@@ -54,14 +56,15 @@ public abstract class SVarExt extends Svar
         return false;
     }
 
-    public abstract String toString(int width, int rsh);
-
-    public abstract String toLispString(int width, int rsh);
-
     @Override
     public String toString()
     {
-        return toString(wire.width, 0);
+        return toString(BigIntegerUtil.logheadMask(wire.width));
+    }
+
+    public String toLispString(int width, int rsh)
+    {
+        return toString(BigIntegerUtil.logheadMask(width).shiftLeft(rsh));
     }
 
     public static class PortInst extends SVarExt
@@ -84,21 +87,9 @@ public abstract class SVarExt extends Svar
         }
 
         @Override
-        public String toString(int width, int rsh)
+        public String toString(BigInteger mask)
         {
-            return inst.instname + "." + wire.toString(width, rsh);
-        }
-
-        @Override
-        public String toLispString(int width, int rsh)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public String toString()
-        {
-            return toString(wire.width, 0);
+            return inst.instname + "." + wire.toString(mask);
         }
 
     }
@@ -126,27 +117,14 @@ public abstract class SVarExt extends Svar
         }
 
         @Override
-        public String toString(int width, int rsh)
+        public String toString(BigInteger mask)
         {
-            return wire.toString(width, rsh)
-                + (delay != 0 ? "@" + delay : "");
-        }
-
-        @Override
-        public String toLispString(int width, int rsh)
-        {
+            String s = wire.toString(mask);
             if (delay != 0)
             {
-                throw new UnsupportedOperationException();
+                s = "#" + delay + " " + s;
             }
-            if (width == wire.width)
-            {
-                return wire.name.toLispString();
-            } else
-            {
-                return wire.toLispString(width, rsh);
-            }
+            return s;
         }
-
     }
 }

@@ -373,7 +373,7 @@ public class CompileVerilogStruct
             {
                 if (wire.exported)
                 {
-                    VExport vExport = new VExport(wire.name.toLispString());
+                    VExport vExport = new VExport(wire.name.toString());
                     if (wire.isAssigned())
                     {
                         vExport.mode = MODE_OUT;
@@ -385,8 +385,8 @@ public class CompileVerilogStruct
                     int secondIndex = wire.getSecondIndex();
                     if (firstIndex != 0 || secondIndex != 0)
                     {
-                        vExport.firstIndex = secondIndex;
-                        vExport.secondIndex = firstIndex;
+                        vExport.firstIndex = firstIndex;
+                        vExport.secondIndex = secondIndex;
                     }
                     vModule.ports.add(vExport);
                 }
@@ -401,7 +401,7 @@ public class CompileVerilogStruct
                 VModule module = modulesByModName.get(inst.modname);
                 if (module != null)
                 {
-                    String instanceName = inst.instname.toLispString();
+                    String instanceName = inst.instname.toString();
                     VInstance vInstance = new VInstance(module, instanceName);
                     vModule.instances.add(vInstance);
                     VInstance old = instances.put(inst.instname, vInstance);

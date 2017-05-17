@@ -88,7 +88,7 @@ public class Vec4Bitand extends SvexCall
             Vec4 yv = y.xeval(xevalMemoize);
             BigInteger xZero = xv.getUpper().or(xv.getLower()).not();
             BigInteger yZero = yv.getUpper().or(yv.getLower()).not();
-            BigInteger sharedZeroes = xZero.and(yZero).or(mask);
+            BigInteger sharedZeroes = xZero.and(yZero).and(mask);
             BigInteger xmNonzero = mask.andNot(xZero);
             BigInteger ymNonzero = mask.andNot(yZero);
             if (sharedZeroes.signum() == 0)

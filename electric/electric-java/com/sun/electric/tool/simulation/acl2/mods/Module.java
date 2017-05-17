@@ -152,7 +152,7 @@ public class Module implements Svar.Builder<SVarExt>
         {
             if (w.width == 1 && w.low_idx == 0)
             {
-                w.global = w.name.toLispString();
+                w.global = w.name.toString();
             }
         }
     }
@@ -214,5 +214,4 @@ public class Module implements Svar.Builder<SVarExt>
             return new SVarExt.LocalWire(this, name, delay);
         }
     }
-
 }
