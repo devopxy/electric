@@ -64,7 +64,13 @@ public class SvexQuote extends Svex
     {
         return val;
     }
-    
+
+    @Override
+    public Svex patch(Map<Svar, Vec4> subst, Map<SvexCall, SvexCall> memoize)
+    {
+        return this;
+    }
+
     @Override
     public boolean equals(Object o)
     {

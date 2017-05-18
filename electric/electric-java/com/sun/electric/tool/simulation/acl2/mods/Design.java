@@ -147,4 +147,12 @@ public class Design
         Module old = downTop.put(mn, m);
         Util.check(old == null);
     }
+
+    public void computeCombinationalInputs(String clockName)
+    {
+        for (Module m : downTop.values())
+        {
+            m.computeCombinationalInputs(clockName);
+        }
+    }
 }

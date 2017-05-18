@@ -108,7 +108,7 @@ public abstract class Svex
         sb.append("svex(");
         Map<Svar, BigInteger> varsWithMasks = collectVarsWithMasks(BigIntegerUtil.MINUS_ONE, Svar.class);
         boolean first = true;
-        for (Map.Entry<Svar, BigInteger> e: varsWithMasks.entrySet())
+        for (Map.Entry<Svar, BigInteger> e : varsWithMasks.entrySet())
         {
             Svar svar = e.getKey();
             BigInteger mask = e.getValue();
@@ -267,4 +267,6 @@ public abstract class Svex
         listComputeMasks(toposort, maskMap);
         return maskMap;
     }
+
+    public abstract Svex patch(Map<Svar, Vec4> subst, Map<SvexCall, SvexCall> memoize);
 }

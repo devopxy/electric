@@ -24,15 +24,22 @@ package com.sun.electric.tool.simulation.acl2.mods;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * SV module.
@@ -50,6 +57,9 @@ public class Module implements Svar.Builder<SVarExt>
     final Map<Name, ModInst> instsIndex = new HashMap<>();
     final Map<ACL2Object, Svex> svexCache = new HashMap<>();
     int useCount;
+
+    Set<Wire> combinationalInputs0;
+    Set<Wire> combinationalInputs1;
 
     Module(ModName modName, ACL2Object impl, Map<ModName, Module> downTop)
     {
@@ -79,17 +89,26 @@ public class Module implements Svar.Builder<SVarExt>
         }
         pair = fields.get(2);
         Util.check(car(pair).equals(Util.SV_ASSIGNS));
+        int driverCount = 0;
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
             Lhs lhs = new Lhs(this, car(pair));
+            Driver drv = new Driver(this, cdr(pair), "dr" + driverCount++);
+            Driver old = assigns.put(lhs, drv);
+            Util.check(old == null);
             for (Lhrange lhr : lhs.ranges)
             {
                 Util.check(lhr.atom instanceof Lhatom.Var);
+                SVarExt svar = ((Lhatom.Var)lhr.atom).name;
+                if (svar instanceof SVarExt.LocalWire)
+                {
+                    ((SVarExt.LocalWire)svar).wire.addDriver(lhr, drv);
+                } else
+                {
+                    ((SVarExt.PortInst)svar).addDriver(drv);
+                }
             }
-            Driver drv = new Driver(this, cdr(pair));
-            Driver old = assigns.put(lhs, drv);
-            Util.check(old == null);
             lhs.markAssigned(BigIntegerUtil.MINUS_ONE);
             drv.markUsed();
         }
@@ -118,6 +137,18 @@ public class Module implements Svar.Builder<SVarExt>
                 for (Lhrange rhsRange : rhs.ranges)
                 {
                     Util.check(((Lhatom.Var)rhsRange.atom).name instanceof SVarExt.LocalWire);
+                    SVarExt.LocalWire lw = (SVarExt.LocalWire)((Lhatom.Var)rhsRange.atom).name;
+                    if (pi.wire.isAssigned())
+                    {
+                        lw.wire.addDriver(rhsRange, pi);
+                    }
+                }
+                if (pi.wire.isAssigned())
+                {
+                    pi.addSource(rhs);
+                } else
+                {
+                    pi.addDriver(rhs);
                 }
                 BigInteger assignedBits = pi.wire.getAssignedBits();
                 rhs.markAssigned(assignedBits);
@@ -201,6 +232,197 @@ public class Module implements Svar.Builder<SVarExt>
         }
     }
 
+    void computeCombinationalInputs(String global)
+    {
+        Map<Object, Set<Object>> graph0 = computeDepsGraph(global, false);
+        Map<Object, Set<Object>> closure0 = closure(graph0);
+        combinationalInputs0 = new LinkedHashSet<>();
+        for (Wire out : wires)
+        {
+            if (out.exported && out.isAssigned())
+            {
+                for (Object dep : closure0.get(out))
+                {
+                    if (dep instanceof Wire)
+                    {
+                        Wire in = (Wire)dep;
+                        if (in.exported && !in.isAssigned())
+                        {
+                            combinationalInputs0.add(in);
+                        }
+                    }
+                }
+            }
+        }
+
+        Map<Object, Set<Object>> graph1 = computeDepsGraph(global, false);
+        Map<Object, Set<Object>> closure1 = closure(graph1);
+        combinationalInputs1 = new LinkedHashSet<>();
+        for (Wire out : wires)
+        {
+            if (out.exported && out.isAssigned())
+            {
+                for (Object dep : closure1.get(out))
+                {
+                    if (dep instanceof Wire)
+                    {
+                        Wire in = (Wire)dep;
+                        if (in.exported && !in.isAssigned())
+                        {
+                            combinationalInputs1.add(in);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Map<Object, Set<Object>> computeDepsGraph(String global, boolean clkOne)
+    {
+        Map<Object, Set<Object>> graph = new LinkedHashMap<>();
+        for (Wire w : wires)
+        {
+            if (w.exported && w.isAssigned())
+            {
+                Set<Object> outputDeps = new LinkedHashSet<>();
+                addWireDeps(new SVarExt.LocalWire(this, w.name.impl, 0), BigIntegerUtil.MINUS_ONE, outputDeps);
+                graph.put(w, outputDeps);
+            }
+        }
+        for (ModInst mi : insts)
+        {
+            Set<Object> instDeps = new LinkedHashSet<>();
+            for (SVarExt.PortInst pi : mi.portInsts.values())
+            {
+                Set<Wire> combinationalInputs = clkOne ? mi.proto.combinationalInputs1 : mi.proto.combinationalInputs0;
+                if (combinationalInputs.contains(pi.wire))
+                {
+                    if (pi.driver instanceof Driver)
+                    {
+                        instDeps.add(((Driver)pi.driver).name);
+                    } else
+                    {
+                        for (Lhrange lr : ((Lhs)pi.driver).ranges)
+                        {
+                            SVarExt.LocalWire lw = (SVarExt.LocalWire)((Lhatom.Var)lr.atom).name;
+                            addWireDeps(lw, BigIntegerUtil.MINUS_ONE, instDeps);
+                        }
+                    }
+                }
+            }
+            graph.put(mi, instDeps);
+        }
+        Map<Svar, Vec4> patchEnv = makePatchEnv(global, clkOne ? Vec2.ONE : Vec2.ZERO);
+        Map<SvexCall, SvexCall> patchMemoize = new HashMap<>();
+        for (Map.Entry<Lhs, Driver> e1 : assigns.entrySet())
+        {
+            Lhs l = e1.getKey();
+            Driver d = e1.getValue();
+            assert !l.ranges.isEmpty();
+            Svex patched = d.svex.patch(patchEnv, patchMemoize);
+            Map<SVarExt.LocalWire, BigInteger> varsWithMasks = patched.collectVarsWithMasks(BigIntegerUtil.MINUS_ONE, SVarExt.LocalWire.class);
+            Set<Object> driverDeps = new LinkedHashSet<>();
+            for (Map.Entry<SVarExt.LocalWire, BigInteger> e2 : varsWithMasks.entrySet())
+            {
+                SVarExt.LocalWire lw = e2.getKey();
+                BigInteger mask = e2.getValue();
+                if (mask == null)
+                {
+                    mask = BigInteger.ZERO;
+                }
+                addWireDeps(lw, mask, driverDeps);
+            }
+            graph.put(d.name, driverDeps);
+        }
+        return graph;
+    }
+
+    private Map<Svar, Vec4> makePatchEnv(String global, Vec4 globalVal)
+    {
+        Map<Svar, Vec4> env = new HashMap<>();
+        for (Wire w : wires)
+        {
+            if (w.isGlobal() && w.global.equals(global))
+            {
+                env.put(new SVarExt.LocalWire(this, w.name.impl, 0), globalVal);
+            }
+        }
+        return env;
+    }
+
+    private void addWireDeps(SVarExt.LocalWire lw, BigInteger mask, Set<Object> deps)
+    {
+        if (lw.delay != 0)
+        {
+            return;
+        }
+        if (!lw.wire.isAssigned())
+        {
+            deps.add(lw.wire);
+            return;
+        }
+        for (Map.Entry<Lhrange, Object> e3 : lw.wire.drivers.entrySet())
+        {
+            Lhrange lhr = e3.getKey();
+            Object driver = e3.getValue();
+            Lhatom.Var atomVar = (Lhatom.Var)lhr.atom;
+            if (atomVar.name.getDelay() == 0
+                && BigIntegerUtil.logheadMask(lhr.w).shiftLeft(atomVar.rsh).and(mask).signum() != 0)
+            {
+                if (driver instanceof Driver)
+                {
+                    deps.add(((Driver)driver).name);
+                } else
+                {
+                    deps.add(((SVarExt.PortInst)driver).inst);
+                }
+            }
+        }
+    }
+
+    Map<Object, Set<Object>> closure(Map<Object, Set<Object>> rel)
+    {
+        Map<Object, Set<Object>> closure = new HashMap<>();
+        Set<Object> visited = new HashSet<>();
+        for (Object key : rel.keySet())
+        {
+            closure(key, rel, closure, visited);
+        }
+        Util.check(closure.size() == visited.size());
+        return closure;
+    }
+
+    private Set<Object> closure(Object top,
+        Map<Object, Set<Object>> rel,
+        Map<Object, Set<Object>> closure,
+        Set<Object> visited)
+    {
+        Set<Object> ret = closure.get(top);
+        if (ret == null)
+        {
+            boolean ok = visited.add(top);
+            if (!ok)
+            {
+                System.out.println("CombinationalLoop!!! in " + top + " of " + modName);
+                return Collections.singleton(top);
+            }
+            Set<Object> dep = rel.get(top);
+            if (dep == null)
+            {
+                ret = Collections.singleton(top);
+            } else
+            {
+                ret = new LinkedHashSet<>();
+                for (Object svar : dep)
+                {
+                    ret.addAll(closure(svar, rel, closure, visited));
+                }
+            }
+            closure.put(top, ret);
+        }
+        return ret;
+    }
+
     @Override
     public SVarExt newVar(ACL2Object name, int delay, boolean nonblocking)
     {
@@ -208,7 +430,11 @@ public class Module implements Svar.Builder<SVarExt>
         if (consp(name).bool())
         {
             Util.check(delay == 0);
-            return new SVarExt.PortInst(this, name);
+            ModInst inst = instsIndex.get(new Name(car(name)));
+            return inst.newPortInst(name);
+//            Module sm = inst.proto;
+//            Wire wire = sm.wiresIndex.get(new Name(cdr(name)));
+//            return new SVarExt.PortInst(this, name);
         } else
         {
             return new SVarExt.LocalWire(this, name, delay);
