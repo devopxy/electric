@@ -45,11 +45,16 @@ public class Name
             Util.check(impl.equals(Util.KEYWORD_SELF));
         } else if (consp(impl).bool())
         {
-            Util.check(car(impl).equals(Util.KEYWORD_ANONYMOIUS));
+//            Util.check(car(impl).equals(Util.KEYWORD_ANONYMOIUS));
         } else
         {
             Util.check(false);
         }
+    }
+
+    public ACL2Object getACL2Object()
+    {
+        return impl;
     }
 
     @Override
@@ -70,7 +75,8 @@ public class Name
         if (stringp(impl).bool())
         {
             return impl.stringValueExact();
-        } else {
+        } else
+        {
             return "'" + impl.rep();
         }
     }

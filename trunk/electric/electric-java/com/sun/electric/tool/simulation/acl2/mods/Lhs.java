@@ -43,9 +43,12 @@ public class Lhs
         this.impl = impl;
         List<ACL2Object> l = Util.getList(impl, true);
         Util.check(!l.isEmpty());
+        int lsh = 0;
         for (ACL2Object o : l)
         {
-            ranges.add(new Lhrange(parent, o));
+            Lhrange lhr = new Lhrange(parent, o, lsh);
+            ranges.add(lhr);
+            lsh += lhr.w;
         }
     }
 
@@ -61,7 +64,7 @@ public class Lhs
         return (int)impl.id();
     }
 
-    public int size()
+    public int width()
     {
         int size = 0;
         for (Lhrange lr : ranges)

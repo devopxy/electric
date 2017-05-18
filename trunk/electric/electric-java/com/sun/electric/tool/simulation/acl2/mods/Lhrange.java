@@ -38,7 +38,9 @@ public class Lhrange implements Comparable<Lhrange>
     public final int w;
     public final Lhatom atom;
 
-    Lhrange(Module parent, ACL2Object impl)
+    public final int lsh;
+
+    Lhrange(Module parent, ACL2Object impl, int lsh)
     {
         this.impl = impl;
         if (consp(impl).bool())
@@ -58,6 +60,7 @@ public class Lhrange implements Comparable<Lhrange>
             atom = Lhatom.valueOf(parent, impl);
         }
         Util.check(w >= 1);
+        this.lsh = lsh;
     }
 
     @Override

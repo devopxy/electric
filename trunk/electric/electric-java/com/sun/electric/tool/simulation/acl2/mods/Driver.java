@@ -21,10 +21,17 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import java.util.Set;
 
@@ -39,6 +46,11 @@ public class Driver
     public final Svex svex;
     final int strength;
     final String name;
+
+    Map<SVarExt.LocalWire, BigInteger> crudeDeps0;
+    Map<SVarExt.LocalWire, BigInteger> crudeDeps1;
+    final List<Map<SVarExt.LocalWire, BigInteger>> fineDeps0 = new ArrayList<>();
+    final List<Map<SVarExt.LocalWire, BigInteger>> fineDeps1 = new ArrayList<>();
 
     Driver(Module parent, ACL2Object impl, String name)
     {
@@ -71,6 +83,37 @@ public class Driver
         for (SVarExt.LocalWire svar : collectVars())
         {
             svar.markUsed();
+        }
+    }
+
+    Map<SVarExt.LocalWire, BigInteger> getCrudeDeps(boolean clockHigh)
+    {
+        return clockHigh ? crudeDeps1 : crudeDeps0;
+    }
+
+    List<Map<SVarExt.LocalWire, BigInteger>> getFineDeps(boolean clockHigh)
+    {
+        return clockHigh ? fineDeps1 : fineDeps0;
+    }
+
+    void computeDeps(int width, boolean clkVal, Map<Svar, Vec4> env, Map<SvexCall, SvexCall> patchMemoize)
+    {
+        Svex patched = svex.patch(env, patchMemoize);
+        BigInteger mask = BigIntegerUtil.MINUS_ONE;
+        Map<SVarExt.LocalWire, BigInteger> varsWithMasks = patched.collectVarsWithMasks(mask, SVarExt.LocalWire.class);
+        if (clkVal)
+        {
+            crudeDeps1 = varsWithMasks;
+        } else {
+            crudeDeps0 = varsWithMasks;
+        }
+        List<Map<SVarExt.LocalWire, BigInteger>> fineDeps = getFineDeps(clkVal);
+        fineDeps.clear();
+        for (int bit = 0; bit < width; bit++)
+        {
+            mask = BigInteger.ONE.shiftLeft(bit);
+            varsWithMasks = patched.collectVarsWithMasks(mask, SVarExt.LocalWire.class);
+            fineDeps.add(varsWithMasks);
         }
     }
 }

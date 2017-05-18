@@ -84,10 +84,12 @@ public class ACL2DesignJobs
                     {
                         ModName nm = e.getKey();
                         Module m = e.getValue();
-                        Map<Object, Set<Object>> graph0 = m.computeDepsGraph(clockName, false);
-                        Map<Object, Set<Object>> graph1 = m.computeDepsGraph(clockName, true);
-                        Map<Object, Set<Object>> closure0 = m.closure(graph0);
-                        Map<Object, Set<Object>> closure1 = m.closure(graph1);
+//                        Map<Object, Set<Object>> graph0 = m.computeDepsGraph(false);
+//                        Map<Object, Set<Object>> graph1 = m.computeDepsGraph(true);
+//                        Map<Object, Set<Object>> closure0 = m.closure(graph0);
+//                        Map<Object, Set<Object>> closure1 = m.closure(graph1);
+//                        Map<Object, Set<Object>> fineGraph0 = m.computeFineDepsGraph(false);
+//                        Map<Object, Set<Object>> fineGraph1 = m.computeFineDepsGraph(true);
 //                        Map<SVarExt, Set<SVarExt>> graph0 = evalAssigns(m, clkName, Vec2.ZERO);
 //                        Map<SVarExt, Set<SVarExt>> graph1 = evalAssigns(m, clkName, Vec2.ONE);
 //                        Map<SVarExt, Set<SVarExt>> closure0 = closure(graph0);
@@ -134,18 +136,32 @@ public class ACL2DesignJobs
                             out.println();
                             if (w.exported && w.isAssigned())
                             {
-                                out.println("    // 0 depends on " + graph0.get(w));
-                                out.println("    // 1 depends on " + graph1.get(w));
-                                out.println("    // 0 closure " + closure0.get(w));
-                                out.println("    // 1 closure " + closure1.get(w));
+//                                out.println("    // 0 depends on " + graph0.get(w));
+//                                out.println("    // 1 depends on " + graph1.get(w));
+//                                out.println("    // 0 closure " + closure0.get(w));
+//                                out.println("    // 1 closure " + closure1.get(w));
+                                for (int i = 0; i < w.width; i++)
+                                {
+                                    Module.WireBit wb = new Module.WireBit(w, i);
+                                    out.println("    // " + wb + " depends on " + w.showFineDeps(i));
+                                }
                             }
+//                            for (int i = 0; i < w.width; i++)
+//                            {
+//                                Module.WireBit wb = new Module.WireBit(w, i);
+//                                out.println("    // 0 " + wb + " depends on " + fineGraph0.get(wb));
+//                                out.println("    // 1 " + wb + " depends on " + fineGraph1.get(wb));
+//                            }
 
 //                            SVarExt svar = m.newVar(w.name.impl);
 //                            out.println(" | 0 => " + graph0.get(svar) + " | 1 => " + graph1.get(svar));
 //                            out.println(" | 0 => " + closure0.get(svar) + " | 1 => " + closure1.get(svar));
                         }
-                        out.println("// 0 combinational inputs: " + m.combinationalInputs0);
-                        out.println("// 1 combinational inputs: " + m.combinationalInputs1);
+                        if (Module.CRUDE_COMBINATIONAL_INPUTS)
+                        {
+                            out.println("// 0 combinational inputs: " + m.combinationalInputs0);
+                            out.println("// 1 combinational inputs: " + m.combinationalInputs1);
+                        }
                         out.println("// insts");
                         for (ModInst mi : m.insts)
                         {
@@ -175,10 +191,10 @@ public class ACL2DesignJobs
                                 }
                             }
                             out.println(");");
-                            out.println("    // 0 depends on " + graph0.get(mi));
-                            out.println("    // 1 depends on " + graph1.get(mi));
-                            out.println("    // 0 closure " + closure0.get(mi));
-                            out.println("    // 1 closure " + closure1.get(mi));
+//                            out.println("    // 0 depends on " + graph0.get(mi));
+//                            out.println("    // 1 depends on " + graph1.get(mi));
+//                            out.println("    // 0 closure " + closure0.get(mi));
+//                            out.println("    // 1 closure " + closure1.get(mi));
                         }
                         out.println(" assigns");
                         for (Map.Entry<Lhs, Driver> e1 : m.assigns.entrySet())
@@ -211,10 +227,10 @@ public class ACL2DesignJobs
 //                                }
 //                            }
                             out.println(" // " + d.name);
-                            out.println("    // 0 depends on " + graph0.get(d.name));
-                            out.println("    // 1 depends on " + graph1.get(d.name));
-                            out.println("    // 0 closure " + closure0.get(d.name));
-                            out.println("    // 1 closure " + closure1.get(d.name));
+//                            out.println("    // 0 depends on " + graph0.get(d.name));
+//                            out.println("    // 1 depends on " + graph1.get(d.name));
+//                            out.println("    // 0 closure " + closure0.get(d.name));
+//                            out.println("    // 1 closure " + closure1.get(d.name));
                         }
 //                        out.println(" aliaspairs");
                         for (Map.Entry<Lhs, Lhs> e1 : m.aliaspairs.entrySet())
@@ -753,12 +769,13 @@ public class ACL2DesignJobs
                                     mask = BigInteger.ZERO;
                                 }
                                 out.print("        (");
+                                String rep = lw.name.getACL2Object().rep();
                                 if (lw.delay == 0)
                                 {
-                                    out.print(lw.name.rep());
+                                    out.print(rep);
                                 } else
                                 {
-                                    out.print(",(make-svar :name " + lw.name.rep() + " :delay " + lw.delay + ")");
+                                    out.print(",(make-svar :name " + rep + " :delay " + lw.delay + ")");
                                 }
                                 out.println(" . #x" + mask.toString(16) + ")");
                             }
