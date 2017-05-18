@@ -25,6 +25,11 @@ import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -42,11 +47,17 @@ public class Wire
     final ACL2Object wiretype;
 
     final Module parent;
+    final SVarExt.LocalWire curVar;
+    final SVarExt.LocalWire prevVar;
 
     public boolean used, exported;
     BigInteger assignedBits;
     String global;
     final SortedMap<Lhrange, Object> drivers = new TreeMap<>();
+
+    // only for exports
+    List<Map<SVarExt.LocalWire, BigInteger>> fineDeps0;
+    List<Map<SVarExt.LocalWire, BigInteger>> fineDeps1;
 
     Wire(Module parent, ACL2Object impl)
     {
@@ -100,6 +111,8 @@ public class Wire
             wiretype = cdr(impl);
         }
         Util.check(delay == 0);
+        curVar = new SVarExt.LocalWire(this, 0);
+        prevVar = new SVarExt.LocalWire(this, 1);
     }
 
     public int getFirstIndex()
@@ -267,4 +280,81 @@ public class Wire
         Util.check(driver instanceof Driver || driver instanceof SVarExt.PortInst);
     }
 
+    public SVarExt.LocalWire getVar(int delay)
+    {
+        switch (delay)
+        {
+            case 0:
+                return curVar;
+            case 1:
+                return prevVar;
+            default:
+                throw new IllegalArgumentException();
+        }
+    }
+
+    public List<Map<SVarExt.LocalWire, BigInteger>> getFineDeps(boolean clockHigh)
+    {
+        assert exported && isAssigned();
+        return clockHigh ? fineDeps1 : fineDeps0;
+    }
+
+    public String showFineDeps(int bit)
+    {
+        Map<SVarExt.LocalWire, BigInteger> dep0 = getFineDeps(false).get(bit);
+        Map<SVarExt.LocalWire, BigInteger> dep1 = getFineDeps(true).get(bit);
+        if (dep0.equals(dep1))
+        {
+            return showFineDeps(dep0);
+        } else
+        {
+            return "0=>" + showFineDeps(dep0) + " | 1=>" + showFineDeps(dep1);
+        }
+    }
+
+    private String showFineDeps(Map<SVarExt.LocalWire, BigInteger> dep)
+    {
+        String s = "";
+        for (Map.Entry<SVarExt.LocalWire, BigInteger> e : dep.entrySet())
+        {
+            SVarExt.LocalWire lw = e.getKey();
+            BigInteger mask = e.getValue();
+            if (!s.isEmpty())
+            {
+                s += ",";
+            }
+            s += lw.toString(mask);
+        }
+        return s;
+    }
+
+    void setFineDeps(boolean clockHigh, Map<Object, Set<Object>> closure)
+    {
+        assert exported && isAssigned();
+        List<Map<SVarExt.LocalWire, BigInteger>> fineDeps = new ArrayList<>();
+        fineDeps.clear();
+        for (int i = 0; i < width; i++)
+        {
+            Module.WireBit wb = new Module.WireBit(this, i);
+            Map<SVarExt.LocalWire, BigInteger> fineDep = new LinkedHashMap<>();
+            for (Object o : closure.get(wb))
+            {
+                Module.WireBit wb1 = (Module.WireBit)o;
+                BigInteger mask = fineDep.get(wb1.wire.curVar);
+                if (mask == null)
+                {
+                    mask = BigInteger.ZERO;
+                }
+                fineDep.put(wb1.wire.curVar, mask.setBit(wb1.bit));
+            }
+            fineDeps.add(fineDep);
+        }
+        if (clockHigh)
+        {
+            fineDeps1 = fineDeps;
+        } else
+        {
+            fineDeps0 = fineDeps;
+        }
+    }
 }

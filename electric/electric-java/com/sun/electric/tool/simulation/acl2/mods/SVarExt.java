@@ -34,11 +34,11 @@ public abstract class SVarExt extends Svar
 {
 
     final Module parent;
-    public final ACL2Object name;
+    public final Name name;
 
     public Wire wire;
 
-    SVarExt(Module parent, ACL2Object name)
+    SVarExt(Module parent, Name name)
     {
         this.parent = parent;
         this.name = name;
@@ -47,7 +47,7 @@ public abstract class SVarExt extends Svar
     @Override
     public ACL2Object getACL2Name()
     {
-        return name;
+        return name.getACL2Object();
     }
 
     @Override
@@ -73,12 +73,12 @@ public abstract class SVarExt extends Svar
         Lhs source;
         Object driver;
 
-        public PortInst(Module parent, ACL2Object name)
+        public PortInst(Module parent, Name name)
         {
             super(parent, name);
-            inst = parent.instsIndex.get(new Name(car(name)));
+            inst = parent.instsIndex.get(new Name(car(name.getACL2Object())));
             Module sm = inst.proto;
-            wire = sm.wiresIndex.get(new Name(cdr(name)));
+            wire = sm.wiresIndex.get(new Name(cdr(name.getACL2Object())));
             wire.exported = true;
         }
 
@@ -86,6 +86,14 @@ public abstract class SVarExt extends Svar
         {
             Util.check(this.source == null);
             this.source = source;
+            assert source.width() == wire.width;
+            int lhs = 0;
+            for (Lhrange lhr : source.ranges)
+            {
+                Lhatom.Var atomVar = (Lhatom.Var)lhr.atom;
+                assert atomVar.name.getDelay() == 0;
+                lhs += lhr.w;
+            }
         }
 
         void addDriver(Object driver)
@@ -113,11 +121,11 @@ public abstract class SVarExt extends Svar
     {
         public final int delay;
 
-        public LocalWire(Module parent, ACL2Object name, int delay)
+        LocalWire(Wire wire, int delay)
         {
-            super(parent, name);
+            super(wire.parent, wire.name);
+            this.wire = wire;
             this.delay = delay;
-            wire = parent.wiresIndex.get(new Name(name));
         }
 
         @Override

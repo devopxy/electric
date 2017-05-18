@@ -60,7 +60,7 @@ public class ModInst
         SVarExt.PortInst pi = portInsts.get(wire.name);
         if (pi == null)
         {
-            pi = new SVarExt.PortInst(parent, name);
+            pi = new SVarExt.PortInst(parent, new Name(name));
             portInsts.put(wire.name, pi);
         }
         return pi;
