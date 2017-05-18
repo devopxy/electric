@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.HashMap;
 
 import java.util.Map;
 
@@ -40,6 +41,7 @@ public class ModInst
 
     final Module parent;
     final Module proto;
+    final Map<Name, SVarExt.PortInst> portInsts = new HashMap<>();
 
     ModInst(Module parent, ACL2Object impl, Map<ModName, Module> downTop)
     {
@@ -49,6 +51,19 @@ public class ModInst
         modname = ModName.valueOf(cdr(impl));
         proto = downTop.get(modname);
         Util.check(proto != null);
+    }
+
+    SVarExt.PortInst newPortInst(ACL2Object name)
+    {
+        assert instname.impl.equals(car(name));
+        Wire wire = proto.wiresIndex.get(new Name(cdr(name)));
+        SVarExt.PortInst pi = portInsts.get(wire.name);
+        if (pi == null)
+        {
+            pi = new SVarExt.PortInst(parent, name);
+            portInsts.put(wire.name, pi);
+        }
+        return pi;
     }
 
     @Override

@@ -25,6 +25,8 @@ import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 /**
  * Wire info as stored in an svex module.
@@ -44,6 +46,7 @@ public class Wire
     public boolean used, exported;
     BigInteger assignedBits;
     String global;
+    final SortedMap<Lhrange, Object> drivers = new TreeMap<>();
 
     Wire(Module parent, ACL2Object impl)
     {
@@ -176,7 +179,8 @@ public class Wire
                 {
                     indices = "," + indices;
                 }
-                indices = Integer.toString(ind - 1) + ":" + Integer.toString(indL) + indices;
+                indices = indL == ind - 1 ? Integer.toString(indL) + indices
+                    : Integer.toString(ind - 1) + ":" + Integer.toString(indL) + indices;
             }
             if (maskH.signum() == 0)
                 break;
@@ -251,6 +255,16 @@ public class Wire
     public boolean isGlobal()
     {
         return global != null && !global.isEmpty();
+    }
+
+    public void addDriver(Lhrange lr, Object driver)
+    {
+        Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
+        SVarExt.LocalWire lw = (SVarExt.LocalWire)atomVar.name;
+        Util.check(lw.wire == this);
+        Object old = drivers.put(lr, driver);
+        Util.check(old == null);
+        Util.check(driver instanceof Driver || driver instanceof SVarExt.PortInst);
     }
 
 }

@@ -81,6 +81,17 @@ public class ModName
     @Override
     public String toString()
     {
-        return impl.rep();
+        if (stringp(impl).bool())
+        {
+            return impl.stringValueExact();
+        } else
+        {
+            return "'" + impl.rep();
+        }
+    }
+
+    public String toLispString()
+    {
+        return stringp(impl).bool() ? impl.rep() : "'" + impl.rep();
     }
 }

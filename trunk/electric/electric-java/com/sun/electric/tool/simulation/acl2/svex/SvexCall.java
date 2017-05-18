@@ -112,6 +112,25 @@ public class SvexCall extends Svex
     }
 
     @Override
+    public Svex patch(Map<Svar, Vec4> subst, Map<SvexCall, SvexCall> memoize)
+    {
+        SvexCall svex = memoize.get(this);
+        if (svex == null)
+        {
+            Svex[] newArgs = new Svex[args.length];
+            boolean changed = false;
+            for (int i = 0; i < args.length; i++)
+            {
+                newArgs[i] = args[i].patch(subst, memoize);
+                changed = changed || newArgs[i] != args[i];
+            }
+            svex = changed ? new SvexCall(fun, newArgs) : this;
+            memoize.put(this, svex);
+        }
+        return svex;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (o instanceof SvexCall)

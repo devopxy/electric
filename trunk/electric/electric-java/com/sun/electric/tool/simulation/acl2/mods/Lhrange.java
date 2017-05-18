@@ -30,7 +30,7 @@ import java.math.BigInteger;
  * An atom with width from left-hand side of SVEX assignment.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____LHRANGE>.
  */
-public class Lhrange
+public class Lhrange implements Comparable<Lhrange>
 {
 
     final ACL2Object impl;
@@ -79,5 +79,13 @@ public class Lhrange
     public void markUsed()
     {
         atom.markUsed();
+    }
+
+    @Override
+    public int compareTo(Lhrange that)
+    {
+        Lhatom.Var a1 = (Lhatom.Var)this.atom;
+        Lhatom.Var a2 = (Lhatom.Var)that.atom;
+        return Integer.compare(a1.rsh, a2.rsh);
     }
 }

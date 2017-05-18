@@ -70,6 +70,8 @@ public abstract class SVarExt extends Svar
     public static class PortInst extends SVarExt
     {
         public final ModInst inst;
+        Lhs source;
+        Object driver;
 
         public PortInst(Module parent, ACL2Object name)
         {
@@ -78,6 +80,19 @@ public abstract class SVarExt extends Svar
             Module sm = inst.proto;
             wire = sm.wiresIndex.get(new Name(cdr(name)));
             wire.exported = true;
+        }
+
+        void addSource(Lhs source)
+        {
+            Util.check(this.source == null);
+            this.source = source;
+        }
+
+        void addDriver(Object driver)
+        {
+            Util.check(this.driver == null);
+            Util.check(driver instanceof Driver || driver instanceof Lhs);
+            this.driver = driver;
         }
 
         @Override
@@ -125,6 +140,27 @@ public abstract class SVarExt extends Svar
                 s = "#" + delay + " " + s;
             }
             return s;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (o instanceof LocalWire)
+            {
+                LocalWire that = (LocalWire)o;
+                return this.name.equals(that.name)
+                    && this.delay == that.delay
+                    && this.parent == that.parent;
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            int hash = name.hashCode();
+            hash = 43 * hash + this.delay;
+            return hash;
         }
     }
 }

@@ -74,7 +74,16 @@ public class Lhs
     @Override
     public String toString()
     {
-        return impl.rep();
+        String s = "";
+        for (int i = ranges.size() - 1; i >= 0; i--)
+        {
+            s += ranges.get(i);
+            if (i > 0)
+            {
+                s += ",";
+            }
+        }
+        return s;
     }
 
     public String toElectricString()

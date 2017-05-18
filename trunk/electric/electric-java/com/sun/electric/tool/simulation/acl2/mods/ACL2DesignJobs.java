@@ -60,7 +60,7 @@ public class ACL2DesignJobs
     {
         private final File saoFile;
         private final String outFileName;
-        private final String clkName = "l2clk";
+        private final String clockName = "l2clk";
 
         private DumpDesignJob(File saoFile, String outFileName)
         {
@@ -76,6 +76,7 @@ public class ACL2DesignJobs
             {
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 Design design = new Design(sr.root);
+                design.computeCombinationalInputs(clockName);
                 try (PrintStream out = new PrintStream(outFileName))
                 {
                     int totalUseCount = 0;
@@ -83,12 +84,16 @@ public class ACL2DesignJobs
                     {
                         ModName nm = e.getKey();
                         Module m = e.getValue();
-                        Map<SVarExt, Set<SVarExt>> graph0 = evalAssigns(m, clkName, Vec2.ZERO);
-                        Map<SVarExt, Set<SVarExt>> graph1 = evalAssigns(m, clkName, Vec2.ONE);
+                        Map<Object, Set<Object>> graph0 = m.computeDepsGraph(clockName, false);
+                        Map<Object, Set<Object>> graph1 = m.computeDepsGraph(clockName, true);
+                        Map<Object, Set<Object>> closure0 = m.closure(graph0);
+                        Map<Object, Set<Object>> closure1 = m.closure(graph1);
+//                        Map<SVarExt, Set<SVarExt>> graph0 = evalAssigns(m, clkName, Vec2.ZERO);
+//                        Map<SVarExt, Set<SVarExt>> graph1 = evalAssigns(m, clkName, Vec2.ONE);
 //                        Map<SVarExt, Set<SVarExt>> closure0 = closure(graph0);
 //                        Map<SVarExt, Set<SVarExt>> closure1 = closure(graph1);
 
-                        out.println("module " + nm + " has "
+                        out.println("module " + nm + " // has "
                             + m.wires.size() + " wires "
                             + m.insts.size() + " insts "
                             + m.assigns.size() + " assigns "
@@ -111,15 +116,69 @@ public class ACL2DesignJobs
                                 out.print(w.used ? "  input  " : "  unused ");
                             }
                             out.print(w.isGlobal() ? "! " : w.exported ? "* " : "  ");
-                            out.print(w);
-                            SVarExt svar = m.newVar(w.name.impl);
-                            out.println(" | 0 => " + graph0.get(svar) + " | 1 => " + graph1.get(svar));
+                            out.print(w + " //");
+
+                            for (Map.Entry<Lhrange, Object> e1 : w.drivers.entrySet())
+                            {
+                                Lhrange lhr = e1.getKey();
+                                Object drv = e1.getValue();
+                                out.print(" " + lhr + "<=");
+                                if (drv instanceof Driver)
+                                {
+                                    out.print(((Driver)drv).name);
+                                } else
+                                {
+                                    out.print(drv);
+                                }
+                            }
+                            out.println();
+                            if (w.exported && w.isAssigned())
+                            {
+                                out.println("    // 0 depends on " + graph0.get(w));
+                                out.println("    // 1 depends on " + graph1.get(w));
+                                out.println("    // 0 closure " + closure0.get(w));
+                                out.println("    // 1 closure " + closure1.get(w));
+                            }
+
+//                            SVarExt svar = m.newVar(w.name.impl);
+//                            out.println(" | 0 => " + graph0.get(svar) + " | 1 => " + graph1.get(svar));
 //                            out.println(" | 0 => " + closure0.get(svar) + " | 1 => " + closure1.get(svar));
                         }
-                        out.println(" insts");
+                        out.println("// 0 combinational inputs: " + m.combinationalInputs0);
+                        out.println("// 1 combinational inputs: " + m.combinationalInputs1);
+                        out.println("// insts");
                         for (ModInst mi : m.insts)
                         {
-                            out.println("  " + mi);
+                            out.print("  " + mi.modname + " " + mi.instname + " (");
+                            for (SVarExt.PortInst pi : mi.portInsts.values())
+                            {
+                                if (!pi.wire.isAssigned())
+                                {
+                                    out.print("." + pi.wire.name + "(" + pi.driver + "), ");
+                                }
+                            }
+                            out.println();
+                            boolean first = true;
+                            out.print("    ");
+                            for (SVarExt.PortInst pi : mi.portInsts.values())
+                            {
+                                if (pi.wire.isAssigned())
+                                {
+                                    if (first)
+                                    {
+                                        first = false;
+                                    } else
+                                    {
+                                        out.print(", ");
+                                    }
+                                    out.print("." + pi.wire.name + "(" + pi.source + ")");
+                                }
+                            }
+                            out.println(");");
+                            out.println("    // 0 depends on " + graph0.get(mi));
+                            out.println("    // 1 depends on " + graph1.get(mi));
+                            out.println("    // 0 closure " + closure0.get(mi));
+                            out.println("    // 1 closure " + closure1.get(mi));
                         }
                         out.println(" assigns");
                         for (Map.Entry<Lhs, Driver> e1 : m.assigns.entrySet())
@@ -138,22 +197,26 @@ public class ACL2DesignJobs
                             }
 
                             out.print(" = " + d);
-                            Set<Svar> deps = d.svex.collectVars();
-                            Set<SVarExt.LocalWire> dep0 = getDeps(d.svex, m, clkName, Vec2.ZERO);
-                            Set<SVarExt.LocalWire> dep1 = getDeps(d.svex, m, clkName, Vec2.ONE);
-                            if (!dep0.equals(deps) || !dep1.equals(deps))
-                            {
-                                if (dep0.equals(dep1))
-                                {
-                                    out.print(" | => " + dep0);
-                                } else
-                                {
-                                    out.print(" | 0 => " + dep0 + " | 1 => " + dep1);
-                                }
-                            }
-                            out.println();
+//                            Set<Svar> deps = d.svex.collectVars();
+//                            Set<SVarExt.LocalWire> dep0 = getDeps(d.svex, m, clkName, Vec2.ZERO);
+//                            Set<SVarExt.LocalWire> dep1 = getDeps(d.svex, m, clkName, Vec2.ONE);
+//                            if (!dep0.equals(deps) || !dep1.equals(deps))
+//                            {
+//                                if (dep0.equals(dep1))
+//                                {
+//                                    out.print(" | => " + dep0);
+//                                } else
+//                                {
+//                                    out.print(" | 0 => " + dep0 + " | 1 => " + dep1);
+//                                }
+//                            }
+                            out.println(" // " + d.name);
+                            out.println("    // 0 depends on " + graph0.get(d.name));
+                            out.println("    // 1 depends on " + graph1.get(d.name));
+                            out.println("    // 0 closure " + closure0.get(d.name));
+                            out.println("    // 1 closure " + closure1.get(d.name));
                         }
-                        out.println(" aliaspairs");
+//                        out.println(" aliaspairs");
                         for (Map.Entry<Lhs, Lhs> e1 : m.aliaspairs.entrySet())
                         {
                             Lhs l = e1.getKey();
@@ -165,7 +228,11 @@ public class ACL2DesignJobs
                             SVarExt svar = atomVar.name;
                             assert svar.getDelay() == 0;
                             assert !svar.isNonblocking();
-                            out.print("  " + lr + " <->");
+                            if (svar instanceof SVarExt.PortInst)
+                            {
+                                continue;
+                            }
+                            out.print("  // alias" + lr + " <->");
                             for (Lhrange lr1 : r.ranges)
                             {
                                 atomVar = (Lhatom.Var)lr1.atom;
@@ -176,9 +243,11 @@ public class ACL2DesignJobs
                             }
                             out.println();
                         }
+                        out.println("endmodule // " + nm);
+                        out.println();
                     }
-                    out.println("totalUseCount=" + totalUseCount);
-                    out.println("design.top=" + design.top);
+                    out.println("// totalUseCount=" + totalUseCount);
+                    out.println("// design.top=" + design.top);
                 }
             } catch (IOException e)
             {
@@ -187,48 +256,6 @@ public class ACL2DesignJobs
             return true;
         }
 
-        /*
-        private Map<SVarExt, Set<SVarExt>> closure(Map<SVarExt, Set<SVarExt>> rel)
-        {
-            Map<SVarExt, Set<SVarExt>> closure = new HashMap<>();
-            Set<SVarExt> visited = new HashSet<>();
-            for (SVarExt svar: rel.keySet())
-            {
-                closure(svar, rel, closure, visited);
-            }
-            Util.check(closure.size() == visited.size());
-            return closure;
-        }
-
-        private Set<SVarExt> closure(SVarExt top,
-            Map<SVarExt, Set<SVarExt>> rel,
-            Map<SVarExt, Set<SVarExt>> closure,
-            Set<SVarExt> visited)
-        {
-            Set<SVarExt> ret = closure.get(top);
-            if (ret == null)
-            {
-                boolean ok = visited.add(top);
-                if (!ok)
-                {
-                    System.out.println("CombinationalLoop!!! in wire " + top);
-                }
-                Set<SVarExt> dep = rel.get(top);
-                if (dep == null)
-                {
-                    ret = Collections.singleton(top);
-                } else {
-                    ret = new LinkedHashSet<>();
-                    for (SVarExt svar: dep)
-                    {
-                        ret.addAll(closure(svar, rel, closure, visited));
-                    }
-                }
-                closure.put(top, ret);
-            }
-            return ret;
-        }
-         */
         private Map<SVarExt, Set<SVarExt>> evalAssigns(Module m, String clkName, Vec2 val)
         {
             Map<SVarExt, Set<SVarExt>> graph = new HashMap<>();

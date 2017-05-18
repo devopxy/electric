@@ -34,18 +34,16 @@ import java.util.Set;
  */
 public class Driver
 {
-
-    final ACL2Object impl;
-
     final Module parent;
 
     public final Svex svex;
     final int strength;
+    final String name;
 
-    Driver(Module parent, ACL2Object impl)
+    Driver(Module parent, ACL2Object impl, String name)
     {
         this.parent = parent;
-        this.impl = impl;
+        this.name = name;
         svex = Svex.valueOf(parent, car(impl), parent.svexCache);
         strength = cdr(impl).intValueExact();
         Util.check(strength == 6);
@@ -55,7 +53,7 @@ public class Driver
         }
         Util.check(strength >= 0);
     }
-    
+
     @Override
     public String toString()
     {

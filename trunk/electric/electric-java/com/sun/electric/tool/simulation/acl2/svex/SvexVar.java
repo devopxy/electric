@@ -60,6 +60,13 @@ public class SvexVar extends Svex
     }
 
     @Override
+    public Svex patch(Map<Svar, Vec4> subst, Map<SvexCall, SvexCall> memoize)
+    {
+        Vec4 val = subst.get(svar);
+        return val != null ? new SvexQuote(val) : this;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         return o instanceof SvexVar && svar.equals(((SvexVar)o).svar);
