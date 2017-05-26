@@ -178,7 +178,7 @@ public class Wire
                 assert n >= 0;
                 ind += n;
                 mask = mask.shiftRight(n);
-                if (indL == 0 && ind == width && maskH.signum() == 0)
+                if (indL == 0 && ind == width && width == 1 && maskH.signum() == 0)
                 {
                     Util.check(mask.signum() == 0);
                     Util.check(indices.isEmpty());

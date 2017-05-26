@@ -47,7 +47,7 @@ import java.util.Set;
  */
 public class Module implements Svar.Builder<SVarExt>
 {
-    public static final boolean CRUDE_COMBINATIONAL_INPUTS = false;
+    private static final boolean CRUDE_COMBINATIONAL_INPUTS = false;
 
     public final ModName modName;
     public final List<Wire> wires = new ArrayList<>();
@@ -244,14 +244,14 @@ public class Module implements Svar.Builder<SVarExt>
         computeDriverDeps(global, false);
         computeDriverDeps(global, true);
 
+            combinationalInputs0 = new LinkedHashSet<>();
+            combinationalInputs1 = new LinkedHashSet<>();
         if (CRUDE_COMBINATIONAL_INPUTS)
         {
             Map<Object, Set<Object>> graph0 = computeDepsGraph(false);
             Map<Object, Set<Object>> closure0 = closure(graph0);
             Map<Object, Set<Object>> graph1 = computeDepsGraph(true);
             Map<Object, Set<Object>> closure1 = closure(graph1);
-            combinationalInputs0 = new LinkedHashSet<>();
-            combinationalInputs1 = new LinkedHashSet<>();
             for (Wire out : wires)
             {
                 if (out.exported && out.isAssigned())
@@ -292,6 +292,26 @@ public class Module implements Svar.Builder<SVarExt>
             {
                 out.setFineDeps(false, fineClosure0);
                 out.setFineDeps(true, fineClosure1);
+                if (!CRUDE_COMBINATIONAL_INPUTS) {
+                    for (Map<SVarExt.LocalWire,BigInteger> mapForBit: out.fineDeps0) {
+                        for (Map.Entry<SVarExt.LocalWire,BigInteger> e: mapForBit.entrySet()) {
+                            SVarExt.LocalWire lw = e.getKey();
+                            BigInteger mask = e.getValue();
+                            if (mask.signum() != 0) {
+                                combinationalInputs0.add(lw.wire);
+                            }
+                        }
+                    }
+                    for (Map<SVarExt.LocalWire,BigInteger> mapForBit: out.fineDeps1) {
+                        for (Map.Entry<SVarExt.LocalWire,BigInteger> e: mapForBit.entrySet()) {
+                            SVarExt.LocalWire lw = e.getKey();
+                            BigInteger mask = e.getValue();
+                            if (mask.signum() != 0) {
+                                combinationalInputs1.add(lw.wire);
+                            }
+                        }
+                    }
+                }
             }
         }
     }

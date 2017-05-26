@@ -34,20 +34,12 @@ public abstract class SVarExt extends Svar
 {
 
     final Module parent;
-    public final Name name;
 
     public Wire wire;
 
-    SVarExt(Module parent, Name name)
+    SVarExt(Module parent)
     {
         this.parent = parent;
-        this.name = name;
-    }
-
-    @Override
-    public ACL2Object getACL2Name()
-    {
-        return name.getACL2Object();
     }
 
     @Override
@@ -73,13 +65,19 @@ public abstract class SVarExt extends Svar
         Lhs source;
         Object driver;
 
-        public PortInst(Module parent, Name name)
+        public PortInst(ModInst inst, Wire wire)
         {
-            super(parent, name);
-            inst = parent.instsIndex.get(new Name(car(name.getACL2Object())));
+            super(inst.parent);
+            this.inst = inst;
             Module sm = inst.proto;
-            wire = sm.wiresIndex.get(new Name(cdr(name.getACL2Object())));
+            this.wire = wire;
             wire.exported = true;
+        }
+
+        @Override
+        public ACL2Object getACL2Name()
+        {
+            return cons(inst.instname.getACL2Object(), wire.name.getACL2Object());
         }
 
         void addSource(Lhs source)
@@ -119,13 +117,21 @@ public abstract class SVarExt extends Svar
 
     public static class LocalWire extends SVarExt
     {
+        public final Name name;
         public final int delay;
 
         LocalWire(Wire wire, int delay)
         {
-            super(wire.parent, wire.name);
+            super(wire.parent);
+            this.name = wire.name;
             this.wire = wire;
             this.delay = delay;
+        }
+
+        @Override
+        public ACL2Object getACL2Name()
+        {
+            return name.getACL2Object();
         }
 
         @Override

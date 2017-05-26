@@ -157,11 +157,8 @@ public class ACL2DesignJobs
 //                            out.println(" | 0 => " + graph0.get(svar) + " | 1 => " + graph1.get(svar));
 //                            out.println(" | 0 => " + closure0.get(svar) + " | 1 => " + closure1.get(svar));
                         }
-                        if (Module.CRUDE_COMBINATIONAL_INPUTS)
-                        {
-                            out.println("// 0 combinational inputs: " + m.combinationalInputs0);
-                            out.println("// 1 combinational inputs: " + m.combinationalInputs1);
-                        }
+                        out.println("// 0 combinational inputs: " + m.combinationalInputs0);
+                        out.println("// 1 combinational inputs: " + m.combinationalInputs1);
                         out.println("// insts");
                         for (ModInst mi : m.insts)
                         {
