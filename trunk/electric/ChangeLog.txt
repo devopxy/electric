@@ -4,6 +4,8 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.08-a: ******************************
 
+IMP: (5/26/17, DN) DualEval netlister in "Tools|Simulation (Others)|Write DualEval deck...".
+
 IMP: (5/9/17, DN) Debug menu contains reader from ACL2 Verilog.
 
 BUG: (4/7/17, DN) Ant doesn't put ".dat" resource file int jars.
