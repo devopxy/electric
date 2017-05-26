@@ -45,6 +45,7 @@ import com.sun.electric.technology.technologies.Schematics;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.simulation.acl2.mods.Design;
+import com.sun.electric.tool.simulation.acl2.mods.Driver;
 import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModInst;
@@ -53,6 +54,7 @@ import com.sun.electric.tool.simulation.acl2.mods.Module;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.SVarExt;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.util.TextUtils;
 import com.sun.electric.util.acl2.ACL2Reader;
 import com.sun.electric.util.math.DBMath;
@@ -65,6 +67,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -205,6 +208,7 @@ public class CompileVerilogStruct
 		private PrimitiveNode.Function fun;
 		private String instanceName;
 		private Map<VPort,String[]> ports;
+        private String[] verilogAssignInputs;
 
 		/**
 		 * Constructor for a cell instance.
@@ -231,6 +235,22 @@ public class CompileVerilogStruct
 			this.instanceName = instanceName;
 			ports = new HashMap<VPort,String[]>();
 		}
+        
+		/**
+		 * Constructor for a Verilog assign.
+		 * @param fun the transistor type.
+		 * @param verilogAssignInputs names of wires used in assigns right-hand sidde expresssion.
+		 */
+		public VInstance(String instanceName, String[] verilogAssignInputs)
+		{
+			this.module = null;
+			this.fun = PrimitiveNode.Function.GATEAND;
+			this.instanceName = instanceName;
+			ports = new HashMap<VPort,String[]>();
+            this.verilogAssignInputs = verilogAssignInputs;
+		}
+        
+        
 
 		/**
 		 * Method to add a new port on this VInstance.
@@ -407,6 +427,31 @@ public class CompileVerilogStruct
                     VInstance old = instances.put(inst.instname, vInstance);
                     assert old == null;
                 }
+            }
+            for (Map.Entry<Lhs,Driver> e1: m.assigns.entrySet())
+            {
+                Lhs lhs = e1.getKey();
+                Driver rhs = e1.getValue();
+                String instanceName = lhs.toString(); 
+                instanceName = null;
+                Map<SVarExt.LocalWire,BigInteger> inputs = rhs.svex.collectVarsWithMasks(
+                    BigIntegerUtil.logheadMask(lhs.width()), SVarExt.LocalWire.class);
+                String[] assignInputs = new String[inputs.size()];
+                int i = 0;
+                for (Map.Entry<SVarExt.LocalWire,BigInteger> e2: inputs.entrySet()) {
+                    SVarExt.LocalWire lw = e2.getKey();
+                    BigInteger mask = e2.getValue();
+                    assignInputs[i++] = lw.toString(mask);
+                }
+                VInstance vInstance = new VInstance(instanceName, assignInputs);
+                vModule.instances.add(vInstance);
+                String portName = "y";
+                String[] signals = new String[] {
+                    lhs.toElectricString()
+                };
+                VPort vPort = new VPort(vInstance, portName, lhs.width() > 1);
+                assert !vInstance.ports.containsKey(vPort);
+                vInstance.addConnection(vPort, signals);
             }
             for (Map.Entry<Lhs,Lhs> e1: m.aliaspairs.entrySet())
             {
@@ -2142,7 +2187,19 @@ public class CompileVerilogStruct
 			double totalSize = 0;
 			for(VInstance in : mod.instances)
 			{
-				if (in.module == null)
+                if (in.verilogAssignInputs != null)
+                {
+                    assert in.module == null;
+					PrimitiveNode andNP = Schematics.tech().andNode;
+					double width = andNP.getDefWidth(ep);
+					double height = andNP.getDefHeight(ep);
+                    if (in.verilogAssignInputs.length > 2)
+                    {
+                        height += andNP.getAutoGrowth().getLambdaHeight() * (in.verilogAssignInputs.length - 2);
+                    }
+					totalSize += (width + GAP) * (height + GAP);
+                    
+                } else if (in.module == null)
 				{
 					NodeProto tranNP = Schematics.tech().transistorNode;
 					double width = tranNP.getDefWidth(ep);
@@ -2175,7 +2232,16 @@ public class CompileVerilogStruct
 						ni = NodeInst.makeInstance(np, ep, EPoint.fromLambda(x, y), width, height, cell,
 							Orientation.IDENT, in.instanceName);
 					}
-				} else
+				} else if (in.verilogAssignInputs != null)
+                {
+					np = Schematics.tech().andNode;
+					width = np.getDefWidth(ep);
+					height = np.getDefHeight(ep);
+                    if (in.verilogAssignInputs.length > 2) {
+                        height += Schematics.tech().andNode.getAutoGrowth().getLambdaHeight() * (in.verilogAssignInputs.length - 2);
+                    }
+					ni = NodeInst.makeInstance(np, ep, EPoint.fromLambda(x, y), width, height, cell, Orientation.IDENT, in.instanceName, in.fun);  
+                } else
 				{
 					np = Schematics.tech().transistorNode;
 					width = np.getDefWidth(ep);
@@ -2271,6 +2337,43 @@ public class CompileVerilogStruct
 			// create stubs on instances where busses connect
 			for(VInstance in : mod.instances)
 			{
+                if (in.verilogAssignInputs != null)
+                {
+					NodeInst ni = placed.get(in);
+                    PortInst pi = ni.findPortInst("a");
+                    for (int i = 0; i < in.verilogAssignInputs.length; i++)
+                    {
+                        EPoint piLoc = EPoint.fromLambda(ni.getAnchorCenterX() - 4,
+                            ni.getAnchorCenterY() + (0.5*(in.verilogAssignInputs.length - 1) - i) * 4);
+    					EPoint busPinLoc = EPoint.fromLambda(piLoc.getX()-5, piLoc.getY());
+						PrimitiveNode np = Schematics.tech().busPinNode;
+						ArcProto ap = Schematics.tech().bus_arc;
+                        String name = in.verilogAssignInputs[i];
+                        if (!name.contains(",") && !name.contains(":")) {
+                            np = Schematics.tech().wirePinNode;
+                            ap = Schematics.tech().wire_arc;
+                        }
+					    NodeInst stubPin = NodeInst.makeInstance(np, ep, busPinLoc, np.getDefWidth(ep), np.getDefHeight(ep), cell);
+					    ArcInst.makeInstance(ap, ep, pi, stubPin.getOnlyPortInst(), piLoc, busPinLoc, name);
+                    }
+                    pi = ni.findPortInst("y");
+                    EPoint piLoc = pi.getCenter();
+                    EPoint busPinLoc = EPoint.fromLambda(piLoc.getLambdaX()+ 5, piLoc.getLambdaY());
+                    assert in.ports.size() == 1;
+                    VPort vPort = in.ports.keySet().iterator().next();
+                    String[] signals = in.ports.values().iterator().next();
+                    assert signals.length == 1;
+                    PrimitiveNode np = Schematics.tech().busPinNode;
+                    ArcProto ap = Schematics.tech().bus_arc;
+                    String name = signals[0];
+                    if (!name.contains(",") && !name.contains(":"))
+                    {
+                        np = Schematics.tech().wirePinNode;
+                        ap = Schematics.tech().wire_arc;
+                    }
+                    NodeInst stubPin = NodeInst.makeInstance(np, ep, busPinLoc, np.getDefWidth(ep), np.getDefHeight(ep), cell);
+                    ArcInst.makeInstance(ap, ep, pi, stubPin.getOnlyPortInst(), piLoc, busPinLoc, name);
+                }
 				if (in.module == null) continue;
 				for(VPort lp : in.ports.keySet())
 				{
