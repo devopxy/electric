@@ -148,6 +148,7 @@ public class Output
 		if (type == FileType.IRSIM) return new IRSIM.IRSIMPreferences(factory);
 		if (type == FileType.L) return new L.LPreferences(factory);
 		if (type == FileType.LEF) return new LEF.LEFPreferences(factory);
+        if (type == FileType.LISP) return new DualEval.DualEvalPreferences(factory);
 		if (type == FileType.MAXWELL) return new Maxwell.MaxwellPreferences(factory);
 		if (type == FileType.MOSSIM) return new MOSSIM.MOSSIMPreferences(factory);
 		if (type == FileType.PADS) return new Pads.PadsPreferences(factory);

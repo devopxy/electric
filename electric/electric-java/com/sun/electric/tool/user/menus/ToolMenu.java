@@ -456,7 +456,7 @@ public class ToolMenu {
 				})),
 
 			// ------------------- Simulation (others)
-			// mnemonic keys available: B D G KL N Q UVWXYZ
+			// mnemonic keys available: B   G KL N Q UVWXYZ
 			new EMenu("Simulation (_Others)",
 				new EMenuItem("Write _Maxwell Deck...") {
 					public void run() { FileMenu.exportCommand(FileType.MAXWELL, true); }
@@ -469,6 +469,9 @@ public class ToolMenu {
 				},
 				new EMenuItem("Write _PAL Deck...") {
 					public void run() { FileMenu.exportCommand(FileType.PAL, true); }
+				},
+				new EMenuItem("Write _DualEval Deck...") {
+					public void run() { FileMenu.exportCommand(FileType.LISP, true); }
 				},
 
 				SEPARATOR,
