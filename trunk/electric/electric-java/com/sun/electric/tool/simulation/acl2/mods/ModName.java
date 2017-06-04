@@ -59,10 +59,18 @@ public class ModName
         {
             isString = true;
             isCoretype = isGate = false;
-        } else
+        } else if (!NIL.equals(impl))
         {
             isString = isCoretype = isGate = false;
+        } else
+        {
+            throw new IllegalArgumentException();
         }
+    }
+
+    public ACL2Object getACL2Object()
+    {
+        return impl;
     }
 
     private static final Map<ACL2Object, ModName> allModNames = new HashMap<>();

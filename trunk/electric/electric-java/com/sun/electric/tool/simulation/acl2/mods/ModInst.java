@@ -23,9 +23,6 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
-import java.util.HashMap;
-
-import java.util.Map;
 
 /**
  * SV module instance.
@@ -33,37 +30,39 @@ import java.util.Map;
  */
 public class ModInst
 {
-
-    final ACL2Object impl;
-
     public final Name instname;
     public final ModName modname;
 
-    final Module parent;
-    final Module proto;
-    final Map<Name, SVarExt.PortInst> portInsts = new HashMap<>();
-
-    ModInst(Module parent, ACL2Object impl, Map<ModName, Module> downTop)
+    ModInst(ACL2Object impl)
     {
-        this.impl = impl;
-        this.parent = parent;
         instname = new Name(car(impl));
         modname = ModName.valueOf(cdr(impl));
-        proto = downTop.get(modname);
-        Util.check(proto != null);
     }
 
-    SVarExt.PortInst newPortInst(ACL2Object name)
+    public ACL2Object getACL2Object()
     {
-        assert instname.impl.equals(car(name));
-        Wire wire = proto.wiresIndex.get(new Name(cdr(name)));
-        SVarExt.PortInst pi = portInsts.get(wire.name);
-        if (pi == null)
+        return cons(instname.getACL2Object(), modname.getACL2Object());
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o instanceof ModInst)
         {
-            pi = new SVarExt.PortInst(this, wire);
-            portInsts.put(wire.name, pi);
+            ModInst that = (ModInst)o;
+            return this.instname.equals(that.instname)
+                && this.modname.equals(that.modname);
         }
-        return pi;
+        return false;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int hash = 3;
+        hash = 73 * hash + instname.hashCode();
+        hash = 73 * hash + modname.hashCode();
+        return hash;
     }
 
     @Override

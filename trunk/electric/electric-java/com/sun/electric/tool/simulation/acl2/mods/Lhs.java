@@ -21,8 +21,8 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.util.acl2.ACL2Object;
-import java.math.BigInteger;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -31,37 +31,35 @@ import java.util.List;
  * A shorthand format for an expression consisting of a concatenation of parts of variables.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____LHS>.
  */
-public class Lhs
+public class Lhs<V extends Svar>
 {
+    public final List<Lhrange<V>> ranges = new LinkedList<>();
 
-    final ACL2Object impl;
-
-    public final List<Lhrange> ranges = new LinkedList<>();
-
-    Lhs(Module parent, ACL2Object impl)
+    Lhs(Svar.Builder<V> builder, ACL2Object impl)
     {
-        this.impl = impl;
         List<ACL2Object> l = Util.getList(impl, true);
         Util.check(!l.isEmpty());
         int lsh = 0;
         for (ACL2Object o : l)
         {
-            Lhrange lhr = new Lhrange(parent, o, lsh);
+            Lhrange lhr = new Lhrange(builder, o, lsh);
             ranges.add(lhr);
-            lsh += lhr.w;
+            lsh += lhr.getWidth();
         }
     }
 
     @Override
     public boolean equals(Object o)
     {
-        return o instanceof Lhs && impl == ((Lhs)o).impl;
+        return o instanceof Lhs && ranges.equals(((Lhs)o).ranges);
     }
 
     @Override
     public int hashCode()
     {
-        return (int)impl.id();
+        int hash = 3;
+        hash = 67 * hash + ranges.hashCode();
+        return hash;
     }
 
     public int width()
@@ -69,7 +67,7 @@ public class Lhs
         int size = 0;
         for (Lhrange lr : ranges)
         {
-            size += lr.w;
+            size += lr.getWidth();
         }
         return size;
     }
@@ -87,36 +85,5 @@ public class Lhs
             }
         }
         return s;
-    }
-
-    public String toElectricString()
-    {
-        String s = "";
-        for (int i = ranges.size() - 1; i >= 0; i--)
-        {
-            s += ranges.get(i).toLispString();
-            if (i > 0)
-            {
-                s += ",";
-            }
-        }
-        return s;
-    }
-
-    public void markAssigned(BigInteger assignedBits)
-    {
-        for (Lhrange lr : ranges)
-        {
-            lr.markAssigned(assignedBits);
-            assignedBits = assignedBits.shiftRight(lr.w);
-        }
-    }
-
-    public void markUsed()
-    {
-        for (Lhrange lr : ranges)
-        {
-            lr.markUsed();
-        }
     }
 }

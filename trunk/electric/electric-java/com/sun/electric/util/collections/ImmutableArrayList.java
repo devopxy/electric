@@ -24,14 +24,16 @@ package com.sun.electric.util.collections;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.ConcurrentModificationException;
 
 /**
  * Constant-array implementation of the <tt>List</tt> interface.
  */
-public class ImmutableArrayList<E> extends ArrayList<E> {
+public class ImmutableArrayList<E> extends ArrayList<E>
+{
 
-    private static final ImmutableArrayList<?> EMPTY = new ImmutableArrayList();
+    private static final ImmutableArrayList<?> EMPTY = new ImmutableArrayList<>();
 
     /**
      * Constructs a list containing the elements of the specified
@@ -42,9 +44,12 @@ public class ImmutableArrayList<E> extends ArrayList<E> {
      * @param c the collection whose elements are to be placed into this list.
      * @throws NullPointerException if the specified collection is null.
      */
-    public static <T> ImmutableArrayList<T> of(Collection<? extends T> c) {
-        if (c.isEmpty()) {
-            return (ImmutableArrayList<T>) EMPTY;
+    @SuppressWarnings("unchecked")
+    public static <T> ImmutableArrayList<T> of(Collection<? extends T> c)
+    {
+        if (c.isEmpty())
+        {
+            return (ImmutableArrayList<T>)EMPTY;
         }
         return new ImmutableArrayList<T>(c);
     }
@@ -57,9 +62,12 @@ public class ImmutableArrayList<E> extends ArrayList<E> {
      * @param elems the array whose elements are to be placed into this list.
      * @throws NullPointerException if the specified array is null.
      */
-    public static <T> ImmutableArrayList<T> of(T... elems) {
-        if (elems.length == 0) {
-            return (ImmutableArrayList<T>) EMPTY;
+    @SuppressWarnings("unchecked")
+    public static <T> ImmutableArrayList<T> of(T... elems)
+    {
+        if (elems.length == 0)
+        {
+            return (ImmutableArrayList<T>)EMPTY;
         }
         return new ImmutableArrayList<T>(elems);
     }
@@ -73,10 +81,12 @@ public class ImmutableArrayList<E> extends ArrayList<E> {
      * @param c the collection whose elements are to be placed into this list.
      * @throws NullPointerException if the specified collection is null.
      */
-    private ImmutableArrayList(Collection<? extends E> c) {
+    private ImmutableArrayList(Collection<? extends E> c)
+    {
         super(c.size());
         super.addAll(c);
-        if (size() != c.size()) {
+        if (size() != c.size())
+        {
             throw new ConcurrentModificationException();
         }
     }
@@ -89,9 +99,12 @@ public class ImmutableArrayList<E> extends ArrayList<E> {
      * @param a the array whose elements are to be placed into this list.
      * @throws NullPointerException if the specified array is null.
      */
-    private ImmutableArrayList(E... a) {
+    @SafeVarargs
+    private ImmutableArrayList(E... a)
+    {
         super(a.length);
-        for (E e : a) {
+        for (E e : a)
+        {
             super.add(e);
         }
         assert size() == a.length;
@@ -106,77 +119,97 @@ public class ImmutableArrayList<E> extends ArrayList<E> {
      * @param toIndex
      * @throws NullPointerException if the specified array is null.
      */
-    public ImmutableArrayList(E[] a, int fromIndex, int toIndex) {
+    public ImmutableArrayList(E[] a, int fromIndex, int toIndex)
+    {
         super(toIndex - fromIndex);
-        if (fromIndex < 0) {
+        if (fromIndex < 0)
+        {
             throw new IndexOutOfBoundsException("fromIndex = " + fromIndex);
         }
-        if (toIndex > a.length) {
+        if (toIndex > a.length)
+        {
             throw new IndexOutOfBoundsException("toIndex = " + toIndex);
         }
-        for (int i = fromIndex; i < toIndex; i++) {
+        for (int i = fromIndex; i < toIndex; i++)
+        {
             super.add(a[i]);
         }
         assert size() == toIndex - fromIndex;
     }
 
-    public ImmutableArrayList<E> with(E[] a) {
-        if (a == null) {
+    public ImmutableArrayList<E> with(E[] a)
+    {
+        if (a == null)
+        {
             return this;
         }
         int l;
         for (l = a.length; l > 0 && a[l - 1] == null; l--);
-        if (l == size()) {
+        if (l == size())
+        {
             int i = 0;
-            while (i < size() && a[i] == get(i)) {
+            while (i < size() && a[i] == get(i))
+            {
                 i++;
             }
-            if (i == l) {
+            if (i == l)
+            {
                 return this;
             }
         }
         return new ImmutableArrayList<E>(a, 0, l);
     }
 
-    public void trimToSize() {
+    public void trimToSize()
+    {
     }
 
-    public void ensureCapacity(int minCapacity) {
+    public void ensureCapacity(int minCapacity)
+    {
     }
 
-    public E set(int index, E element) {
+    public E set(int index, E element)
+    {
         throw new UnsupportedOperationException();
     }
 
-    public boolean add(E o) {
+    public boolean add(E o)
+    {
         throw new UnsupportedOperationException();
     }
 
-    public void add(int index, E element) {
+    public void add(int index, E element)
+    {
         throw new UnsupportedOperationException();
     }
 
-    public E remove(int index) {
+    public E remove(int index)
+    {
         throw new UnsupportedOperationException();
     }
 
-    public boolean remove(Object o) {
+    public boolean remove(Object o)
+    {
         throw new UnsupportedOperationException();
     }
 
-    public void clear() {
+    public void clear()
+    {
         throw new UnsupportedOperationException();
     }
 
-    public boolean addAll(Collection<? extends E> c) {
+    public boolean addAll(Collection<? extends E> c)
+    {
         throw new UnsupportedOperationException();
     }
 
-    public boolean addAll(int index, Collection<? extends E> c) {
+    public boolean addAll(int index, Collection<? extends E> c)
+    {
         throw new UnsupportedOperationException();
     }
 
-    protected void removeRange(int fromIndex, int toIndex) {
+    protected void removeRange(int fromIndex, int toIndex)
+    {
         throw new UnsupportedOperationException();
     }
 }

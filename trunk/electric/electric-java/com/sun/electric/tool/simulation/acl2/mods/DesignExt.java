@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: Design.java
+ * File: DesignExt.java
  *
  * Copyright (c) 2017, Static Free Software. All rights reserved.
  *
@@ -37,17 +37,17 @@ import java.util.TreeMap;
  * SVEX design.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____DESIGN>.
  */
-public class Design
+public class DesignExt
 {
     final ACL2Object impl;
 
 //    final Map<ModName,Module> modalist = new LinkedHashMap<>();
     public final ModName top;
 
-    public final Map<ModName, Module> downTop = new LinkedHashMap<>();
-    public final Map<ModName, Module> topDown = new LinkedHashMap<>();
+    public final Map<ModName, ModuleExt> downTop = new LinkedHashMap<>();
+    public final Map<ModName, ModuleExt> topDown = new LinkedHashMap<>();
 
-    public Design(ACL2Object impl)
+    public DesignExt(ACL2Object impl)
     {
         this.impl = impl;
         List<ACL2Object> fields = Util.getList(impl, true);
@@ -86,7 +86,7 @@ public class Design
 
         topDown.get(top).markTop();
         Map<String, Integer> globalCounts = new TreeMap<>();
-        for (Module m : topDown.values())
+        for (ModuleExt m : topDown.values())
         {
             m.markDown(globalCounts);
         }
@@ -143,14 +143,14 @@ public class Design
         {
             addToDownTop(ModName.valueOf(cdr(o)), rawMods);
         }
-        Module m = new Module(mn, rawMod, downTop);
-        Module old = downTop.put(mn, m);
+        ModuleExt m = new ModuleExt(mn, rawMod, downTop);
+        ModuleExt old = downTop.put(mn, m);
         Util.check(old == null);
     }
 
     public void computeCombinationalInputs(String clockName)
     {
-        for (Module m : downTop.values())
+        for (ModuleExt m : downTop.values())
         {
             m.computeCombinationalInputs(clockName);
         }

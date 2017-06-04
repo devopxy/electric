@@ -44,16 +44,16 @@ import com.sun.electric.technology.technologies.Generic;
 import com.sun.electric.technology.technologies.Schematics;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
-import com.sun.electric.tool.simulation.acl2.mods.Design;
-import com.sun.electric.tool.simulation.acl2.mods.Driver;
-import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
+import com.sun.electric.tool.simulation.acl2.mods.DesignExt;
+import com.sun.electric.tool.simulation.acl2.mods.DriverExt;
+import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
-import com.sun.electric.tool.simulation.acl2.mods.ModInst;
+import com.sun.electric.tool.simulation.acl2.mods.ModInstExt;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
-import com.sun.electric.tool.simulation.acl2.mods.Module;
+import com.sun.electric.tool.simulation.acl2.mods.ModuleExt;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.SVarExt;
-import com.sun.electric.tool.simulation.acl2.mods.Wire;
+import com.sun.electric.tool.simulation.acl2.mods.WireExt;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.util.TextUtils;
 import com.sun.electric.util.acl2.ACL2Reader;
@@ -235,7 +235,7 @@ public class CompileVerilogStruct
 			this.instanceName = instanceName;
 			ports = new HashMap<VPort,String[]>();
 		}
-        
+
 		/**
 		 * Constructor for a Verilog assign.
 		 * @param fun the transistor type.
@@ -249,8 +249,8 @@ public class CompileVerilogStruct
 			ports = new HashMap<VPort,String[]>();
             this.verilogAssignInputs = verilogAssignInputs;
 		}
-        
-        
+
+
 
 		/**
 		 * Method to add a new port on this VInstance.
@@ -371,13 +371,13 @@ public class CompileVerilogStruct
 			hasErrors = true;
 			return;
         }
-        Design design = new Design(sr.root);
+        DesignExt design = new DesignExt(sr.root);
         Map<ModName, VModule> modulesByModName = new HashMap<>();
 		allModules = new ArrayList<VModule>();
-        for (Map.Entry<ModName, Module> e : design.downTop.entrySet())
+        for (Map.Entry<ModName, ModuleExt> e : design.downTop.entrySet())
         {
             ModName modName = e.getKey();
-            Module m = e.getValue();
+            ModuleExt m = e.getValue();
             VModule vModule;
             if (modName.isString)
             {
@@ -389,11 +389,11 @@ public class CompileVerilogStruct
             {
                 continue;
             }
-            for (Wire wire : m.wires)
+            for (WireExt wire : m.wires)
             {
                 if (wire.exported)
                 {
-                    VExport vExport = new VExport(wire.name.toString());
+                    VExport vExport = new VExport(wire.getName().toString());
                     if (wire.isAssigned())
                     {
                         vExport.mode = MODE_OUT;
@@ -412,33 +412,34 @@ public class CompileVerilogStruct
                 }
                 else
                 {
-                    vModule.wires.add(wire.toLispString(wire.width, 0));
+                    vModule.wires.add(wire.toLispString(wire.getWidth(), 0));
                 }
             }
             Map<Name,VInstance> instances = new HashMap<>();
-            for (ModInst inst : m.insts)
+            for (ModInstExt inst : m.insts)
             {
-                VModule module = modulesByModName.get(inst.modname);
+                VModule module = modulesByModName.get(inst.getModname());
                 if (module != null)
                 {
-                    String instanceName = inst.instname.toString();
+                    String instanceName = inst.getInstname().toString();
                     VInstance vInstance = new VInstance(module, instanceName);
                     vModule.instances.add(vInstance);
-                    VInstance old = instances.put(inst.instname, vInstance);
+                    VInstance old = instances.put(inst.getInstname(), vInstance);
                     assert old == null;
                 }
             }
-            for (Map.Entry<Lhs,Driver> e1: m.assigns.entrySet())
+            for (Map.Entry<Lhs<SVarExt>, DriverExt> e1 : m.assigns.entrySet())
             {
-                Lhs lhs = e1.getKey();
-                Driver rhs = e1.getValue();
-                String instanceName = lhs.toString(); 
+                Lhs<SVarExt> lhs = e1.getKey();
+                DriverExt rhs = e1.getValue();
+                String instanceName = lhs.toString();
                 instanceName = null;
-                Map<SVarExt.LocalWire,BigInteger> inputs = rhs.svex.collectVarsWithMasks(
+                Map<SVarExt.LocalWire, BigInteger> inputs = rhs.svex.collectVarsWithMasks(
                     BigIntegerUtil.logheadMask(lhs.width()), SVarExt.LocalWire.class);
                 String[] assignInputs = new String[inputs.size()];
                 int i = 0;
-                for (Map.Entry<SVarExt.LocalWire,BigInteger> e2: inputs.entrySet()) {
+                for (Map.Entry<SVarExt.LocalWire, BigInteger> e2 : inputs.entrySet())
+                {
                     SVarExt.LocalWire lw = e2.getKey();
                     BigInteger mask = e2.getValue();
                     assignInputs[i++] = lw.toString(mask);
@@ -446,33 +447,35 @@ public class CompileVerilogStruct
                 VInstance vInstance = new VInstance(instanceName, assignInputs);
                 vModule.instances.add(vInstance);
                 String portName = "y";
-                String[] signals = new String[] {
-                    lhs.toElectricString()
+                String[] signals = new String[]
+                {
+                    toElectricString(lhs)
                 };
                 VPort vPort = new VPort(vInstance, portName, lhs.width() > 1);
                 assert !vInstance.ports.containsKey(vPort);
                 vInstance.addConnection(vPort, signals);
             }
-            for (Map.Entry<Lhs,Lhs> e1: m.aliaspairs.entrySet())
+            for (Map.Entry<Lhs<SVarExt>,Lhs<SVarExt>> e1: m.aliaspairs.entrySet())
             {
-                Lhs lhs = e1.getKey();
-                Lhs rhs = e1.getValue();
+                Lhs<SVarExt> lhs = e1.getKey();
+                Lhs<SVarExt> rhs = e1.getValue();
                 assert lhs.ranges.size() == 1;
-                if (!(((Lhatom.Var) lhs.ranges.get(0).atom).name instanceof SVarExt.PortInst))
+                if (!(lhs.ranges.get(0).getVar() instanceof SVarExt.PortInst))
                 {
                     continue;
                 }
-                SVarExt.PortInst pi = (SVarExt.PortInst) ((Lhatom.Var) lhs.ranges.get(0).atom).name;
-                VInstance vInstance = instances.get(pi.inst.instname);
+                SVarExt.PortInst pi = (SVarExt.PortInst) lhs.ranges.get(0).getVar();
+                VInstance vInstance = instances.get(pi.inst.getInstname());
                 if (vInstance == null)
                 {
                     continue;
                 }
-                String portName = pi.wire.toLispString(pi.wire.width, 0);
+                String portName = pi.wire.toLispString(pi.wire.getWidth(), 0);
                 String[] signals = new String[rhs.ranges.size()];
                 for (int i = 0; i < rhs.ranges.size(); i++)
                 {
-                    signals[signals.length - i - 1] = rhs.ranges.get(i).toLispString();
+                    Lhrange<SVarExt> lr = rhs.ranges.get(i);
+                    signals[signals.length - i - 1] = toElectricString(lr);
                 }
                 VPort vPort = new VPort(vInstance, portName, signals.length > 1);
                 assert !vInstance.ports.containsKey(vPort);
@@ -481,6 +484,31 @@ public class CompileVerilogStruct
             modulesByModName.put(modName, vModule);
         }
         processModules();
+    }
+
+    private static String toElectricString(Lhs<SVarExt> lhs)
+    {
+        String s = "";
+        for (int i = lhs.ranges.size() - 1; i >= 0; i--)
+        {
+            Lhrange<SVarExt> lr = lhs.ranges.get(i);
+            s += toElectricString(lr);
+            if (i > 0)
+            {
+                s += ",";
+            }
+        }
+        return s;
+    }
+
+    private static String toElectricString(Lhrange<SVarExt> lr)
+    {
+        SVarExt name = lr.getVar();
+        if (name == null)
+        {
+            throw new UnsupportedOperationException();
+        }
+        return name.toLispString(lr.getWidth(), lr.getRsh());
     }
 
 	/**
@@ -2198,7 +2226,7 @@ public class CompileVerilogStruct
                         height += andNP.getAutoGrowth().getLambdaHeight() * (in.verilogAssignInputs.length - 2);
                     }
 					totalSize += (width + GAP) * (height + GAP);
-                    
+
                 } else if (in.module == null)
 				{
 					NodeProto tranNP = Schematics.tech().transistorNode;
@@ -2240,7 +2268,7 @@ public class CompileVerilogStruct
                     if (in.verilogAssignInputs.length > 2) {
                         height += Schematics.tech().andNode.getAutoGrowth().getLambdaHeight() * (in.verilogAssignInputs.length - 2);
                     }
-					ni = NodeInst.makeInstance(np, ep, EPoint.fromLambda(x, y), width, height, cell, Orientation.IDENT, in.instanceName, in.fun);  
+					ni = NodeInst.makeInstance(np, ep, EPoint.fromLambda(x, y), width, height, cell, Orientation.IDENT, in.instanceName, in.fun);
                 } else
 				{
 					np = Schematics.tech().transistorNode;

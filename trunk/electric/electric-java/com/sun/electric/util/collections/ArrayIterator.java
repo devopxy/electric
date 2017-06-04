@@ -29,19 +29,22 @@ import java.util.NoSuchElementException;
 /**
  * An iterator over an array.
  */
-public class ArrayIterator<E> implements Iterator<E> {
+public class ArrayIterator<E> implements Iterator<E>
+{
 
     private final E[] array;
     private final int limit;
     private int cursor;
 
-    private ArrayIterator(E[] array) {
+    private ArrayIterator(E[] array)
+    {
         this.array = array;
         limit = array.length;
         cursor = 0;
     }
 
-    private ArrayIterator(E[] array, int start, int limit) {
+    private ArrayIterator(E[] array, int start, int limit)
+    {
         this.array = array;
         this.limit = limit;
         cursor = start;
@@ -49,11 +52,14 @@ public class ArrayIterator<E> implements Iterator<E> {
 
     /**
      * Returns iterator over elements of array.
+     *
      * @param array array with elements or null.
      * @return iterator over elements of the array or NULL_ITERATOR.
      */
-    public static <E> Iterator<E> iterator(E[] array) {
-        if (array != null && array.length > 0) {
+    public static <E> Iterator<E> iterator(E[] array)
+    {
+        if (array != null && array.length > 0)
+        {
             return new ArrayIterator<E>(array);
         }
         Iterator<E> emptyIterator = emptyIterator();
@@ -62,23 +68,30 @@ public class ArrayIterator<E> implements Iterator<E> {
 
     /**
      * Returns iterator over range [start,limit) of elements of array.
+     *
      * @param array array with elements or null.
      * @param start start index of the range.
      * @param limit limit of the range
      * @return iterator over range of elements of the array or EMPTY_ITERATOR.
      * @throws IndexOutOfBoundsException if start or limit are not correct
      */
-    public static <E> Iterator<E> iterator(E[] array, int start, int limit) {
-        if (array != null) {
-            if (start >= 0 && limit <= array.length) {
-                if (start < limit) {
+    public static <E> Iterator<E> iterator(E[] array, int start, int limit)
+    {
+        if (array != null)
+        {
+            if (start >= 0 && limit <= array.length)
+            {
+                if (start < limit)
+                {
                     return new ArrayIterator<E>(array, start, limit);
-                } else if (start == limit) {
+                } else if (start == limit)
+                {
                     Iterator<E> emptyIterator = emptyIterator();
                     return emptyIterator;
                 }
             }
-        } else if (start == 0 && limit == 0) {
+        } else if (start == 0 && limit == 0)
+        {
             Iterator<E> emptyIterator = emptyIterator();
             return emptyIterator;
         }
@@ -92,7 +105,8 @@ public class ArrayIterator<E> implements Iterator<E> {
      *
      * @return <tt>true</tt> if the iterator has more elements.
      */
-    public boolean hasNext() {
+    public boolean hasNext()
+    {
         return cursor < limit;
     }
 
@@ -104,8 +118,10 @@ public class ArrayIterator<E> implements Iterator<E> {
      * @return the next element in the iteration.
      * @exception NoSuchElementException iteration has no more elements.
      */
-    public E next() {
-        if (cursor >= limit) {
+    public E next()
+    {
+        if (cursor >= limit)
+        {
             throw new NoSuchElementException();
         }
         E next = array[cursor];
@@ -119,16 +135,19 @@ public class ArrayIterator<E> implements Iterator<E> {
      *
      * @exception UnsupportedOperationException
      */
-    public void remove() {
+    public void remove()
+    {
         throw new UnsupportedOperationException();
     }
 
     /**
      * Null iterator which has no elements.
      */
-    private static class EmptyIterator extends ArrayIterator<Object> {
+    private static class EmptyIterator extends ArrayIterator<Object>
+    {
 
-        EmptyIterator() {
+        EmptyIterator()
+        {
             super(new Object[0]);
         }
     }
@@ -143,7 +162,8 @@ public class ArrayIterator<E> implements Iterator<E> {
      * Returns the empty iterator (immutable).
      * Unlike the like-named field, this method is parameterized.
      *
-     * <p>This example illustrates the type-safe way to obtain an empty set:
+     * <p>
+     * This example illustrates the type-safe way to obtain an empty set:
      * <pre>
      *     Iterator&lt;String&gt; s = ArrayIterator.emptyIterator();
      * </pre>
@@ -154,22 +174,29 @@ public class ArrayIterator<E> implements Iterator<E> {
      *
      * @see #EMPTY_ITERATOR
      */
-    public static <E> Iterator<E> emptyIterator() {
-        return (Iterator<E>) EMPTY_ITERATOR;
+    @SuppressWarnings("unchecked")
+    public static <E> Iterator<E> emptyIterator()
+    {
+        return (Iterator<E>)EMPTY_ITERATOR;
     }
 
-    public static <E> Iterator<E> singletonIterator(final E o) {
-        return new Iterator<E>() {
+    public static <E> Iterator<E> singletonIterator(final E o)
+    {
+        return new Iterator<E>()
+        {
             boolean passed;
 
             @Override
-            public boolean hasNext() {
+            public boolean hasNext()
+            {
                 return !passed;
             }
 
             @Override
-            public E next() {
-                if (passed) {
+            public E next()
+            {
+                if (passed)
+                {
                     throw new NoSuchElementException();
                 }
                 passed = true;
@@ -177,7 +204,8 @@ public class ArrayIterator<E> implements Iterator<E> {
             }
 
             @Override
-            public void remove() {
+            public void remove()
+            {
                 throw new UnsupportedOperationException();
             }
         };
@@ -186,12 +214,16 @@ public class ArrayIterator<E> implements Iterator<E> {
     /**
      * Turns an Iterator<T> into an Iterable<T> so I can use Java5's enhanced for()
      */
-    public static <T> Iterable<T> i2i(final Iterator<T> iterator) {
-        return new Iterable<T>() {
+    public static <T> Iterable<T> i2i(final Iterator<T> iterator)
+    {
+        return new Iterable<T>()
+        {
             boolean used = false;
 
-            public Iterator<T> iterator() {
-                if (used) {
+            public Iterator<T> iterator()
+            {
+                if (used)
+                {
                     throw new RuntimeException("i2i() produces single-use Iterables!");
                 }
                 used = true;
@@ -203,9 +235,11 @@ public class ArrayIterator<E> implements Iterator<E> {
     /**
      * Turns an Iterator<T> into a List<T> because some of Electric's APIs ask for that
      */
-    public static <T> ArrayList<T> i2al(final Iterator<T> iterator) {
+    public static <T> ArrayList<T> i2al(final Iterator<T> iterator)
+    {
         ArrayList<T> ret = new ArrayList<T>();
-        while (iterator.hasNext()) {
+        while (iterator.hasNext())
+        {
             ret.add(iterator.next());
         }
         return ret;

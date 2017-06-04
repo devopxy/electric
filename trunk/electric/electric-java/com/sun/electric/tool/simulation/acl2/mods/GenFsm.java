@@ -53,18 +53,18 @@ public abstract class GenFsm
 
     private final String projName;
     private final String topName;
-    private final Set<Wire> knownWires = new HashSet<>();
-    private final List<Wire> sortedWires = new ArrayList<>();
-    private final Map<Wire, Map<Lhs, Driver>> wireDrivers = new HashMap<>();
-    private final Map<Wire, Set<Wire>> wireDependencies = new HashMap<>();
+    private final Set<WireExt> knownWires = new HashSet<>();
+    private final List<WireExt> sortedWires = new ArrayList<>();
+    private final Map<WireExt, Map<Lhs, DriverExt>> wireDrivers = new HashMap<>();
+    private final Map<WireExt, Set<WireExt>> wireDependencies = new HashMap<>();
 
-    protected abstract boolean ignore_wire(Wire w);
+    protected abstract boolean ignore_wire(WireExt w);
 
-    private static Wire searchWire(Module m, String name)
+    private static WireExt searchWire(ModuleExt m, String name)
     {
-        for (Wire w : m.wires)
+        for (WireExt w : m.wires)
         {
-            if (w.name.impl.stringValueExact().equals(name))
+            if (w.getName().impl.stringValueExact().equals(name))
             {
                 return w;
             }
@@ -72,19 +72,19 @@ public abstract class GenFsm
         throw new RuntimeException();
     }
 
-    private void topSort(Wire w)
+    private void topSort(WireExt w)
     {
         if (knownWires.contains(w))
         {
             return;
         }
-        Set<Wire> deps = wireDependencies.get(w);
+        Set<WireExt> deps = wireDependencies.get(w);
         if (deps == null)
         {
             System.out.println("Unknown " + w);
         } else
         {
-            for (Wire wd : deps)
+            for (WireExt wd : deps)
             {
                 topSort(wd);
             }
@@ -93,16 +93,15 @@ public abstract class GenFsm
         sortedWires.add(w);
     }
 
-    private void genCurrentState(Name instname, int ffWidth, Lhrange lr, int rsh)
+    private void genCurrentState(Name instname, int ffWidth, Lhrange<SVarExt> lr, int rsh)
     {
-        Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
-        SVarExt svar = atomVar.name;
-        Wire w = svar.wire;
-        if (lr.w != w.width)
+        SVarExt svar = lr.getVar();
+        WireExt w = svar.wire;
+        if (lr.getWidth() != w.getWidth())
         {
             throw new UnsupportedOperationException();
         }
-        String s = w.name.impl.stringValueExact();
+        String s = w.getName().impl.stringValueExact();
         assert svar.getDelay() == 0;
         assert !svar.isNonblocking();
         s();
@@ -110,21 +109,21 @@ public abstract class GenFsm
         sb(" ((st " + projName + "-st-p)");
         sb("  (in " + projName + "-in-p))");
         e();
-        s(" :returns (" + s + " unsigned-" + w.width + "-p)");
+        s(" :returns (" + s + " unsigned-" + w.getWidth() + "-p)");
         s(" (declare (ignore in))");
         String ff = "(" + projName + "-st->" + instname.toString() + " st)";
-        if (w.width == ffWidth)
+        if (w.getWidth() == ffWidth)
         {
             // ff
-        } else if (w.width == 1)
+        } else if (w.getWidth() == 1)
         {
             ff = "(logbit " + rsh + " " + ff + ")";
         } else if (rsh == 0)
         {
-            ff = "(loghead " + w.width + " " + ff + ")";
+            ff = "(loghead " + w.getWidth() + " " + ff + ")";
         } else
         {
-            ff = "(loghead " + w.width + " (logtail " + rsh + " " + ff + "))";
+            ff = "(loghead " + w.getWidth() + " (logtail " + rsh + " " + ff + "))";
         }
         s(" " + ff + ")");
         e();
@@ -145,8 +144,8 @@ public abstract class GenFsm
             }
         } else if (sv instanceof SvexVar)
         {
-            Wire w = ((SVarExt)((SvexVar)sv).svar).wire;
-            String s = w.name.impl.stringValueExact();
+            WireExt w = ((SVarExt)((SvexVar)sv).svar).wire;
+            String s = w.getName().impl.stringValueExact();
             s("(" + s + "-ext st in)");
         } else if (sv instanceof SvexCall)
         {
@@ -293,28 +292,28 @@ public abstract class GenFsm
         }
     }
 
-    protected void genDummyWireBody(String s, Map<Lhs, Driver> drv)
+    protected void genDummyWireBody(String s, Map<Lhs, DriverExt> drv)
     {
         showSvex(drv.values().iterator().next().svex);
     }
 
-    private void genDummyWire(Wire w)
+    private void genDummyWire(WireExt w)
     {
-        String s = w.name.impl.stringValueExact();
+        String s = w.getName().impl.stringValueExact();
         s();
         s("(define " + s + "-ext");
         sb("((st " + projName + "-st-p)");
         sb("(in " + projName + "-in-p))");
         e();
-        s(" :returns (" + s + " unsigned-" + w.width + "-p)");
+        s(" :returns (" + s + " unsigned-" + w.getWidth() + "-p)");
 //        s(" (declare (ignore st in))");
         s(";");
-        Set<Wire> deps = wireDependencies.get(w);
-        for (Wire wd : deps)
+        Set<WireExt> deps = wireDependencies.get(w);
+        for (WireExt wd : deps)
         {
             out.print(" " + wd);
         }
-        Map<Lhs, Driver> drv = wireDrivers.get(w);
+        Map<Lhs, DriverExt> drv = wireDrivers.get(w);
         if (drv != null && !drv.isEmpty())
         {
             genDummyWireBody(s, drv);
@@ -338,7 +337,7 @@ public abstract class GenFsm
         };
     }
 
-    private void genNextFlipFlop(Name instname, int ffWidth, Lhs r)
+    private void genNextFlipFlop(Name instname, int ffWidth, Lhs<SVarExt> r)
     {
         String s = instname.impl.stringValueExact();
         s();
@@ -357,23 +356,22 @@ public abstract class GenFsm
         int rsh = ffWidth;
         for (int i = 0; i < r.ranges.size() - 1; i++)
         {
-            Lhrange lr = r.ranges.get(r.ranges.size() - 1 - i);
-            rsh -= lr.w;
+            Lhrange<SVarExt> lr = r.ranges.get(r.ranges.size() - 1 - i);
+            rsh -= lr.getWidth();
             sb("(logapp " + rsh);
         }
-        assert rsh == r.ranges.get(0).w;
+        assert rsh == r.ranges.get(0).getWidth();
         for (int i = r.ranges.size() - 1; i >= 0; i--)
         {
-            Lhrange lr = r.ranges.get(r.ranges.size() - 1 - i);
-            Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
-            String atomStr = "(" + atomVar.name.wire.toString() + "-ext st in)";
-            if (atomVar.rsh != 0)
+            Lhrange<SVarExt> lr = r.ranges.get(r.ranges.size() - 1 - i);
+            String atomStr = "(" + lr.getVar().wire.toString() + "-ext st in)";
+            if (lr.getRsh() != 0)
             {
-                atomStr = "(logtail " + atomVar.rsh + " " + atomStr + ")";
+                atomStr = "(logtail " + lr.getRsh() + " " + atomStr + ")";
             }
-            if (i == 0 && lr.w != atomVar.name.wire.width - atomVar.rsh)
+            if (i == 0 && lr.getWidth() != lr.getVar().wire.getWidth() - lr.getRsh())
             {
-                atomStr = "(loghead " + lr.w + " " + atomStr + ")";
+                atomStr = "(loghead " + lr.getWidth() + " " + atomStr + ")";
             }
             s(atomStr);
             if (i != r.ranges.size() - 1)
@@ -397,7 +395,7 @@ public abstract class GenFsm
 
     protected abstract boolean isFlipFlopOut(String modname, String wireName);
 
-    private void genNextState(Module m)
+    private void genNextState(ModuleExt m)
     {
         s("(define next-state");
         sb("((st " + projName + "-st-p)");
@@ -406,23 +404,22 @@ public abstract class GenFsm
         s(":returns (nst " + projName + "-st-p)");
         s("(make-" + projName + "-st");
         b();
-        for (Map.Entry<Lhs, Lhs> e1 : m.aliaspairs.entrySet())
+        for (Map.Entry<Lhs<SVarExt>, Lhs<SVarExt>> e1 : m.aliaspairs.entrySet())
         {
-            Lhs l = e1.getKey();
+            Lhs<SVarExt> l = e1.getKey();
             assert l.ranges.size() == 1;
-            Lhrange lr = l.ranges.get(0);
-            Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
-            assert atomVar.rsh == 0;
-            if (atomVar.name instanceof SVarExt.PortInst)
+            Lhrange<SVarExt> lr = l.ranges.get(0);
+            assert lr.getRsh() == 0;
+            if (lr.getVar() instanceof SVarExt.PortInst)
             {
-                SVarExt.PortInst pi = (SVarExt.PortInst)atomVar.name;
+                SVarExt.PortInst pi = (SVarExt.PortInst)lr.getVar();
                 assert pi.getDelay() == 0;
                 assert !pi.isNonblocking();
-                ModInst inst = pi.inst;
-                if (isFlipFlopOut(inst.modname.impl.stringValueExact(),
-                    pi.wire.name.impl.stringValueExact()))
+                ModInstExt inst = pi.inst;
+                if (isFlipFlopOut(inst.getModname().impl.stringValueExact(),
+                    pi.wire.getName().impl.stringValueExact()))
                 {
-                    String s = inst.instname.impl.stringValueExact();
+                    String s = inst.getInstname().impl.stringValueExact();
                     s(":" + s + " (" + s + "-next st in)");
                 }
             }
@@ -432,13 +429,13 @@ public abstract class GenFsm
         e();
     }
 
-    public void gen(Module m)
+    public void gen(ModuleExt m)
     {
         genAux();
         s();
 
         s("; Primary inputs");
-        for (Wire w : m.wires)
+        for (WireExt w : m.wires)
         {
             if (!w.isAssigned() && w.used && !ignore_wire(w))
             {
@@ -449,64 +446,60 @@ public abstract class GenFsm
         s();
 
         s("; Current state");
-        for (Map.Entry<Lhs, Lhs> e1 : m.aliaspairs.entrySet())
+        for (Map.Entry<Lhs<SVarExt>, Lhs<SVarExt>> e1 : m.aliaspairs.entrySet())
         {
-            Lhs l = e1.getKey();
-            Lhs r = e1.getValue();
+            Lhs<SVarExt> l = e1.getKey();
+            Lhs<SVarExt> r = e1.getValue();
             assert l.ranges.size() == 1;
-            Lhrange lr = l.ranges.get(0);
-            Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
-            assert atomVar.rsh == 0;
-            if (atomVar.name instanceof SVarExt.PortInst)
+            Lhrange<SVarExt> lr = l.ranges.get(0);
+            assert lr.getRsh() == 0;
+            if (lr.getVar() instanceof SVarExt.PortInst)
             {
-                SVarExt.PortInst pi = (SVarExt.PortInst)atomVar.name;
+                SVarExt.PortInst pi = (SVarExt.PortInst)lr.getVar();
                 assert pi.getDelay() == 0;
                 assert !pi.isNonblocking();
-                ModInst inst = pi.inst;
-                int ffWidth = pi.wire.width;
-                if (isFlipFlopOut(inst.modname.impl.stringValueExact(),
-                    pi.wire.name.impl.stringValueExact()))
+                ModInstExt inst = pi.inst;
+                int ffWidth = pi.wire.getWidth();
+                if (isFlipFlopOut(inst.getModname().impl.stringValueExact(),
+                    pi.wire.getName().impl.stringValueExact()))
                 {
                     int rsh = 0;
-                    for (Lhrange lr1 : r.ranges)
+                    for (Lhrange<SVarExt> lr1 : r.ranges)
                     {
-                        atomVar = (Lhatom.Var)lr1.atom;
-                        SVarExt svar = atomVar.name;
+                        SVarExt svar = lr1.getVar();
                         assert svar.getDelay() == 0;
                         assert !svar.isNonblocking();
                         knownWires.add(svar.wire);
-                        genCurrentState(inst.instname, ffWidth, lr1, rsh);
-                        rsh += lr1.w;
+                        genCurrentState(inst.getInstname(), ffWidth, lr1, rsh);
+                        rsh += lr1.getWidth();
                     }
                 }
             }
         }
         out.println();
 
-        for (Map.Entry<Lhs, Driver> e1 : m.assigns.entrySet())
+        for (Map.Entry<Lhs<SVarExt>, DriverExt> e1 : m.assigns.entrySet())
         {
-            Lhs l = e1.getKey();
-            Driver d = e1.getValue();
+            Lhs<SVarExt> l = e1.getKey();
+            DriverExt d = e1.getValue();
             assert !l.ranges.isEmpty();
             for (int i = 0; i < l.ranges.size(); i++)
             {
-                Lhrange lr = l.ranges.get(i);
-                Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
-                SVarExt.LocalWire lw = (SVarExt.LocalWire)atomVar.name;
-                SVarExt svar = atomVar.name;
+                Lhrange<SVarExt> lr = l.ranges.get(i);
+                SVarExt svar = lr.getVar();
 //                if (svar.inst != null)
 //                {
 //                    System.out.println("Inst " + svar);
 //                    continue;
 //                }
-                Map<Lhs, Driver> drv = wireDrivers.get(svar.wire);
+                Map<Lhs, DriverExt> drv = wireDrivers.get(svar.wire);
                 if (drv == null)
                 {
                     drv = new LinkedHashMap<>();
                     wireDrivers.put(svar.wire, drv);
                 }
                 drv.put(l, d);
-                Set<Wire> dep = wireDependencies.get(svar.wire);
+                Set<WireExt> dep = wireDependencies.get(svar.wire);
                 if (dep == null)
                 {
                     dep = new LinkedHashSet<>();
@@ -523,27 +516,25 @@ public abstract class GenFsm
             }
         }
 
-        for (Map.Entry<Lhs, Lhs> e1 : m.aliaspairs.entrySet())
+        for (Map.Entry<Lhs<SVarExt>, Lhs<SVarExt>> e1 : m.aliaspairs.entrySet())
         {
-            Lhs l = e1.getKey();
-            Lhs r = e1.getValue();
+            Lhs<SVarExt> l = e1.getKey();
+            Lhs<SVarExt> r = e1.getValue();
             assert l.ranges.size() == 1;
             Lhrange lr = l.ranges.get(0);
-            Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
-            assert atomVar.rsh == 0;
-            if (atomVar.name instanceof SVarExt.PortInst)
+            assert lr.getRsh() == 0;
+            if (lr.getVar() instanceof SVarExt.PortInst)
             {
-                SVarExt.PortInst pi = (SVarExt.PortInst)atomVar.name;
+                SVarExt.PortInst pi = (SVarExt.PortInst)lr.getVar();
                 assert pi.getDelay() == 0;
                 assert !pi.isNonblocking();
-                ModInst inst = pi.inst;
-                if (isFlipFlopIn(inst.modname.impl.stringValueExact(),
-                    pi.wire.name.impl.stringValueExact()))
+                ModInstExt inst = pi.inst;
+                if (isFlipFlopIn(inst.getModname().impl.stringValueExact(),
+                    pi.wire.getName().impl.stringValueExact()))
                 {
-                    for (Lhrange lr1 : r.ranges)
+                    for (Lhrange<SVarExt> lr1 : r.ranges)
                     {
-                        atomVar = (Lhatom.Var)lr1.atom;
-                        SVarExt svar = atomVar.name;
+                        SVarExt svar = lr1.getVar();
                         assert svar.getDelay() == 0;
                         assert !svar.isNonblocking();
                         topSort(svar.wire);
@@ -557,32 +548,31 @@ public abstract class GenFsm
         }
 
         s("; Wires");
-        for (Wire w : sortedWires)
+        for (WireExt w : sortedWires)
         {
             genDummyWire(w);
         }
         s();
 
         s("; New state");
-        for (Map.Entry<Lhs, Lhs> e1 : m.aliaspairs.entrySet())
+        for (Map.Entry<Lhs<SVarExt>, Lhs<SVarExt>> e1 : m.aliaspairs.entrySet())
         {
-            Lhs l = e1.getKey();
-            Lhs r = e1.getValue();
+            Lhs<SVarExt> l = e1.getKey();
+            Lhs<SVarExt> r = e1.getValue();
             assert l.ranges.size() == 1;
-            Lhrange lr = l.ranges.get(0);
-            Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
-            assert atomVar.rsh == 0;
-            if (atomVar.name instanceof SVarExt.PortInst)
+            Lhrange<SVarExt> lr = l.ranges.get(0);
+            assert lr.getRsh() == 0;
+            if (lr.getVar() instanceof SVarExt.PortInst)
             {
-                SVarExt.PortInst svar = (SVarExt.PortInst)atomVar.name;
+                SVarExt.PortInst svar = (SVarExt.PortInst)lr.getVar();
                 assert svar.getDelay() == 0;
                 assert !svar.isNonblocking();
-                ModInst inst = svar.inst;
-                int ffWidth = svar.wire.width;
-                if (isFlipFlopIn(inst.modname.impl.stringValueExact(),
-                    svar.wire.name.impl.stringValueExact()))
+                ModInstExt inst = svar.inst;
+                int ffWidth = svar.wire.getWidth();
+                if (isFlipFlopIn(inst.getModname().impl.stringValueExact(),
+                    svar.wire.getName().impl.stringValueExact()))
                 {
-                    genNextFlipFlop(inst.instname, ffWidth, r);
+                    genNextFlipFlop(inst.getInstname(), ffWidth, r);
                 }
             }
         }
@@ -595,10 +585,10 @@ public abstract class GenFsm
     public void gen(File saoFile, String outFileName) throws IOException
     {
         ACL2Reader sr = new ACL2Reader(saoFile);
-        Design design = new Design(sr.root);
+        DesignExt design = new DesignExt(sr.root);
         ModName nm = null;
-        Module m = null;
-        for (Map.Entry<ModName, Module> e : design.downTop.entrySet())
+        ModuleExt m = null;
+        for (Map.Entry<ModName, ModuleExt> e : design.downTop.entrySet())
         {
             ACL2Object mn = e.getKey().impl;
             if (stringp(mn).bool() && mn.stringValueExact().equals(topName))
@@ -678,15 +668,15 @@ public abstract class GenFsm
         s();
     }
 
-    protected void genInput(Wire w)
+    protected void genInput(WireExt w)
     {
-        String s = w.name.impl.stringValueExact();
+        String s = w.getName().impl.stringValueExact();
         s();
         s("(define " + s + "-ext");
         sb("((st " + projName + "-st-p)");
         sb("(in " + projName + "-in-p))");
         e();
-        s(":returns (" + s + " unsigned-" + w.width + "-p)");
+        s(":returns (" + s + " unsigned-" + w.getWidth() + "-p)");
         s("(declare (ignore st))");
         s("(" + projName + "-in->" + s + " in))");
         e();

@@ -25,13 +25,6 @@ import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
 
 /**
  * Wire info as stored in an svex module.
@@ -41,78 +34,72 @@ public class Wire
 {
     public final Name name;
     public final int width;
-    final int low_idx;
-    final int delay;
-    final boolean revp;
-    final ACL2Object wiretype;
+    public final int low_idx;
+    public final int delay;
+    public final boolean revp;
+    public final Wiretype wiretype;
 
-    final Module parent;
-    final SVarExt.LocalWire curVar;
-    final SVarExt.LocalWire prevVar;
-
-    public boolean used, exported;
-    BigInteger assignedBits;
-    String global;
-    final SortedMap<Lhrange, Object> drivers = new TreeMap<>();
-
-    // only for exports
-    List<Map<SVarExt.LocalWire, BigInteger>> fineDeps0;
-    List<Map<SVarExt.LocalWire, BigInteger>> fineDeps1;
-
-    Wire(Module parent, ACL2Object impl)
+    public Wire(ACL2Object impl)
     {
-        this.parent = parent;
-        ACL2Object cons00 = car(impl);
-        name = new Name(car(cons00));
-        if (!stringp(name.impl).bool())
-        {
-            Util.check(integerp(name.impl).bool() || Util.KEYWORD_SELF.equals(name.impl));
-            Util.check(parent.modName.isCoretype);
-        }
-        ACL2Object cons001 = cdr(cons00);
-        width = car(cons001).intValueExact();
+        ACL2Object cons0 = car(impl);
+        name = new Name(car(cons0));
+        ACL2Object cons01 = cdr(cons0);
+        width = car(cons01).intValueExact();
         Util.check(width >= 1);
-        low_idx = cdr(cons001).intValueExact();
+        low_idx = cdr(cons01).intValueExact();
         if (consp(cdr(impl)).bool())
         {
-            ACL2Object cons01 = cdr(impl);
-            if (symbolp(car(cons01)).bool())
+            ACL2Object cons1 = cdr(impl);
+            Util.check(!NIL.equals(car(cons1)) || !NIL.equals(cdr(cons1)));
+            if (symbolp(car(cons1)).bool())
             {
-                Util.checkNil(car(cons01));
+                Util.checkNil(car(cons1));
                 delay = 0;
             } else
             {
-                delay = car(cons01).intValueExact();
+                delay = car(cons1).intValueExact();
             }
-            if (consp(cdr(cons01)).bool())
+            if (consp(cdr(cons1)).bool())
             {
-                ACL2Object cons011 = cdr(cons01);
-                if (NIL.equals(car(cons011)))
+                ACL2Object cons11 = cdr(cons1);
+                if (NIL.equals(car(cons11)))
                 {
-                    Util.checkNil(car(cons011));
+                    Util.checkNil(car(cons11));
                     revp = false;
                 } else
                 {
-                    Util.check(car(cons011).equals(T));
                     revp = true;
                 }
-                wiretype = cdr(cons011);
+                wiretype = Wiretype.valueOf(cdr(cons11));
             } else
             {
-                Util.checkNil(cdr(cons01));
+                Util.checkNil(cdr(cons1));
                 revp = false;
-                wiretype = cdr(cons01);
+                wiretype = Wiretype.valueOf(NIL);
             }
         } else
         {
             Util.checkNil(cdr(impl));
             delay = 0;
             revp = false;
-            wiretype = cdr(impl);
+            wiretype = Wiretype.valueOf(NIL);
         }
-        Util.check(delay == 0);
-        curVar = new SVarExt.LocalWire(this, 0);
-        prevVar = new SVarExt.LocalWire(this, 1);
+    }
+
+    public ACL2Object getACL2Object()
+    {
+        ACL2Object rep00 = name.getACL2Object();
+        ACL2Object rep010 = ACL2Object.valueOf(width);
+        ACL2Object rep110 = ACL2Object.valueOf(low_idx);
+        ACL2Object rep10 = cons(rep010, rep110);
+        ACL2Object rep0 = cons(rep00, rep10);
+        ACL2Object rep01 = delay > 0 ? ACL2Object.valueOf(delay) : NIL;
+        ACL2Object rep011 = ACL2Object.valueOf(revp);
+        ACL2Object rep111 = wiretype.getACL2Object();
+        ACL2Object rep11 = NIL.equals(rep011) && NIL.equals(rep111) ? NIL : cons(rep011, rep111);
+        ACL2Object rep1 = NIL.equals(rep01) && NIL.equals(rep11) ? NIL : cons(rep01, rep11);
+        ACL2Object rep = cons(rep0, rep1);
+        return rep;
     }
 
     public int getFirstIndex()
@@ -212,7 +199,7 @@ public class Wire
     @Override
     public String toString()
     {
-        Util.checkNil(wiretype);
+        Util.checkNil(wiretype.getACL2Object());
         Util.check(delay == 0);
         String s = name.toString();
         if (width != 1)
@@ -226,135 +213,4 @@ public class Wire
         return s;
     }
 
-    public void markAssigned(BigInteger assignedBits)
-    {
-        if (assignedBits.signum() == 0)
-        {
-            return;
-        }
-        Util.check(assignedBits.signum() >= 0 && assignedBits.bitLength() <= width);
-        if (this.assignedBits == null)
-        {
-            this.assignedBits = BigInteger.ZERO;
-        }
-        if (assignedBits.and(this.assignedBits).signum() != 0)
-        {
-            System.out.println(this + " has multiple assignement");
-        }
-        this.assignedBits = this.assignedBits.or(assignedBits);
-    }
-
-    public boolean isAssigned()
-    {
-        return assignedBits != null;
-    }
-
-    public BigInteger getAssignedBits()
-    {
-        return assignedBits != null ? assignedBits : BigInteger.ZERO;
-    }
-
-    public void markGlobal(String name)
-    {
-        if (global == null)
-        {
-            global = name;
-        } else if (!global.equals(name))
-        {
-            global = "";
-        }
-    }
-
-    public boolean isGlobal()
-    {
-        return global != null && !global.isEmpty();
-    }
-
-    public void addDriver(Lhrange lr, Object driver)
-    {
-        Lhatom.Var atomVar = (Lhatom.Var)lr.atom;
-        SVarExt.LocalWire lw = (SVarExt.LocalWire)atomVar.name;
-        Util.check(lw.wire == this);
-        Object old = drivers.put(lr, driver);
-        Util.check(old == null);
-        Util.check(driver instanceof Driver || driver instanceof SVarExt.PortInst);
-    }
-
-    public SVarExt.LocalWire getVar(int delay)
-    {
-        switch (delay)
-        {
-            case 0:
-                return curVar;
-            case 1:
-                return prevVar;
-            default:
-                throw new IllegalArgumentException();
-        }
-    }
-
-    public List<Map<SVarExt.LocalWire, BigInteger>> getFineDeps(boolean clockHigh)
-    {
-        assert exported && isAssigned();
-        return clockHigh ? fineDeps1 : fineDeps0;
-    }
-
-    public String showFineDeps(int bit)
-    {
-        Map<SVarExt.LocalWire, BigInteger> dep0 = getFineDeps(false).get(bit);
-        Map<SVarExt.LocalWire, BigInteger> dep1 = getFineDeps(true).get(bit);
-        if (dep0.equals(dep1))
-        {
-            return showFineDeps(dep0);
-        } else
-        {
-            return "0=>" + showFineDeps(dep0) + " | 1=>" + showFineDeps(dep1);
-        }
-    }
-
-    private String showFineDeps(Map<SVarExt.LocalWire, BigInteger> dep)
-    {
-        String s = "";
-        for (Map.Entry<SVarExt.LocalWire, BigInteger> e : dep.entrySet())
-        {
-            SVarExt.LocalWire lw = e.getKey();
-            BigInteger mask = e.getValue();
-            if (!s.isEmpty())
-            {
-                s += ",";
-            }
-            s += lw.toString(mask);
-        }
-        return s;
-    }
-
-    void setFineDeps(boolean clockHigh, Map<Object, Set<Object>> closure)
-    {
-        assert exported && isAssigned();
-        List<Map<SVarExt.LocalWire, BigInteger>> fineDeps = new ArrayList<>();
-        fineDeps.clear();
-        for (int i = 0; i < width; i++)
-        {
-            Module.WireBit wb = new Module.WireBit(this, i);
-            Map<SVarExt.LocalWire, BigInteger> fineDep = new LinkedHashMap<>();
-            for (Object o : closure.get(wb))
-            {
-                Module.WireBit wb1 = (Module.WireBit)o;
-                BigInteger mask = fineDep.get(wb1.wire.curVar);
-                if (mask == null)
-                {
-                    mask = BigInteger.ZERO;
-                }
-                fineDep.put(wb1.wire.curVar, mask.setBit(wb1.bit));
-            }
-            fineDeps.add(fineDep);
-        }
-        if (clockHigh)
-        {
-            fineDeps1 = fineDeps;
-        } else
-        {
-            fineDeps0 = fineDeps;
-        }
-    }
 }

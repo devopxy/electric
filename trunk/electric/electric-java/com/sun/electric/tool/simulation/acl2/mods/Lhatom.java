@@ -21,137 +21,136 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
-import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
-import java.math.BigInteger;
 
 /**
  * An SVar or X at left-hand side of SVEX assignment.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____LHATOM>.
+ *
+ * @param <V> Type of Svex Variables
  */
-public abstract class Lhatom
+public abstract class Lhatom<V extends Svar>
 {
+    public abstract ACL2Object getACL2Object();
 
-    final ACL2Object impl;
+    public abstract V getVar();
 
-    Lhatom(ACL2Object impl)
+    public abstract int getRsh();
+
+    public abstract <V1 extends Svar> Lhatom<V1> convertVars(Svar.Builder<V1> builder);
+
+    @Override
+    public String toString()
     {
-        this.impl = impl;
+        return getACL2Object().rep();
     }
 
-    public static Lhatom valueOf(Module parent, ACL2Object impl)
+    public static <V extends Svar> Lhatom valueOf(Svar.Builder<V> builder, ACL2Object impl)
     {
         if (symbolp(impl).bool())
         {
             if (impl.equals(Util.KEYWORD_Z))
             {
-                return new Z(impl);
+                return new Lhatom.Z();
             }
         }
-        return new Var(parent, impl);
+        return new Lhatom.Var<>(builder, impl);
     }
 
-    public abstract void markAssigned(BigInteger assignedBits);
-
-    public abstract void markUsed();
-
-    public abstract String toString(int w);
-
-    public abstract String toLispString(int w);
-
-    public static class Z extends Lhatom
+    public static class Z<V extends Svar> extends Lhatom<V>
     {
-
-        Z(ACL2Object impl)
+        @Override
+        public ACL2Object getACL2Object()
         {
-            super(impl);
+            return Util.KEYWORD_Z;
         }
 
         @Override
-        public void markAssigned(BigInteger assignedBits)
+        public V getVar()
         {
+            return null;
         }
 
         @Override
-        public void markUsed()
+        public int getRsh()
         {
+            return 0;
         }
 
         @Override
-        public String toString(int w)
+        public <V1 extends Svar> Lhatom<V1> convertVars(Svar.Builder<V1> builder)
         {
-            return "Z";
+            return new Z<>();
         }
 
-        @Override
-        public String toLispString(int w)
-        {
-            throw new UnsupportedOperationException();
-        }
     }
 
-    public static class Var extends Lhatom
+    public static class Var<V extends Svar> extends Lhatom<V>
     {
-
-        public final SVarExt name;
+        public final V name;
         public final int rsh;
 
-        Var(Module parent, ACL2Object impl)
+        Var(Svar.Builder<V> builder, ACL2Object impl)
         {
-            super(impl);
             if (consp(impl).bool())
             {
                 if (car(impl).equals(Util.KEYWORD_VAR) && consp(cdr(impl)).bool())
                 {
-                    name = parent.fromACL2(impl);
+                    name = builder.fromACL2(impl);
                     rsh = 0;
                 } else
                 {
-                    name = parent.fromACL2(car(impl));
+                    name = builder.fromACL2(car(impl));
                     rsh = cdr(impl).intValueExact();
                     Util.check(rsh >= 0);
                 }
             } else
             {
-                name = parent.fromACL2(impl);
+                name = builder.fromACL2(impl);
                 rsh = 0;
             }
         }
 
-        @Override
-        public void markAssigned(BigInteger assignedBits)
+        Var(V name, int rsh)
         {
-            if (name instanceof SVarExt.LocalWire)
-            {
-                SVarExt.LocalWire lw = (SVarExt.LocalWire)name;
-                lw.wire.markAssigned(assignedBits.shiftLeft(rsh));
-            } else
-            {
-                SVarExt.PortInst pi = (SVarExt.PortInst)name;
-                assignedBits = assignedBits.shiftLeft(rsh);
-                Util.check(assignedBits.signum() >= 0 && assignedBits.bitLength() <= pi.wire.width);
-                Util.check(assignedBits.and(pi.wire.getAssignedBits()).signum() == 0);
+            if (name == null) {
+                throw new NullPointerException();
             }
+            if (rsh < 0)
+            {
+                throw new IllegalArgumentException();
+            }
+            this.name = name;
+            this.rsh = rsh;
         }
 
         @Override
-        public void markUsed()
+        public ACL2Object getACL2Object()
         {
-            Util.check(name instanceof SVarExt.LocalWire);
-            ((SVarExt.LocalWire)name).markUsed();
+            ACL2Object nameRep = name.makeACL2Object();
+            return rsh == 0 && !Util.KEYWORD_Z.equals(nameRep)
+                ? nameRep
+                : cons(nameRep, ACL2Object.valueOf(rsh));
         }
 
         @Override
-        public String toString(int w)
+        public V getVar()
         {
-            return name.toString(BigIntegerUtil.logheadMask(w).shiftLeft(rsh));
+            return name;
         }
 
         @Override
-        public String toLispString(int w)
+        public int getRsh()
         {
-            return name.toLispString(w, rsh);
+            return rsh;
+        }
+
+        @Override
+        public <V1 extends Svar> Lhatom<V1> convertVars(Svar.Builder<V1> builder)
+        {
+            return new Var(builder.newVar(name), rsh);
         }
     }
 }

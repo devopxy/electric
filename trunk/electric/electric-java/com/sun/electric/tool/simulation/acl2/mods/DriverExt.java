@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: Driver.java
+ * File: DriverExt.java
  *
  * Copyright (c) 2017, Static Free Software. All rights reserved.
  *
@@ -39,9 +39,9 @@ import java.util.Set;
  * Driver - SVEX expression with strength.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____DRIVER>.
  */
-public class Driver
+public class DriverExt
 {
-    final Module parent;
+    final ModuleExt parent;
 
     public final Svex svex;
     final int strength;
@@ -52,7 +52,7 @@ public class Driver
     final List<Map<SVarExt.LocalWire, BigInteger>> fineDeps0 = new ArrayList<>();
     final List<Map<SVarExt.LocalWire, BigInteger>> fineDeps1 = new ArrayList<>();
 
-    Driver(Module parent, ACL2Object impl, String name)
+    DriverExt(ModuleExt parent, ACL2Object impl, String name)
     {
         this.parent = parent;
         this.name = name;
@@ -104,7 +104,8 @@ public class Driver
         if (clkVal)
         {
             crudeDeps1 = varsWithMasks;
-        } else {
+        } else
+        {
             crudeDeps0 = varsWithMasks;
         }
         List<Map<SVarExt.LocalWire, BigInteger>> fineDeps = getFineDeps(clkVal);
