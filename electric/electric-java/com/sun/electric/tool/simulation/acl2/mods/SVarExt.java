@@ -33,11 +33,11 @@ import java.math.BigInteger;
 public abstract class SVarExt extends Svar
 {
 
-    final Module parent;
+    final ModuleExt parent;
 
-    public Wire wire;
+    public WireExt wire;
 
-    SVarExt(Module parent)
+    SVarExt(ModuleExt parent)
     {
         this.parent = parent;
     }
@@ -51,7 +51,7 @@ public abstract class SVarExt extends Svar
     @Override
     public String toString()
     {
-        return toString(BigIntegerUtil.logheadMask(wire.width));
+        return toString(BigIntegerUtil.logheadMask(wire.getWidth()));
     }
 
     public String toLispString(int width, int rsh)
@@ -61,15 +61,15 @@ public abstract class SVarExt extends Svar
 
     public static class PortInst extends SVarExt
     {
-        public final ModInst inst;
+        public final ModInstExt inst;
         Lhs source;
         Object driver;
 
-        public PortInst(ModInst inst, Wire wire)
+        public PortInst(ModInstExt inst, WireExt wire)
         {
             super(inst.parent);
             this.inst = inst;
-            Module sm = inst.proto;
+            ModuleExt sm = inst.proto;
             this.wire = wire;
             wire.exported = true;
         }
@@ -77,27 +77,25 @@ public abstract class SVarExt extends Svar
         @Override
         public ACL2Object getACL2Name()
         {
-            return cons(inst.instname.getACL2Object(), wire.name.getACL2Object());
+            return cons(inst.getInstname().getACL2Object(), wire.getName().getACL2Object());
         }
 
-        void addSource(Lhs source)
+        void addSource(Lhs<SVarExt> source)
         {
             Util.check(this.source == null);
             this.source = source;
-            assert source.width() == wire.width;
-            int lhs = 0;
-            for (Lhrange lhr : source.ranges)
+            assert source.width() == wire.getWidth();
+            for (Lhrange<SVarExt> lhr : source.ranges)
             {
-                Lhatom.Var atomVar = (Lhatom.Var)lhr.atom;
-                assert atomVar.name.getDelay() == 0;
-                lhs += lhr.w;
+                SVarExt svar = lhr.getVar();
+                assert svar.getDelay() == 0;
             }
         }
 
         void addDriver(Object driver)
         {
             Util.check(this.driver == null);
-            Util.check(driver instanceof Driver || driver instanceof Lhs);
+            Util.check(driver instanceof DriverExt || driver instanceof Lhs);
             this.driver = driver;
         }
 
@@ -110,7 +108,7 @@ public abstract class SVarExt extends Svar
         @Override
         public String toString(BigInteger mask)
         {
-            return inst.instname + "." + wire.toString(mask);
+            return inst.getInstname() + "." + wire.toString(mask);
         }
 
     }
@@ -120,10 +118,10 @@ public abstract class SVarExt extends Svar
         public final Name name;
         public final int delay;
 
-        LocalWire(Wire wire, int delay)
+        LocalWire(WireExt wire, int delay)
         {
             super(wire.parent);
-            this.name = wire.name;
+            this.name = wire.getName();
             this.wire = wire;
             this.delay = delay;
         }

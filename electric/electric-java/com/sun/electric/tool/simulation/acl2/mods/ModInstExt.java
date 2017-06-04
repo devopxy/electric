@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: ModInst.java
+ * File: ModInstExt.java
  *
  * Copyright (c) 2017, Static Free Software. All rights reserved.
  *
@@ -23,51 +23,56 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.HashMap;
+
+import java.util.Map;
 
 /**
  * SV module instance.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODINST>.
  */
-public class ModInst
+public class ModInstExt
 {
-    public final Name instname;
-    public final ModName modname;
+    public final ModInst b;
 
-    ModInst(ACL2Object impl)
+    final ModuleExt parent;
+    final ModuleExt proto;
+    final Map<Name, SVarExt.PortInst> portInsts = new HashMap<>();
+
+    ModInstExt(ModuleExt parent, ModInst b, Map<ModName, ModuleExt> downTop)
     {
-        instname = new Name(car(impl));
-        modname = ModName.valueOf(cdr(impl));
+        this.b = b;
+        this.parent = parent;
+        proto = downTop.get(b.modname);
+        Util.check(proto != null);
     }
 
-    public ACL2Object getACL2Object()
+    public Name getInstname()
     {
-        return cons(instname.getACL2Object(), modname.getACL2Object());
+        return b.instname;
     }
 
-    @Override
-    public boolean equals(Object o)
+    public ModName getModname()
     {
-        if (o instanceof ModInst)
+        return b.modname;
+    }
+
+    SVarExt.PortInst newPortInst(ACL2Object name)
+    {
+        assert getInstname().getACL2Object().equals(car(name));
+        WireExt wire = proto.wiresIndex.get(new Name(cdr(name)));
+        SVarExt.PortInst pi = portInsts.get(wire.getName());
+        if (pi == null)
         {
-            ModInst that = (ModInst)o;
-            return this.instname.equals(that.instname)
-                && this.modname.equals(that.modname);
+            pi = new SVarExt.PortInst(this, wire);
+            portInsts.put(wire.getName(), pi);
         }
-        return false;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        int hash = 3;
-        hash = 73 * hash + instname.hashCode();
-        hash = 73 * hash + modname.hashCode();
-        return hash;
+        return pi;
     }
 
     @Override
     public String toString()
     {
-        return instname + ":" + modname;
+        return b.toString();
     }
 }

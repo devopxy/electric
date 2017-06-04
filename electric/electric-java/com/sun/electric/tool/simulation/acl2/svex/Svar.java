@@ -38,7 +38,7 @@ public abstract class Svar
     public abstract int getDelay();
 
     public abstract boolean isNonblocking();
-    
+
     public abstract String toString(BigInteger mask);
 
     public ACL2Object makeACL2Object()
@@ -114,6 +114,11 @@ public abstract class Svar
         default T newVar(ACL2Object name, int delay)
         {
             return Builder.this.newVar(name, delay, false);
+        }
+
+        default T newVar(Svar svar)
+        {
+            return Builder.this.newVar(svar.getACL2Name(), svar.getDelay(), svar.isNonblocking());
         }
 
         T newVar(ACL2Object name, int delay, boolean nonblocking);

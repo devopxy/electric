@@ -30,7 +30,6 @@ import com.sun.electric.util.acl2.ACL2Object;
  */
 public class Name
 {
-
     public final ACL2Object impl;
 
     Name(ACL2Object impl)

@@ -22,73 +22,75 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
-import java.math.BigInteger;
 
 /**
  * An atom with width from left-hand side of SVEX assignment.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____LHRANGE>.
  */
-public class Lhrange implements Comparable<Lhrange>
+public class Lhrange<V extends Svar>
 {
+    private final int w;
+    private final Lhatom<V> atom;
 
-    final ACL2Object impl;
-
-    public final int w;
-    public final Lhatom atom;
-
-    public final int lsh;
-
-    Lhrange(Module parent, ACL2Object impl, int lsh)
+    Lhrange(Svar.Builder<V> builder, ACL2Object impl, int lsh)
     {
-        this.impl = impl;
         if (consp(impl).bool())
         {
             if (integerp(car(impl)).bool())
             {
                 w = car(impl).intValueExact();
-                atom = Lhatom.valueOf(parent, cdr(impl));
+                atom = Lhatom.valueOf(builder, cdr(impl));
             } else
             {
                 w = 1;
-                atom = Lhatom.valueOf(parent, impl);
+                atom = Lhatom.valueOf(builder, impl);
             }
         } else
         {
             w = 1;
-            atom = Lhatom.valueOf(parent, impl);
+            atom = Lhatom.valueOf(builder, impl);
         }
         Util.check(w >= 1);
-        this.lsh = lsh;
+    }
+
+    Lhrange(int w, Lhatom<V> atom)
+    {
+        this.w = w;
+        this.atom = atom;
+    }
+
+    public <V1 extends Svar> Lhrange<V1> convertVars(Svar.Builder<V1> builder)
+    {
+        return new Lhrange<V1>(w, atom.convertVars(builder));
+    }
+
+    public V getVar()
+    {
+        return atom.getVar();
+    }
+
+    public int getWidth()
+    {
+        return w;
+    }
+
+    public int getRsh()
+    {
+        return atom.getRsh();
     }
 
     @Override
     public String toString()
     {
-        return atom.toString(w);
-    }
-
-    public String toLispString()
-    {
-        return atom.toLispString(w);
-    }
-
-    public void markAssigned(BigInteger assignedBits)
-    {
-        atom.markAssigned(BigIntegerUtil.loghead(w, assignedBits));
-    }
-
-    public void markUsed()
-    {
-        atom.markUsed();
-    }
-
-    @Override
-    public int compareTo(Lhrange that)
-    {
-        Lhatom.Var a1 = (Lhatom.Var)this.atom;
-        Lhatom.Var a2 = (Lhatom.Var)that.atom;
-        return Integer.compare(a1.rsh, a2.rsh);
+        V name = getVar();
+        if (name != null)
+        {
+            return name.toString(BigIntegerUtil.logheadMask(getWidth()).shiftLeft(getRsh()));
+        } else {
+            return w + "'Z";
+        }
     }
 }

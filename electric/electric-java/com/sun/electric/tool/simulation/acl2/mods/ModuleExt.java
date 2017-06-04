@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: Module.java
+ * File: ModuleExt.java
  *
  * Copyright (c) 2017, Static Free Software. All rights reserved.
  *
@@ -45,25 +45,25 @@ import java.util.Set;
  * SV module.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODULE>.
  */
-public class Module implements Svar.Builder<SVarExt>
+public class ModuleExt implements Svar.Builder<SVarExt>
 {
     private static final boolean CRUDE_COMBINATIONAL_INPUTS = false;
 
     public final ModName modName;
-    public final List<Wire> wires = new ArrayList<>();
-    public final List<ModInst> insts = new ArrayList<>();
-    public final Map<Lhs, Driver> assigns = new LinkedHashMap<>();
-    public final Map<Lhs, Lhs> aliaspairs = new LinkedHashMap<>();
+    public final List<WireExt> wires = new ArrayList<>();
+    public final List<ModInstExt> insts = new ArrayList<>();
+    public final Map<Lhs<SVarExt>, DriverExt> assigns = new LinkedHashMap<>();
+    public final Map<Lhs<SVarExt>, Lhs<SVarExt>> aliaspairs = new LinkedHashMap<>();
 
-    final Map<Name, Wire> wiresIndex = new HashMap<>();
-    final Map<Name, ModInst> instsIndex = new HashMap<>();
+    final Map<Name, WireExt> wiresIndex = new HashMap<>();
+    final Map<Name, ModInstExt> instsIndex = new HashMap<>();
     final Map<ACL2Object, Svex> svexCache = new HashMap<>();
     int useCount;
 
-    Set<Wire> combinationalInputs0;
-    Set<Wire> combinationalInputs1;
+    Set<WireExt> combinationalInputs0;
+    Set<WireExt> combinationalInputs1;
 
-    Module(ModName modName, ACL2Object impl, Map<ModName, Module> downTop)
+    ModuleExt(ModName modName, ACL2Object impl, Map<ModName, ModuleExt> downTop)
     {
         this.modName = modName;
         List<ACL2Object> fields = Util.getList(impl, true);
@@ -74,9 +74,10 @@ public class Module implements Svar.Builder<SVarExt>
         Util.check(car(pair).equals(Util.SV_WIRES));
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
-            Wire w = new Wire(this, o);
+            Wire wire = new Wire(o);
+            WireExt w = new WireExt(this, wire);
             wires.add(w);
-            Wire old = wiresIndex.put(w.name, w);
+            WireExt old = wiresIndex.put(w.getName(), w);
             Util.check(old == null);
         }
 
@@ -84,9 +85,10 @@ public class Module implements Svar.Builder<SVarExt>
         Util.check(car(pair).equals(Util.SV_INSTS));
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
-            ModInst mi = new ModInst(this, o, downTop);
+            ModInst modInst = new ModInst(o);
+            ModInstExt mi = new ModInstExt(this, modInst, downTop);
             insts.add(mi);
-            ModInst old = instsIndex.put(mi.instname, mi);
+            ModInstExt old = instsIndex.put(mi.getInstname(), mi);
             Util.check(old == null);
         }
         pair = fields.get(2);
@@ -95,23 +97,24 @@ public class Module implements Svar.Builder<SVarExt>
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
-            Lhs lhs = new Lhs(this, car(pair));
-            Driver drv = new Driver(this, cdr(pair), "dr" + driverCount++);
-            Driver old = assigns.put(lhs, drv);
+            Lhs<SVarExt> lhs = new Lhs<>(this, car(pair));
+            DriverExt drv = new DriverExt(this, cdr(pair), "dr" + driverCount++);
+            DriverExt old = assigns.put(lhs, drv);
             Util.check(old == null);
-            for (Lhrange lhr : lhs.ranges)
+            int lsh = 0;
+            for (Lhrange<SVarExt> lhr : lhs.ranges)
             {
-                Util.check(lhr.atom instanceof Lhatom.Var);
-                SVarExt svar = ((Lhatom.Var)lhr.atom).name;
+                SVarExt svar = lhr.getVar();
                 if (svar instanceof SVarExt.LocalWire)
                 {
-                    ((SVarExt.LocalWire)svar).wire.addDriver(lhr, drv);
+                    ((SVarExt.LocalWire)svar).wire.addDriver(lhr, lsh, drv);
                 } else
                 {
                     ((SVarExt.PortInst)svar).addDriver(drv);
                 }
+                lsh += lhr.getWidth();
             }
-            lhs.markAssigned(BigIntegerUtil.MINUS_ONE);
+            markAssigned(lhs, BigIntegerUtil.MINUS_ONE);
             drv.markUsed();
         }
 
@@ -120,43 +123,51 @@ public class Module implements Svar.Builder<SVarExt>
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
-            Lhs lhs = new Lhs(this, car(pair));
+            Lhs<SVarExt> lhs = new Lhs<>(this, car(pair));
             Util.check(lhs.ranges.size() == 1);
-            Lhrange lhsRange = lhs.ranges.get(0);
-            Util.check(lhsRange.atom instanceof Lhatom.Var);
-            Lhatom.Var lhsAtom = (Lhatom.Var)lhsRange.atom;
-            Util.check(lhsAtom.rsh == 0);
-            SVarExt lhsVar = lhsAtom.name;
+            Lhrange<SVarExt> lhsRange = lhs.ranges.get(0);
+            Util.check(lhsRange.getRsh() == 0);
+            SVarExt lhsVar = lhsRange.getVar();
             Util.check(lhsVar.getDelay() == 0 && !lhsVar.isNonblocking());
-            Lhs rhs = new Lhs(this, cdr(pair));
+            Lhs<SVarExt> rhs = new Lhs<>(this, cdr(pair));
             Lhs old = aliaspairs.put(lhs, rhs);
             Util.check(old == null);
             Util.check(lhs.width() == rhs.width());
             if (lhsVar instanceof SVarExt.PortInst)
             {
                 SVarExt.PortInst pi = (SVarExt.PortInst)lhsVar;
-                Util.check(lhsRange.w == pi.wire.width);
+                Util.check(lhsRange.getWidth() == pi.wire.getWidth());
+                int lsh = 0;
                 for (Lhrange rhsRange : rhs.ranges)
                 {
-                    Util.check(((Lhatom.Var)rhsRange.atom).name instanceof SVarExt.LocalWire);
-                    SVarExt.LocalWire lw = (SVarExt.LocalWire)((Lhatom.Var)rhsRange.atom).name;
+                    Util.check(rhsRange.getVar() instanceof SVarExt.LocalWire);
+                    SVarExt.LocalWire lw = (SVarExt.LocalWire)(rhsRange.getVar());
                     if (pi.wire.isAssigned())
                     {
-                        lw.wire.addDriver(rhsRange, pi);
+                        lw.wire.addDriver(rhsRange, lsh, pi);
                     }
+                    lsh += rhsRange.getWidth();
                 }
                 if (pi.wire.isAssigned())
                 {
                     pi.addSource(rhs);
+                    BigInteger assignedBits = pi.wire.getAssignedBits();
+                    markAssigned(rhs, assignedBits);
                 } else
                 {
                     pi.addDriver(rhs);
                 }
-                BigInteger assignedBits = pi.wire.getAssignedBits();
-                rhs.markAssigned(assignedBits);
                 if (pi.wire.used)
                 {
-                    rhs.markUsed();
+                    for (Lhrange<SVarExt> lr : rhs.ranges)
+                    {
+                        SVarExt name = lr.getVar();
+                        if (name != null)
+                        {
+                            Util.check(name instanceof SVarExt.LocalWire);
+                            ((SVarExt.LocalWire)name).markUsed();
+                        }
+                    }
                 }
             } else
             {
@@ -164,8 +175,8 @@ public class Module implements Svar.Builder<SVarExt>
                 if (stringp(lw.name.getACL2Object()).bool())
                 {
                     Util.check(rhs.ranges.size() == 1);
-                    SVarExt.PortInst rhsPi = (SVarExt.PortInst)((Lhatom.Var)rhs.ranges.get(0).atom).name;
-                    Util.check(rhsPi.inst.modname.isCoretype);
+                    SVarExt.PortInst rhsPi = (SVarExt.PortInst)rhs.ranges.get(0).getVar();
+                    Util.check(rhsPi.inst.getModname().isCoretype);
 //                    System.out.println("lw string " + lw + " in " + modName);
                 } else if (integerp(lw.name.getACL2Object()).bool())
                 {
@@ -178,44 +189,69 @@ public class Module implements Svar.Builder<SVarExt>
         }
     }
 
+    public static void markAssigned(Lhs<SVarExt> lhs, BigInteger assignedBits)
+    {
+        for (Lhrange<SVarExt> lr : lhs.ranges)
+        {
+            SVarExt name = lr.getVar();
+            if (name != null)
+            {
+                BigInteger assignedBitsRange = BigIntegerUtil.loghead(lr.getWidth(), assignedBits);
+                int rsh = lr.getRsh();
+                assignedBitsRange = assignedBitsRange.shiftLeft(rsh);
+                if (name instanceof SVarExt.LocalWire)
+                {
+                    SVarExt.LocalWire lw = (SVarExt.LocalWire)name;
+                    lw.wire.markAssigned(assignedBitsRange);
+                } else
+                {
+                    SVarExt.PortInst pi = (SVarExt.PortInst)name;
+                    Util.check(assignedBitsRange.signum() >= 0 && assignedBitsRange.bitLength() <= pi.wire.getWidth());
+                    Util.check(assignedBitsRange.and(pi.wire.getAssignedBits()).signum() == 0);
+                }
+            }
+            assignedBits = assignedBits.shiftRight(lr.getWidth());
+        }
+    }
+
     void markTop()
     {
         useCount = 1;
-        for (Wire w : wires)
+        for (WireExt w : wires)
         {
-            if (w.width == 1 && w.low_idx == 0)
+            if (w.getWidth() == 1 && w.getLowIdx() == 0)
             {
-                w.global = w.name.toString();
+                w.global = w.getName().toString();
             }
         }
     }
 
     void markDown(Map<String, Integer> globalCounts)
     {
-        for (ModInst mi : insts)
+        for (ModInstExt mi : insts)
         {
             mi.proto.useCount += useCount;
         }
-        for (Map.Entry<Lhs, Lhs> e1 : aliaspairs.entrySet())
+        for (Map.Entry<Lhs<SVarExt>, Lhs<SVarExt>> e1 : aliaspairs.entrySet())
         {
-            Lhs lhs = e1.getKey();
-            Lhs rhs = e1.getValue();
+            Lhs<SVarExt> lhs = e1.getKey();
+            Lhs<SVarExt> rhs = e1.getValue();
             if (rhs.ranges.size() == 1
-                && rhs.ranges.get(0).w == 1
-                && rhs.ranges.get(0).atom instanceof Lhatom.Var
-                && ((Lhatom.Var)rhs.ranges.get(0).atom).rsh == 0)
+                && rhs.ranges.get(0).getWidth() == 1
+                && rhs.ranges.get(0).getVar() != null
+                && rhs.ranges.get(0).getRsh() == 0)
             {
-                SVarExt svar = ((Lhatom.Var)rhs.ranges.get(0).atom).name;
+                SVarExt svar = rhs.ranges.get(0).getVar();
                 if (svar instanceof SVarExt.LocalWire)
                 {
-                    Wire w = ((SVarExt.LocalWire)svar).wire;
+                    WireExt w = ((SVarExt.LocalWire)svar).wire;
                     if (w.isGlobal()
                         && lhs.ranges.size() == 1
-                        && lhs.ranges.get(0).w == 1
-                        && lhs.ranges.get(0).atom instanceof Lhatom.Var
-                        && ((Lhatom.Var)rhs.ranges.get(0).atom).rsh == 0)
+                        && lhs.ranges.get(0).getWidth() == 1
+                        && lhs.ranges.get(0).getVar() != null
+                        && rhs.ranges.get(0).getRsh() == 0)
                     {
-                        SVarExt svar1 = ((Lhatom.Var)lhs.ranges.get(0).atom).name;
+                        SVarExt svar1 = lhs.ranges.get(0).getVar();
                         if (svar1 instanceof SVarExt.PortInst)
                         {
                             ((SVarExt.PortInst)svar1).wire.markGlobal(w.global);
@@ -224,7 +260,7 @@ public class Module implements Svar.Builder<SVarExt>
                 }
             }
         }
-        for (Wire w : wires)
+        for (WireExt w : wires)
         {
             if (w.isGlobal())
             {
@@ -234,7 +270,7 @@ public class Module implements Svar.Builder<SVarExt>
         }
     }
 
-    Set<Wire> getCombinationalInputs(boolean clockVal)
+    Set<WireExt> getCombinationalInputs(boolean clockVal)
     {
         return clockVal ? combinationalInputs1 : combinationalInputs0;
     }
@@ -244,23 +280,23 @@ public class Module implements Svar.Builder<SVarExt>
         computeDriverDeps(global, false);
         computeDriverDeps(global, true);
 
-            combinationalInputs0 = new LinkedHashSet<>();
-            combinationalInputs1 = new LinkedHashSet<>();
+        combinationalInputs0 = new LinkedHashSet<>();
+        combinationalInputs1 = new LinkedHashSet<>();
         if (CRUDE_COMBINATIONAL_INPUTS)
         {
             Map<Object, Set<Object>> graph0 = computeDepsGraph(false);
             Map<Object, Set<Object>> closure0 = closure(graph0);
             Map<Object, Set<Object>> graph1 = computeDepsGraph(true);
             Map<Object, Set<Object>> closure1 = closure(graph1);
-            for (Wire out : wires)
+            for (WireExt out : wires)
             {
                 if (out.exported && out.isAssigned())
                 {
                     for (Object dep : closure0.get(out))
                     {
-                        if (dep instanceof Wire)
+                        if (dep instanceof WireExt)
                         {
-                            Wire in = (Wire)dep;
+                            WireExt in = (WireExt)dep;
                             if (in.exported && !in.isAssigned())
                             {
                                 combinationalInputs0.add(in);
@@ -269,9 +305,9 @@ public class Module implements Svar.Builder<SVarExt>
                     }
                     for (Object dep : closure1.get(out))
                     {
-                        if (dep instanceof Wire)
+                        if (dep instanceof WireExt)
                         {
-                            Wire in = (Wire)dep;
+                            WireExt in = (WireExt)dep;
                             if (in.exported && !in.isAssigned())
                             {
                                 combinationalInputs1.add(in);
@@ -286,27 +322,34 @@ public class Module implements Svar.Builder<SVarExt>
         Map<Object, Set<Object>> fineClosure0 = closure(fineGraph0);
         Map<Object, Set<Object>> fineGraph1 = computeFineDepsGraph(true);
         Map<Object, Set<Object>> fineClosure1 = closure(fineGraph1);
-        for (Wire out : wires)
+        for (WireExt out : wires)
         {
             if (out.exported && out.isAssigned())
             {
                 out.setFineDeps(false, fineClosure0);
                 out.setFineDeps(true, fineClosure1);
-                if (!CRUDE_COMBINATIONAL_INPUTS) {
-                    for (Map<SVarExt.LocalWire,BigInteger> mapForBit: out.fineDeps0) {
-                        for (Map.Entry<SVarExt.LocalWire,BigInteger> e: mapForBit.entrySet()) {
+                if (!CRUDE_COMBINATIONAL_INPUTS)
+                {
+                    for (Map<SVarExt.LocalWire, BigInteger> mapForBit : out.fineDeps0)
+                    {
+                        for (Map.Entry<SVarExt.LocalWire, BigInteger> e : mapForBit.entrySet())
+                        {
                             SVarExt.LocalWire lw = e.getKey();
                             BigInteger mask = e.getValue();
-                            if (mask.signum() != 0) {
+                            if (mask.signum() != 0)
+                            {
                                 combinationalInputs0.add(lw.wire);
                             }
                         }
                     }
-                    for (Map<SVarExt.LocalWire,BigInteger> mapForBit: out.fineDeps1) {
-                        for (Map.Entry<SVarExt.LocalWire,BigInteger> e: mapForBit.entrySet()) {
+                    for (Map<SVarExt.LocalWire, BigInteger> mapForBit : out.fineDeps1)
+                    {
+                        for (Map.Entry<SVarExt.LocalWire, BigInteger> e : mapForBit.entrySet())
+                        {
                             SVarExt.LocalWire lw = e.getKey();
                             BigInteger mask = e.getValue();
-                            if (mask.signum() != 0) {
+                            if (mask.signum() != 0)
+                            {
                                 combinationalInputs1.add(lw.wire);
                             }
                         }
@@ -320,10 +363,10 @@ public class Module implements Svar.Builder<SVarExt>
     {
         Map<Svar, Vec4> patchEnv = makePatchEnv(global, clkOne ? Vec2.ONE : Vec2.ZERO);
         Map<SvexCall, SvexCall> patchMemoize = new HashMap<>();
-        for (Map.Entry<Lhs, Driver> e1 : assigns.entrySet())
+        for (Map.Entry<Lhs<SVarExt>, DriverExt> e1 : assigns.entrySet())
         {
             Lhs l = e1.getKey();
-            Driver d = e1.getValue();
+            DriverExt d = e1.getValue();
             d.computeDeps(l.width(), clkOne, patchEnv, patchMemoize);
         }
     }
@@ -331,7 +374,7 @@ public class Module implements Svar.Builder<SVarExt>
     private Map<Svar, Vec4> makePatchEnv(String global, Vec4 globalVal)
     {
         Map<Svar, Vec4> env = new HashMap<>();
-        for (Wire w : wires)
+        for (WireExt w : wires)
         {
             if (w.isGlobal() && w.global.equals(global))
             {
@@ -344,7 +387,7 @@ public class Module implements Svar.Builder<SVarExt>
     Map<Object, Set<Object>> computeDepsGraph(boolean clockHigh)
     {
         Map<Object, Set<Object>> graph = new LinkedHashMap<>();
-        for (Wire w : wires)
+        for (WireExt w : wires)
         {
             if (w.exported && w.isAssigned())
             {
@@ -353,22 +396,22 @@ public class Module implements Svar.Builder<SVarExt>
                 graph.put(w, outputDeps);
             }
         }
-        for (ModInst mi : insts)
+        for (ModInstExt mi : insts)
         {
             Set<Object> instDeps = new LinkedHashSet<>();
             for (SVarExt.PortInst pi : mi.portInsts.values())
             {
-                Set<Wire> combinationalInputs = mi.proto.getCombinationalInputs(clockHigh);
+                Set<WireExt> combinationalInputs = mi.proto.getCombinationalInputs(clockHigh);
                 if (combinationalInputs.contains(pi.wire))
                 {
-                    if (pi.driver instanceof Driver)
+                    if (pi.driver instanceof DriverExt)
                     {
-                        instDeps.add(((Driver)pi.driver).name);
+                        instDeps.add(((DriverExt)pi.driver).name);
                     } else
                     {
-                        for (Lhrange lr : ((Lhs)pi.driver).ranges)
+                        for (Lhrange lr : ((Lhs<SVarExt>)pi.driver).ranges)
                         {
-                            SVarExt.LocalWire lw = (SVarExt.LocalWire)((Lhatom.Var)lr.atom).name;
+                            SVarExt.LocalWire lw = (SVarExt.LocalWire)lr.getVar();
                             addWireDeps(lw, BigIntegerUtil.MINUS_ONE, instDeps);
                         }
                     }
@@ -376,10 +419,10 @@ public class Module implements Svar.Builder<SVarExt>
             }
             graph.put(mi, instDeps);
         }
-        for (Map.Entry<Lhs, Driver> e1 : assigns.entrySet())
+        for (Map.Entry<Lhs<SVarExt>, DriverExt> e1 : assigns.entrySet())
         {
             Lhs l = e1.getKey();
-            Driver d = e1.getValue();
+            DriverExt d = e1.getValue();
             assert !l.ranges.isEmpty();
             Set<Object> driverDeps = new LinkedHashSet<>();
             for (Map.Entry<SVarExt.LocalWire, BigInteger> e2 : d.getCrudeDeps(clockHigh).entrySet())
@@ -408,20 +451,20 @@ public class Module implements Svar.Builder<SVarExt>
             deps.add(lw.wire);
             return;
         }
-        for (Map.Entry<Lhrange, Object> e3 : lw.wire.drivers.entrySet())
+        for (Map.Entry<Lhrange, WireExt.WireDriver> e3 : lw.wire.drivers.entrySet())
         {
             Lhrange lhr = e3.getKey();
-            Object driver = e3.getValue();
-            Lhatom.Var atomVar = (Lhatom.Var)lhr.atom;
-            if (atomVar.name.getDelay() == 0
-                && BigIntegerUtil.logheadMask(lhr.w).shiftLeft(atomVar.rsh).and(mask).signum() != 0)
+            WireExt.WireDriver wd = e3.getValue();
+            if (lhr.getVar().getDelay() == 0
+                && BigIntegerUtil.logheadMask(lhr.getWidth()).shiftLeft(lhr.getRsh()).and(mask).signum() != 0)
             {
-                if (driver instanceof Driver)
+                if (wd.driver != null)
                 {
-                    deps.add(((Driver)driver).name);
-                } else
+                    deps.add(wd.driver.name);
+                }
+                if (wd.pi != null)
                 {
-                    deps.add(((SVarExt.PortInst)driver).inst);
+                    deps.add(wd.pi.inst);
                 }
             }
         }
@@ -430,62 +473,62 @@ public class Module implements Svar.Builder<SVarExt>
     Map<Object, Set<Object>> computeFineDepsGraph(boolean clockHigh)
     {
         Map<Object, Set<Object>> graph = new LinkedHashMap<>();
-        for (Wire w : wires)
+        for (WireExt w : wires)
         {
             if (w.isAssigned())
             {
-                for (Map.Entry<Lhrange, Object> e : w.drivers.entrySet())
+                for (Map.Entry<Lhrange, WireExt.WireDriver> e : w.drivers.entrySet())
                 {
                     Lhrange lhr = e.getKey();
-                    Object driver = e.getValue();
-                    int rsh = ((Lhatom.Var)lhr.atom).rsh;
+                    WireExt.WireDriver wd = e.getValue();
+                    int rsh = lhr.getRsh();
 
-                    if (driver instanceof Driver)
+                    if (wd.driver != null)
                     {
-                        for (int i = 0; i < lhr.w; i++)
+                        for (int i = 0; i < lhr.getWidth(); i++)
                         {
                             WireBit wb = new WireBit(w, rsh + i);
                             Set<Object> dep = new LinkedHashSet<>();
-                            addDriverFineDeps((Driver)driver, clockHigh, lhr.lsh + i, dep);
+                            addDriverFineDeps(wd.driver, clockHigh, wd.lsh + i, dep);
                             graph.put(wb, dep);
                         }
-                    } else
+                    }
+                    if (wd.pi != null)
                     {
-                        SVarExt.PortInst piOut = (SVarExt.PortInst)driver;
-                        ModInst inst = piOut.inst;
-                        for (int i = 0; i < lhr.w; i++)
+                        SVarExt.PortInst piOut = wd.pi;
+                        ModInstExt inst = piOut.inst;
+                        for (int i = 0; i < lhr.getWidth(); i++)
                         {
                             WireBit wb = new WireBit(w, rsh + i);
                             Set<Object> dep = new LinkedHashSet<>();
-                            Map<SVarExt.LocalWire, BigInteger> masks = piOut.wire.getFineDeps(clockHigh).get(lhr.lsh + i);
+                            Map<SVarExt.LocalWire, BigInteger> masks = piOut.wire.getFineDeps(clockHigh).get(wd.lsh + i);
                             for (Map.Entry<SVarExt.LocalWire, BigInteger> e1 : masks.entrySet())
                             {
                                 SVarExt.LocalWire lw = e1.getKey();
                                 BigInteger mask = e1.getValue();
-                                SVarExt.PortInst piIn = inst.portInsts.get(lw.wire.name);
+                                SVarExt.PortInst piIn = inst.portInsts.get(lw.wire.getName());
                                 if (piIn == null)
                                 {
-                                    System.out.println(lw.wire.name + " was not found in " + inst.instname + " of " + modName);
+                                    System.out.println(lw.wire.getName() + " was not found in " + inst.getInstname() + " of " + modName);
                                     continue;
                                 }
-                                if (piIn.driver instanceof Driver)
+                                if (piIn.driver instanceof DriverExt)
                                 {
-                                    addDriverFineDeps((Driver)piIn.driver, clockHigh, mask, dep);
+                                    addDriverFineDeps((DriverExt)piIn.driver, clockHigh, mask, dep);
                                 } else
                                 {
                                     int lsh = 0;
-                                    for (Lhrange lhrIn : ((Lhs)piIn.driver).ranges)
+                                    for (Lhrange lhrIn : ((Lhs<SVarExt>)piIn.driver).ranges)
                                     {
-                                        Lhatom.Var atomVar = (Lhatom.Var)lhrIn.atom;
-                                        SVarExt.LocalWire lwIn = (SVarExt.LocalWire)atomVar.name;
-                                        for (int j = 0; j < lhrIn.w; j++)
+                                        SVarExt.LocalWire lwIn = (SVarExt.LocalWire)lhrIn.getVar();
+                                        for (int j = 0; j < lhrIn.getWidth(); j++)
                                         {
                                             if (mask.testBit(lsh + j))
                                             {
-                                                dep.add(new WireBit(lwIn.wire, atomVar.rsh + j));
+                                                dep.add(new WireBit(lwIn.wire, lhrIn.getRsh() + j));
                                             }
                                         }
-                                        lsh += lhrIn.w;
+                                        lsh += lhrIn.getWidth();
                                     }
                                 }
                             }
@@ -501,7 +544,7 @@ public class Module implements Svar.Builder<SVarExt>
         return graph;
     }
 
-    void addDriverFineDeps(Driver dr, boolean clockHigh, BigInteger maskOut, Set<Object> dep)
+    void addDriverFineDeps(DriverExt dr, boolean clockHigh, BigInteger maskOut, Set<Object> dep)
     {
         assert maskOut.signum() >= 0;
         for (int bit = 0; bit < maskOut.bitLength(); bit++)
@@ -513,7 +556,7 @@ public class Module implements Svar.Builder<SVarExt>
         }
     }
 
-    void addDriverFineDeps(Driver dr, boolean clockHigh, int bit, Set<Object> dep)
+    void addDriverFineDeps(DriverExt dr, boolean clockHigh, int bit, Set<Object> dep)
     {
         Map<SVarExt.LocalWire, BigInteger> masks = dr.getFineDeps(clockHigh).get(bit);
         for (Map.Entry<SVarExt.LocalWire, BigInteger> e1 : masks.entrySet())
@@ -584,24 +627,24 @@ public class Module implements Svar.Builder<SVarExt>
         if (consp(name).bool())
         {
             Util.check(delay == 0);
-            ModInst inst = instsIndex.get(new Name(car(name)));
+            ModInstExt inst = instsIndex.get(new Name(car(name)));
             return inst.newPortInst(name);
 //            Module sm = inst.proto;
 //            Wire wire = sm.wiresIndex.get(new Name(cdr(name)));
 //            return new SVarExt.PortInst(this, name);
         } else
         {
-            Wire wire = wiresIndex.get(new Name(name));
+            WireExt wire = wiresIndex.get(new Name(name));
             return wire.getVar(delay);
         }
     }
 
     static class WireBit
     {
-        final Wire wire;
+        final WireExt wire;
         final int bit;
 
-        WireBit(Wire wire, int bit)
+        WireBit(WireExt wire, int bit)
         {
             this.wire = wire;
             this.bit = bit;

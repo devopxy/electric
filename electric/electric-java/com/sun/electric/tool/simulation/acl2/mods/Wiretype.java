@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: ModInst.java
+ * File: Wiretype.java
  *
  * Copyright (c) 2017, Static Free Software. All rights reserved.
  *
@@ -25,49 +25,35 @@ import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 
 /**
- * SV module instance.
- * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODINST>.
+ *
+ * Wiretype as defined in an svex wire.
+ * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____WIRETYPE>.
  */
-public class ModInst
+public enum Wiretype
 {
-    public final Name instname;
-    public final ModName modname;
+    WIRE, SUPPLY0, SUPPLY1, WAND, WOR, TRI0, TRI1, TRIREG;
 
-    ModInst(ACL2Object impl)
+    private final ACL2Object impl;
+
+    private Wiretype()
     {
-        instname = new Name(car(impl));
-        modname = ModName.valueOf(cdr(impl));
+        impl = name().equals("WIRE") ? NIL : ACL2Object.valueOf("KEYWORD", name());
     }
 
     public ACL2Object getACL2Object()
     {
-        return cons(instname.getACL2Object(), modname.getACL2Object());
+        return impl;
     }
 
-    @Override
-    public boolean equals(Object o)
+    public static Wiretype valueOf(ACL2Object impl)
     {
-        if (o instanceof ModInst)
+        for (Wiretype wt : Wiretype.values())
         {
-            ModInst that = (ModInst)o;
-            return this.instname.equals(that.instname)
-                && this.modname.equals(that.modname);
+            if (wt.impl.equals(impl))
+            {
+                return wt;
+            }
         }
-        return false;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        int hash = 3;
-        hash = 73 * hash + instname.hashCode();
-        hash = 73 * hash + modname.hashCode();
-        return hash;
-    }
-
-    @Override
-    public String toString()
-    {
-        return instname + ":" + modname;
+        throw new IllegalArgumentException();
     }
 }
