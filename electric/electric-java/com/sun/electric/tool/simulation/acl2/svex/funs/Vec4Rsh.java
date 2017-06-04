@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -34,13 +35,13 @@ import java.util.Map;
  * Right “arithmetic” shift of 4vecs.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-RSH>.
  */
-public class Vec4Rsh extends SvexCall
+public class Vec4Rsh<V extends Svar> extends SvexCall<V>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex shift;
-    public final Svex x;
+    public final Svex<V> shift;
+    public final Svex<V> x;
 
-    public Vec4Rsh(Svex shift, Svex x)
+    public Vec4Rsh(Svex<V> shift, Svex<V> x)
     {
         super(FUNCTION, shift, x);
         this.shift = shift;
@@ -55,9 +56,9 @@ public class Vec4Rsh extends SvexCall
         }
 
         @Override
-        public Vec4Rsh build(Svex... args)
+        public <V extends Svar> Vec4Rsh<V> build(Svex<V>... args)
         {
-            return new Vec4Rsh(args[0], args[1]);
+            return new Vec4Rsh<>(args[0], args[1]);
         }
 
         @Override
@@ -74,7 +75,7 @@ public class Vec4Rsh extends SvexCall
         }
 
         @Override
-        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
         {
             if (mask.signum() == 0)
             {
@@ -83,7 +84,7 @@ public class Vec4Rsh extends SvexCall
                     BigInteger.ZERO, BigInteger.ZERO
                 };
             }
-            Svex shift = args[0];
+            Svex<V> shift = args[0];
             Vec4 shiftVal = shift.xeval(xevalMemoize);
             if (!shiftVal.isVec2())
             {

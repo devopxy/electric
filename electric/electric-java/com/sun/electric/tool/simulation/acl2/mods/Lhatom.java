@@ -47,7 +47,7 @@ public abstract class Lhatom<V extends Svar>
         return getACL2Object().rep();
     }
 
-    public static <V extends Svar> Lhatom valueOf(Svar.Builder<V> builder, ACL2Object impl)
+    public static <V extends Svar> Lhatom<V> valueOf(Svar.Builder<V> builder, ACL2Object impl)
     {
         if (symbolp(impl).bool())
         {
@@ -115,7 +115,8 @@ public abstract class Lhatom<V extends Svar>
 
         Var(V name, int rsh)
         {
-            if (name == null) {
+            if (name == null)
+            {
                 throw new NullPointerException();
             }
             if (rsh < 0)
@@ -150,7 +151,8 @@ public abstract class Lhatom<V extends Svar>
         @Override
         public <V1 extends Svar> Lhatom<V1> convertVars(Svar.Builder<V1> builder)
         {
-            return new Var(builder.newVar(name), rsh);
+            V1 newName = builder.newVar(name);
+            return new Var<>(newName, rsh);
         }
     }
 }

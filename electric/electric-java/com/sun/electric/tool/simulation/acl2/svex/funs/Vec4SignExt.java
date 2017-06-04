@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -34,13 +35,13 @@ import java.util.Map;
  * Like logext for 4vecs; the width is also a 4vec.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-SIGN-EXT>.
  */
-public class Vec4SignExt extends SvexCall
+public class Vec4SignExt<V extends Svar> extends SvexCall<V>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex width;
-    public final Svex x;
+    public final Svex<V> width;
+    public final Svex<V> x;
 
-    public Vec4SignExt(Svex width, Svex x)
+    public Vec4SignExt(Svex<V> width, Svex<V> x)
     {
         super(FUNCTION, width, x);
         this.width = width;
@@ -55,9 +56,9 @@ public class Vec4SignExt extends SvexCall
         }
 
         @Override
-        public Vec4SignExt build(Svex... args)
+        public <V extends Svar> Vec4SignExt<V> build(Svex<V>... args)
         {
-            return new Vec4SignExt(args[0], args[1]);
+            return new Vec4SignExt<>(args[0], args[1]);
         }
 
         @Override
@@ -99,7 +100,7 @@ public class Vec4SignExt extends SvexCall
         }
 
         @Override
-        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
         {
             if (mask.signum() == 0)
             {
@@ -108,7 +109,7 @@ public class Vec4SignExt extends SvexCall
                     BigInteger.ZERO, BigInteger.ZERO
                 };
             }
-            Svex width = args[0];
+            Svex<V> width = args[0];
             Vec4 widthVal = width.xeval(xevalMemoize);
             if (!widthVal.isVec2())
             {

@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -33,13 +34,13 @@ import java.util.Map;
  * Coerces an arbitrary 4vec to a 3vec by “unfloating” it, i.e., by turning any Zs into Xes.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____3VEC-FIX>.
  */
-public class Vec4BitExtract extends SvexCall
+public class Vec4BitExtract<V extends Svar> extends SvexCall<V>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex index;
-    public final Svex x;
+    public final Svex<V> index;
+    public final Svex<V> x;
 
-    public Vec4BitExtract(Svex index, Svex x)
+    public Vec4BitExtract(Svex<V> index, Svex<V> x)
     {
         super(FUNCTION, index, x);
         this.index = index;
@@ -54,7 +55,7 @@ public class Vec4BitExtract extends SvexCall
         }
 
         @Override
-        public Vec4BitExtract build(Svex... args)
+        public <V extends Svar> Vec4BitExtract<V> build(Svex<V>... args)
         {
             return new Vec4BitExtract(args[0], args[1]);
 
@@ -84,9 +85,9 @@ public class Vec4BitExtract extends SvexCall
         }
 
         @Override
-        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
         {
-            Svex index = args[0];
+            Svex<V> index = args[0];
             Vec4 indexVal = index.xeval(xevalMemoize);
             BigInteger nMask = v4maskAllOrNone(mask);
             if (!indexVal.isVec2())

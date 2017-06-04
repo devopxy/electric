@@ -21,10 +21,10 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
-import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
 import java.util.Map;
@@ -33,13 +33,13 @@ import java.util.Map;
  * Resolution for when one signal is stronger than the other.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-OVERRIDE>.
  */
-public class Vec4Override extends SvexCall
+public class Vec4Override<V extends Svar> extends SvexCall<V>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex x;
-    public final Svex y;
+    public final Svex<V> x;
+    public final Svex<V> y;
 
-    public Vec4Override(Svex x, Svex y)
+    public Vec4Override(Svex<V> x, Svex<V> y)
     {
         super(FUNCTION, x, y);
         this.x = x;
@@ -54,9 +54,9 @@ public class Vec4Override extends SvexCall
         }
 
         @Override
-        public Vec4Override build(Svex... args)
+        public <V extends Svar> Vec4Override<V> build(Svex<V>... args)
         {
-            return new Vec4Override(args[0], args[1]);
+            return new Vec4Override<>(args[0], args[1]);
         }
 
         @Override
@@ -70,9 +70,9 @@ public class Vec4Override extends SvexCall
         }
 
         @Override
-        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
         {
-            Svex strong = args[0];
+            Svex<V> strong = args[0];
             Vec4 sVal = strong.xeval(xevalMemoize);
             BigInteger strongNonbool = sVal.getUpper().xor(sVal.getLower());
             BigInteger weakMask = mask.and(strongNonbool);

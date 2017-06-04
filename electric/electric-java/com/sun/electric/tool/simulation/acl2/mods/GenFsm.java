@@ -129,11 +129,11 @@ public abstract class GenFsm
         e();
     }
 
-    protected void showSvex(Svex sv)
+    protected void showSvex(Svex<SVarExt> sv)
     {
         if (sv instanceof SvexQuote)
         {
-            Vec4 val = ((SvexQuote)sv).val;
+            Vec4 val = ((SvexQuote<SVarExt>)sv).val;
             if (val.isVec2())
             {
                 s("" + ((Vec2)val).getVal());
@@ -144,12 +144,13 @@ public abstract class GenFsm
             }
         } else if (sv instanceof SvexVar)
         {
-            WireExt w = ((SVarExt)((SvexVar)sv).svar).wire;
+            WireExt w = ((SvexVar<SVarExt>)sv).svar.wire;
             String s = w.getName().impl.stringValueExact();
             s("(" + s + "-ext st in)");
         } else if (sv instanceof SvexCall)
         {
-            String nm = symbol_name(((SvexCall)sv).fun.fn).stringValueExact();
+            SvexCall<SVarExt> sc = (SvexCall<SVarExt>)sv;
+            String nm = symbol_name(sc.fun.fn).stringValueExact();
             String lnm = "<" + nm + ">";
             boolean boolBit = false;
             boolean neBit = false;
@@ -267,7 +268,7 @@ public abstract class GenFsm
                 s("(" + lnm);
             }
             b();
-            for (Svex arg : ((SvexCall)sv).getArgs())
+            for (Svex<SVarExt> arg : sc.getArgs())
             {
                 if (neBit)
                 {
@@ -508,7 +509,7 @@ public abstract class GenFsm
                 {
                     System.out.println("Twice " + svar.wire);
                 }
-                Set<SVarExt> deps = d.svex.collectVars(SVarExt.class);
+                Set<SVarExt> deps = d.svex.collectVars();
                 for (SVarExt sv : deps)
                 {
                     dep.add(sv.wire);

@@ -43,20 +43,20 @@ public class DriverExt
 {
     final ModuleExt parent;
 
-    public final Svex svex;
+    public final Svex<SVarExt> svex;
     final int strength;
     final String name;
 
-    Map<SVarExt.LocalWire, BigInteger> crudeDeps0;
-    Map<SVarExt.LocalWire, BigInteger> crudeDeps1;
-    final List<Map<SVarExt.LocalWire, BigInteger>> fineDeps0 = new ArrayList<>();
-    final List<Map<SVarExt.LocalWire, BigInteger>> fineDeps1 = new ArrayList<>();
+    Map<SVarExt, BigInteger> crudeDeps0;
+    Map<SVarExt, BigInteger> crudeDeps1;
+    final List<Map<SVarExt, BigInteger>> fineDeps0 = new ArrayList<>();
+    final List<Map<SVarExt, BigInteger>> fineDeps1 = new ArrayList<>();
 
     DriverExt(ModuleExt parent, ACL2Object impl, String name)
     {
         this.parent = parent;
         this.name = name;
-        svex = Svex.valueOf(parent, car(impl), parent.svexCache);
+        svex = Svex.<SVarExt>valueOf(parent, car(impl), parent.svexCache);
         strength = cdr(impl).intValueExact();
         Util.check(strength == 6);
         for (Svar svar : svex.collectVars())
@@ -73,25 +73,25 @@ public class DriverExt
         return svex.toString();
     }
 
-    public final Set<SVarExt.LocalWire> collectVars()
+    public final Set<SVarExt> collectVars()
     {
-        return svex.collectVars(SVarExt.LocalWire.class);
+        return svex.collectVars();
     }
 
     void markUsed()
     {
-        for (SVarExt.LocalWire svar : collectVars())
+        for (SVarExt svar : collectVars())
         {
-            svar.markUsed();
+            ((SVarExt.LocalWire)svar).markUsed();
         }
     }
 
-    Map<SVarExt.LocalWire, BigInteger> getCrudeDeps(boolean clockHigh)
+    Map<SVarExt, BigInteger> getCrudeDeps(boolean clockHigh)
     {
         return clockHigh ? crudeDeps1 : crudeDeps0;
     }
 
-    List<Map<SVarExt.LocalWire, BigInteger>> getFineDeps(boolean clockHigh)
+    List<Map<SVarExt, BigInteger>> getFineDeps(boolean clockHigh)
     {
         return clockHigh ? fineDeps1 : fineDeps0;
     }
@@ -100,7 +100,7 @@ public class DriverExt
     {
         Svex patched = svex.patch(env, patchMemoize);
         BigInteger mask = BigIntegerUtil.MINUS_ONE;
-        Map<SVarExt.LocalWire, BigInteger> varsWithMasks = patched.collectVarsWithMasks(mask, SVarExt.LocalWire.class);
+        Map<SVarExt, BigInteger> varsWithMasks = patched.collectVarsWithMasks(mask);
         if (clkVal)
         {
             crudeDeps1 = varsWithMasks;
@@ -108,12 +108,12 @@ public class DriverExt
         {
             crudeDeps0 = varsWithMasks;
         }
-        List<Map<SVarExt.LocalWire, BigInteger>> fineDeps = getFineDeps(clkVal);
+        List<Map<SVarExt, BigInteger>> fineDeps = getFineDeps(clkVal);
         fineDeps.clear();
         for (int bit = 0; bit < width; bit++)
         {
             mask = BigInteger.ONE.shiftLeft(bit);
-            varsWithMasks = patched.collectVarsWithMasks(mask, SVarExt.LocalWire.class);
+            varsWithMasks = patched.collectVarsWithMasks(mask);
             fineDeps.add(varsWithMasks);
         }
     }

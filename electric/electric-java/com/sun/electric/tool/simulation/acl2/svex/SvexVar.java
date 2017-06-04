@@ -23,16 +23,17 @@ package com.sun.electric.tool.simulation.acl2.svex;
 
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A variable, which represents a 4vec.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVEX-VAR>.
  */
-public class SvexVar extends Svex
+public class SvexVar<V extends Svar> extends Svex<V>
 {
-    public Svar svar;
+    public V svar;
 
-    public SvexVar(Svar svar)
+    public SvexVar(V svar)
     {
         if (svar == null)
         {
@@ -48,13 +49,19 @@ public class SvexVar extends Svex
     }
 
     @Override
+    protected void collectVars(Set<V> result, Set<SvexCall<V>> visited)
+    {
+        result.add(svar);
+    }
+
+    @Override
     public <R, D> R accept(Visitor<R, D> visitor, D data)
     {
         return visitor.visitVar(svar, data);
     }
 
     @Override
-    public Vec4 xeval(Map<Svex, Vec4> memoize)
+    public Vec4 xeval(Map<Svex<V>, Vec4> memoize)
     {
         return Vec4.X;
     }

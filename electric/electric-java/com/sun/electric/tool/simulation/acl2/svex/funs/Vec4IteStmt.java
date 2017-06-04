@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -34,14 +35,14 @@ import java.util.Map;
  * Atomic if-then-else of 4vecs. Has the property that when branches are equal, the result is equal to the branch, regardless of the test.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-_F3_A2>.
  */
-public class Vec4IteStmt extends SvexCall
+public class Vec4IteStmt<V extends Svar> extends SvexCall<V>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex test;
-    public final Svex then;
-    public final Svex els;
+    public final Svex<V> test;
+    public final Svex<V> then;
+    public final Svex<V> els;
 
-    public Vec4IteStmt(Svex test, Svex then, Svex els)
+    public Vec4IteStmt(Svex<V> test, Svex<V> then, Svex<V> els)
     {
         super(FUNCTION, test, then, els);
         this.test = test;
@@ -57,9 +58,9 @@ public class Vec4IteStmt extends SvexCall
         }
 
         @Override
-        public Vec4IteStmt build(Svex... args)
+        public <V extends Svar> Vec4IteStmt<V> build(Svex<V>... args)
         {
-            return new Vec4IteStmt(args[0], args[1], args[2]);
+            return new Vec4IteStmt<>(args[0], args[1], args[2]);
         }
 
         @Override
@@ -89,7 +90,7 @@ public class Vec4IteStmt extends SvexCall
         }
 
         @Override
-        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
         {
             if (mask.signum() == 0)
             {
@@ -98,9 +99,9 @@ public class Vec4IteStmt extends SvexCall
                     BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO
                 };
             }
-            Svex test = args[0];
-            Svex th = args[1];
-            Svex el = args[2];
+            Svex<V> test = args[0];
+            Svex<V> th = args[1];
+            Svex<V> el = args[2];
             Vec4 testVal = test.xeval(xevalMemoize);
             BigInteger testOnes = testVal.getUpper().and(testVal.getLower());
             if (testOnes.signum() != 0)
