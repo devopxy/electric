@@ -42,7 +42,7 @@ public class Lhs<V extends Svar>
         int lsh = 0;
         for (ACL2Object o : l)
         {
-            Lhrange lhr = new Lhrange(builder, o, lsh);
+            Lhrange<V> lhr = new Lhrange<>(builder, o, lsh);
             ranges.add(lhr);
             lsh += lhr.getWidth();
         }

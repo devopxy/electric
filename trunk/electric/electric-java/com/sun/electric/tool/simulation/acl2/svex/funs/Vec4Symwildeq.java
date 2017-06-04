@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -33,13 +34,13 @@ import java.util.Map;
  * either they are equal or the bit from either a or b is Z.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-SYMWILDEQ>.
  */
-public class Vec4Symwildeq extends SvexCall
+public class Vec4Symwildeq<V extends Svar> extends SvexCall<V>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex x;
-    public final Svex y;
+    public final Svex<V> x;
+    public final Svex<V> y;
 
-    public Vec4Symwildeq(Svex x, Svex y)
+    public Vec4Symwildeq(Svex<V> x, Svex<V> y)
     {
         super(FUNCTION, x, y);
         this.x = x;
@@ -54,9 +55,9 @@ public class Vec4Symwildeq extends SvexCall
         }
 
         @Override
-        public Vec4Symwildeq build(Svex... args)
+        public <V extends Svar> Vec4Symwildeq<V> build(Svex<V>... args)
         {
-            return new Vec4Symwildeq(args[0], args[1]);
+            return new Vec4Symwildeq<>(args[0], args[1]);
         }
 
         @Override
@@ -70,10 +71,10 @@ public class Vec4Symwildeq extends SvexCall
         }
 
         @Override
-        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
         {
-            Svex a = args[0];
-            Svex b = args[1];
+            Svex<V> a = args[0];
+            Svex<V> b = args[1];
             Vec4 aVal = a.xeval(xevalMemoize);
             Vec4 bVal = b.xeval(xevalMemoize);
             BigInteger aIsZ = aVal.getLower().andNot(aVal.getUpper());

@@ -40,9 +40,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.math.BigInteger;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -266,73 +264,6 @@ public class ACL2DesignJobs
             }
             return true;
         }
-
-        private Map<SVarExt, Set<SVarExt>> evalAssigns(ModuleExt m, String clkName, Vec2 val)
-        {
-            Map<SVarExt, Set<SVarExt>> graph = new HashMap<>();
-            evalAssigns(m, clkName, val, graph);
-            return graph;
-        }
-
-        private void evalAssigns(ModuleExt m, String clkName, Vec2 val, Map<SVarExt, Set<SVarExt>> graph)
-        {
-            for (Map.Entry<Lhs<SVarExt>, DriverExt> e1 : m.assigns.entrySet())
-            {
-                Lhs<SVarExt> l = e1.getKey();
-                DriverExt d = e1.getValue();
-                Set<SVarExt.LocalWire> dDeps = getDeps(d.svex, m, clkName, val);
-                assert !l.ranges.isEmpty();
-                for (int i = 0; i < l.ranges.size(); i++)
-                {
-                    Lhrange<SVarExt> lr = l.ranges.get(i);
-                    SVarExt svar = lr.getVar();
-                    assert svar.getDelay() == 0;
-                    assert !svar.isNonblocking();
-                    Set<SVarExt> decendants = graph.get(svar);
-                    if (decendants == null)
-                    {
-                        decendants = new LinkedHashSet<>();
-                        graph.put(svar, decendants);
-                    }
-                    decendants.addAll(dDeps);
-                }
-            }
-        }
-
-        private Set<SVarExt.LocalWire> getDeps(Svex svex, ModuleExt m, String clkName, Vec2 val)
-        {
-            Map<Svar, Vec2> env = new HashMap<>();
-            for (WireExt w : m.wires)
-            {
-                if (w.isGlobal() && w.global.equals(clkName))
-                {
-                    SVarExt svar = m.newVar(w.getName().impl);
-                    env.put(svar, val);
-                }
-            }
-
-            Set<SVarExt.LocalWire> dep = svex.collectVars(SVarExt.LocalWire.class, env);
-            for (Iterator<SVarExt.LocalWire> it = dep.iterator(); it.hasNext();)
-            {
-                SVarExt.LocalWire svar = it.next();
-                if (svar.getDelay() != 0)
-                {
-                    it.remove();
-                }
-            }
-            return dep;
-        }
-
-        private String showDeps(Svex svex, ModuleExt m, String clkName)
-        {
-            if (clkName == null)
-            {
-                return "";
-            }
-            Set<SVarExt.LocalWire> dep0 = getDeps(svex, m, clkName, Vec2.ZERO);
-            Set<SVarExt.LocalWire> dep1 = getDeps(svex, m, clkName, Vec2.ONE);
-            return " | 0 => " + dep0 + " | 1 => " + dep1;
-        }
     }
 
     public static void genAlu(File saoFile, String outFileName)
@@ -396,8 +327,8 @@ public class ACL2DesignJobs
             {
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 DesignExt design = new DesignExt(sr.root);
-                Map<Svex, String> svexLabels = new LinkedHashMap<>();
-                Map<Svex, BigInteger> svexSizes = new HashMap<>();
+                Map<Svex<SVarExt>, String> svexLabels = new LinkedHashMap<>();
+                Map<Svex<SVarExt>, BigInteger> svexSizes = new HashMap<>();
                 try (PrintStream out = new PrintStream(outFileName))
                 {
                     out.println("(in-package \"SV\")");
@@ -472,10 +403,10 @@ public class ACL2DesignJobs
                     out.println("))");
                     out.println();
                     out.println("(defconsts (*" + designName + "-xeval*) '(");
-                    Map<Svex, Vec4> xevalMemoize = new HashMap<>();
-                    for (Map.Entry<Svex, String> e : svexLabels.entrySet())
+                    Map<Svex<SVarExt>, Vec4> xevalMemoize = new HashMap<>();
+                    for (Map.Entry<Svex<SVarExt>, String> e : svexLabels.entrySet())
                     {
-                        Svex svex = e.getKey();
+                        Svex<SVarExt> svex = e.getKey();
                         String label = e.getValue();
                         Vec4 xeval = svex.xeval(xevalMemoize);
                         out.println("  (" + label + " . " + xeval.makeAcl2Object().rep() + ")");
@@ -492,11 +423,11 @@ public class ACL2DesignJobs
                     out.println("  (check-xeval *" + designName + "-xeval* *" + designName + "-dedup*))");
                     out.println();
                     out.println("(defconsts (*" + designName + "-toposort*) '(");
-                    for (Map.Entry<Svex, String> e : svexLabels.entrySet())
+                    for (Map.Entry<Svex<SVarExt>, String> e : svexLabels.entrySet())
                     {
-                        Svex svex = e.getKey();
+                        Svex<SVarExt> svex = e.getKey();
                         String label = e.getValue();
-                        Svex[] toposort = svex.toposort();
+                        Svex<SVarExt>[] toposort = svex.toposort();
                         Util.check(toposort[0].equals(svex));
                         out.print("  (" + label);
                         for (int i = 1; i < toposort.length; i++)
@@ -519,13 +450,13 @@ public class ACL2DesignJobs
                     out.println("  (check-toposort *" + designName + "-toposort* *" + designName + "-dedup*))");
                     out.println();
                     out.println("(defconsts (*" + designName + "-masks*) '(");
-                    for (Map.Entry<Svex, String> e : svexLabels.entrySet())
+                    for (Map.Entry<Svex<SVarExt>, String> e : svexLabels.entrySet())
                     {
-                        Svex svex = e.getKey();
+                        Svex<SVarExt> svex = e.getKey();
                         String label = e.getValue();
                         Svex[] toposort = svex.toposort();
                         Util.check(toposort[0].equals(svex));
-                        Map<Svex, BigInteger> masks = svex.maskAlist(BigIntegerUtil.MINUS_ONE);
+                        Map<Svex<SVarExt>, BigInteger> masks = svex.maskAlist(BigIntegerUtil.MINUS_ONE);
                         out.print("  (" + label);
                         for (int i = 0; i < toposort.length; i++)
                         {
@@ -580,7 +511,7 @@ public class ACL2DesignJobs
             return true;
         }
 
-        private BigInteger computeSize(Svex svex, Map<Svex, BigInteger> sizes)
+        private <V extends Svar> BigInteger computeSize(Svex<V> svex, Map<Svex<V>, BigInteger> sizes)
         {
             BigInteger size = sizes.get(svex);
             if (size == null)
@@ -588,7 +519,7 @@ public class ACL2DesignJobs
                 if (svex instanceof SvexCall)
                 {
                     size = BigInteger.ONE;
-                    for (Svex arg : ((SvexCall)svex).getArgs())
+                    for (Svex<V> arg : ((SvexCall<V>)svex).getArgs())
                     {
                         size = size.add(computeSize(arg, sizes));
                     }
@@ -601,14 +532,14 @@ public class ACL2DesignJobs
             return size;
         }
 
-        private String genDedup(PrintStream out, Svex svex, Map<Svex, String> svexLabels, Map<Svex, BigInteger> svexSizes)
+        private <V extends Svar> String genDedup(PrintStream out, Svex<V> svex, Map<Svex<V>, String> svexLabels, Map<Svex<V>, BigInteger> svexSizes)
         {
             String label = svexLabels.get(svex);
             if (label == null)
             {
                 if (svex instanceof SvexQuote)
                 {
-                    SvexQuote sq = (SvexQuote)svex;
+                    SvexQuote<V> sq = (SvexQuote<V>)svex;
                     label = "l" + svexLabels.size();
                     svexLabels.put(svex, label);
                     out.print(" (" + label + " :quote ");
@@ -623,7 +554,7 @@ public class ACL2DesignJobs
                     out.println(")");
                 } else if (svex instanceof SvexVar)
                 {
-                    SvexVar sv = (SvexVar)svex;
+                    SvexVar<V> sv = (SvexVar<V>)svex;
                     label = "l" + svexLabels.size();
                     svexLabels.put(svex, label);
                     out.print(" (" + label + " :var ,(make-svar :name ");
@@ -643,7 +574,7 @@ public class ACL2DesignJobs
                     out.println("))");
                 } else
                 {
-                    SvexCall sc = (SvexCall)svex;
+                    SvexCall<V> sc = (SvexCall<V>)svex;
                     Svex[] args = sc.getArgs();
                     String[] labels = new String[args.length];
                     for (int i = 0; i < labels.length; i++)
@@ -739,8 +670,8 @@ public class ACL2DesignJobs
                             Lhs<SVarExt> l = e1.getKey();
                             DriverExt d = e1.getValue();
 
-                            Set<SVarExt.LocalWire> vars = d.collectVars();
-                            Map<Svex, BigInteger> masks = d.svex.maskAlist(BigIntegerUtil.MINUS_ONE);
+                            Set<SVarExt> vars = d.collectVars();
+                            Map<Svex<SVarExt>, BigInteger> masks = d.svex.maskAlist(BigIntegerUtil.MINUS_ONE);
                             out.print("      (;");
                             assert !l.ranges.isEmpty();
                             for (int i = 0; i < l.ranges.size(); i++)
@@ -752,10 +683,11 @@ public class ACL2DesignJobs
                                 out.print((i == 0 ? "  " : ",") + lr);
                             }
                             out.println();
-                            for (SVarExt.LocalWire lw : vars)
+                            for (SVarExt var : vars)
                             {
+                                SVarExt.LocalWire lw = (SVarExt.LocalWire)var;
                                 out.println();
-                                Svex svex = new SvexVar(lw);
+                                Svex<SVarExt> svex = new SvexVar(lw);
                                 BigInteger mask = masks.get(svex);
                                 if (mask == null)
                                 {

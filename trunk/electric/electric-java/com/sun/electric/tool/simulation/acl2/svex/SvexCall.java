@@ -31,19 +31,19 @@ import java.util.Set;
  * A function applied to some expressions.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVEX-CALL>.
  */
-public class SvexCall extends Svex
+public class SvexCall<V extends Svar> extends Svex<V>
 {
     public final SvexFunction fun;
     protected final Svex[] args;
     private final int hashCode;
 
-    static SvexCall newCall(ACL2Object fn, Svex... args)
+    static <V extends Svar> SvexCall<V> newCall(ACL2Object fn, Svex<V>... args)
     {
         SvexFunction fun = SvexFunction.valueOf(fn, args.length);
         return fun.build(args);
     }
 
-    protected SvexCall(SvexFunction fun, Svex... args)
+    protected SvexCall(SvexFunction fun, Svex<V>... args)
     {
         assert fun.arity == args.length;
         this.fun = fun;
@@ -57,14 +57,14 @@ public class SvexCall extends Svex
         }
         int hash = 3;
         hash = 83 * hash + fun.hashCode();
-        for (Svex arg : args)
+        for (Svex<V> arg : args)
         {
             hash = 31 * hash + arg.hashCode();
         }
         hashCode = hash;
     }
 
-    public Svex[] getArgs()
+    public Svex<V>[] getArgs()
     {
         return args.clone();
     }
@@ -81,13 +81,25 @@ public class SvexCall extends Svex
     }
 
     @Override
+    protected void collectVars(Set<V> result, Set<SvexCall<V>> visited)
+    {
+        if (visited.add(this))
+        {
+            for (Svex<V> arg : args)
+            {
+                arg.collectVars(result, visited);
+            }
+        }
+    }
+
+    @Override
     public <R, D> R accept(Visitor<R, D> visitor, D data)
     {
         return visitor.visitCall(fun, args, data);
     }
 
     @Override
-    public Vec4 xeval(Map<Svex, Vec4> memoize)
+    public Vec4 xeval(Map<Svex<V>, Vec4> memoize)
     {
         Vec4 result = memoize.get(this);
         if (result == null)
@@ -99,7 +111,7 @@ public class SvexCall extends Svex
     }
 
     @Override
-    void toposort(Set<Svex> downTop)
+    void toposort(Set<Svex<V>> downTop)
     {
         if (!downTop.contains(this))
         {

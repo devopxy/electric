@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -32,13 +33,13 @@ import java.util.Map;
  * Bitwise equality of 4vecs.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-_D3_D3>.
  */
-public class Vec4Equality extends SvexCall
+public class Vec4Equality<V extends Svar> extends SvexCall<V>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex x;
-    public final Svex y;
+    public final Svex<V> x;
+    public final Svex<V> y;
 
-    public Vec4Equality(Svex x, Svex y)
+    public Vec4Equality(Svex<V> x, Svex<V> y)
     {
         super(FUNCTION, x, y);
         this.x = x;
@@ -53,9 +54,9 @@ public class Vec4Equality extends SvexCall
         }
 
         @Override
-        public Vec4Equality build(Svex... args)
+        public <V extends Svar> Vec4Equality<V> build(Svex<V>... args)
         {
-            return new Vec4Equality(args[0], args[1]);
+            return new Vec4Equality<>(args[0], args[1]);
         }
 
         @Override
@@ -67,7 +68,7 @@ public class Vec4Equality extends SvexCall
         }
 
         @Override
-        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
         {
             return new BigInteger[]
             {

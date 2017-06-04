@@ -26,6 +26,7 @@ import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -37,11 +38,11 @@ import java.util.Set;
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVEX>.
  * It maybe either a constant, a variable, or a function applied to subexpressions.
  */
-public abstract class Svex
+public abstract class Svex<V extends Svar>
 {
-    public static Svex valueOf(Svar.Builder sb, ACL2Object rep, Map<ACL2Object, Svex> cache)
+    public static <V extends Svar> Svex<V> valueOf(Svar.Builder<V> sb, ACL2Object rep, Map<ACL2Object, Svex<V>> cache)
     {
-        Svex svex = cache != null ? cache.get(rep) : null;
+        Svex<V> svex = cache != null ? cache.get(rep) : null;
         if (svex != null)
         {
             return svex;
@@ -52,12 +53,12 @@ public abstract class Svex
             ACL2Object args = cdr(rep);
             if (Svar.KEYWORD_VAR.equals(fn))
             {
-                svex = new SvexVar(sb.fromACL2(rep));
+                svex = new SvexVar<>(sb.fromACL2(rep));
             } else if (fn.equals(QUOTE))
             {
                 if (NIL.equals(cdr(args)) && consp(car(args)).bool())
                 {
-                    svex = new SvexQuote(Vec4.valueOf(car(args)));
+                    svex = new SvexQuote<>(Vec4.valueOf(car(args)));
                 }
             } else
             {
@@ -83,10 +84,10 @@ public abstract class Svex
             }
         } else if (stringp(rep).bool() || symbolp(rep).bool())
         {
-            svex = new SvexVar(sb.fromACL2(rep));
+            svex = new SvexVar<>(sb.fromACL2(rep));
         } else if (integerp(rep).bool())
         {
-            svex = new SvexQuote(new Vec2(rep));
+            svex = new SvexQuote<>(new Vec2(rep));
         }
         if (svex != null)
         {
@@ -106,11 +107,11 @@ public abstract class Svex
     {
         StringBuilder sb = new StringBuilder();
         sb.append("svex(");
-        Map<Svar, BigInteger> varsWithMasks = collectVarsWithMasks(BigIntegerUtil.MINUS_ONE, Svar.class);
+        Map<V, BigInteger> varsWithMasks = collectVarsWithMasks(BigIntegerUtil.MINUS_ONE);
         boolean first = true;
-        for (Map.Entry<Svar, BigInteger> e : varsWithMasks.entrySet())
+        for (Map.Entry<V, BigInteger> e : varsWithMasks.entrySet())
         {
-            Svar svar = e.getKey();
+            V svar = e.getKey();
             BigInteger mask = e.getValue();
             if (first)
                 first = false;
@@ -122,20 +123,15 @@ public abstract class Svex
         return sb.toString();
     }
 
-    public <T extends Svar> Set<T> collectVars(Class<T> cls, Map<Svar, Vec2> env)
+    public Set<V> collectVars()
     {
-        return CollectVarsVisitor.collectVars(this, cls, env);
+        Set<V> result = new LinkedHashSet<>();
+        Set<SvexCall<V>> visited = new HashSet<>();
+        collectVars(result, visited);
+        return result;
     }
 
-    public <T extends Svar> Set<T> collectVars(Class<T> cls)
-    {
-        return CollectVarsVisitor.collectVars(this, cls, null);
-    }
-
-    public Set<Svar> collectVars()
-    {
-        return CollectVarsVisitor.collectVars(this);
-    }
+    protected abstract void collectVars(Set<V> result, Set<SvexCall<V>> vusited);
 
     public abstract <R, D> R accept(Visitor<R, D> visitor, D data);
 
@@ -148,9 +144,9 @@ public abstract class Svex
         R visitCall(SvexFunction fun, Svex[] args, P p);
     }
 
-    public abstract Vec4 xeval(Map<Svex, Vec4> memoize);
+    public abstract Vec4 xeval(Map<Svex<V>, Vec4> memoize);
 
-    public static Vec4[] listXeval(Svex[] list, Map<Svex, Vec4> memoize)
+    public static <V extends Svar> Vec4[] listXeval(Svex<V>[] list, Map<Svex<V>, Vec4> memoize)
     {
         Vec4[] result = new Vec4[list.length];
         for (int i = 0; i < result.length; i++)
@@ -160,14 +156,14 @@ public abstract class Svex
         return result;
     }
 
-    void toposort(Set<Svex> downTop)
+    void toposort(Set<Svex<V>> downTop)
     {
         downTop.add(this);
     }
 
-    public Svex[] toposort()
+    public Svex<V>[] toposort()
     {
-        Set<Svex> downTop = new LinkedHashSet<>();
+        Set<Svex<V>> downTop = new LinkedHashSet<>();
         toposort(downTop);
         Svex[] topDown = new Svex[downTop.size()];
         int i = topDown.length;
@@ -179,10 +175,10 @@ public abstract class Svex
         return topDown;
     }
 
-    public static Svex[] listToposort(Collection<Svex> list)
+    public static <V extends Svar> Svex<V>[] listToposort(Collection<Svex<V>> list)
     {
-        Set<Svex> downTop = new LinkedHashSet<>();
-        for (Svex svex : list)
+        Set<Svex<V>> downTop = new LinkedHashSet<>();
+        for (Svex<V> svex : list)
         {
             if (svex == null)
             {
@@ -190,7 +186,7 @@ public abstract class Svex
             }
             svex.toposort(downTop);
         }
-        Svex[] topDown = new Svex[downTop.size()];
+        Svex<V>[] topDown = new Svex[downTop.size()];
         int i = topDown.length;
         for (Svex svex : downTop)
         {
@@ -200,7 +196,7 @@ public abstract class Svex
         return topDown;
     }
 
-    private static void svexArgsApplyMasks(Svex[] args, BigInteger[] masks, Map<Svex, BigInteger> maskMap)
+    private static <V extends Svar> void svexArgsApplyMasks(Svex<V>[] args, BigInteger[] masks, Map<Svex<V>, BigInteger> maskMap)
     {
         if (args.length != masks.length)
         {
@@ -216,13 +212,13 @@ public abstract class Svex
         }
     }
 
-    private static void listComputeMasks(Svex[] x, Map<Svex, BigInteger> maskMap)
+    private static <V extends Svar> void listComputeMasks(Svex<V>[] x, Map<Svex<V>, BigInteger> maskMap)
     {
-        for (Svex svex : x)
+        for (Svex<V> svex : x)
         {
             if (svex instanceof SvexCall)
             {
-                SvexCall sc = (SvexCall)svex;
+                SvexCall<V> sc = (SvexCall<V>)svex;
                 BigInteger mask = maskMap.get(sc);
                 if (mask != null && mask.signum() != 0)
                 {
@@ -233,21 +229,21 @@ public abstract class Svex
         }
     }
 
-    public Map<Svex, BigInteger> maskAlist(BigInteger mask)
+    public Map<Svex<V>, BigInteger> maskAlist(BigInteger mask)
     {
-        Svex[] toposort = toposort();
-        Map<Svex, BigInteger> maskMap = new HashMap<>();
+        Svex<V>[] toposort = toposort();
+        Map<Svex<V>, BigInteger> maskMap = new HashMap<>();
         maskMap.put(this, mask);
         listComputeMasks(toposort, maskMap);
         return maskMap;
     }
 
-    public <T extends Svar> Map<T, BigInteger> collectVarsWithMasks(BigInteger mask, Class<T> cls)
+    public Map<V, BigInteger> collectVarsWithMasks(BigInteger mask)
     {
-        Set<T> vars = collectVars(cls);
-        Map<Svex, BigInteger> maskAl = maskAlist(mask);
-        Map<T, BigInteger> result = new LinkedHashMap<>();
-        for (T var : vars)
+        Set<V> vars = collectVars();
+        Map<Svex<V>, BigInteger> maskAl = maskAlist(mask);
+        Map<V, BigInteger> result = new LinkedHashMap<>();
+        for (V var : vars)
         {
             SvexVar svv = new SvexVar(var);
             BigInteger varMask = maskAl.get(svv);
@@ -256,11 +252,11 @@ public abstract class Svex
         return result;
     }
 
-    public static Map<Svex, BigInteger> listMaskAlist(Collection<Svex> list)
+    public static <V extends Svar> Map<Svex<V>, BigInteger> listMaskAlist(Collection<Svex<V>> list)
     {
-        Svex[] toposort = listToposort(list);
-        Map<Svex, BigInteger> maskMap = new HashMap<>();
-        for (Svex svex : list)
+        Svex<V>[] toposort = listToposort(list);
+        Map<Svex<V>, BigInteger> maskMap = new HashMap<>();
+        for (Svex<V> svex : list)
         {
             maskMap.put(svex, BigIntegerUtil.MINUS_ONE);
         }

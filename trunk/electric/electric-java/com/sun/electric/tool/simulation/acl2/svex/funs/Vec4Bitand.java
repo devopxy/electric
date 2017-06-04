@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -33,13 +34,13 @@ import java.util.Map;
  * Bitwise logical AND of 4vecs.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-BITAND>.
  */
-public class Vec4Bitand extends SvexCall
+public class Vec4Bitand<V extends Svar> extends SvexCall<V>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex x;
-    public final Svex y;
+    public final Svex<V> x;
+    public final Svex<V> y;
 
-    public Vec4Bitand(Svex x, Svex y)
+    public Vec4Bitand(Svex<V> x, Svex<V> y)
     {
         super(FUNCTION, x, y);
         this.x = x;
@@ -54,9 +55,9 @@ public class Vec4Bitand extends SvexCall
         }
 
         @Override
-        public Vec4Bitand build(Svex... args)
+        public <V extends Svar> Vec4Bitand<V> build(Svex<V>... args)
         {
-            return new Vec4Bitand(args[0], args[1]);
+            return new Vec4Bitand<>(args[0], args[1]);
         }
 
         @Override
@@ -80,10 +81,10 @@ public class Vec4Bitand extends SvexCall
         }
 
         @Override
-        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
         {
-            Svex x = args[0];
-            Svex y = args[1];
+            Svex<V> x = args[0];
+            Svex<V> y = args[1];
             Vec4 xv = x.xeval(xevalMemoize);
             Vec4 yv = y.xeval(xevalMemoize);
             BigInteger xZero = xv.getUpper().or(xv.getLower()).not();

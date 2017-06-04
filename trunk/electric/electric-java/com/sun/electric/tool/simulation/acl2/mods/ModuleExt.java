@@ -57,7 +57,7 @@ public class ModuleExt implements Svar.Builder<SVarExt>
 
     final Map<Name, WireExt> wiresIndex = new HashMap<>();
     final Map<Name, ModInstExt> instsIndex = new HashMap<>();
-    final Map<ACL2Object, Svex> svexCache = new HashMap<>();
+    final Map<ACL2Object, Svex<SVarExt>> svexCache = new HashMap<>();
     int useCount;
 
     Set<WireExt> combinationalInputs0;
@@ -406,10 +406,11 @@ public class ModuleExt implements Svar.Builder<SVarExt>
                 {
                     if (pi.driver instanceof DriverExt)
                     {
-                        instDeps.add(((DriverExt)pi.driver).name);
+                        instDeps.add(pi.getDriverExt().name);
                     } else
                     {
-                        for (Lhrange lr : ((Lhs<SVarExt>)pi.driver).ranges)
+                        Lhs<SVarExt> lhs = pi.getDriverLhs();
+                        for (Lhrange<SVarExt> lr : lhs.ranges)
                         {
                             SVarExt.LocalWire lw = (SVarExt.LocalWire)lr.getVar();
                             addWireDeps(lw, BigIntegerUtil.MINUS_ONE, instDeps);
@@ -425,9 +426,9 @@ public class ModuleExt implements Svar.Builder<SVarExt>
             DriverExt d = e1.getValue();
             assert !l.ranges.isEmpty();
             Set<Object> driverDeps = new LinkedHashSet<>();
-            for (Map.Entry<SVarExt.LocalWire, BigInteger> e2 : d.getCrudeDeps(clockHigh).entrySet())
+            for (Map.Entry<SVarExt, BigInteger> e2 : d.getCrudeDeps(clockHigh).entrySet())
             {
-                SVarExt.LocalWire lw = e2.getKey();
+                SVarExt.LocalWire lw = (SVarExt.LocalWire)e2.getKey();
                 BigInteger mask = e2.getValue();
                 if (mask == null)
                 {
@@ -514,11 +515,12 @@ public class ModuleExt implements Svar.Builder<SVarExt>
                                 }
                                 if (piIn.driver instanceof DriverExt)
                                 {
-                                    addDriverFineDeps((DriverExt)piIn.driver, clockHigh, mask, dep);
+                                    addDriverFineDeps(piIn.getDriverExt(), clockHigh, mask, dep);
                                 } else
                                 {
+                                    Lhs<SVarExt> lhs = piIn.getDriverLhs();
                                     int lsh = 0;
-                                    for (Lhrange lhrIn : ((Lhs<SVarExt>)piIn.driver).ranges)
+                                    for (Lhrange<SVarExt> lhrIn : lhs.ranges)
                                     {
                                         SVarExt.LocalWire lwIn = (SVarExt.LocalWire)lhrIn.getVar();
                                         for (int j = 0; j < lhrIn.getWidth(); j++)
@@ -558,10 +560,10 @@ public class ModuleExt implements Svar.Builder<SVarExt>
 
     void addDriverFineDeps(DriverExt dr, boolean clockHigh, int bit, Set<Object> dep)
     {
-        Map<SVarExt.LocalWire, BigInteger> masks = dr.getFineDeps(clockHigh).get(bit);
-        for (Map.Entry<SVarExt.LocalWire, BigInteger> e1 : masks.entrySet())
+        Map<SVarExt, BigInteger> masks = dr.getFineDeps(clockHigh).get(bit);
+        for (Map.Entry<SVarExt, BigInteger> e1 : masks.entrySet())
         {
-            SVarExt.LocalWire lw = e1.getKey();
+            SVarExt.LocalWire lw = (SVarExt.LocalWire)e1.getKey();
             BigInteger maskIn = e1.getValue();
             if (maskIn != null && lw.delay == 0)
             {

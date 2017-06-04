@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -34,14 +35,14 @@ import java.util.Map;
  * Similar to a streaming concatenation operation in SystemVerilog.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-REV-BLOCKS>.
  */
-public class Vec4RevBlocks extends SvexCall
+public class Vec4RevBlocks<V extends Svar> extends SvexCall<V>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex width;
-    public final Svex bsz;
-    public final Svex x;
+    public final Svex<V> width;
+    public final Svex<V> bsz;
+    public final Svex<V> x;
 
-    public Vec4RevBlocks(Svex width, Svex bsz, Svex x)
+    public Vec4RevBlocks(Svex<V> width, Svex<V> bsz, Svex<V> x)
     {
         super(FUNCTION, width, bsz, x);
         this.width = width;
@@ -57,9 +58,9 @@ public class Vec4RevBlocks extends SvexCall
         }
 
         @Override
-        public Vec4RevBlocks build(Svex... args)
+        public <V extends Svar> Vec4RevBlocks<V> build(Svex<V>... args)
         {
-            return new Vec4RevBlocks(args[0], args[1], args[2]);
+            return new Vec4RevBlocks<>(args[0], args[1], args[2]);
         }
 
         @Override
@@ -101,7 +102,7 @@ public class Vec4RevBlocks extends SvexCall
         }
 
         @Override
-        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
         {
             if (mask.signum() == 0)
             {
@@ -110,8 +111,8 @@ public class Vec4RevBlocks extends SvexCall
                     BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO
                 };
             }
-            Svex n = args[0];
-            Svex b = args[1];
+            Svex<V> n = args[0];
+            Svex<V> b = args[1];
             Vec4 nVal = n.xeval(xevalMemoize);
             Vec4 bVal = b.xeval(xevalMemoize);
             if (nVal.isVec2() && bVal.isVec2())

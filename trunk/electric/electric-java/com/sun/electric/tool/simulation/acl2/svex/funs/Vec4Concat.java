@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -34,14 +35,14 @@ import java.util.Map;
  * Like logapp for 4vecs; the width is also a 4vec.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-CONCAT>.
  */
-public class Vec4Concat extends SvexCall
+public class Vec4Concat<V extends Svar> extends SvexCall<V>
 {
     public static final Function FUNCTION = new Function();
-    public Svex width;
-    public Svex low;
-    public Svex high;
+    public Svex<V> width;
+    public Svex<V> low;
+    public Svex<V> high;
 
-    public Vec4Concat(Svex width, Svex low, Svex high)
+    public Vec4Concat(Svex<V> width, Svex<V> low, Svex<V> high)
     {
         super(FUNCTION, width, low, high);
         this.width = width;
@@ -57,9 +58,9 @@ public class Vec4Concat extends SvexCall
         }
 
         @Override
-        public Vec4Concat build(Svex... args)
+        public <V extends Svar> Vec4Concat<V> build(Svex<V>... args)
         {
-            return new Vec4Concat(args[0], args[1], args[2]);
+            return new Vec4Concat<>(args[0], args[1], args[2]);
         }
 
         @Override
@@ -108,7 +109,7 @@ public class Vec4Concat extends SvexCall
         }
 
         @Override
-        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
         {
             if (mask.signum() == 0)
             {
@@ -117,7 +118,7 @@ public class Vec4Concat extends SvexCall
                     BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO
                 };
             }
-            Svex width = args[0];
+            Svex<V> width = args[0];
             Vec4 widthVal = width.xeval(xevalMemoize);
             if (!widthVal.isVec2())
             {

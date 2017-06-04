@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -34,15 +35,15 @@ import java.util.Map;
  * Part select operation: select width bits of in starting at lsb.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-PART-SELECT>.
  */
-public class Vec4PartInstall extends SvexCall
+public class Vec4PartInstall<V extends Svar> extends SvexCall<V>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex lsb;
-    public final Svex width;
-    public final Svex in;
-    public final Svex val;
+    public final Svex<V> lsb;
+    public final Svex<V> width;
+    public final Svex<V> in;
+    public final Svex<V> val;
 
-    public Vec4PartInstall(Svex lsb, Svex width, Svex in, Svex val)
+    public Vec4PartInstall(Svex<V> lsb, Svex<V> width, Svex<V> in, Svex<V> val)
     {
         super(FUNCTION, lsb, width, in, val);
         this.lsb = lsb;
@@ -59,9 +60,9 @@ public class Vec4PartInstall extends SvexCall
         }
 
         @Override
-        public Vec4PartInstall build(Svex... args)
+        public <V extends Svar> Vec4PartInstall<V> build(Svex<V>... args)
         {
-            return new Vec4PartInstall(args[0], args[1], args[2], args[3]);
+            return new Vec4PartInstall<>(args[0], args[1], args[2], args[3]);
         }
 
         @Override
@@ -89,7 +90,7 @@ public class Vec4PartInstall extends SvexCall
         }
 
         @Override
-        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
         {
             if (mask.signum() == 0)
             {
@@ -98,8 +99,8 @@ public class Vec4PartInstall extends SvexCall
                     BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO
                 };
             }
-            Svex lsb = args[0];
-            Svex width = args[1];
+            Svex<V> lsb = args[0];
+            Svex<V> width = args[1];
             Vec4 lsbVal = lsb.xeval(xevalMemoize);
             Vec4 widthVal = width.xeval(xevalMemoize);
             if (!widthVal.isVec2())

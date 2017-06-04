@@ -99,6 +99,20 @@ public abstract class SVarExt extends Svar
             this.driver = driver;
         }
 
+        @SuppressWarnings("Unchecked")
+        DriverExt getDriverExt()
+        {
+            assert driver instanceof DriverExt;
+            return (DriverExt)driver;
+        }
+
+        @SuppressWarnings("Unchecked")
+        Lhs<SVarExt> getDriverLhs()
+        {
+            assert driver instanceof Lhs;
+            return (Lhs<SVarExt>)driver;
+        }
+
         @Override
         public int getDelay()
         {

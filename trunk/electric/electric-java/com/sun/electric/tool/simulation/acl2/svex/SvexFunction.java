@@ -120,7 +120,7 @@ public abstract class SvexFunction
         this.arity = arity;
     }
 
-    public abstract SvexCall build(Svex... args);
+    public abstract <V extends Svar> SvexCall<V> build(Svex<V>... args);
 
     public abstract Vec4 apply(Vec4... args);
 
@@ -176,7 +176,7 @@ public abstract class SvexFunction
         return result;
     }
 
-    protected abstract BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize);
+    protected abstract <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize);
 
     protected BigInteger v4maskAllOrNone(BigInteger outerMask)
     {
@@ -194,7 +194,7 @@ public abstract class SvexFunction
         return BigInteger.ONE.shiftLeft(maskUpperBounds).subtract(BigInteger.ONE);
     }
 
-    protected boolean branchesSameUnderMask(BigInteger mask, Svex th, Svex el, Map<Svex, Vec4> xevalMemoize)
+    protected <V extends Svar> boolean branchesSameUnderMask(BigInteger mask, Svex<V> th, Svex<V> el, Map<Svex<V>, Vec4> xevalMemoize)
     {
         Vec4 thVal = th.xeval(xevalMemoize);
         Vec4 elVal = el.xeval(xevalMemoize);
@@ -218,10 +218,10 @@ public abstract class SvexFunction
         }
 
         @Override
-        public SvexCall build(Svex... args)
+        public <V extends Svar> SvexCall<V> build(Svex<V>... args)
         {
             assert args.length == arity;
-            return new SvexCall(this, args);
+            return new SvexCall<>(this, args);
         }
 
         @Override
@@ -231,7 +231,7 @@ public abstract class SvexFunction
         }
 
         @Override
-        protected BigInteger[] svmaskFor(BigInteger mask, Svex[] args, Map<Svex, Vec4> xevalMemoize)
+        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
         {
             assert args.length == arity;
             BigInteger[] result = new BigInteger[args.length];
