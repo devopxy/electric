@@ -53,7 +53,7 @@ public class Vec4Countones<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4Countones<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4Countones<V> build(Svex<V>[] args)
         {
             return new Vec4Countones<>(args[0]);
         }

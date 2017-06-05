@@ -34,21 +34,23 @@ import java.util.Set;
 public class SvexCall<V extends Svar> extends Svex<V>
 {
     public final SvexFunction fun;
-    protected final Svex[] args;
+    protected final Svex<V>[] args;
     private final int hashCode;
 
+    @SafeVarargs
     static <V extends Svar> SvexCall<V> newCall(ACL2Object fn, Svex<V>... args)
     {
         SvexFunction fun = SvexFunction.valueOf(fn, args.length);
         return fun.build(args);
     }
 
+    @SafeVarargs
     protected SvexCall(SvexFunction fun, Svex<V>... args)
     {
         assert fun.arity == args.length;
         this.fun = fun;
         this.args = args.clone();
-        for (Svex arg : this.args)
+        for (Svex<V> arg : this.args)
         {
             if (arg == null)
             {
@@ -93,7 +95,7 @@ public class SvexCall<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public <R, D> R accept(Visitor<R, D> visitor, D data)
+    public <R, D> R accept(Visitor<V, R, D> visitor, D data)
     {
         return visitor.visitCall(fun, args, data);
     }
@@ -115,7 +117,7 @@ public class SvexCall<V extends Svar> extends Svex<V>
     {
         if (!downTop.contains(this))
         {
-            for (Svex arg : args)
+            for (Svex<V> arg : args)
             {
                 arg.toposort(downTop);
             }
@@ -124,19 +126,19 @@ public class SvexCall<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public Svex patch(Map<Svar, Vec4> subst, Map<SvexCall, SvexCall> memoize)
+    public Svex<V> patch(Map<V, Vec4> subst, Map<SvexCall<V>, SvexCall<V>> memoize)
     {
-        SvexCall svex = memoize.get(this);
+        SvexCall<V> svex = memoize.get(this);
         if (svex == null)
         {
-            Svex[] newArgs = new Svex[args.length];
+            Svex<V>[] newArgs = Svex.newSvexArray(args.length);
             boolean changed = false;
             for (int i = 0; i < args.length; i++)
             {
                 newArgs[i] = args[i].patch(subst, memoize);
                 changed = changed || newArgs[i] != args[i];
             }
-            svex = changed ? new SvexCall(fun, newArgs) : this;
+            svex = changed ? new SvexCall<>(fun, newArgs) : this;
             memoize.put(this, svex);
         }
         return svex;

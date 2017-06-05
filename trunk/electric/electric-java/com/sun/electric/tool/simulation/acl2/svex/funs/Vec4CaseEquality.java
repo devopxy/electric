@@ -67,7 +67,7 @@ public class Vec4CaseEquality<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4CaseEquality<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4CaseEquality<V> build(Svex<V>[] args)
         {
             return new Vec4CaseEquality<>(args[0], args[1]);
         }

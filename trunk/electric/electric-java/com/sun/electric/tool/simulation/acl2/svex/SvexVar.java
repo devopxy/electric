@@ -55,7 +55,7 @@ public class SvexVar<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public <R, D> R accept(Visitor<R, D> visitor, D data)
+    public <R, D> R accept(Visitor<V, R, D> visitor, D data)
     {
         return visitor.visitVar(svar, data);
     }
@@ -67,7 +67,7 @@ public class SvexVar<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public Svex patch(Map<Svar, Vec4> subst, Map<SvexCall, SvexCall> memoize)
+    public Svex<V> patch(Map<V, Vec4> subst, Map<SvexCall<V>, SvexCall<V>> memoize)
     {
         Vec4 val = subst.get(svar);
         return val != null ? new SvexQuote(val) : this;

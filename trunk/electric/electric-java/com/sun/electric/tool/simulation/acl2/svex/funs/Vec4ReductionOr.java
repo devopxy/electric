@@ -53,7 +53,7 @@ public class Vec4ReductionOr<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4ReductionOr<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4ReductionOr<V> build(Svex<V>[] args)
         {
             return new Vec4ReductionOr<>(args[0]);
         }

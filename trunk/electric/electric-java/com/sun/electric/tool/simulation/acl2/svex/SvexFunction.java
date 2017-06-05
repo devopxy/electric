@@ -120,7 +120,7 @@ public abstract class SvexFunction
         this.arity = arity;
     }
 
-    public abstract <V extends Svar> SvexCall<V> build(Svex<V>... args);
+    public abstract <V extends Svar> SvexCall<V> build(Svex<V>[] args);
 
     public abstract Vec4 apply(Vec4... args);
 
@@ -165,7 +165,7 @@ public abstract class SvexFunction
         return u.equals(BigIntegerUtil.MINUS_ONE) ? Vec4.X : Vec2.ZERO;
     }
 
-    public BigInteger[] argmasks(BigInteger mask, Svex[] args)
+    public <V extends Svar> BigInteger[] argmasks(BigInteger mask, Svex<V>[] args)
     {
         if (args.length != arity)
         {
@@ -218,7 +218,7 @@ public abstract class SvexFunction
         }
 
         @Override
-        public <V extends Svar> SvexCall<V> build(Svex<V>... args)
+        public <V extends Svar> SvexCall<V> build(Svex<V>[] args)
         {
             assert args.length == arity;
             return new SvexCall<>(this, args);

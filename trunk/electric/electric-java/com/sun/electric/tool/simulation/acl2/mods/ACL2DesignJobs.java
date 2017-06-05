@@ -575,7 +575,7 @@ public class ACL2DesignJobs
                 } else
                 {
                     SvexCall<V> sc = (SvexCall<V>)svex;
-                    Svex[] args = sc.getArgs();
+                    Svex<V>[] args = sc.getArgs();
                     String[] labels = new String[args.length];
                     for (int i = 0; i < labels.length; i++)
                     {
@@ -687,7 +687,7 @@ public class ACL2DesignJobs
                             {
                                 SVarExt.LocalWire lw = (SVarExt.LocalWire)var;
                                 out.println();
-                                Svex<SVarExt> svex = new SvexVar(lw);
+                                Svex<SVarExt> svex = new SvexVar<>(lw);
                                 BigInteger mask = masks.get(svex);
                                 if (mask == null)
                                 {

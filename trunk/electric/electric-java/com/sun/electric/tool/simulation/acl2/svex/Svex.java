@@ -67,7 +67,7 @@ public abstract class Svex<V extends Svar>
                 {
                     n++;
                 }
-                Svex[] argsArray = new Svex[n];
+                Svex<V>[] argsArray = newSvexArray(n);
                 for (n = 0; n < argsArray.length; n++)
                 {
                     if (!consp(args).bool())
@@ -79,7 +79,7 @@ public abstract class Svex<V extends Svar>
                 }
                 if (NIL.equals(args))
                 {
-                    svex = SvexCall.newCall(fn, argsArray);
+                    svex = SvexCall.<V>newCall(fn, argsArray);
                 }
             }
         } else if (stringp(rep).bool() || symbolp(rep).bool())
@@ -123,6 +123,12 @@ public abstract class Svex<V extends Svar>
         return sb.toString();
     }
 
+    @SuppressWarnings("unchecked")
+    public static <V extends Svar> Svex<V>[] newSvexArray(int length)
+    {
+        return new Svex[length];
+    }
+    
     public Set<V> collectVars()
     {
         Set<V> result = new LinkedHashSet<>();
@@ -133,15 +139,15 @@ public abstract class Svex<V extends Svar>
 
     protected abstract void collectVars(Set<V> result, Set<SvexCall<V>> vusited);
 
-    public abstract <R, D> R accept(Visitor<R, D> visitor, D data);
+    public abstract <R, D> R accept(Visitor<V, R, D> visitor, D data);
 
-    public static interface Visitor<R, P>
+    public static interface Visitor<V extends Svar, R, P>
     {
         R visitConst(Vec4 val, P p);
 
-        R visitVar(Svar name, P p);
+        R visitVar(V name, P p);
 
-        R visitCall(SvexFunction fun, Svex[] args, P p);
+        R visitCall(SvexFunction fun, Svex<V>[] args, P p);
     }
 
     public abstract Vec4 xeval(Map<Svex<V>, Vec4> memoize);
@@ -165,9 +171,9 @@ public abstract class Svex<V extends Svar>
     {
         Set<Svex<V>> downTop = new LinkedHashSet<>();
         toposort(downTop);
-        Svex[] topDown = new Svex[downTop.size()];
+        Svex<V>[] topDown = newSvexArray(downTop.size());
         int i = topDown.length;
-        for (Svex svex : downTop)
+        for (Svex<V> svex : downTop)
         {
             topDown[--i] = svex;
         }
@@ -186,9 +192,9 @@ public abstract class Svex<V extends Svar>
             }
             svex.toposort(downTop);
         }
-        Svex<V>[] topDown = new Svex[downTop.size()];
+        Svex<V>[] topDown = newSvexArray(downTop.size());
         int i = topDown.length;
-        for (Svex svex : downTop)
+        for (Svex<V> svex : downTop)
         {
             topDown[--i] = svex;
         }
@@ -245,7 +251,7 @@ public abstract class Svex<V extends Svar>
         Map<V, BigInteger> result = new LinkedHashMap<>();
         for (V var : vars)
         {
-            SvexVar svv = new SvexVar(var);
+            SvexVar<V> svv = new SvexVar<>(var);
             BigInteger varMask = maskAl.get(svv);
             result.put(var, varMask);
         }
@@ -264,5 +270,5 @@ public abstract class Svex<V extends Svar>
         return maskMap;
     }
 
-    public abstract Svex patch(Map<Svar, Vec4> subst, Map<SvexCall, SvexCall> memoize);
+    public abstract Svex<V> patch(Map<V, Vec4> subst, Map<SvexCall<V>, SvexCall<V>> memoize);
 }

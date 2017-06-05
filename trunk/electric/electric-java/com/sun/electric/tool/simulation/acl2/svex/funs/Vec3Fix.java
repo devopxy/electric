@@ -52,7 +52,7 @@ public class Vec3Fix<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec3Fix<V> build(Svex<V>... args)
+        public <V extends Svar> Vec3Fix<V> build(Svex<V>[] args)
         {
             return new Vec3Fix<>(args[0]);
         }

@@ -54,7 +54,7 @@ public class Vec4ReductionAnd<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4ReductionAnd<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4ReductionAnd<V> build(Svex<V>[] args)
         {
             return new Vec4ReductionAnd<>(args[0]);
         }

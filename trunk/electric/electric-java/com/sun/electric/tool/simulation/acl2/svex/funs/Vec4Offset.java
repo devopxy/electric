@@ -52,7 +52,7 @@ public class Vec4Offset<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4Offset<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4Offset<V> build(Svex<V>[] args)
         {
             return new Vec4Offset<>(args[0]);
         }

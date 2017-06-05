@@ -96,9 +96,9 @@ public class DriverExt
         return clockHigh ? fineDeps1 : fineDeps0;
     }
 
-    void computeDeps(int width, boolean clkVal, Map<Svar, Vec4> env, Map<SvexCall, SvexCall> patchMemoize)
+    void computeDeps(int width, boolean clkVal, Map<SVarExt, Vec4> env, Map<SvexCall<SVarExt>, SvexCall<SVarExt>> patchMemoize)
     {
-        Svex patched = svex.patch(env, patchMemoize);
+        Svex<SVarExt> patched = svex.patch(env, patchMemoize);
         BigInteger mask = BigIntegerUtil.MINUS_ONE;
         Map<SVarExt, BigInteger> varsWithMasks = patched.collectVarsWithMasks(mask);
         if (clkVal)

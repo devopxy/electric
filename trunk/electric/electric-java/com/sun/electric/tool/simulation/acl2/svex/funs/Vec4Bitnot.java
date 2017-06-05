@@ -53,7 +53,7 @@ public class Vec4Bitnot<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4Bitnot<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4Bitnot<V> build(Svex<V>[] args)
         {
             return new Vec4Bitnot<>(args[0]);
         }

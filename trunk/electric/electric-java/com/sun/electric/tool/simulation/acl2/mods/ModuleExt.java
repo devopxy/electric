@@ -361,8 +361,8 @@ public class ModuleExt implements Svar.Builder<SVarExt>
 
     private void computeDriverDeps(String global, boolean clkOne)
     {
-        Map<Svar, Vec4> patchEnv = makePatchEnv(global, clkOne ? Vec2.ONE : Vec2.ZERO);
-        Map<SvexCall, SvexCall> patchMemoize = new HashMap<>();
+        Map<SVarExt, Vec4> patchEnv = makePatchEnv(global, clkOne ? Vec2.ONE : Vec2.ZERO);
+        Map<SvexCall<SVarExt>, SvexCall<SVarExt>> patchMemoize = new HashMap<>();
         for (Map.Entry<Lhs<SVarExt>, DriverExt> e1 : assigns.entrySet())
         {
             Lhs l = e1.getKey();
@@ -371,9 +371,9 @@ public class ModuleExt implements Svar.Builder<SVarExt>
         }
     }
 
-    private Map<Svar, Vec4> makePatchEnv(String global, Vec4 globalVal)
+    private Map<SVarExt, Vec4> makePatchEnv(String global, Vec4 globalVal)
     {
-        Map<Svar, Vec4> env = new HashMap<>();
+        Map<SVarExt, Vec4> env = new HashMap<>();
         for (WireExt w : wires)
         {
             if (w.isGlobal() && w.global.equals(global))
