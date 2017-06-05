@@ -65,7 +65,7 @@ public class SteinerTree
 	/**
 	 * Class that defines a branch of the Steiner Tree, with two SteinerTreePort objects.
 	 */
-	public static class SteinerTreePortPair implements Comparable
+	public static class SteinerTreePortPair implements Comparable<SteinerTreePortPair>
 	{
 		private SteinerTreePort p1, p2;
 		private List<PortInst> spineTapPorts;
@@ -99,9 +99,9 @@ public class SteinerTree
 			spineTapPorts.add(pi);
 		}
 
-		public int compareTo(Object o)
+        @Override
+		public int compareTo(SteinerTreePortPair other)
 		{
-			SteinerTreePortPair other = (SteinerTreePortPair)o;
 			double dist1 = other.p1.getCenter().distance(other.p2.getCenter());
 			double dist2 = p1.getCenter().distance(p2.getCenter());
 			if (dist1 < dist2) return 1;
@@ -111,15 +111,15 @@ public class SteinerTree
 	}
 
     /**
-	 * Constructor takes a list of 
+	 * Constructor takes a list of
 	 * @param portList a List of SteinerTreePort objects that are to be organized into a Steiner Tree.
 	 * @param disableAdvancedCode true to ignore private, advanced code for this.
 	 */
 	public SteinerTree(List<SteinerTreePort> portList, boolean disableAdvancedCode)
 	{
 		// the final list of edges in the Steiner tree
-		pairs = new ArrayList<SteinerTreePortPair>();
-		List<SteinerTreePortPair> newPairs = new ArrayList<SteinerTreePortPair>();
+		pairs = new ArrayList<>();
+		List<SteinerTreePortPair> newPairs = new ArrayList<>();
 		if (portList.size() < 2) return;
 
 		// gather statistics
@@ -131,7 +131,7 @@ public class SteinerTree
 		{
 			// run special MST code
 			Point2D[] points = new Point2D[portList.size()];
-			
+
 			for(int i=0; i<portList.size(); i++)
 			{
 				SteinerTreePort stpThis = portList.get(i);
@@ -170,11 +170,11 @@ public class SteinerTree
     	timerOld.start();
 
 		// a list of points that are already in the tree (initially contains the first point, a random choice)
-		List<SteinerTreePort> seen = new ArrayList<SteinerTreePort>();
+		List<SteinerTreePort> seen = new ArrayList<>();
 		seen.add(portList.get(0));
 
 		// initial list of points to be added to the tree (excluding the first point)
-		List<SteinerTreePort> remaining = new ArrayList<SteinerTreePort>();
+		List<SteinerTreePort> remaining = new ArrayList<>();
 		for(int i=1; i<portList.size(); i++) remaining.add(portList.get(i));
 
 		// iteratively find the closest unassigned point to the tree
@@ -194,7 +194,7 @@ public class SteinerTree
 						bestRem = piRem;
 						bestSeen = piSeen;
 					}
-				}					
+				}
 			}
 			if (bestRem != null)
 			{
@@ -210,8 +210,8 @@ public class SteinerTree
 		if (COMPAREMETHODS)
 		{
 			timerOld.end();
-			System.out.println("Steiner Tree computation on " + portList.size() 
-					+ " points: old code took: " + timerOld + ", new code took: " 
+			System.out.println("Steiner Tree computation on " + portList.size()
+					+ " points: old code took: " + timerOld + ", new code took: "
 					+ timerNew + " on newpoints " + newPairs.size());
 
 			// compare with new code
