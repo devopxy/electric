@@ -69,7 +69,7 @@ public class PaletteFrame implements MouseListener
 {
 	/** the palette window panel. */					private JPanel topPanel;
 	/** the technology palette */						private TechPalette techPalette;
-	/** the popup that selects technologies. */			private JComboBox techSelector;
+	/** the popup that selects technologies. */			private JComboBox<String> techSelector;
 
 	// constructor
 	private PaletteFrame() {}
@@ -123,7 +123,7 @@ public class PaletteFrame implements MouseListener
         content.setLayout(new GridBagLayout());
         GridBagConstraints gridBagConstraints;
 
-        techSelector = new JComboBox();
+        techSelector = new JComboBox<>();
         gridBagConstraints = new GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 0;

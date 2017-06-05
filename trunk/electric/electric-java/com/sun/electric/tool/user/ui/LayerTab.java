@@ -53,7 +53,6 @@ import java.awt.dnd.DropTargetDropEvent;
 import java.awt.dnd.DropTargetEvent;
 import java.awt.dnd.DropTargetListener;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
@@ -69,21 +68,20 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.ListSelectionModel;
 import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 
 /**
  * Class to handle the "Layers tab" of a window.
  */
 public class LayerTab extends JPanel implements DragSourceListener, DragGestureListener
 {
-	private JList layerList, configurationList;
-	private DefaultListModel layerListModel, configurationModel;
+	private final JList<String> layerList, configurationList;
+	private final DefaultListModel<String> layerListModel, configurationModel;
 	private List<Layer> layersInList;
-	private DragSource dragSource;
+	private final DragSource dragSource;
 	private boolean loading;
 	private boolean layerDrawing;
     private LayerVisibility lv;
-	private InvisibleLayerConfiguration invLayerConfigs = InvisibleLayerConfiguration.getOnly();
+	private final InvisibleLayerConfiguration invLayerConfigs = InvisibleLayerConfiguration.getOnly();
 
 	private static final ImageIcon iconVisNew = Resources.getResource(LayerTab.class, "IconVisNew.gif");
 	private static final ImageIcon iconVisSet = Resources.getResource(LayerTab.class, "IconVisSet.gif");
@@ -92,6 +90,7 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 
 	/**
 	 * Constructor creates a new panel for the Layers tab.
+     * @param wf WindowFrame that owns this LayerTab
 	 */
 	public LayerTab(WindowFrame wf)
 	{
@@ -121,21 +120,23 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 		deleteConfiguration.setPreferredSize(minWid);
 
 		// build the change list
-		layerListModel = new DefaultListModel();
-		layerList = new JList(layerListModel);
+		layerListModel = new DefaultListModel<>();
+		layerList = new JList<>(layerListModel);
 		layerList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 		layerPane.setViewportView(layerList);
 		layerList.addMouseListener(new MouseAdapter()
 		{
+            @Override
 			public void mouseClicked(MouseEvent e) { apply(e); }
 		});
 
 		// build the configuration list
-		configurationModel = new DefaultListModel();
-		configurationList = new JList(configurationModel);
+		configurationModel = new DefaultListModel<>();
+		configurationList = new JList<>(configurationModel);
 		configurationPane.setViewportView(configurationList);
 		configurationList.addMouseListener(new MouseAdapter()
 		{
+            @Override
 			public void mouseClicked(MouseEvent e) { useConfiguration(e); }
 		});
 		showConfigurations();
@@ -145,34 +146,34 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 		dragSource.createDefaultDragGestureRecognizer(layerList, DnDConstants.ACTION_COPY, this);
 		new DropTarget(layerList, DnDConstants.ACTION_LINK, new LayerTabTreeDropTarget(), true);
 
-		nodeText.addActionListener(new ActionListener()
-		{
-			public void actionPerformed(ActionEvent evt) { update(); }
-		});
-		arcText.addActionListener(new ActionListener()
-		{
-			public void actionPerformed(ActionEvent evt) { update(); }
-		});
-		portText.addActionListener(new ActionListener()
-		{
-			public void actionPerformed(ActionEvent evt) { update(); }
-		});
-		exportText.addActionListener(new ActionListener()
-		{
-			public void actionPerformed(ActionEvent evt) { update(); }
-		});
-		annotationText.addActionListener(new ActionListener()
-		{
-			public void actionPerformed(ActionEvent evt) { update(); }
-		});
-		cellText.addActionListener(new ActionListener()
-		{
-			public void actionPerformed(ActionEvent evt) { update(); }
-		});
-		opacitySlider.addChangeListener(new ChangeListener()
-		{
-			public void stateChanged(ChangeEvent evt) { sliderChanged(); }
-		});
+		nodeText.addActionListener((ActionEvent evt) ->
+        {
+            update();
+        });
+		arcText.addActionListener((ActionEvent evt) ->
+        {
+            update();
+        });
+		portText.addActionListener((ActionEvent evt) ->
+        {
+            update();
+        });
+		exportText.addActionListener((ActionEvent evt) ->
+        {
+            update();
+        });
+		annotationText.addActionListener((ActionEvent evt) ->
+        {
+            update();
+        });
+		cellText.addActionListener((ActionEvent evt) ->
+        {
+            update();
+        });
+		opacitySlider.addChangeListener((ChangeEvent evt) ->
+        {
+            sliderChanged();
+        });
 
 		technology.setLightWeightPopupEnabled(false);
 
@@ -194,6 +195,7 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 	/**
 	 * Method to update the technology popup selector in the Layers tab.
 	 * Called at initialization or when a new technology has been created.
+     * @param makeCurrent make the technology current
 	 */
 	public void loadTechnologies(boolean makeCurrent)
 	{
@@ -270,7 +272,7 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 	{
 		String techName = (String)technology.getSelectedItem();
 		Technology tech = Technology.findTechnology(techName);
-		List<Layer> invis = new ArrayList<Layer>();
+		List<Layer> invis = new ArrayList<>();
         int len = layerListModel.size();
         for (int i=0; i<len; i++)
         {
@@ -335,13 +337,13 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 			return;
 		}
 
-        Map<Layer,Boolean> visibilityChange = new HashMap<Layer,Boolean>();
+        Map<Layer,Boolean> visibilityChange = new HashMap<>();
         int len = layerListModel.size();
         for (int i=0; i<len; i++)
         {
             Layer layer = getSelectedLayer(i);
 			// remember the state of this layer
-            visibilityChange.put(layer, Boolean.valueOf(!curLayers.contains(layer)));
+            visibilityChange.put(layer, !curLayers.contains(layer));
 		}
         lv.setVisible(visibilityChange);
 		updateLayersTab();
@@ -414,7 +416,7 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 		Technology tech = Technology.getCurrent();
 		setSelectedTechnology(tech);
 		layerListModel.clear();
-		layersInList = new ArrayList<Layer>();
+		layersInList = new ArrayList<>();
 		if (tech != null)
 		{
 			// see if a preferred order has been saved
@@ -422,7 +424,7 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 			List<Layer> allLayers = tech.getLayersSortedByRule(Layer.LayerSortingType.ByHeight);
 
 			// put the dummy layers at the end of the list
-			List<Layer> dummyLayers = new ArrayList<Layer>();
+			List<Layer> dummyLayers = new ArrayList<>();
 			for(Layer lay : allLayers)
 			{
 				if (lay.getFunction().isDummy() || lay.getFunction().isDummyExclusion())
@@ -463,14 +465,17 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 
 	private String lineName(Layer layer)
 	{
-		StringBuffer layerName = new StringBuffer();
+		StringBuilder layerName = new StringBuilder();
 		if (lv.isVisible(layer)) layerName.append("\u2713 "); else
 			layerName.append("  ");
 		boolean layerHighlighted = lv.isHighlighted(layer);
 		layerName.append(layer.getName());
 		if (layerHighlighted) layerName.append(" (HIGHLIGHTED)");
 		if (layerDrawing)
-			layerName.append(" (" + TextUtils.formatDouble(lv.getOpacity(layer),2) + ")");
+			layerName
+                .append(" (")
+                .append(TextUtils.formatDouble(lv.getOpacity(layer),2))
+                .append(")");
 		return layerName.toString();
 	}
 
@@ -629,7 +634,7 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
             int line = indices[i];
             Layer layer = getSelectedLayer(line);
             if (layer == null) continue;
-            visibilityChange.put(layer, Boolean.valueOf(visible[i]));
+            visibilityChange.put(layer, visible[i]);
             // remember the state of this layer
         }
         lv.setVisible(visibilityChange);
@@ -653,10 +658,10 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 	public void setVisibilityLevel(Technology tech, int level)
 	{
         int numMetals = tech.getNumMetals();
-        
+
         if (level > numMetals)
         {
-        	System.out.println("Not enough metal layers in technology '" + 
+        	System.out.println("Not enough metal layers in technology '" +
         			tech.getTechName() + "' to set level to " + level);
         	return;
         }
@@ -796,20 +801,26 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 
 	/************************** DRAG AND DROP **************************/
 
+    @Override
 	public void dragGestureRecognized(DragGestureEvent dge)
 	{
 		StringSelection transferable = new StringSelection("" + layerList.getSelectedIndex());
 		dragSource.startDrag(dge, DragSource.DefaultCopyDrop, transferable, this);
 	}
 
+    @Override
 	public void dragEnter(DragSourceDragEvent dsde) {}
 
+    @Override
 	public void dragExit(DragSourceEvent dse) {}
 
+    @Override
 	public void dragOver(DragSourceDragEvent dsde) {}
 
+    @Override
 	public void dragDropEnd(DragSourceDropEvent dsde) {}
 
+    @Override
 	public void dropActionChanged(DragSourceDragEvent dsde) {}
 
 	/**
@@ -820,6 +831,7 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 	{
 		private Rectangle lastDrawn = null;
 
+        @Override
 		public void dragEnter(DropTargetDragEvent e)
 		{
 			DropTarget dt = (DropTarget)e.getSource();
@@ -827,6 +839,7 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 				e.acceptDrag(e.getDropAction());
 		}
 
+        @Override
 		public void dragOver(DropTargetDragEvent e)
 		{
 			DropTarget dt = (DropTarget)e.getSource();
@@ -846,16 +859,19 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 			lastDrawn = path;
 		}
 
+        @Override
 		public void dropActionChanged(DropTargetDragEvent e)
 		{
 			e.acceptDrag(e.getDropAction());
 		}
 
+        @Override
 		public void dragExit(DropTargetEvent e)
 		{
 			eraseDragImage();
 		}
 
+        @Override
 		public void drop(DropTargetDropEvent dtde)
 		{
 			dtde.acceptDrop(DnDConstants.ACTION_LINK);
@@ -907,11 +923,12 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 	 * always regenerated by the Form Editor.
 	 */
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
+    private void initComponents()
+    {
         java.awt.GridBagConstraints gridBagConstraints;
 
         layerPane = new javax.swing.JScrollPane();
-        technology = new javax.swing.JComboBox();
+        technology = new javax.swing.JComboBox<>();
         selectAll = new javax.swing.JButton();
         makeVisible = new javax.swing.JButton();
         makeInvisible = new javax.swing.JButton();
@@ -959,8 +976,10 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
         add(technology, gridBagConstraints);
 
         selectAll.setText("Select All");
-        selectAll.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        selectAll.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
                 selectAllActionPerformed(evt);
             }
         });
@@ -972,8 +991,10 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
         add(selectAll, gridBagConstraints);
 
         makeVisible.setText("Visible");
-        makeVisible.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        makeVisible.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
                 makeVisibleActionPerformed(evt);
             }
         });
@@ -985,8 +1006,10 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
         add(makeVisible, gridBagConstraints);
 
         makeInvisible.setText("Invisible");
-        makeInvisible.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        makeInvisible.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
                 makeInvisibleActionPerformed(evt);
             }
         });
@@ -1001,8 +1024,10 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
         jPanel1.setLayout(new java.awt.GridBagLayout());
 
         unhighlightAll.setText("Clear");
-        unhighlightAll.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        unhighlightAll.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
                 unhighlightAllActionPerformed(evt);
             }
         });
@@ -1013,8 +1038,10 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
         jPanel1.add(unhighlightAll, gridBagConstraints);
 
         toggleHighlight.setText("Toggle");
-        toggleHighlight.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        toggleHighlight.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
                 toggleHighlightActionPerformed(evt);
             }
         });
@@ -1095,8 +1122,10 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
         add(opacitySlider, gridBagConstraints);
 
         resetOpacity.setText("Reset Opacity");
-        resetOpacity.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        resetOpacity.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
                 resetOpacityActionPerformed(evt);
             }
         });
@@ -1112,8 +1141,10 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 
         newConfiguration.setText("N");
         newConfiguration.setToolTipText("Create New Visibility Configuration");
-        newConfiguration.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        newConfiguration.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
                 newConfigurationActionPerformed(evt);
             }
         });
@@ -1126,8 +1157,10 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 
         deleteConfiguration.setText("D");
         deleteConfiguration.setToolTipText("Delete or Reset Selected Visibility Configuration");
-        deleteConfiguration.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        deleteConfiguration.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
                 deleteConfigurationActionPerformed(evt);
             }
         });
@@ -1152,8 +1185,10 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 
         setConfiguration.setText("S");
         setConfiguration.setToolTipText("Save Visibility in Currently Selected Configuration");
-        setConfiguration.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        setConfiguration.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
                 setConfigurationActionPerformed(evt);
             }
         });
@@ -1166,8 +1201,10 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
 
         renameConfiguration.setText("R");
         renameConfiguration.setToolTipText("Rename Selected Visibility Configuration");
-        renameConfiguration.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
+        renameConfiguration.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
                 renameConfigurationActionPerformed(evt);
             }
         });
@@ -1260,7 +1297,7 @@ public class LayerTab extends JPanel implements DragSourceListener, DragGestureL
     private javax.swing.JButton resetOpacity;
     private javax.swing.JButton selectAll;
     private javax.swing.JButton setConfiguration;
-    private javax.swing.JComboBox technology;
+    private javax.swing.JComboBox<String> technology;
     private javax.swing.JButton toggleHighlight;
     private javax.swing.JButton unhighlightAll;
     // End of variables declaration//GEN-END:variables

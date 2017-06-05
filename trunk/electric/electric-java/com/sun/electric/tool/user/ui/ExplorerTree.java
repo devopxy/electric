@@ -265,7 +265,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
      */
     public List<Library> getCurrentlySelectedLibraries()
     {
-        List<Library> libs = new ArrayList<Library>();
+        List<Library> libs = new ArrayList<>();
         for (int i=0; i<numCurrentlySelectedObjects(); i++) {
             Object obj = getCurrentlySelectedObject(i);
             if (obj instanceof Library) libs.add((Library)obj);
@@ -280,7 +280,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
      */
     public List<Cell> getCurrentlySelectedCells()
     {
-        List<Cell> cells = new ArrayList<Cell>();
+        List<Cell> cells = new ArrayList<>();
         for (int i=0; i<numCurrentlySelectedObjects(); i++) {
             Object obj = getCurrentlySelectedObject(i);
 			if (obj instanceof ExplorerTreeModel.CellAndCount)
@@ -449,11 +449,11 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 	 */
 	public static class FindCellDialog extends EModelessDialog
 	{
-		private JList list;
-		private DefaultListModel model;
-		private JButton done, findText, editCell, editAllCells;
-		private JScrollPane objectPane;
-		private JTextField searchText;
+		private final JList<String> list;
+		private final DefaultListModel<String> model;
+		private final JButton done, findText, editCell, editAllCells;
+		private final JScrollPane objectPane;
+		private final JTextField searchText;
 
 		/** Creates new form FindCellDialog */
 		private FindCellDialog(Frame parent)
@@ -464,6 +464,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			setName("");
 			addWindowListener(new WindowAdapter()
 			{
+                @Override
 				public void windowClosing(WindowEvent evt) { closeDialog(); }
 			});
 			getContentPane().setLayout(new GridBagLayout());
@@ -497,8 +498,8 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			getRootPane().setDefaultButton(findText);
 
 			objectPane = new JScrollPane();
-			model = new DefaultListModel();
-			list = new JList(model);
+			model = new DefaultListModel<>();
+			list = new JList<>(model);
 			objectPane.setViewportView(list);
 			objectPane.setMinimumSize(new Dimension(200, 200));
 			objectPane.setPreferredSize(new Dimension(200, 200));
@@ -510,16 +511,17 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			gbc.insets = new Insets(4, 4, 4, 4);
 			getContentPane().add(objectPane, gbc);
 			list.addMouseListener(new MouseAdapter() {
+                @Override
 				public void mouseClicked(MouseEvent evt) {
 					if (evt.getClickCount() == 2) editCell(false);
 				}
 			});
 
 			editCell = new JButton("Edit Selected Cell(s)");
-			editCell.addActionListener(new ActionListener()
-			{
-				public void actionPerformed(ActionEvent evt) { editCell(false); }
-			});
+			editCell.addActionListener((ActionEvent evt) ->
+            {
+                editCell(false);
+            });
 			gbc = new GridBagConstraints();
 			gbc.gridx = 0;   gbc.gridy = 3;
 			gbc.weightx = 0.5;
@@ -528,10 +530,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			editCell.setEnabled(false);
 
 			editAllCells = new JButton("Edit All Cells");
-			editAllCells.addActionListener(new ActionListener()
-			{
-				public void actionPerformed(ActionEvent evt) { editCell(true); }
-			});
+			editAllCells.addActionListener((ActionEvent evt) ->
+            {
+                editCell(true);
+            });
 			gbc = new GridBagConstraints();
 			gbc.gridx = 1;   gbc.gridy = 3;
 			gbc.weightx = 0.5;
@@ -540,10 +542,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			editAllCells.setEnabled(false);
 
 			done = new JButton("Done");
-			done.addActionListener(new ActionListener()
-			{
-				public void actionPerformed(ActionEvent evt) { closeDialog(); }
-			});
+			done.addActionListener((ActionEvent evt) ->
+            {
+                closeDialog();
+            });
 			gbc = new GridBagConstraints();
 			gbc.gridx = 0;   gbc.gridy = 4;
 			gbc.gridwidth = 2;
@@ -562,14 +564,15 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			setVisible(true);
 		}
 
+        @Override
 		protected void escapePressed() { closeDialog(); }
 
 		private void findTextActionPerformed(ActionEvent evt)
 		{
 			String search = searchText.getText();
-			
+
 			search = search.trim(); // trimming to delete extra white space at the beginning or end
-			
+
 			int flags = Pattern.CASE_INSENSITIVE+Pattern.UNICODE_CASE;
 			Pattern p = Pattern.compile(search, flags);
 			model.clear();
@@ -604,9 +607,8 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 				}
 			} else
 			{
-				Object [] cellNames = list.getSelectedValues();
-				for(int i=0; i<cellNames.length; i++)
-					editACell((String)cellNames[i]);
+                for (String cellName: list.getSelectedValuesList())
+					editACell(cellName);
 			}
 		}
 
@@ -646,10 +648,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 	 */
 	public static class KeepTreeExpansion
 	{
-		private List<TreePath> expanded = new ArrayList<TreePath>();
-		private JTree theTree;
-		private TreeModel theTreeModel;
-		private Object theRootNode;
+		private final List<TreePath> expanded = new ArrayList<>();
+		private final JTree theTree;
+		private final TreeModel theTreeModel;
+		private final Object theRootNode;
 
 		public KeepTreeExpansion(JTree tt, Object rn, TreeModel tm, TreePath tp)
 		{
@@ -721,6 +723,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 	    }
 	}
 
+    @Override
 	public String convertValueToText(Object value, boolean selected, boolean expanded, boolean leaf,
 		int row, boolean hasFocus)
 	{
@@ -835,6 +838,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 	 * if the tree node is not already selected.
 	 * This should not be necessary anymore after Java 1.5v6 but somehow is.
 	 */
+    @Override
 	public void setUI(TreeUI ui)
 	{
 		super.setUI(ui);
@@ -874,6 +878,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 		MyTransferHandler(TransferHandler real, ExplorerTree tree) { this.real = real;   this.tree = tree; }
 
+        @Override
 		protected Transferable createTransferable(JComponent c)
 		{
 			if (numCurrentlySelectedObjects() == 0) return null;
@@ -882,7 +887,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			if (getCurrentlySelectedObject(0) instanceof Signal<?>)
 			{
 				// Get the Transferable Object
-				StringBuffer buf = new StringBuffer();
+				StringBuilder buf = new StringBuilder();
 				for(int i=0; i<numCurrentlySelectedObjects(); i++)
 				{
 					Signal<?> sSig = (Signal<?>)getCurrentlySelectedObject(i);
@@ -946,12 +951,19 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			return transferable;
 		}
 
+        @Override
 		public boolean canImport(JComponent comp, DataFlavor[] transferFlavors) { return real.canImport(comp, transferFlavors); }
+        @Override
 		public void exportAsDrag(JComponent comp, InputEvent e, int action)  { real.exportAsDrag(comp, e, action); }
+        @Override
 		protected void exportDone(JComponent source, Transferable data, int action)  {  }
+        @Override
 		public void exportToClipboard(JComponent comp, Clipboard clip, int action)  { real.exportToClipboard(comp, clip, action); }
+        @Override
 		public int getSourceActions(JComponent c)  { return real.getSourceActions(c); }
+        @Override
 		public Icon getVisualRepresentation(Transferable t)  { return real.getVisualRepresentation(t); }
+        @Override
 		public boolean importData(JComponent comp, Transferable t) { return real.importData(comp, t); }
 	}
 
@@ -1036,14 +1048,19 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 //		e.startDrag(null, dragImage, new Point(0, 0), transferable, this);
 //	}
 
+    @Override
 	public void dragEnter(DragSourceDragEvent e) {}
 
+    @Override
 	public void dragOver(DragSourceDragEvent e) {}
 
+    @Override
 	public void dragExit(DragSourceEvent e) {}
 
+    @Override
 	public void dragDropEnd(DragSourceDropEvent e) {}
 
+    @Override
 	public void dropActionChanged (DragSourceDragEvent e) {}
 
 	/**
@@ -1054,11 +1071,13 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 	{
 		private Rectangle lastDrawn = null;
 
+        @Override
 		public void dragEnter(DropTargetDragEvent e)
 		{
 			dragAction(e);
 		}
 
+        @Override
 		public void dragOver(DropTargetDragEvent e)
 		{
 			DropTarget dt = (DropTarget)e.getSource();
@@ -1107,16 +1126,19 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			dragAction(e);
 		}
 
+        @Override
 		public void dropActionChanged(DropTargetDragEvent e)
 		{
 			e.acceptDrag(e.getDropAction());
 		}
 
+        @Override
 		public void dragExit(DropTargetEvent e)
 		{
 			eraseDragImage((DropTarget)e.getSource());
 		}
 
+        @Override
 		public void drop(DropTargetDropEvent dtde)
 		{
 			dtde.acceptDrop(DnDConstants.ACTION_LINK);
@@ -1146,7 +1168,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 							ExplorerTree originalTree = getOriginalTree(dtde.getCurrentDataFlavors());
 							if (originalTree != null)
 							{
-                                List<Cell> fromCells = new ArrayList<Cell>();
+                                List<Cell> fromCells = new ArrayList<>();
                                 fromCells.add(origCell);
                                 new CrossLibCopy.CrossLibraryCopyJob(fromCells, destLib, null, false,
                                     obj instanceof Cell.CellGroup, originalTree.subCells, true);
@@ -1229,6 +1251,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			boldFont = new Font("arial", Font.BOLD, 11);
 		}
 
+        @Override
 		public Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel,
 			boolean expanded, boolean leaf, int row, boolean hasFocus)
 		{
@@ -1367,7 +1390,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			return this;
 		}
 
-		private Map<View,IconGroup> iconGroups = new HashMap<View,IconGroup>();
+		private Map<View,IconGroup> iconGroups = new HashMap<>();
 
 		private IconGroup findIconGroup(View view)
 		{
@@ -1408,7 +1431,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 				System.out.println("Invalid width or height while building icon");
 				return null;
 			}
-			
+
 			BufferedImage bi = new BufferedImage(wid, hei, BufferedImage.TYPE_INT_RGB);
 
 			int [] backgroundValues = new int[wid*hei];
@@ -1444,14 +1467,19 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
         TreeHandler (ExplorerTree t) {tree = t;}
 
+        @Override
         public void mouseClicked(MouseEvent e) {}
 
+        @Override
 		public void mouseEntered(MouseEvent e) {}
 
+        @Override
 		public void mouseExited(MouseEvent e) {}
 
+        @Override
 		public void mouseMoved(MouseEvent e) {}
 
+        @Override
 		public void mousePressed(MouseEvent e)
 		{
 			draggingCell = false;
@@ -1600,6 +1628,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			}
 		}
 
+        @Override
 		public void mouseReleased(MouseEvent e)
 		{
             // popup menu event (right click)
@@ -1611,6 +1640,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
             }
 		}
 
+        @Override
 		public void mouseDragged(MouseEvent e)
 		{
 			if (!draggingCell) return;
@@ -1623,6 +1653,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			updateUI();
 		}
 
+        @Override
 		public void valueChanged(TreeSelectionEvent e)
 		{
 			currentPaths = getSelectionPaths();
@@ -1734,7 +1765,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
             if (origMenu != null)
                 menu.addSeparator();
             menu.add(menuItemGetInfo);
-            menuItemGetInfo.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { showGetInfoGeneral(); } });
+            menuItemGetInfo.addActionListener((ActionEvent e) ->
+            {
+                showGetInfoGeneral();
+            });
 
             if (origMenu == null)
                 menu.show((Component)currentMouseEvent.getSource(), currentMouseEvent.getX(), currentMouseEvent.getY());
@@ -1748,19 +1782,31 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
         {
             JMenuItem menuItem = new JMenuItem("Open");
             menu.add(menuItem);
-            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { openAction(); } });
+            menuItem.addActionListener((ActionEvent e) ->
+            {
+                openAction();
+            });
 
             menuItem = new JMenuItem("Open All Below Here");
             menu.add(menuItem);
-            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { recursiveOpenAction(); } });
+            menuItem.addActionListener((ActionEvent e) ->
+            {
+                recursiveOpenAction();
+            });
 
             menuItem = new JMenuItem("Close All Below Here");
             menu.add(menuItem);
-            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { recursiveCloseAction(); } });
+            menuItem.addActionListener((ActionEvent e) ->
+            {
+                recursiveCloseAction();
+            });
 
             menuItem = new JMenuItem("Close All at This Level");
             menu.add(menuItem);
-            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { closeParentTree(); } });
+            menuItem.addActionListener((ActionEvent e) ->
+            {
+                closeParentTree();
+            });
 
             menu.addSeparator();
         }
@@ -1798,21 +1844,33 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 				menuItem = new JMenuItem("Include");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setSweepAction(true); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    setSweepAction(true);
+                });
 
 				menuItem = new JMenuItem("Exclude");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setSweepAction(false); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    setSweepAction(false);
+                });
 
 				menuItem = new JMenuItem("Highlight");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { highlightSweepAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    highlightSweepAction();
+                });
 
 				menu.addSeparator();
 
 	            menuItem = new JMenuItem("Close All at This Level");
 	            menu.add(menuItem);
-	            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { closeParentTree(); } });
+	            menuItem.addActionListener((ActionEvent e) ->
+                {
+                    closeParentTree();
+                });
 
 				menu.show((Component)currentMouseEvent.getSource(), currentMouseEvent.getX(), currentMouseEvent.getY());
 				return;
@@ -1824,17 +1882,26 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 				menuItem = new JMenuItem("Add to current panel");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { addToWaveform(false); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    addToWaveform(false);
+                });
 
 				menuItem = new JMenuItem("Add in new panel");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { addToWaveform(true); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    addToWaveform(true);
+                });
 
 				menu.addSeparator();
 
 	            menuItem = new JMenuItem("Close All at This Level");
 	            menu.add(menuItem);
-	            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { closeParentTree(); } });
+	            menuItem.addActionListener((ActionEvent e) ->
+                {
+                    closeParentTree();
+                });
 
 				menu.show((Component)currentMouseEvent.getSource(), currentMouseEvent.getX(), currentMouseEvent.getY());
 				return;
@@ -1855,7 +1922,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 					menuItem = new JMenuItem("Delete Cell");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { deleteCellGroupAction(); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        deleteCellGroupAction();
+                    });
 
 					if (cell.getView() == View.ICON)
 					{
@@ -1871,7 +1941,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 							if (cell.getView() == view) continue;
 							JMenuItem subMenuItem = new JMenuItem(view.getFullName());
 							subMenu.add(subMenuItem);
-							subMenuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { reViewCellAction(e); } });
+							subMenuItem.addActionListener((ActionEvent e) ->
+                            {
+                                reViewCellAction(e);
+                            });
 						}
 						JMenuItem subMenuItem = new JMenuItem("Icon (cannot change into Icon view)");
 						subMenu.add(subMenuItem);
@@ -1880,7 +1953,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 					menuItem = new JMenuItem("Change Cell Group...");
 	                menu.add(menuItem);
-	                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { changeCellGroupAction(); }});
+	                menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        changeCellGroupAction();
+                    });
 
 					if (CVS.isEnabled()) {
                         JMenu cvsMenu = new JMenu("CVS");
@@ -1892,7 +1968,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 		            menuItem = new JMenuItem("Close All at This Level");
 		            menu.add(menuItem);
-		            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { closeParentTree(); } });
+		            menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        closeParentTree();
+                    });
 
 					menu.show((Component)currentMouseEvent.getSource(), currentMouseEvent.getX(), currentMouseEvent.getY());
 					return;
@@ -1912,7 +1991,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 	            menuItem = new JMenuItem("Close All at This Level");
 	            menu.add(menuItem);
-	            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { closeParentTree(); } });
+	            menuItem.addActionListener((ActionEvent e) ->
+                {
+                    closeParentTree();
+                });
 
                 menu.show((Component)currentMouseEvent.getSource(), currentMouseEvent.getX(), currentMouseEvent.getY());
 				return;
@@ -1938,17 +2020,26 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 	            menuItem = new JMenuItem("Edit");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { editCellAction(false); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    editCellAction(false);
+                });
 
 				menuItem = new JMenuItem("Edit in New Window");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { editCellAction(true); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    editCellAction(true);
+                });
 
 				if (cell.getView().isTextView())
 				{
 					menuItem = new JMenuItem("Edit in External Text Editor");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { editTextCellExternally(); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        editTextCellExternally();
+                    });
 				}
 
 				int projStatus = Project.getCellStatus(cell);
@@ -1961,34 +2052,52 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 					{
 						menuItem = new JMenuItem("Check Out");
 						menu.add(menuItem);
-						menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { CheckOutJob.checkOut(getCellFromExplorerObject(getCurrentlySelectedObject(0))); } });
+						menuItem.addActionListener((ActionEvent e) ->
+                        {
+                            CheckOutJob.checkOut(getCellFromExplorerObject(getCurrentlySelectedObject(0)));
+                        });
 					}
 					if (projStatus == Project.CHECKEDOUTTOYOU)
 					{
 						menuItem = new JMenuItem("Check In...");
 						menu.add(menuItem);
-						menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { CheckInJob.checkIn(getCellFromExplorerObject(getCurrentlySelectedObject(0))); } });
+						menuItem.addActionListener((ActionEvent e) ->
+                        {
+                            CheckInJob.checkIn(getCellFromExplorerObject(getCurrentlySelectedObject(0)));
+                        });
 
 						menuItem = new JMenuItem("Rollback and Release Check-Out");
 						menu.add(menuItem);
-						menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { CancelCheckOutJob.cancelCheckOut(getCellFromExplorerObject(getCurrentlySelectedObject(0))); } });
+						menuItem.addActionListener((ActionEvent e) ->
+                        {
+                            CancelCheckOutJob.cancelCheckOut(getCellFromExplorerObject(getCurrentlySelectedObject(0)));
+                        });
 					}
 					if (projStatus == Project.NOTMANAGED)
 					{
 						menuItem = new JMenuItem("Add To Repository");
 						menu.add(menuItem);
-						menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { AddCellJob.addCell(getCellFromExplorerObject(getCurrentlySelectedObject(0))); } });
+						menuItem.addActionListener((ActionEvent e) ->
+                        {
+                            AddCellJob.addCell(getCellFromExplorerObject(getCurrentlySelectedObject(0)));
+                        });
 					} else
 					{
 						menuItem = new JMenuItem("Show History of This Cell...");
 						menu.add(menuItem);
-						menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { HistoryDialog.examineHistory(getCellFromExplorerObject(getCurrentlySelectedObject(0))); } });
+						menuItem.addActionListener((ActionEvent e) ->
+                        {
+                            HistoryDialog.examineHistory(getCellFromExplorerObject(getCurrentlySelectedObject(0)));
+                        });
 					}
 					if (projStatus == Project.CHECKEDIN || projStatus == Project.CHECKEDOUTTOYOU)
 					{
 						menuItem = new JMenuItem("Remove From Repository");
 						menu.add(menuItem);
-						menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { DeleteCellJob.removeCell(getCellFromExplorerObject(getCurrentlySelectedObject(0))); } });
+						menuItem.addActionListener((ActionEvent e) ->
+                        {
+                            DeleteCellJob.removeCell(getCellFromExplorerObject(getCurrentlySelectedObject(0)));
+                        });
 					}
 				}
 
@@ -1996,25 +2105,40 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 				menuItem = new JMenuItem("Place Instance of Cell");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { newCellInstanceAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    newCellInstanceAction();
+                });
 
 				menuItem = new JMenuItem("Create New Cell");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { newCellAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    newCellAction();
+                });
 
 				menu.addSeparator();
 
 				menuItem = new JMenuItem("Create New Version of Cell");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { newCellVersionAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    newCellVersionAction();
+                });
 
 				menuItem = new JMenuItem("Duplicate Cell");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { duplicateCellAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    duplicateCellAction();
+                });
 
 				menuItem = new JMenuItem("Delete Cell");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { deleteCellGroupAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    deleteCellGroupAction();
+                });
 
                 JMenu subMenu = new JMenu("Copy Cell");
 				menu.add(subMenu);
@@ -2024,7 +2148,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 				menuItem = new JMenuItem("Rename Cell");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { renameCellAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    renameCellAction();
+                });
 
 				if (cell.getView() == View.ICON)
 				{
@@ -2041,7 +2168,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 						if (view == View.ICON) continue;
 						JMenuItem subMenuItem = new JMenuItem(view.getFullName());
 						subMenu.add(subMenuItem);
-						subMenuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { reViewCellAction(e); } });
+						subMenuItem.addActionListener((ActionEvent e) ->
+                        {
+                            reViewCellAction(e);
+                        });
 					}
 					JMenuItem subMenuItem = new JMenuItem("Icon (cannot change into Icon view)");
 					subMenu.add(subMenuItem);
@@ -2059,13 +2189,19 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
                 menuItem = new JMenuItem("Change Cell Group...");
                 menu.add(menuItem);
-                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { changeCellGroupAction(); }});
+                menuItem.addActionListener((ActionEvent e) ->
+                {
+                    changeCellGroupAction();
+                });
 
 				menu.addSeparator();
 
 	            menuItem = new JMenuItem("Close All at This Level");
 	            menu.add(menuItem);
-	            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { closeParentTree(); } });
+	            menuItem.addActionListener((ActionEvent e) ->
+                {
+                    closeParentTree();
+                });
 
 				menu.show((Component)currentMouseEvent.getSource(), currentMouseEvent.getX(), currentMouseEvent.getY());
 				return;
@@ -2076,27 +2212,42 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 				menuItem = new JMenuItem("Edit");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { editCellAction(false); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    editCellAction(false);
+                });
 
 				menuItem = new JMenuItem("Edit in New Window");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { editCellAction(true); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    editCellAction(true);
+                });
 
 				menu.addSeparator();
 
 				menuItem = new JMenuItem("Make New Page");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { makeNewSchematicPage(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    makeNewSchematicPage();
+                });
 
 				menuItem = new JMenuItem("Delete This Page");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { deleteSchematicPage(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    deleteSchematicPage();
+                });
 
 				menu.addSeparator();
 
 	            menuItem = new JMenuItem("Close All at This Level");
 	            menu.add(menuItem);
-	            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { closeParentTree(); } });
+	            menuItem.addActionListener((ActionEvent e) ->
+                {
+                    closeParentTree();
+                });
 
 				menu.show((Component)currentMouseEvent.getSource(), currentMouseEvent.getX(), currentMouseEvent.getY());
 				return;
@@ -2112,48 +2263,75 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 				{
                     menuItem = new JMenuItem("Make This the Current Library");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setCurLibAction(); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        setCurLibAction();
+                    });
 				}
 
 				if (Project.isLibraryManaged(lib))
 				{
 					menuItem = new JMenuItem("Update from Repository");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { UpdateJob.updateProject(); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        UpdateJob.updateProject();
+                    });
 				} else
 				{
 					menuItem = new JMenuItem("Add to Project Management Repository");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { AddLibraryJob.addLibrary((Library)getCurrentlySelectedObject(0)); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        AddLibraryJob.addLibrary((Library)getCurrentlySelectedObject(0));
+                    });
 				}
 
 				menu.addSeparator();
 
 				menuItem = new JMenuItem("Create New Cell");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { newCellAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    newCellAction();
+                });
 
 				menu.addSeparator();
 
 				menuItem = new JMenuItem("Rename Library");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { renameLibraryAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    renameLibraryAction();
+                });
 
                 menuItem = new JMenuItem("Save Library");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { saveLibraryAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    saveLibraryAction();
+                });
 
 				menuItem = new JMenuItem("Save Library As...");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { saveLibraryAsAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    saveLibraryAsAction();
+                });
 
 				menuItem = new JMenuItem("Close Library");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { closeLibraryAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    closeLibraryAction();
+                });
 
                 menuItem = new JMenuItem("Reload Library");
                 menu.add(menuItem);
-                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { reloadLibraryAction(); } });
+                menuItem.addActionListener((ActionEvent e) ->
+                {
+                    reloadLibraryAction();
+                });
 
                 if (CVS.isEnabled()) {
                     menu.addSeparator();
@@ -2173,11 +2351,17 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 				menuItem = new JMenuItem("Create New Cell");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { newCellAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    newCellAction();
+                });
 
                 menuItem = new JMenuItem("Delete Entire Group");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { deleteCellGroupAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    deleteCellGroupAction();
+                });
 
                 JMenu subMenu = new JMenu("Copy Entire Group");
 				menu.add(subMenu);
@@ -2187,11 +2371,17 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 				menuItem = new JMenuItem("Rename Cells in Group");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { renameGroupAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    renameGroupAction();
+                });
 
 				menuItem = new JMenuItem("Duplicate Cells in Group");
 				menu.add(menuItem);
-				menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { duplicateGroupAction(); } });
+				menuItem.addActionListener((ActionEvent e) ->
+                {
+                    duplicateGroupAction();
+                });
 
                 if (CVS.isEnabled()) {
                     menu.addSeparator();
@@ -2213,15 +2403,24 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 					menuItem = new JMenuItem("Include All");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setAllSweepsAction(true); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        setAllSweepsAction(true);
+                    });
 
 					menuItem = new JMenuItem("Exclude All");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { setAllSweepsAction(false); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        setAllSweepsAction(false);
+                    });
 
 					menuItem = new JMenuItem("Remove Highlighting");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { removeSweepHighlighting(); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        removeSweepHighlighting();
+                    });
 
                     // Get info menu
                     addGetInfoMenu(menu);
@@ -2230,7 +2429,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
     	            menuItem = new JMenuItem("Close All at This Level");
     	            menu.add(menuItem);
-    	            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { closeParentTree(); } });
+    	            menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        closeParentTree();
+                    });
 
                     menu.show((Component)currentMouseEvent.getSource(), currentMouseEvent.getX(), currentMouseEvent.getY());
 					return;
@@ -2243,11 +2445,17 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 					menuItem = new JMenuItem("Delete All");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { ErrorLoggerTree.deleteAllLoggers(); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        ErrorLoggerTree.deleteAllLoggers();
+                    });
 
                     menuItem = new JMenuItem("Import Logger");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { ErrorLoggerTree.importLogger(); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        ErrorLoggerTree.importLogger();
+                    });
 
                     // Get info menu
                     addGetInfoMenu(menu);
@@ -2263,37 +2471,55 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
                     menuItem = new JMenuItem("Create New Cell");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { newCellAction(); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        newCellAction();
+                    });
 
 					menu.addSeparator();
 
 					ButtonGroup bg = new ButtonGroup();
 					JRadioButtonMenuItem rbMenuItem = new JRadioButtonMenuItem("Show Cells Alphabetically", ExplorerTreeModel.isShownAlphabetically());
 					menu.add(rbMenuItem);
-					rbMenuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { ExplorerTreeModel.showAlphabeticallyAction(); } });
+					rbMenuItem.addActionListener((ActionEvent e) ->
+                    {
+                        ExplorerTreeModel.showAlphabeticallyAction();
+                    });
 					bg.add(rbMenuItem);
 
 					rbMenuItem = new JRadioButtonMenuItem("Show Cells by Group", ExplorerTreeModel.isShownByGroup());
 					menu.add(rbMenuItem);
-					rbMenuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { ExplorerTreeModel.showByGroupAction(); } });
+					rbMenuItem.addActionListener((ActionEvent e) ->
+                    {
+                        ExplorerTreeModel.showByGroupAction();
+                    });
 					bg.add(rbMenuItem);
 
 					rbMenuItem = new JRadioButtonMenuItem("Show Cells by Hierarchy", ExplorerTreeModel.isShownByHierarchy());
 					menu.add(rbMenuItem);
-					rbMenuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { ExplorerTreeModel.showByHierarchyAction(); } });
+					rbMenuItem.addActionListener((ActionEvent e) ->
+                    {
+                        ExplorerTreeModel.showByHierarchyAction();
+                    });
 					bg.add(rbMenuItem);
 
 					menu.addSeparator();
 
 					JCheckBoxMenuItem cbMenuItem = new JCheckBoxMenuItem("Evaluate Numbers when Sorting Names", !ExplorerTreeModel.getSortLexically());
 					menu.add(cbMenuItem);
-					cbMenuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { ExplorerTreeModel.setSortLexically(e); } });
+					cbMenuItem.addActionListener((ActionEvent e) ->
+                    {
+                        ExplorerTreeModel.setSortLexically(e);
+                    });
 
 					menu.addSeparator();
 
                     menuItem = new JMenuItem("Search...");
                     menu.add(menuItem);
-                    menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { searchAction(); } });
+                    menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        searchAction();
+                    });
 
                     // Get info menu
                     addGetInfoMenu(menu);
@@ -2307,11 +2533,17 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 					menuItem = new JMenuItem("Add New Layer");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { Manipulate.makeCell(1); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        Manipulate.makeCell(1);
+                    });
 
 					menuItem = new JMenuItem("Reorder Layers");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { Manipulate.reorderPrimitives(1); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        Manipulate.reorderPrimitives(1);
+                    });
 
                     // Get info menu
 					addGetInfoMenu(menu);
@@ -2325,11 +2557,17 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 					menuItem = new JMenuItem("Add New Arc");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { Manipulate.makeCell(2); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        Manipulate.makeCell(2);
+                    });
 
 					menuItem = new JMenuItem("Reorder Arcs");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { Manipulate.reorderPrimitives(2); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        Manipulate.reorderPrimitives(2);
+                    });
 
                     // Get info menu
 					addGetInfoMenu(menu);
@@ -2343,11 +2581,17 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 					menuItem = new JMenuItem("Add New Node");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { Manipulate.makeCell(3); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        Manipulate.makeCell(3);
+                    });
 
 					menuItem = new JMenuItem("Reorder Nodes");
 					menu.add(menuItem);
-					menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { Manipulate.reorderPrimitives(3); } });
+					menuItem.addActionListener((ActionEvent e) ->
+                    {
+                        Manipulate.reorderPrimitives(3);
+                    });
 
                     // Get info menu
                     addGetInfoMenu(menu);
@@ -2368,23 +2612,31 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
                 menuItem = new JMenuItem("Delete");
                 menu.add(menuItem);
-                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e)
-                { ErrorLoggerTree.deleteLogger(tree);}});
+                menuItem.addActionListener((ActionEvent e) ->
+                {
+                    ErrorLoggerTree.deleteLogger(tree);
+                });
 
                 menuItem = new JMenuItem("Export");
                 menu.add(menuItem);
-                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e)
-                { ErrorLoggerTree.exportLogger(node); } });
+                menuItem.addActionListener((ActionEvent e) ->
+                {
+                    ErrorLoggerTree.exportLogger(node);
+                });
 
                 menuItem = new JMenuItem("Show All");
                 menu.add(menuItem);
-                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e)
-                { ErrorLoggerTree.showAllLogger(tree); } });
+                menuItem.addActionListener((ActionEvent e) ->
+                {
+                    ErrorLoggerTree.showAllLogger(tree);
+                });
 
                 menuItem = new JMenuItem("Set Current");
                 menu.add(menuItem);
-                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e)
-                { ErrorLoggerTree.setCurrentLogger(node); } });
+                menuItem.addActionListener((ActionEvent e) ->
+                {
+                    ErrorLoggerTree.setCurrentLogger(node);
+                });
 
                 // Get info menu
                 addGetInfoMenu(menu);
@@ -2398,8 +2650,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
                 menuItem = new JMenuItem("Show All");
                 menu.add(menuItem);
-                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e)
-                { ErrorLoggerTree.showAllLogger(tree); } });
+                menuItem.addActionListener((ActionEvent e) ->
+                {
+                    ErrorLoggerTree.showAllLogger(tree);
+                });
 
                 addGetInfoMenu(menu);
 
@@ -2407,7 +2661,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 	            menuItem = new JMenuItem("Close All at This Level");
 	            menu.add(menuItem);
-	            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { closeParentTree(); } });
+	            menuItem.addActionListener((ActionEvent e) ->
+                {
+                    closeParentTree();
+                });
 
                 menu.show((Component)currentMouseEvent.getSource(), currentMouseEvent.getX(), currentMouseEvent.getY());
                 return;
@@ -2418,8 +2675,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
                 menuItem = new JMenuItem("Show All");
                 menu.add(menuItem);
-                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e)
-                { ErrorLoggerTree.showAllLogger(tree); } });
+                menuItem.addActionListener((ActionEvent e) ->
+                {
+                    ErrorLoggerTree.showAllLogger(tree);
+                });
 
                 addGetInfoMenu(menu);
 
@@ -2427,7 +2686,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
 				menuItem = new JMenuItem("Close All at This Level");
 	            menu.add(menuItem);
-	            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { closeParentTree(); } });
+	            menuItem.addActionListener((ActionEvent e) ->
+                {
+                    closeParentTree();
+                });
 
                 menu.show((Component)currentMouseEvent.getSource(), currentMouseEvent.getX(), currentMouseEvent.getY());
                 return;
@@ -2561,7 +2823,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 	                    "Group Rename Warning", JOptionPane.YES_NO_OPTION);
 	            if (ret == JOptionPane.NO_OPTION) return;
 			}
-			String response = JOptionPane.showInputDialog(ExplorerTree.this, "New name for cells in this group", 
+			String response = JOptionPane.showInputDialog(ExplorerTree.this, "New name for cells in this group",
 					defaultName);
 			if (response == null) return;
 			CircuitChanges.renameCellGroupInJob(cellGroup, response);
@@ -2823,7 +3085,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 		{
 			List<Cell> cellsToDelete = new ArrayList<Cell>();
 			List<Cell.CellGroup> groupToDelete = new ArrayList<Cell.CellGroup>();
-			
+
 			for(int i=0; i<numCurrentlySelectedObjects(); i++)
 			{
 				Object obj = getCurrentlySelectedObject(i);
@@ -2860,7 +3122,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			// DeleteCellGroup should also check if cells are in used.
 			for(Cell.CellGroup grp : groupToDelete)
 				new CellChangeJobs.DeleteCellGroup(grp);
-				
+
 		}
 
 		private void renameCellAction()
@@ -2891,7 +3153,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
                 if (lib.isHidden()) continue; // Clipboard.
                 JMenuItem subMenuItem = new JMenuItem(lib.getName());
                 subMenu.add(subMenuItem);
-                subMenuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) { copyCellOrCellGroupAction(e); } });
+                subMenuItem.addActionListener((ActionEvent e) ->
+                {
+                    copyCellOrCellGroupAction(e);
+                });
             }
         }
 
@@ -2901,7 +3166,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			String libName = menuItem.getText();
             Library destLib = Library.findLibrary(libName);
             assert(destLib != null); // it should be consistent.
-            List<Cell> fromCells = new ArrayList<Cell>();
+            List<Cell> fromCells = new ArrayList<>();
             boolean copyRelated = false;
 			for(int i=0; i<currentPaths.length; i++)
 			{
@@ -2929,7 +3194,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 			View newView = View.findView(viewName);
 			if (newView != null)
 			{
-				List<Cell> cellsToReview = new ArrayList<Cell>();
+				List<Cell> cellsToReview = new ArrayList<>();
 				for(int i=0; i<numCurrentlySelectedObjects(); i++)
 				{
 					Cell cell = getCellFromExplorerObject(getCurrentlySelectedObject(i));
@@ -2943,7 +3208,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 		}
 
         private void changeCellGroupAction() {
-        	List<Cell> cellsToChange = new ArrayList<Cell>();
+        	List<Cell> cellsToChange = new ArrayList<>();
         	Library lib = null;
 			for(int i=0; i<numCurrentlySelectedObjects(); i++)
 			{
@@ -2959,7 +3224,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 				}
 				cellsToChange.add(cell);
 			}
-			if (cellsToChange.size() == 0) return;
+			if (cellsToChange.isEmpty()) return;
             ChangeCellGroup dialog = new ChangeCellGroup(TopLevel.getCurrentJFrame(), true, cellsToChange, lib);
             dialog.setVisible(true);
         }
@@ -3028,7 +3293,7 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
         private void addCVSMenu(JMenu cvsMenu) {
             List<Library> libs = getCurrentlySelectedLibraries();
             List<Cell> cells = getCurrentlySelectedCells();
-            Set<State> states = new TreeSet<State>();
+            Set<State> states = new TreeSet<>();
             for (Library lib : libs) {
                 states.add(CVSLibrary.getState(lib));
             }
@@ -3037,39 +3302,51 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
             }
             JMenuItem menuItem = new JMenuItem("Commit");
             cvsMenu.add(menuItem);
-            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) {
-                cvsCommit(); }});
+            menuItem.addActionListener((ActionEvent e) ->
+            {
+                cvsCommit();
+            });
             menuItem.setEnabled(!states.contains(State.UNKNOWN));
 
             menuItem = new JMenuItem("Update");
             cvsMenu.add(menuItem);
-            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) {
-                cvsUpdate(Update.UpdateEnum.UPDATE); }});
+            menuItem.addActionListener((ActionEvent e) ->
+            {
+                cvsUpdate(Update.UpdateEnum.UPDATE);
+            });
             menuItem.setEnabled(!states.contains(State.UNKNOWN));
 
             menuItem = new JMenuItem("Get Status");
             cvsMenu.add(menuItem);
-            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) {
-                cvsUpdate(Update.UpdateEnum.STATUS); }});
+            menuItem.addActionListener((ActionEvent e) ->
+            {
+                cvsUpdate(Update.UpdateEnum.STATUS);
+            });
             menuItem.setEnabled(true);
 
             menuItem = new JMenuItem("List Editors");
             cvsMenu.add(menuItem);
-            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) {
-                cvsListEditors(); }});
+            menuItem.addActionListener((ActionEvent e) ->
+            {
+                cvsListEditors();
+            });
             menuItem.setEnabled(!states.contains(State.UNKNOWN));
 
             menuItem = new JMenuItem("Show Log");
             cvsMenu.add(menuItem);
             boolean showLog = false;
-            if (libs.size() == 1 && cells.size() == 0) {
-                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) {
-                    showLog(1); }});
+            if (libs.size() == 1 && cells.isEmpty()) {
+                menuItem.addActionListener((ActionEvent e) ->
+                {
+                    showLog(1);
+                });
                 showLog = true;
             }
             if (libs.size() == 0 && cells.size() == 1) {
-                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) {
-                    showLog(0); }});
+                menuItem.addActionListener((ActionEvent e) ->
+                {
+                    showLog(0);
+                });
                 showLog = true;
             }
             menuItem.setEnabled(showLog && !states.contains(State.UNKNOWN));
@@ -3078,29 +3355,37 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
             menuItem = new JMenuItem("Rollback");
             cvsMenu.add(menuItem);
-            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) {
-                cvsUpdate(Update.UpdateEnum.ROLLBACK); }});
+            menuItem.addActionListener((ActionEvent e) ->
+            {
+                cvsUpdate(Update.UpdateEnum.ROLLBACK);
+            });
             menuItem.setEnabled(!states.contains(State.UNKNOWN) && !states.contains(State.NONE));
 
             menuItem = new JMenuItem("Add to CVS");
             cvsMenu.add(menuItem);
-            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) {
-                cvsAddRemove(true); }});
+            menuItem.addActionListener((ActionEvent e) ->
+            {
+                cvsAddRemove(true);
+            });
             menuItem.setEnabled(states.contains(State.UNKNOWN) || states.contains(State.REMOVED));
 
-            if (libs.size() > 0 && cells.size() == 0) {
+            if (libs.size() > 0 && cells.isEmpty()) {
                 menuItem = new JMenuItem("Remove from CVS");
                 cvsMenu.add(menuItem);
-                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) {
-                    cvsAddRemove(false); }});
+                menuItem.addActionListener((ActionEvent e) ->
+                {
+                    cvsAddRemove(false);
+                });
                 menuItem.setEnabled(!states.contains(State.UNKNOWN));
             }
 
             if (true) {
                 menuItem = new JMenuItem("Undo CVS Add or Remove");
                 cvsMenu.add(menuItem);
-                menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) {
-                    cvsUndoAddRemove(); }});
+                menuItem.addActionListener((ActionEvent e) ->
+                {
+                    cvsUndoAddRemove();
+                });
                 menuItem.setEnabled(false);
                 menuItem.setEnabled((states.size() == 1 && (states.contains(State.ADDED) || states.contains(State.REMOVED))) ||
                                     (states.size() == 2 && (states.contains(State.ADDED) && states.contains(State.REMOVED))));
@@ -3108,8 +3393,10 @@ public class ExplorerTree extends JTree implements DragSourceListener // , DragG
 
             menuItem = new JMenuItem("Rollforward");
             cvsMenu.add(menuItem);
-            menuItem.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) {
-                cvsUpdate(Update.UpdateEnum.ROLLFORWARD); }});
+            menuItem.addActionListener((ActionEvent e) ->
+            {
+                cvsUpdate(Update.UpdateEnum.ROLLFORWARD);
+            });
             menuItem.setEnabled(false); // need more safeguards before I should enable this
             //menuItem.setEnabled(states.size() == 1 && states.contains(State.CONFLICT));
         }
