@@ -172,6 +172,7 @@ public abstract class ImmutableElectricObject {
      * or default Variable value.
      * @throws NullPointerException if key or type is null
      */
+    @SuppressWarnings("unchecked")
     public <T> T getVarValue(Variable.Key key, Class type) {
         Variable var = getVar(key);
         if (var != null) {
