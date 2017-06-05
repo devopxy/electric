@@ -67,7 +67,7 @@ public class Vec4Wildeq<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4Wildeq<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4Wildeq<V> build(Svex<V>[] args)
         {
             return new Vec4Wildeq<>(args[0], args[1]);
         }

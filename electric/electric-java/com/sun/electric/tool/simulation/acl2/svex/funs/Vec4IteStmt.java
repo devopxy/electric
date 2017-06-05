@@ -58,7 +58,7 @@ public class Vec4IteStmt<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4IteStmt<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4IteStmt<V> build(Svex<V>[] args)
         {
             return new Vec4IteStmt<>(args[0], args[1], args[2]);
         }

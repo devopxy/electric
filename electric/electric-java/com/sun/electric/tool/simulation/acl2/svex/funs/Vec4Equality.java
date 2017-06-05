@@ -54,7 +54,7 @@ public class Vec4Equality<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4Equality<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4Equality<V> build(Svex<V>[] args)
         {
             return new Vec4Equality<>(args[0], args[1]);
         }

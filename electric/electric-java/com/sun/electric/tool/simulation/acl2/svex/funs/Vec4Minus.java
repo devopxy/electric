@@ -55,7 +55,7 @@ public class Vec4Minus<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4Minus<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4Minus<V> build(Svex<V>[] args)
         {
             return new Vec4Minus<>(args[0], args[1]);
         }

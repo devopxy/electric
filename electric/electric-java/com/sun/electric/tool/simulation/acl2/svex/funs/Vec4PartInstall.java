@@ -60,7 +60,7 @@ public class Vec4PartInstall<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4PartInstall<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4PartInstall<V> build(Svex<V>[] args)
         {
             return new Vec4PartInstall<>(args[0], args[1], args[2], args[3]);
         }

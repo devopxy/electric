@@ -53,7 +53,7 @@ public class Vec4Parity<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4Parity<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4Parity<V> build(Svex<V>[] args)
         {
             return new Vec4Parity<>(args[0]);
         }

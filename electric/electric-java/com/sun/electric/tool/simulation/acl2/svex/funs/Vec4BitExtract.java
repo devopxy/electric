@@ -55,10 +55,9 @@ public class Vec4BitExtract<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4BitExtract<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4BitExtract<V> build(Svex<V>[] args)
         {
-            return new Vec4BitExtract(args[0], args[1]);
-
+            return new Vec4BitExtract<>(args[0], args[1]);
         }
 
         @Override

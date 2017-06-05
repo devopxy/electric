@@ -53,7 +53,7 @@ public abstract class Lhatom<V extends Svar>
         {
             if (impl.equals(Util.KEYWORD_Z))
             {
-                return new Lhatom.Z();
+                return new Lhatom.Z<>();
             }
         }
         return new Lhatom.Var<>(builder, impl);

@@ -99,14 +99,13 @@ public abstract class SVarExt extends Svar
             this.driver = driver;
         }
 
-        @SuppressWarnings("Unchecked")
         DriverExt getDriverExt()
         {
             assert driver instanceof DriverExt;
             return (DriverExt)driver;
         }
 
-        @SuppressWarnings("Unchecked")
+        @SuppressWarnings("unchecked")
         Lhs<SVarExt> getDriverLhs()
         {
             assert driver instanceof Lhs;

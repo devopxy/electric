@@ -56,7 +56,7 @@ public class Vec4SignExt<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4SignExt<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4SignExt<V> build(Svex<V>[] args)
         {
             return new Vec4SignExt<>(args[0], args[1]);
         }

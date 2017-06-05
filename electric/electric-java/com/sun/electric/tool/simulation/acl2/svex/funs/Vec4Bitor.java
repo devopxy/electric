@@ -55,7 +55,7 @@ public class Vec4Bitor<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4Bitor<V> build(Svex<V>... args)
+        public <V extends Svar> Vec4Bitor<V> build(Svex<V>[] args)
         {
             return new Vec4Bitor<>(args[0], args[1]);
         }
