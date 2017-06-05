@@ -69,8 +69,8 @@ public class LibraryStatistics implements Serializable {
 
     private static final long serialVersionUID = -361650802811567400L;
     private transient IdManager idManager;
-    private final TreeMap<String, Directory> directories = new TreeMap<String, Directory>();
-    private final TreeMap<String, LibraryName> libraryNames = new TreeMap<String, LibraryName>();
+    private final TreeMap<String, Directory> directories = new TreeMap<>();
+    private final TreeMap<String, LibraryName> libraryNames = new TreeMap<>();
 //	transient LibraryContents totalLibraryContents;
 
     private LibraryStatistics(IdManager idManager) {
@@ -107,8 +107,8 @@ public class LibraryStatistics implements Serializable {
     }
 
     public static void scanProjectDirs(String[] dirNames, String[] excludeDirs, File projListDir) {
-        HashSet<String> canonicalDirs = new HashSet<String>();
-        TreeSet<String> projectDirs = new TreeSet<String>();
+        HashSet<String> canonicalDirs = new HashSet<>();
+        TreeSet<String> projectDirs = new TreeSet<>();
         for (int i = 0; i < dirNames.length; i++) {
             scanProjectDir(new File(dirNames[i]), excludeDirs, canonicalDirs, projectDirs);
         }
@@ -232,7 +232,7 @@ public class LibraryStatistics implements Serializable {
     public static TreeSet<String> readProjList(File wrkDir) {
         File projListFile = new File(wrkDir, "proj.list");
         try {
-            TreeSet<String> dirs = new TreeSet<String>();
+            TreeSet<String> dirs = new TreeSet<>();
             BufferedReader in = new BufferedReader(new FileReader(projListFile));
             String line;
             while ((line = in.readLine()) != null) {
@@ -252,20 +252,15 @@ public class LibraryStatistics implements Serializable {
 
     public static Map<String, File[]> readProjectDirs(File wrkDir, boolean allDirs) {
         final String projectsExt = ".projects";
-        FilenameFilter filter = new FilenameFilter() {
-
-            public boolean accept(File dir, String name) {
-                return name.endsWith(projectsExt);
-            }
-        };
-        Map<String, File[]> projectDirs = new TreeMap<String, File[]>();
+        FilenameFilter filter = (File dir, String name) -> name.endsWith(projectsExt);
+        Map<String, File[]> projectDirs = new TreeMap<>();
         for (File file : wrkDir.listFiles(filter)) {
             String projectName = file.getName();
             assert projectName.endsWith(projectsExt);
             projectName = projectName.substring(0, projectName.length() - projectsExt.length());
             try {
                 BufferedReader in = new BufferedReader(new FileReader(file));
-                ArrayList<File> dirs = new ArrayList<File>();
+                ArrayList<File> dirs = new ArrayList<>();
                 String line;
                 while ((line = in.readLine()) != null) {
                     if (line.length() == 0) {
@@ -294,8 +289,8 @@ public class LibraryStatistics implements Serializable {
 
     public static LibraryStatistics scanDirectories(IdManager idManager, File[] dirs) {
         LibraryStatistics stat = new LibraryStatistics(idManager);
-        Set<String> canonicalDirs = new HashSet<String>();
-        Map<String, Set<FileInstance>> preLibraries = new HashMap<String, Set<FileInstance>>();
+        Set<String> canonicalDirs = new HashSet<>();
+        Map<String, Set<FileInstance>> preLibraries = new HashMap<>();
 
         for (File dir : dirs) {
             stat.scanDir(dir, canonicalDirs, preLibraries, null);
@@ -488,7 +483,7 @@ public class LibraryStatistics implements Serializable {
                     try {
                         JelibParser parser = JelibParser.parse(libraryName.getLibId(), fileUrl, FileType.JELIB, false, errorLogger);
                         fc.version = parser.version;
-                        TreeMap<String, ExternalCell> externalCells = new TreeMap<String, ExternalCell>();
+                        TreeMap<String, ExternalCell> externalCells = new TreeMap<>();
                         for (JelibParser.CellContents cc : parser.allCells.values()) {
                             fc.localCells.add(cc.cellId.cellName.toString());
                             for (JelibParser.NodeContents nc : cc.nodes) {
@@ -608,11 +603,11 @@ public class LibraryStatistics implements Serializable {
                 }
             }
 
-            TreeMap<CellName, ArrayList<JelibParser.CellContents>> groups = new TreeMap<CellName, ArrayList<JelibParser.CellContents>>();
+            TreeMap<CellName, ArrayList<JelibParser.CellContents>> groups = new TreeMap<>();
             for (JelibParser.CellContents cc : parser.allCells.values()) {
                 ArrayList<JelibParser.CellContents> group = groups.get(cc.groupName);
                 if (group == null) {
-                    group = new ArrayList<JelibParser.CellContents>();
+                    group = new ArrayList<>();
                     groups.put(cc.groupName, group);
                 }
                 group.add(cc);
@@ -763,9 +758,9 @@ public class LibraryStatistics implements Serializable {
         long elibLength = 0;
         long jelibLength = 0;
 
-        TreeMap<ELIB.Header, MutableInteger> headerCounts = new TreeMap<ELIB.Header, MutableInteger>();
+        TreeMap<ELIB.Header, MutableInteger> headerCounts = new TreeMap<>();
         int withoutHeader = 0;
-        TreeMap<Version, MutableInteger> versionCounts = new TreeMap<Version, MutableInteger>();
+        TreeMap<Version, MutableInteger> versionCounts = new TreeMap<>();
         int withoutVersion = 0;
 
         for (Iterator lit = getLibraryNames(); lit.hasNext();) {
@@ -812,7 +807,7 @@ public class LibraryStatistics implements Serializable {
     }
 
     public void reportFilePaths() {
-        TreeMap<String, MutableInteger> paths = new TreeMap<String, MutableInteger>();
+        TreeMap<String, MutableInteger> paths = new TreeMap<>();
         System.out.println(directories.size() + " Directories");
         for (Iterator<Directory> it = getDirectories(); it.hasNext();) {
             Directory directory = it.next();
@@ -856,12 +851,14 @@ public class LibraryStatistics implements Serializable {
             for (Iterator it = libraryName.getVersions(); it.hasNext();) {
                 FileContents fc = (FileContents) it.next();
                 System.out.println("    " + fc.getFileName() + " " + fc.fileLength + " " + fc.localCells.size() + " " + fc.externalCells.size());
-                for (String localName : fc.localCells) {
+                fc.localCells.forEach((localName) ->
+                {
                     System.out.println("\t" + localName);
-                }
-                for (ExternalCell extCell : fc.externalCells) {
+                });
+                fc.externalCells.forEach((extCell) ->
+                {
                     System.out.println("\t" + extCell.libPath + " " + extCell.libName + " " + extCell.cellName);
-                }
+                });
             }
         }
     }
@@ -981,13 +978,13 @@ public class LibraryStatistics implements Serializable {
             long totalVars = 0;
             long[] typeCounts = new long[32];
             long[] typeTotals = new long[32];
-            TreeMap charCount = new TreeMap();
-            TreeMap charTotal = new TreeMap();
-            TreeMap bitsCount = new TreeMap();
-            TreeMap bitsTotal = new TreeMap();
+            TreeMap<Character,MutableInteger> charCount = new TreeMap<>();
+            TreeMap<Character,MutableInteger> charTotal = new TreeMap<>();
+            TreeMap<VarDesc,MutableInteger> bitsCount = new TreeMap<>();
+            TreeMap<VarDesc,MutableInteger> bitsTotal = new TreeMap<>();
             for (Iterator it = in.vs.varBag.values().iterator(); it.hasNext();) {
                 VarDesc vd = (VarDesc) it.next();
-                Character character = new Character(vd.role.charAt(0));
+                Character character = vd.role.charAt(0);
                 MutableInteger.addToBag(charCount, character);
                 MutableInteger.addToBag(charTotal, character, vd.count);
                 VarDesc vd1 = new VarDesc();
@@ -1087,7 +1084,7 @@ public class LibraryStatistics implements Serializable {
 
         private static final long serialVersionUID = -8627329891776990655L;
         private String dirName;
-        private TreeMap<String, FileInstance> files = new TreeMap<String, FileInstance>();
+        private TreeMap<String, FileInstance> files = new TreeMap<>();
 
         Directory(LibraryStatistics stat, String dirName) {
             this.dirName = dirName;
@@ -1107,7 +1104,7 @@ public class LibraryStatistics implements Serializable {
 
         final LibraryStatistics stat;
         final String name;
-        final List<FileContents> versions = new ArrayList<FileContents>();
+        final List<FileContents> versions = new ArrayList<>();
         TreeMap<String, LibraryUse> references;
 
         LibraryName(LibraryStatistics stat, String name) {
@@ -1162,12 +1159,12 @@ public class LibraryStatistics implements Serializable {
         long fileLength;
         long crc;
         long lastModified;
-        List<FileInstance> instances = new ArrayList<FileInstance>();
-        TreeMap<String, LibraryUse> uses = new TreeMap<String, LibraryUse>();
+        List<FileInstance> instances = new ArrayList<>();
+        TreeMap<String, LibraryUse> uses = new TreeMap<>();
         ELIB.Header header;
         Version version;
-        List<String> localCells = new ArrayList<String>();
-        List<ExternalCell> externalCells = new ArrayList<ExternalCell>();
+        List<String> localCells = new ArrayList<>();
+        List<ExternalCell> externalCells = new ArrayList<>();
         boolean readOk;
         int toolCount;
         int techCount;
@@ -1283,6 +1280,7 @@ public class LibraryStatistics implements Serializable {
             }
         }
 
+        @Override
         public int compareTo(Object o) {
             FileInstance f = (FileInstance) o;
             if (lastModified > f.lastModified) {
@@ -1473,6 +1471,7 @@ public class LibraryStatistics implements Serializable {
         int td0, td1;
         int count;
 
+        @Override
         public int compareTo(Object o) {
             VarDesc v = (VarDesc) o;
             int cmp = role.compareTo(v.role);
@@ -1530,10 +1529,10 @@ public class LibraryStatistics implements Serializable {
     static class VarStat implements Serializable {
 
         private static final long serialVersionUID = -2536836777200853733L;
-        TreeMap varNamePool = new TreeMap();
-        TreeMap varBag = new TreeMap();
-        TreeMap userBitsBag = new TreeMap();
-        transient TreeMap otherStrings = new TreeMap();
+        TreeMap<String,String> varNamePool = new TreeMap<>();
+        TreeMap<VarDesc,VarDesc> varBag = new TreeMap<>();
+        TreeMap<UserBits,UserBits> userBitsBag = new TreeMap<>();
+        transient TreeMap<String,String> otherStrings = new TreeMap<>();
         transient VarDesc dummyVarDesc = new VarDesc();
         transient UserBits dummyUserBits = new UserBits();
 
