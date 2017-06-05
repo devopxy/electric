@@ -32,7 +32,7 @@ import java.io.Serializable;
 public class XMLRules implements Serializable
 {
 
-	/** Hash map to store rules per matrix index */                     public HashMap<XMLRules.XMLRule, XMLRules.XMLRule>[] matrix;
+	/** Hash map to store rules per matrix index */                     public List<HashMap<XMLRules.XMLRule, XMLRules.XMLRule>> matrix;
     /** Layers with spacing rules to speed up the process */            public HashMap<Layer, Set<Layer>> layersWithRules;
     /** To remeber the technology */                                    private Technology tech;
 
@@ -42,8 +42,8 @@ public class XMLRules implements Serializable
         int numLayers = tech.getNumLayers();
         int uTSize = (numLayers * numLayers + numLayers) / 2 + numLayers + tech.getNumNodes();
 
-        this.matrix = new HashMap[uTSize];
-        this.layersWithRules = new HashMap<Layer, Set<Layer>>();
+        this.matrix = new ArrayList<>(uTSize);
+        this.layersWithRules = new HashMap<>();
     }
 
     /**
@@ -86,7 +86,9 @@ public class XMLRules implements Serializable
      */
     public boolean doesAllowMultipleWideRules(int index) { return true; }
 
-	/** Method to get total number of rules stored
+	/** 
+     * Method to get total number of rules stored
+     * @return total number of rules 
 	 */
 	public int getNumberOfRules()
 	{
@@ -127,7 +129,7 @@ public class XMLRules implements Serializable
      */
     public List<DRCTemplate> getSpacingRules(int index, DRCTemplate.DRCRuleType spacingCase, boolean wideRules)
     {
-        List<DRCTemplate> list = new ArrayList<DRCTemplate>(2);
+        List<DRCTemplate> list = new ArrayList<>(2);
 
         switch (spacingCase)
         {
@@ -166,8 +168,8 @@ public class XMLRules implements Serializable
      */
     public void setSpacingRules(int index, List<DRCTemplate> newRules, DRCTemplate.DRCRuleType spacingCase, boolean wideRules)
     {
-        List<DRCTemplate> list = new ArrayList<DRCTemplate>(0);
-        HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix[index];
+        List<DRCTemplate> list = new ArrayList<>(0);
+        HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix.get(index);
 
         // delete old rules
         for (DRCTemplate rule : newRules)
@@ -232,7 +234,7 @@ public class XMLRules implements Serializable
      */
     public XMLRule getRule(int index, DRCTemplate.DRCRuleType type, String nodeName)
     {
-        List<String> nameList = new ArrayList<String>(1);
+        List<String> nameList = new ArrayList<>(1);
         nameList.add(nodeName);
         return (getRule(index, type, 0, 0, -1, nameList, null));
     }
@@ -269,7 +271,7 @@ public class XMLRules implements Serializable
             return;
         }
         XMLRule oldRule = getRule(index, type);
-        HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix[index];
+        HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix.get(index);
 
         // Remove old rule first but only if exists
         if (map != null)
@@ -291,9 +293,9 @@ public class XMLRules implements Serializable
     private List<DRCTemplate> getRuleForRange(int index, DRCTemplate.DRCRuleType type, int multiCut, double minW, double maxW,
                                               List<DRCTemplate> list)
     {
-        HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix[index];
+        HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix.get(index);
 
-        if (list == null) list = new ArrayList<DRCTemplate>(2);
+        if (list == null) list = new ArrayList<>(2);
         if (map == null) return (list);
 
         for (XMLRule rule : map.values())
@@ -319,7 +321,7 @@ public class XMLRules implements Serializable
     private XMLRule getRule(int index, DRCTemplate.DRCRuleType type, double wideS, double length, int multiCut,
                             List<String> possibleNodeNames, List<String> layerNamesInOrder)
     {
-        HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix[index];
+        HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix.get(index);
         if (map == null) return (null);
 
         XMLRule maxR = null;
@@ -356,7 +358,7 @@ public class XMLRules implements Serializable
 
     /**
      * To set wide limit for old techs
-//     * @param values
+     * @param values wide limits
      */
     public void setWideLimits(double[] values)
     {
@@ -376,11 +378,11 @@ public class XMLRules implements Serializable
 
     private void addXMLRule(int index, XMLRule rule)
     {
-        HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix[index];
+        HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix.get(index);
         if (map == null)
         {
-            map = new HashMap<XMLRules.XMLRule,XMLRules.XMLRule>();
-            matrix[index] = map;
+            map = new HashMap<>();
+            matrix.set(index, map);
         }
 
        map.put(rule, rule);
@@ -393,7 +395,7 @@ public class XMLRules implements Serializable
      */
     public void deleteRule(int index, DRCTemplate rule)
     {
-        HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix[index];
+        HashMap<XMLRules.XMLRule,XMLRules.XMLRule> map = matrix.get(index);
         if (map == null) return; // no rule found
 
         for (XMLRule r : map.values())
@@ -409,10 +411,10 @@ public class XMLRules implements Serializable
         }
     }
 
-    /** OLD FUNCTION*/
+    /* OLD FUNCTION*/
     public void addRule(int index, DRCTemplate rule, DRCTemplate.DRCRuleType spacingCase, boolean wideRules)
     {
-        new Error("Not implemented");
+        throw new Error("Not implemented");
     }
 
     /**
@@ -428,7 +430,7 @@ public class XMLRules implements Serializable
         // This is only required for this type of rule
         if (rule.ruleType == DRCTemplate.DRCRuleType.EXTENSION || rule.ruleType == DRCTemplate.DRCRuleType.EXTENSIONGATE)
         {
-            list = new ArrayList<Layer>(2);
+            list = new ArrayList<>(2);
             list.add(tech.findLayer(rule.name1));
             list.add(tech.findLayer(rule.name2));
         }
@@ -451,6 +453,8 @@ public class XMLRules implements Serializable
 
     /**
      * Method to add relationship between layers with spacing rules.
+     * @param lay1 first layer
+     * @param lay2 second layer
      */
     public void addRelationship(Layer lay1, Layer lay2)
     {
@@ -460,7 +464,7 @@ public class XMLRules implements Serializable
         // not found
         if (l == null)
         {
-            l = new HashSet<Layer>();
+            l = new HashSet<>();
             layersWithRules.put(lay1, l);
         }
         l.add(lay2);
@@ -471,7 +475,7 @@ public class XMLRules implements Serializable
       */
     private boolean getMinRule(int index, DRCTemplate.DRCRuleType type, double maxW, MutableDouble maxValue)
     {
-        HashMap<XMLRules.XMLRule, XMLRules.XMLRule> map = matrix[index];
+        HashMap<XMLRules.XMLRule, XMLRules.XMLRule> map = matrix.get(index);
         boolean found = false;
         if (map == null) return found;
         maxValue.setValue(0.0); // get the largest value among the valid ones. It doesn't select the first
@@ -501,7 +505,9 @@ public class XMLRules implements Serializable
 	/**
 	 * Method to find the spacing rule between two layer.
 	 * @param layer1 the first layer.
+     * @param geo1 the first geometric
      * @param layer2 the second layer.
+     * @param geo2 the second geometric
      * @param connected true to find the distance when the layers are connected.
      * @param multiCut true to find the distance when this is part of a multicut contact.
      * @param wideS widest polygon
@@ -517,7 +523,7 @@ public class XMLRules implements Serializable
 		DRCTemplate.DRCRuleType type = (connected) ? DRCTemplate.DRCRuleType.CONSPA : DRCTemplate.DRCRuleType.UCONSPA;
 
         // Composing possible name if
-        List<String> list = new ArrayList<String>(2);
+        List<String> list = new ArrayList<>(2);
         //String n1 = null, n2 = null;
         if (geo1 != null) list.add(DRCTemplate.getSpacingCombinedName(layer1, geo1)); // n1 = 
         if (geo2 != null) list.add(DRCTemplate.getSpacingCombinedName(layer2, geo2)); // n2 = 
@@ -543,10 +549,10 @@ public class XMLRules implements Serializable
      */
     public List<DRCTemplate> getRules(Layer layer1, DRCTemplate.DRCRuleType type)
     {
-        List<DRCTemplate> tempList = new ArrayList<DRCTemplate>();
+        List<DRCTemplate> tempList = new ArrayList<>();
         int layerIndex = layer1.getIndex();
         if (layerIndex < 0) return tempList;
-        HashMap<XMLRules.XMLRule, XMLRules.XMLRule> map = matrix[layerIndex];
+        HashMap<XMLRules.XMLRule, XMLRules.XMLRule> map = matrix.get(layerIndex);
         if (map == null) return tempList;
 
         for (XMLRule rule : map.values())
@@ -601,7 +607,7 @@ public class XMLRules implements Serializable
     public boolean isAnySpacingRule(Layer layer1, Layer layer2)
     {
         int pIndex = getRuleIndex(layer1.getIndex(), layer2.getIndex());
-        HashMap<XMLRules.XMLRule, XMLRules.XMLRule> map = matrix[pIndex];
+        HashMap<XMLRules.XMLRule, XMLRules.XMLRule> map = matrix.get(pIndex);
         if (map == null) return false;
         for (XMLRule rule : map.values())
         {
@@ -618,7 +624,7 @@ public class XMLRules implements Serializable
      */
     public DRCTemplate isForbiddenNode(int nodeIndex, DRCTemplate.DRCRuleType type)
     {
-        HashMap<XMLRules.XMLRule, XMLRules.XMLRule> map = matrix[nodeIndex];
+        HashMap<XMLRules.XMLRule, XMLRules.XMLRule> map = matrix.get(nodeIndex);
         if (map == null) return (null);
 
         for (XMLRule rule : map.values())
@@ -653,7 +659,7 @@ public class XMLRules implements Serializable
             int numM = tech.getNumMetals();
             assert(numM >= lastMetal);
             numM = lastMetal;
-            List<Layer> layers = new ArrayList<Layer>(numM);
+            List<Layer> layers = new ArrayList<>(numM);
             for (Iterator<Layer> itL = tech.getLayers(); itL.hasNext();)
             {
                 Layer l = itL.next();
@@ -678,7 +684,7 @@ public class XMLRules implements Serializable
         }
         else
         {
-            for(int i = 0; i < matrix.length; i++)
+            for(int i = 0; i < matrix.size(); i++)
             {
                 boolean found = getMinRule(i, DRCTemplate.DRCRuleType.UCONSPA, Double.MAX_VALUE, mutableDist);
                 double worstValue = mutableDist.doubleValue();
@@ -695,6 +701,7 @@ public class XMLRules implements Serializable
     /**
 	 * Method to find the worst spacing distance in the design rules.
 	 * Finds the largest spacing rule in the Technology.
+     * @param layers layers to search
      * @param worstDistance the largest spacing distance in the Technology. Zero if nothing found
 	 * @return true if a value was found
      */
@@ -1430,6 +1437,7 @@ public class XMLRules implements Serializable
             return ruleType == DRCTemplate.DRCRuleType.CONSPA || ruleType == DRCTemplate.DRCRuleType.UCONSPA;
         }
 
+        @Override
         public boolean equals(Object obj)
 		{
 			// reflexive
@@ -1452,6 +1460,7 @@ public class XMLRules implements Serializable
             return (basic);
 		}
 
+        @Override
         public int hashCode()
 		{
             return ruleType.hashCode();

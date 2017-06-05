@@ -49,7 +49,7 @@ import java.util.Map;
  *
  */
 public abstract class TechFactory {
-    
+
     final String techName;
     private final List<Param> techParams;
     private static List<String> sensitiveTechNames = new ArrayList<String>();
@@ -196,6 +196,7 @@ public abstract class TechFactory {
         this.techParams = Collections.unmodifiableList(new ArrayList<Param>(techParams));
     }
 
+    @SuppressWarnings("unchecked")
     private static void p(Map<String, TechFactory> m, String techName, String techClassName, boolean restricted) {
         TechFactory techFactory;
         List<Param> params;
