@@ -49,10 +49,10 @@ import java.util.Set;
  */
 public class DualEval extends Output
 {
-    private List<Cell> downTop = new ArrayList<>();
-    private Map<String, String> primNames = new HashMap<>();
+    private final List<Cell> downTop = new ArrayList<>();
+    private final Map<String, String> primNames = new HashMap<>();
 
-
+    
     {
         primNames.put("inv", "b-not");
         primNames.put("invn", "b-not");
@@ -178,7 +178,8 @@ public class DualEval extends Output
                                 System.out.println("Multiple drivers of " + net);
                             }
                             Set<IconNodeInst> dep = graph.get(ni2);
-                            if (dep == null) {
+                            if (dep == null)
+                            {
                                 dep = new LinkedHashSet<>();
                                 graph.put(ni2, dep);
                             }
@@ -195,7 +196,7 @@ public class DualEval extends Output
     {
         Set<IconNodeInst> visited = new HashSet<>();
         Set<IconNodeInst> sort = new LinkedHashSet<>();
-        for (IconNodeInst ni: nodes)
+        for (IconNodeInst ni : nodes)
         {
             toposort(ni, graph, visited, sort);
         }
@@ -208,16 +209,19 @@ public class DualEval extends Output
         {
             return;
         }
-        if (visited.contains(top)) {
+        if (visited.contains(top))
+        {
             System.out.println("Combinational loop at " + top);
+            return;
         }
         visited.add(top);
         Set<IconNodeInst> deps = graph.get(top);
         if (deps != null)
         {
-        for (IconNodeInst dep: deps) {
-            toposort(dep, graph, visited, sort);
-        }
+            for (IconNodeInst dep : deps)
+            {
+                toposort(dep, graph, visited, sort);
+            }
         }
         sort.add(top);
     }
