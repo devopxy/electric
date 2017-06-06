@@ -24,6 +24,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +40,77 @@ public class ModDb
     <V extends Svar> ModDb(ModName modName, Map<ModName, Module<V>> modalist)
     {
         moduleToDb(modName, modalist);
+    }
+
+    /**
+     * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODDB-MOD-NWIRES>
+     *
+     * @param modidx module index
+     * @return number of local wires in the module
+     */
+    public int modNWires(int modidx)
+    {
+        return mods.get(modidx).wireTable.length;
+    }
+
+    /**
+     * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODDB-MOD-NINSTS>
+     *
+     * @param modidx module index
+     * @return number of local insts in the module
+     */
+    public int modNInsts(int modidx)
+    {
+        return mods.get(modidx).modInstTable.length;
+    }
+
+    /**
+     * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODDB-MOD-TOTALWIRES>
+     *
+     * @param modidx module index
+     * @return number of total wires in the module
+     */
+    public int modTotalWires(int modidx)
+    {
+        return mods.get(modidx).totalWires;
+    }
+
+    /**
+     * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODDB-MOD-TOTALINSTS>
+     *
+     * @param modidx module index
+     * @return number of total instances in the module
+     */
+    public int modTotalInsts(int modidx)
+    {
+        return mods.get(modidx).totalWires;
+    }
+
+    /**
+     * Convert a wire index to a path relative to the module it’s in
+     * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODDB-WIREIDX-_E3PATH>
+     *
+     * @param wireidx
+     * @param modix
+     * @return
+     */
+    public Path wireidxToPath(int wireidx, int modix)
+    {
+        ElabMod elabMod = mods.get(modix);
+        if (wireidx < 0 || wireidx >= elabMod.totalWires)
+        {
+            throw new IllegalArgumentException();
+        }
+        List<Name> stack = new LinkedList<>();
+        while (wireidx >= elabMod.wireTable.length)
+        {
+            int instIdx = elabMod.wireFindInst(wireidx);
+            ElabModInst elabModInst = elabMod.modInstTable[instIdx];
+            stack.add(elabModInst.instName);
+            instIdx -= elabModInst.wireOffrset;
+            elabMod = elabModInst.modidx;
+        }
+        return Path.makePath(stack, elabMod.wireTable[wireidx].name);
     }
 
     private <V extends Svar> void moduleToDb(ModName modName, Map<ModName, Module<V>> modalist)
@@ -76,9 +148,10 @@ public class ModDb
         final Map<Name, Integer> wireNameIdxes = new HashMap<>();
         final ElabModInst[] modInstTable;
         final Map<Name, ElabModInst> modInstNameIdxes = new HashMap<>();
-        int totalWires;
-        int totalInsts;
-        Module<?> origMod;
+        final int totalWires;
+        final int totalInsts;
+        final Module<?> origMod;
+        final int modMeas;
 
         ElabMod(int index, ModName modName, Module<?> origMod)
         {
@@ -95,6 +168,7 @@ public class ModDb
             modInstTable = new ElabModInst[origMod.insts.size()];
             int wireOfs = wireTable.length;
             int instOfs = modInstTable.length;
+            int meas = 1;
             for (int i = 0; i < origMod.insts.size(); i++)
             {
                 ModInst modInst = origMod.insts.get(i);
@@ -109,9 +183,40 @@ public class ModDb
                 assert old == null;
                 wireOfs += modidx.totalWires;
                 instOfs += modidx.totalInsts;
+                meas += 1 + elabModInst.instMeas;
             }
             totalWires = wireOfs;
             totalInsts = instOfs;
+            modMeas = meas;
+        }
+
+        int wireFindInst(int wire)
+        {
+            if (wire < wireTable.length || wire >= totalWires)
+            {
+                throw new IllegalArgumentException();
+            }
+            int minInst = 0;
+            int minOffset = wireTable.length;
+            int maxInst = modInstTable.length;
+            int maxOffset = totalWires;
+            while (maxInst > 1 + minInst)
+            {
+                int guess = (maxInst - minInst) >> 1;
+                int pivot = minInst + guess;
+                int pivotOffset = modInstTable[pivot].wireOffrset;
+                if (wire < pivotOffset)
+                {
+                    maxInst = pivot;
+                    maxOffset = pivotOffset;
+                } else
+                {
+                    minInst = pivot;
+                    minOffset = pivotOffset;
+                }
+
+            }
+            return minInst;
         }
     }
 
@@ -122,6 +227,7 @@ public class ModDb
         final ElabMod modidx;
         final int wireOffrset;
         final int instOffset;
+        final int instMeas;
 
         ElabModInst(int instIndex, Name instName, ElabMod modidx, int wireOffset, int instOffset)
         {
@@ -130,6 +236,7 @@ public class ModDb
             this.modidx = modidx;
             this.wireOffrset = wireOffset;
             this.instOffset = instOffset;
+            instMeas = modidx.modMeas + 1;
         }
     }
 }

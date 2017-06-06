@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.List;
 
 /**
  * Type of the names of wires, module instances, and namespaces (such as datatype fields).
@@ -34,17 +35,17 @@ public abstract class Path
     public static ACL2Object KEYWORD_SCOPE = ACL2Object.valueOf("KEYWORD", "SCOPE");
 
     private final ACL2Object impl;
-    
+
     Path(ACL2Object impl)
     {
         this.impl = impl;
     }
-    
+
     public ACL2Object getACL2Object()
     {
         return impl;
     }
-    
+
     public static Path fromACL2(ACL2Object impl)
     {
         if (consp(impl).bool() && !Util.KEYWORD_ANONYMOIUS.equals(car(impl).bool()))
@@ -56,6 +57,21 @@ public abstract class Path
         {
             return new Wire(impl);
         }
+    }
+
+    public static Path simplePath(Name name)
+    {
+        return new Wire(name);
+    }
+
+    public static Path makePath(List<Name> scopes, Name name)
+    {
+        Path path = simplePath(name);
+        for (int i = scopes.size() - 1; i >= 0; i--)
+        {
+            path = new Scope(scopes.get(i), path);
+        }
+        return path;
     }
 
     public abstract ACL2Object getKind();
@@ -81,7 +97,7 @@ public abstract class Path
             super(impl);
             name = new Name(impl);
         }
-        
+
         Wire(Name name)
         {
             super(name.getACL2Object());
@@ -124,7 +140,7 @@ public abstract class Path
             namespace = new Name(car(impl));
             subpath = fromACL2(cdr(impl));
         }
-        
+
         Scope(Name namespace, Path subpath)
         {
             super(cons(namespace.getACL2Object(), subpath.getACL2Object()));
