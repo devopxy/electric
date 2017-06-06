@@ -42,7 +42,11 @@ public class XMLRules implements Serializable
         int numLayers = tech.getNumLayers();
         int uTSize = (numLayers * numLayers + numLayers) / 2 + numLayers + tech.getNumNodes();
 
-        this.matrix = new ArrayList<>(uTSize);
+        matrix = new ArrayList<>(uTSize);
+        while (matrix.size() < uTSize)
+        {
+            matrix.add(null);
+        }
         this.layersWithRules = new HashMap<>();
     }
 
@@ -86,9 +90,9 @@ public class XMLRules implements Serializable
      */
     public boolean doesAllowMultipleWideRules(int index) { return true; }
 
-	/** 
+	/**
      * Method to get total number of rules stored
-     * @return total number of rules 
+     * @return total number of rules
 	 */
 	public int getNumberOfRules()
 	{
@@ -525,8 +529,8 @@ public class XMLRules implements Serializable
         // Composing possible name if
         List<String> list = new ArrayList<>(2);
         //String n1 = null, n2 = null;
-        if (geo1 != null) list.add(DRCTemplate.getSpacingCombinedName(layer1, geo1)); // n1 = 
-        if (geo2 != null) list.add(DRCTemplate.getSpacingCombinedName(layer2, geo2)); // n2 = 
+        if (geo1 != null) list.add(DRCTemplate.getSpacingCombinedName(layer1, geo1)); // n1 =
+        if (geo2 != null) list.add(DRCTemplate.getSpacingCombinedName(layer2, geo2)); // n2 =
         //list.add(n1); list.add(n2);
 
 		XMLRule r = getRule(pIndex, type, wideS, length, multiCut, list, null);
@@ -759,7 +763,7 @@ public class XMLRules implements Serializable
         for (Layer l : set)
         {
 			int pIndex = getRuleIndex(layerIndex, l.getIndex());
-			// Better to use Double.MAX_VALUE rather than maxSize 
+			// Better to use Double.MAX_VALUE rather than maxSize
             boolean found = getMinRule(pIndex, DRCTemplate.DRCRuleType.UCONSPA, Double.MAX_VALUE, mutableDist);
             double worstValue = mutableDist.doubleValue();
             if (found && worstValue > worstLayerRule.doubleValue())
@@ -988,7 +992,7 @@ public class XMLRules implements Serializable
     public void loadDRCRules(Technology tech, Foundry foundry, DRCTemplate theRule, boolean pSubstrateProcess)
     {
         int numMetals = tech.getNumMetals();
-        
+
         if (theRule.isRuleIgnoredInPSubstrateProcess(pSubstrateProcess))  // Skip this rule in PSubstrate process
             return;
 
