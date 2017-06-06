@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.ArrayList;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -30,6 +31,8 @@ import java.util.List;
 /**
  * A shorthand format for an expression consisting of a concatenation of parts of variables.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____LHS>.
+ *
+ * @param <V> Type of Svex variables
  */
 public class Lhs<V extends Svar>
 {
@@ -46,6 +49,21 @@ public class Lhs<V extends Svar>
             ranges.add(lhr);
             lsh += lhr.getWidth();
         }
+    }
+
+    private Lhs(List<Lhrange<V>> ranges)
+    {
+        this.ranges.addAll(ranges);
+    }
+
+    public <V1 extends Svar> Lhs<V1> convertVars(Svar.Builder<V1> builder)
+    {
+        List<Lhrange<V1>> newRanges = new ArrayList<>();
+        for (Lhrange<V> range : ranges)
+        {
+            newRanges.add(range.convertVars(builder));
+        }
+        return new Lhs<>(newRanges);
     }
 
     @Override

@@ -256,7 +256,7 @@ public class ACL2DesignJobs
                         out.println();
                     }
                     out.println("// totalUseCount=" + totalUseCount);
-                    out.println("// design.top=" + design.top);
+                    out.println("// design.top=" + design.getTop());
                 }
             } catch (IOException e)
             {
@@ -372,7 +372,7 @@ public class ACL2DesignJobs
                     {
                         for (DriverExt dr : m.assigns.values())
                         {
-                            genDedup(out, dr.svex, svexLabels, svexSizes);
+                            genDedup(out, dr.getSvex(), svexLabels, svexSizes);
                         }
                     }
                     out.println(" ) ()))");
@@ -388,7 +388,7 @@ public class ACL2DesignJobs
                         out.print("           (extract-labels '(");
                         for (DriverExt dr : m.assigns.values())
                         {
-                            out.print(" " + svexLabels.get(dr.svex));
+                            out.print(" " + svexLabels.get(dr.getSvex()));
                         }
                         out.println(")");
                         out.println("                           *" + designName + "-dedup*)))))");
@@ -671,7 +671,7 @@ public class ACL2DesignJobs
                             DriverExt d = e1.getValue();
 
                             Set<SVarExt> vars = d.collectVars();
-                            Map<Svex<SVarExt>, BigInteger> masks = d.svex.maskAlist(BigIntegerUtil.MINUS_ONE);
+                            Map<Svex<SVarExt>, BigInteger> masks = d.getSvex().maskAlist(BigIntegerUtil.MINUS_ONE);
                             out.print("      (;");
                             assert !l.ranges.isEmpty();
                             for (int i = 0; i < l.ranges.size(); i++)

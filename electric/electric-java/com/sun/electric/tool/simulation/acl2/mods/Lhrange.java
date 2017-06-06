@@ -29,6 +29,8 @@ import com.sun.electric.util.acl2.ACL2Object;
 /**
  * An atom with width from left-hand side of SVEX assignment.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____LHRANGE>.
+ *
+ * @param <V> Type of Svex variables
  */
 public class Lhrange<V extends Svar>
 {
@@ -64,7 +66,7 @@ public class Lhrange<V extends Svar>
 
     public <V1 extends Svar> Lhrange<V1> convertVars(Svar.Builder<V1> builder)
     {
-        return new Lhrange<V1>(w, atom.convertVars(builder));
+        return new Lhrange<>(w, atom.convertVars(builder));
     }
 
     public V getVar()
@@ -89,7 +91,8 @@ public class Lhrange<V extends Svar>
         if (name != null)
         {
             return name.toString(BigIntegerUtil.logheadMask(getWidth()).shiftLeft(getRsh()));
-        } else {
+        } else
+        {
             return w + "'Z";
         }
     }

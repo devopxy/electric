@@ -21,8 +21,8 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.util.TextUtils;
-import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,42 +39,25 @@ import java.util.TreeMap;
  */
 public class DesignExt
 {
-    final ACL2Object impl;
-
-//    final Map<ModName,Module> modalist = new LinkedHashMap<>();
-    public final ModName top;
+    public final Design<? extends Svar> b;
 
     public final Map<ModName, ModuleExt> downTop = new LinkedHashMap<>();
     public final Map<ModName, ModuleExt> topDown = new LinkedHashMap<>();
 
     public DesignExt(ACL2Object impl)
     {
-        this.impl = impl;
-        List<ACL2Object> fields = Util.getList(impl, true);
-        Util.check(fields.size() == 2);
-        ACL2Object pair;
-        pair = fields.get(0);
-        Util.check(car(pair).equals(Util.SV_MODALIST));
-        Map<ModName, ACL2Object> rawMods = new LinkedHashMap<>();
-        ACL2Object modalist = cdr(pair);
-        while (consp(modalist).bool())
-        {
-            ModName modName = ModName.valueOf(car(car(modalist)));
-            ACL2Object old = rawMods.put(modName, cdr(car(modalist)));
-            Util.check(old == null);
-            modalist = cdr(modalist);
-        }
-        Util.checkNil(modalist);
-        pair = fields.get(1);
-        Util.check(car(pair).equals(Util.SV_TOP));
-        top = ModName.valueOf(cdr(pair));
-//        addToDownTop(top, rawMods);
+        this(new Design<>(new SvarPath.Builder(), impl));
+    }
 
-        for (ModName mn : rawMods.keySet())
+    public <V extends Svar> DesignExt(Design<V> b)
+    {
+        this.b = b;
+
+        for (ModName mn : b.modalist.keySet())
         {
-            addToDownTop(mn, rawMods);
+            addToDownTop(mn);
         }
-        Util.check(downTop.size() == rawMods.size());
+        Util.check(downTop.size() == b.modalist.size());
 
         List<ModName> keys = new ArrayList<>(downTop.keySet());
         for (int i = keys.size() - 1; i >= 0; i--)
@@ -82,9 +65,9 @@ public class DesignExt
             ModName key = keys.get(i);
             topDown.put(key, downTop.get(key));
         }
-        Util.check(topDown.size() == rawMods.size());
+        Util.check(topDown.size() == b.modalist.size());
 
-        topDown.get(top).markTop();
+        topDown.get(b.top).markTop();
         Map<String, Integer> globalCounts = new TreeMap<>();
         for (ModuleExt m : topDown.values())
         {
@@ -127,25 +110,25 @@ public class DesignExt
         }
     }
 
-    private void addToDownTop(ModName mn, Map<ModName, ACL2Object> rawMods)
+    private void addToDownTop(ModName mn)
     {
         if (downTop.containsKey(mn))
         {
             return;
         }
-        ACL2Object rawMod = rawMods.get(mn);
-        List<ACL2Object> fields = Util.getList(rawMod, true);
-        Util.check(fields.size() == 4);
-
-        ACL2Object pair = fields.get(1);
-        Util.check(car(pair).equals(Util.SV_INSTS));
-        for (ACL2Object o : Util.getList(cdr(pair), true))
+        Module<? extends Svar> module = b.modalist.get(mn);
+        for (ModInst modInst : module.insts)
         {
-            addToDownTop(ModName.valueOf(cdr(o)), rawMods);
+            addToDownTop(modInst.modname);
         }
-        ModuleExt m = new ModuleExt(mn, rawMod, downTop);
+        ModuleExt m = new ModuleExt(mn, module, downTop);
         ModuleExt old = downTop.put(mn, m);
         Util.check(old == null);
+    }
+
+    public ModName getTop()
+    {
+        return b.top;
     }
 
     public void computeCombinationalInputs(String clockName)

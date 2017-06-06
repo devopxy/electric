@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: SVarImpl.java
+ * File: SvarPath.java
  *
  * Copyright (c) 2017, Static Free Software. All rights reserved.
  *
@@ -19,8 +19,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.sun.electric.tool.simulation.acl2.svex;
+package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import static com.sun.electric.tool.simulation.acl2.svex.Svar.KEYWORD_VAR;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
@@ -28,22 +30,28 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Implementation of a single variable in a symbolic vector expression.
- * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVAR>.
+ * Svex variable with Address name
  */
-public class SvarImpl extends Svar
+public class SvarPath extends Svar
 {
     private final ACL2Object impl;
+    private final Path path;
 
-    private SvarImpl(ACL2Object impl)
+    private SvarPath(ACL2Object impl)
     {
         this.impl = impl;
+        path = Path.fromACL2(consp(impl).bool() ? car(cdr(impl)) : impl);
     }
 
     @Override
     public ACL2Object getACL2Name()
     {
-        return consp(impl).bool() ? car(cdr(impl)) : impl;
+        return path.getACL2Object();
+    }
+
+    public Path getName()
+    {
+        return path;
     }
 
     @Override
@@ -83,13 +91,12 @@ public class SvarImpl extends Svar
         return impl.rep();
     }
 
-    public static class Builder implements Svar.Builder<SvarImpl>
+    public static class Builder implements Svar.Builder<SvarPath>
     {
-
-        private final Map<ACL2Object, SvarImpl> cache = new HashMap<>();
+        private final Map<ACL2Object, SvarPath> cache = new HashMap<>();
 
         @Override
-        public SvarImpl newVar(ACL2Object name, int delay, boolean nonblocking)
+        public SvarPath newVar(ACL2Object name, int delay, boolean nonblocking)
         {
             assert delay >= 0;
             ACL2Object impl;
@@ -105,13 +112,14 @@ public class SvarImpl extends Svar
                 }
                 impl = cons(KEYWORD_VAR, cons(name, ACL2Object.valueOf(delay)));
             }
-            SvarImpl svar = cache.get(impl);
+            SvarPath svar = cache.get(impl);
             if (svar == null)
             {
-                svar = new SvarImpl(impl);
+                svar = new SvarPath(impl);
                 cache.put(impl, svar);
             }
             return svar;
         }
-    };
+
+    }
 }

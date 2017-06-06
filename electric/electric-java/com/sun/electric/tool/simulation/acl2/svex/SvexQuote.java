@@ -29,6 +29,8 @@ import java.util.Set;
 /**
  * A "quoted constant" 4vec which represents itself.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVEX-QUOTE>.
+ *
+ * @param <V> Type of Svex variables
  */
 public class SvexQuote<V extends Svar> extends Svex<V>
 {
@@ -52,6 +54,18 @@ public class SvexQuote<V extends Svar> extends Svex<V>
             return val.makeAcl2Object();
         }
         return cons(QUOTE, cons(val.makeAcl2Object(), NIL));
+    }
+
+    @Override
+    public <V1 extends Svar> Svex<V1> convertVars(Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache)
+    {
+        Svex<V1> svex = cache.get(this);
+        if (svex == null)
+        {
+            svex = new SvexQuote<>(val);
+            cache.put(this, svex);
+        }
+        return svex;
     }
 
     @Override

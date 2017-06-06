@@ -4,6 +4,9 @@ NOTE: Please place changes under the version that will be released next.
 
 ************************* Version 9.08-a: ******************************
 
+BUG: (6/5/17, DN) Compiler warnings about "unchecked" in XmlRules.
+FIX: Change field "matrix" from array to List.
+
 IMP: (5/26/17, DN) DualEval netlister in "Tools|Simulation (Others)|Write DualEval deck...".
 
 IMP: (5/9/17, DN) Debug menu contains reader from ACL2 Verilog.

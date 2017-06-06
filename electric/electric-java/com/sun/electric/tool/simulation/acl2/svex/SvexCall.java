@@ -30,6 +30,8 @@ import java.util.Set;
 /**
  * A function applied to some expressions.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVEX-CALL>.
+ *
+ * @param <V> Type of Svex variables
  */
 public class SvexCall<V extends Svar> extends Svex<V>
 {
@@ -80,6 +82,23 @@ public class SvexCall<V extends Svar> extends Svex<V>
             a = cons(args[i].makeACL2Object(), a);
         }
         return cons(fun.fn, a);
+    }
+
+    @Override
+    public <V1 extends Svar> Svex<V1> convertVars(Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache)
+    {
+        Svex<V1> svex = cache.get(this);
+        if (svex == null)
+        {
+            Svex<V1>[] newArgs = Svex.newSvexArray(fun.arity);
+            for (int i = 0; i < fun.arity; i++)
+            {
+                newArgs[i] = args[i].convertVars(builder, cache);
+            }
+            svex = fun.build(newArgs);
+            cache.put(this, svex);
+        }
+        return svex;
     }
 
     @Override
