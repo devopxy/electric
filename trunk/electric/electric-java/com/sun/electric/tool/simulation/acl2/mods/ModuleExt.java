@@ -50,6 +50,7 @@ public class ModuleExt implements Svar.Builder<SVarExt>
     private static final boolean CRUDE_COMBINATIONAL_INPUTS = false;
 
     public final ModName modName;
+    public final Module<? extends Svar> b;
     public final List<WireExt> wires = new ArrayList<>();
     public final List<ModInstExt> insts = new ArrayList<>();
     public final Map<Lhs<SVarExt>, DriverExt> assigns = new LinkedHashMap<>();
@@ -57,50 +58,42 @@ public class ModuleExt implements Svar.Builder<SVarExt>
 
     final Map<Name, WireExt> wiresIndex = new HashMap<>();
     final Map<Name, ModInstExt> instsIndex = new HashMap<>();
-    final Map<ACL2Object, Svex<SVarExt>> svexCache = new HashMap<>();
     int useCount;
 
     Set<WireExt> combinationalInputs0;
     Set<WireExt> combinationalInputs1;
 
-    ModuleExt(ModName modName, ACL2Object impl, Map<ModName, ModuleExt> downTop)
+    <V extends Svar> ModuleExt(ModName modName, Module<V> b, Map<ModName, ModuleExt> downTop)
     {
         this.modName = modName;
-        List<ACL2Object> fields = Util.getList(impl, true);
-        Util.check(fields.size() == 4);
-        ACL2Object pair;
+        this.b = b;
 
-        pair = fields.get(0);
-        Util.check(car(pair).equals(Util.SV_WIRES));
-        for (ACL2Object o : Util.getList(cdr(pair), true))
+        for (Wire wire : b.wires)
         {
-            Wire wire = new Wire(o);
             WireExt w = new WireExt(this, wire);
             wires.add(w);
             WireExt old = wiresIndex.put(w.getName(), w);
             Util.check(old == null);
         }
 
-        pair = fields.get(1);
-        Util.check(car(pair).equals(Util.SV_INSTS));
-        for (ACL2Object o : Util.getList(cdr(pair), true))
+        for (ModInst modInst : b.insts)
         {
-            ModInst modInst = new ModInst(o);
             ModInstExt mi = new ModInstExt(this, modInst, downTop);
             insts.add(mi);
             ModInstExt old = instsIndex.put(mi.getInstname(), mi);
             Util.check(old == null);
         }
-        pair = fields.get(2);
-        Util.check(car(pair).equals(Util.SV_ASSIGNS));
+
+        Map<Svex<V>, Svex<SVarExt>> svexCache = new HashMap<>();
         int driverCount = 0;
-        for (ACL2Object o : Util.getList(cdr(pair), true))
+        for (Map.Entry<Lhs<V>, Driver<V>> e : b.assigns.entrySet())
         {
-            pair = o;
-            Lhs<SVarExt> lhs = new Lhs<>(this, car(pair));
-            DriverExt drv = new DriverExt(this, cdr(pair), "dr" + driverCount++);
+            Lhs<SVarExt> lhs = e.getKey().convertVars(this);
+            Driver<SVarExt> driver = e.getValue().convertVars(this, svexCache);
+            DriverExt drv = new DriverExt(this, driver, "dr" + driverCount++);
             DriverExt old = assigns.put(lhs, drv);
             Util.check(old == null);
+
             int lsh = 0;
             for (Lhrange<SVarExt> lhr : lhs.ranges)
             {
@@ -118,18 +111,15 @@ public class ModuleExt implements Svar.Builder<SVarExt>
             drv.markUsed();
         }
 
-        pair = fields.get(3);
-        Util.check(car(pair).equals(Util.SV_ALIASPAIRS));
-        for (ACL2Object o : Util.getList(cdr(pair), true))
+        for (Map.Entry<Lhs<V>, Lhs<V>> e : b.aliaspairs.entrySet())
         {
-            pair = o;
-            Lhs<SVarExt> lhs = new Lhs<>(this, car(pair));
+            Lhs<SVarExt> lhs = e.getKey().convertVars(this);
+            Lhs<SVarExt> rhs = e.getValue().convertVars(this);
             Util.check(lhs.ranges.size() == 1);
             Lhrange<SVarExt> lhsRange = lhs.ranges.get(0);
             Util.check(lhsRange.getRsh() == 0);
             SVarExt lhsVar = lhsRange.getVar();
             Util.check(lhsVar.getDelay() == 0 && !lhsVar.isNonblocking());
-            Lhs<SVarExt> rhs = new Lhs<>(this, cdr(pair));
             Lhs old = aliaspairs.put(lhs, rhs);
             Util.check(old == null);
             Util.check(lhs.width() == rhs.width());

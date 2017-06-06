@@ -76,9 +76,9 @@ public abstract class Svar
         return hash;
     }
 
-    public static abstract interface Builder<T extends Svar>
+    public static abstract interface Builder<V extends Svar>
     {
-        default T fromACL2(ACL2Object rep)
+        default V fromACL2(ACL2Object rep)
         {
             if (consp(rep).bool())
             {
@@ -106,21 +106,21 @@ public abstract class Svar
             throw new IllegalArgumentException();
         }
 
-        default T newVar(ACL2Object name)
+        default V newVar(ACL2Object name)
         {
             return Builder.this.newVar(name, 0);
         }
 
-        default T newVar(ACL2Object name, int delay)
+        default V newVar(ACL2Object name, int delay)
         {
             return Builder.this.newVar(name, delay, false);
         }
 
-        default T newVar(Svar svar)
+        default <V1 extends Svar> V newVar(V1 svar)
         {
             return Builder.this.newVar(svar.getACL2Name(), svar.getDelay(), svar.isNonblocking());
         }
 
-        T newVar(ACL2Object name, int delay, boolean nonblocking);
+        V newVar(ACL2Object name, int delay, boolean nonblocking);
     }
 }

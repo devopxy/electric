@@ -24,6 +24,8 @@ package com.sun.electric.tool.simulation.acl2.svex;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Implementation of a single variable in a symbolic vector expression.
@@ -63,7 +65,7 @@ public class SvarImpl extends Svar
         if (consp(impl).bool())
         {
             int delay = cdr(cdr(impl)).intValueExact();
-            return delay >= 0;
+            return delay < 0;
         } else
         {
             return false;
@@ -81,8 +83,11 @@ public class SvarImpl extends Svar
         return impl.rep();
     }
 
-    public static Svar.Builder<SvarImpl> BUILDER = new Svar.Builder<SvarImpl>()
+    public static class Builder implements Svar.Builder<SvarImpl>
     {
+
+        private final Map<ACL2Object, SvarImpl> cache = new HashMap<>();
+
         @Override
         public SvarImpl newVar(ACL2Object name, int delay, boolean nonblocking)
         {
@@ -98,9 +103,15 @@ public class SvarImpl extends Svar
                 {
                     delay = ~delay;
                 }
-                impl = cons(name, ACL2Object.valueOf(delay));
+                impl = cons(KEYWORD_VAR, cons(name, ACL2Object.valueOf(delay)));
             }
-            return new SvarImpl(impl);
+            SvarImpl svar = cache.get(impl);
+            if (svar == null)
+            {
+                svar = new SvarImpl(impl);
+                cache.put(impl, svar);
+            }
+            return svar;
         }
     };
 }

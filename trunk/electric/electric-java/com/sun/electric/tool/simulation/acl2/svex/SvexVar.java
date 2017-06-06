@@ -28,6 +28,8 @@ import java.util.Set;
 /**
  * A variable, which represents a 4vec.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVEX-VAR>.
+ *
+ * @param <V> Type of Svex variables
  */
 public class SvexVar<V extends Svar> extends Svex<V>
 {
@@ -46,6 +48,19 @@ public class SvexVar<V extends Svar> extends Svex<V>
     public ACL2Object makeACL2Object()
     {
         return svar.makeACL2Object();
+    }
+
+    @Override
+    public <V1 extends Svar> Svex<V1> convertVars(Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache)
+    {
+        Svex<V1> svex = cache.get(this);
+        if (svex == null)
+        {
+            V1 newVar = builder.newVar(svar);
+            svex = new SvexVar<>(newVar);
+            cache.put(this, svex);
+        }
+        return svex;
     }
 
     @Override

@@ -37,6 +37,8 @@ import java.util.Set;
  * Symbolic Vector EXpression.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVEX>.
  * It maybe either a constant, a variable, or a function applied to subexpressions.
+ *
+ * @param <V> Type of Svex variables
  */
 public abstract class Svex<V extends Svar>
 {
@@ -128,7 +130,9 @@ public abstract class Svex<V extends Svar>
     {
         return new Svex[length];
     }
-    
+
+    public abstract <V1 extends Svar> Svex<V1> convertVars(Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache);
+
     public Set<V> collectVars()
     {
         Set<V> result = new LinkedHashSet<>();

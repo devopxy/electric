@@ -22,12 +22,9 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
-import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
-import static com.sun.electric.util.acl2.ACL2.*;
-import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,8 +40,7 @@ public class DriverExt
 {
     final ModuleExt parent;
 
-    public final Svex<SVarExt> svex;
-    final int strength;
+    private final Driver<SVarExt> b;
     final String name;
 
     Map<SVarExt, BigInteger> crudeDeps0;
@@ -52,30 +48,38 @@ public class DriverExt
     final List<Map<SVarExt, BigInteger>> fineDeps0 = new ArrayList<>();
     final List<Map<SVarExt, BigInteger>> fineDeps1 = new ArrayList<>();
 
-    DriverExt(ModuleExt parent, ACL2Object impl, String name)
+    DriverExt(ModuleExt parent, Driver<SVarExt> b, String name)
     {
         this.parent = parent;
+        this.b = b;
         this.name = name;
-        svex = Svex.<SVarExt>valueOf(parent, car(impl), parent.svexCache);
-        strength = cdr(impl).intValueExact();
-        Util.check(strength == 6);
-        for (Svar svar : svex.collectVars())
+        Util.check(b.strength == 6);
+        for (SVarExt svar : b.svex.collectVars())
         {
             Util.check(svar instanceof SVarExt.LocalWire);
         }
-        Util.check(strength >= 0);
+    }
+
+    public Svex<SVarExt> getSvex()
+    {
+        return b.svex;
+    }
+
+    public int getStrength()
+    {
+        return b.strength;
     }
 
     @Override
     public String toString()
     {
-        assert strength == 6;
-        return svex.toString();
+        assert getStrength() == 6;
+        return getSvex().toString();
     }
 
     public final Set<SVarExt> collectVars()
     {
-        return svex.collectVars();
+        return getSvex().collectVars();
     }
 
     void markUsed()
@@ -98,7 +102,7 @@ public class DriverExt
 
     void computeDeps(int width, boolean clkVal, Map<SVarExt, Vec4> env, Map<SvexCall<SVarExt>, SvexCall<SVarExt>> patchMemoize)
     {
-        Svex<SVarExt> patched = svex.patch(env, patchMemoize);
+        Svex<SVarExt> patched = getSvex().patch(env, patchMemoize);
         BigInteger mask = BigIntegerUtil.MINUS_ONE;
         Map<SVarExt, BigInteger> varsWithMasks = patched.collectVarsWithMasks(mask);
         if (clkVal)
