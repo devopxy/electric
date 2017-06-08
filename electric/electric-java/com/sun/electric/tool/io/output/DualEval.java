@@ -27,6 +27,7 @@ import com.sun.electric.database.hierarchy.Export;
 import com.sun.electric.database.network.Netlist;
 import com.sun.electric.database.network.Network;
 import com.sun.electric.database.prototype.PortCharacteristic;
+import com.sun.electric.database.text.Name;
 import com.sun.electric.database.topology.IconNodeInst;
 import com.sun.electric.database.topology.NodeInst;
 import com.sun.electric.database.topology.PortInst;
@@ -50,16 +51,7 @@ import java.util.Set;
 public class DualEval extends Output
 {
     private final List<Cell> downTop = new ArrayList<>();
-    private final Map<String, String> primNames = new HashMap<>();
-
-    
-    {
-        primNames.put("inv", "b-not");
-        primNames.put("invn", "b-not");
-        primNames.put("nand2", "b-nand");
-        primNames.put("nor2", "b-nor");
-        primNames.put("xor2", "b-xor");
-    }
+    private final Map<String, PrimitiveTemplate> primNames = new HashMap<>();
 
     private DualEvalPreferences localPrefs;
 
@@ -97,12 +89,13 @@ public class DualEval extends Output
     DualEval(DualEval.DualEvalPreferences dp)
     {
         localPrefs = dp;
+        initPrims();
     }
 
     private void writeDualEval(Cell cell)
     {
         enumDownTop(cell, new HashSet<>());
-        String prevName = null;
+        String prevName = "network-prelude";
         for (Cell c : downTop)
         {
             String name = c.getName();
@@ -115,14 +108,19 @@ public class DualEval extends Output
                     nodes.add((IconNodeInst)ni);
                 }
             }
+            int numGo = calcNumGo(nodes);
             Map<IconNodeInst, Set<IconNodeInst>> graph = makeDepGraph(nodes);
+//            printDepGraph(graph);
             Collection<IconNodeInst> sortedNodes = toposort(nodes, graph);
+            printWriter.println("(in-package \"ADE\")");
+            printWriter.println("(include-book \"network-prelude\")");
             printWriter.println();
             printWriter.println("(defconst *" + name + "*");
             printWriter.println("  (cons");
-            printWriter.println("     '(" + name);
-            writeExports(c, PortCharacteristic.IN);
-            writeExports(c, PortCharacteristic.OUT);
+            printWriter.println("     `(" + name);
+            writeExports(c, PortCharacteristic.IN, numGo);
+            writeExports(c, PortCharacteristic.OUT, 0);
+            writeStates(sortedNodes);
             printWriter.println("       ()");
             writeNodes(sortedNodes);
             printWriter.println("       )");
@@ -131,9 +129,22 @@ public class DualEval extends Output
         }
     }
 
-    private void writeExports(Cell cell, PortCharacteristic pc)
+    private int calcNumGo(Collection<IconNodeInst> nodes)
     {
-        printWriter.print("       (");
+        int numGo = 0;
+        for (IconNodeInst ni : nodes)
+        {
+            PrimitiveTemplate pt = primNames.get(ni.getProto().getName());
+            if (pt != null)
+            {
+                numGo += pt.numGo;
+            }
+        }
+        return numGo;
+    }
+
+    private void writeExports(Cell cell, PortCharacteristic pc, int numGo)
+    {
         boolean first = true;
         for (Iterator<Export> it = cell.getExports(); it.hasNext();)
         {
@@ -143,12 +154,49 @@ public class DualEval extends Output
             {
                 if (first)
                 {
+                    printWriter.print("       `(");
                     first = false;
                 } else
                 {
                     printWriter.print(" ");
                 }
                 printWriter.print(export.getName());
+            }
+        }
+        if (numGo == 0)
+        {
+            if (first)
+            {
+                printWriter.println("       ()");
+            } else {
+                printWriter.println(")");
+            }
+        } else if (first)
+        {
+            printWriter.println("       ,(sis 'go 0 " + numGo + ")");
+        } else
+        {
+            printWriter.println(" . ,(sis 'go 0 " + numGo + "))");
+        }
+    }
+
+    private void writeStates(Collection<IconNodeInst> nodes)
+    {
+        printWriter.print("       (");
+        boolean first = true;
+        for (IconNodeInst ni : nodes)
+        {
+            PrimitiveTemplate pt = primNames.get(ni.getProto().getName());
+            if (pt != null && pt.hasState)
+            {
+                if (first)
+                {
+                    first = false;
+                } else
+                {
+                    printWriter.print(" ");
+                }
+                printWriter.print(ni.getName());
             }
         }
         printWriter.println(")");
@@ -160,7 +208,8 @@ public class DualEval extends Output
         for (IconNodeInst ni : nodes)
         {
             Netlist netlist = ni.getParent().getNetlist();
-            for (Iterator<Export> it = ni.getProto().getExports(); it.hasNext();)
+            Cell proto = ni.getProto();
+            for (Iterator<Export> it = proto.getExports(); it.hasNext();)
             {
                 Export e = it.next();
                 if (e.getCharacteristic() == PortCharacteristic.OUT)
@@ -172,6 +221,15 @@ public class DualEval extends Output
                         if (!pi.equals(pi2) && pi2.getNodeInst() instanceof IconNodeInst)
                         {
                             IconNodeInst ni2 = (IconNodeInst)pi2.getNodeInst();
+                            if (ni2.equals(ni))
+                            {
+                                continue;
+                            }
+                            PrimitiveTemplate pt = primNames.get(ni2.getProto().getName());
+                            if (pt != null && !pt.propagates)
+                            {
+                                continue;
+                            }
                             Export e2 = (Export)pi2.getPortProto();
                             if (e2.getCharacteristic() != PortCharacteristic.IN)
                             {
@@ -190,6 +248,21 @@ public class DualEval extends Output
             }
         }
         return graph;
+    }
+
+    private void printDepGraph(Map<IconNodeInst, Set<IconNodeInst>> graph)
+    {
+        for (Map.Entry<IconNodeInst, Set<IconNodeInst>> e : graph.entrySet())
+        {
+            IconNodeInst niTo = e.getKey();
+            Set<IconNodeInst> niFroms = e.getValue();
+            System.out.print(niTo.getName() + " <-");
+            for (IconNodeInst niFrom : niFroms)
+            {
+                System.out.print(" " + niFrom.getName());
+            }
+            System.out.println();
+        }
     }
 
     private Collection<IconNodeInst> toposort(List<IconNodeInst> nodes, Map<IconNodeInst, Set<IconNodeInst>> graph)
@@ -228,21 +301,63 @@ public class DualEval extends Output
 
     private void writeNodes(Collection<IconNodeInst> nodes)
     {
+        int startGo = 0;
         printWriter.println("       (");
         for (IconNodeInst node : nodes)
         {
             printWriter.print("        (" + node.getName());
             String protoName = node.getProto().getName();
-            if (primNames.containsKey(protoName))
+            PrimitiveTemplate pt = primNames.get(protoName);
+            if (pt != null)
             {
-                protoName = primNames.get(protoName);
+                printWriter.println(" " + portListStr(node, pt.outputs, 0, startGo)
+                    + " " + pt.primName + " "
+                    + portListStr(node, pt.inputs, pt.numGo, startGo)
+                    + ")");
+                startGo += pt.numGo;
+            } else
+            {
+                printWriter.println(" " + portListStr(node, PortCharacteristic.OUT)
+                    + " " + protoName + " "
+                    + portListStr(node, PortCharacteristic.IN)
+                    + ")");
             }
-            printWriter.println(" " + portListStr(node, PortCharacteristic.OUT)
-                + " " + protoName + " "
-                + portListStr(node, PortCharacteristic.IN)
-                + ")");
         }
         printWriter.println("       )");
+    }
+
+    private String portListStr(IconNodeInst ni, String[] portNames, int numGo, int startGo)
+    {
+        StringBuilder sb = new StringBuilder();
+        Netlist netlist = ni.getParent().getNetlist();
+        sb.append("(");
+        boolean first = true;
+        for (String portName : portNames)
+        {
+            Network net = netlist.getNetwork(ni.getNodable(0), Name.findName(portName));
+            if (first)
+            {
+                first = false;
+            } else
+            {
+                sb.append(" ");
+            }
+            sb.append(net.getName());
+        }
+        if (numGo != 0)
+        {
+            if (!first)
+            {
+                sb.append(" ");
+            }
+            if (numGo != 1)
+            {
+                throw new UnsupportedOperationException("numGo=" + numGo);
+            }
+            sb.append(",(si 'go " + startGo + ")");
+        }
+        sb.append(")");
+        return sb.toString();
     }
 
     private String portListStr(IconNodeInst ni, PortCharacteristic pc)
@@ -278,9 +393,9 @@ public class DualEval extends Output
         {
             return;
         }
-        String funName = primNames.get(topIcon.getName());
         visitedIcons.add(topIcon);
-        if (funName != null)
+        PrimitiveTemplate pt = primNames.get(topIcon.getName());
+        if (pt != null)
         {
             return;
         }
@@ -298,5 +413,85 @@ public class DualEval extends Output
             }
         }
         downTop.add(schem != null ? schem : topIcon);
+    }
+
+    private static class PrimitiveTemplate
+    {
+        private final String cellName;
+        private final String primName;
+        private final String[] outputs;
+        private final String[] inputs;
+        private final boolean propagates; // outputs combinationally depend on inputs
+        private final boolean hasState; // has state
+        private final int numGo; // number of go signals
+
+        PrimitiveTemplate(String cellName, String primName,
+            String[] outputs, String[] inputs, boolean propagates, int numGo)
+        {
+            this.cellName = cellName;
+            this.primName = primName;
+            this.outputs = outputs;
+            this.inputs = inputs;
+            this.propagates = propagates;
+            this.hasState = !propagates;
+            this.numGo = numGo;
+        }
+    }
+
+    private void def(String cellName, String primName,
+        String[] outputs, String[] inputs, boolean propagates, int numGo)
+    {
+        PrimitiveTemplate pt = new PrimitiveTemplate(cellName, primName, outputs, inputs, propagates, numGo);
+        primNames.put(cellName, pt);
+    }
+
+    private void defComb(String cellName, String primName, String output, String... inputs)
+    {
+        String[] outputs = new String[]
+        {
+            output
+        };
+        def(cellName, primName, outputs, inputs, true, 0);
+    }
+
+    private void initPrims()
+    {
+        defComb("inv", "b-not", "out", "in");
+        defComb("invn", "b-not", "out", "in");
+        defComb("nand2", "b-nand", "out", "ina", "inb");
+        defComb("nor2", "b-nor", "out", "ina", "inb");
+        defComb("xor2", "b-xor", "out", "ina", "inb"); // BOZO inputs inaB and inbB are ignored
+
+        def("joint", "joint",
+            new String[]
+            {
+                "fire"
+            },
+            new String[]
+            {
+                "predFull", "succFull"
+            },
+            true, 1);
+
+        def("linkE", "link-e",
+            new String[]
+            {
+                "full"
+            },
+            new String[]
+            {
+                "fill", "drain"
+            },
+            false, 0);
+        def("linkF", "link-f",
+            new String[]
+            {
+                "full"
+            },
+            new String[]
+            {
+                "fill", "drain"
+            },
+            false, 0);
     }
 }

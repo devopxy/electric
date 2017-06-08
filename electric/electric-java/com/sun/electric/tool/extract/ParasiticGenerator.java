@@ -19,16 +19,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package com.sun.electric.tool.extract;
 
 import com.sun.electric.database.topology.NodeInst;
-import com.sun.electric.database.network.Netlist;
 
 /**
  * This class should be used to create ExtractedPBucket,
  * depending on tool.
  */
-public interface ParasiticGenerator {
+public interface ParasiticGenerator
+{
     public ExtractedPBucket createBucket(NodeInst ni, ParasiticTool.ParasiticCellInfo info);
 }
