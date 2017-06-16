@@ -32,25 +32,37 @@ import java.util.*;
  */
 public class SpiceNetlistReader {
 
+    private static final boolean PARENS_ONLY_IN_QUOTES = true;
+    static final boolean WRITE_PARAMS_IN_QUOTES = true;
+
+    private final boolean parseLibraries;
     private File file;
-    BufferedReader reader;
-    private StringBuffer lines;
+    private BufferedReader reader;
+    private Iterator<String> macroReader;
+    private StringBuilder lines;
     private int lineno;
 
-    private HashMap<String,String> options = new LinkedHashMap<String,String>();
-    private HashMap<String,String> globalParams = new LinkedHashMap<String,String>();
-    private List<SpiceInstance> topLevelInstances = new ArrayList<SpiceInstance>();
-    private HashMap<String,SpiceSubckt> subckts = new LinkedHashMap<String,SpiceSubckt>();
-    private List<String> globalNets = new ArrayList<String>();
-    private SpiceSubckt currentSubckt;
+    private final Map<File, SpiceLibrary> libraries = new LinkedHashMap<>();
+    private final Map<String,String> options = new LinkedHashMap<>();
+    private final Map<String,String> globalParams = new LinkedHashMap<>();
+    private final Map<String,SpiceModel> globalModels = new LinkedHashMap<>();
+    private final List<SpiceInstance> topLevelInstances = new ArrayList<>();
+    private final Map<String,SpiceSubckt> subckts = new LinkedHashMap<>();
+    private final List<String> globalNets = new ArrayList<>();
+    private List<SpiceSubckt> currentSubcktStack = new ArrayList<>();
 
     public SpiceNetlistReader() {
+        this(false);
+    }
+
+    public SpiceNetlistReader(boolean parseLibraries) {
+        this.parseLibraries = parseLibraries;
         reader = null;
         lines = null;
     }
 
-    public HashMap<String,String> getOptions() { return options; }
-    public HashMap<String,String> getGlobalParams() { return globalParams; }
+    public Map<String,String> getOptions() { return options; }
+    public Map<String,String> getGlobalParams() { return globalParams; }
     public List<SpiceInstance> getTopLevelInstances() { return topLevelInstances; }
     public Collection<SpiceSubckt> getSubckts() { return subckts.values(); }
     public List<String> getGlobalNets() { return globalNets; }
@@ -65,104 +77,249 @@ public class SpiceNetlistReader {
 //    enum TType { PAR, PARVAL, WORD }
 
     public void readFile(String fileName, boolean verbose) throws FileNotFoundException {
-        file = new File(fileName);
-        reader = new BufferedReader(new FileReader(fileName));
-        lines = new StringBuffer();
-        currentSubckt = null;
+        readFile(new File(fileName), verbose);
+    }
 
-        String line;
+    public void readFile(File file, boolean verbose) throws FileNotFoundException {
+        this.file = file;
+        reader = new BufferedReader(new FileReader(file));
+        lines = new StringBuilder();
+
+        String line = null;
         lineno = 0;
         try {
             while ((line = readLine()) != null) {
-                line = line.trim();
-                String [] tokens = getTokens(line);
-                if (tokens.length == 0) continue;
-                String keyword = tokens[0].toLowerCase();
-
-                if (keyword.equals(".include")) {
-                    if (tokens.length < 2) {
-                        prErr("No file specified for .include");
-                        continue;
-                    }
-                    String ifile = tokens[1];
-                    if (!ifile.startsWith("/") && !ifile.startsWith("\\")) {
-                        // relative path, add to current path
-                        File newFile = new File(file.getParent(), ifile);
-                        ifile = newFile.getPath();
-                    }
-                    File saveFile = file;
-                    BufferedReader saveReader = reader;
-                    StringBuffer saveLines = lines;
-                    int saveLine = lineno;
-
-                    try {
-                        if (verbose)
-                            System.out.println("Reading include file "+ifile);
-                        readFile(ifile, verbose);
-                    } catch (FileNotFoundException e) {
-                        file = saveFile;
-                        lineno = saveLine;
-                        prErr("Include file does not exist: "+ifile);
-                    }
-                    file = saveFile;
-                    reader = saveReader;
-                    lines = saveLines;
-                    lineno = saveLine;
-                }
-                else if (keyword.startsWith(".opt")) {
-                    parseOptions(options, 1, tokens);
-                }
-                else if (keyword.equals(".param")) {
-                    parseParams(globalParams, 1, tokens);
-                }
-                else if (keyword.equals(".subckt")) {
-                    currentSubckt = parseSubckt(tokens);
-                    if (currentSubckt != null && subckts.containsKey(currentSubckt.getName().toLowerCase())) {
-                        prErr("Subckt "+currentSubckt.getName()+
-                                " already defined");
-                        continue;
-                    }
-                    subckts.put(currentSubckt.getName().toLowerCase(), currentSubckt);
-                }
-                else if (keyword.equals(".global")) {
-                    for (int i=1; i<tokens.length; i++) {
-                        if (!globalNets.contains(tokens[i]))
-                            globalNets.add(tokens[i]);
-                    }
-                }
-                else if (keyword.startsWith(".ends")) {
-                    currentSubckt = null;
-                }
-                else if (keyword.startsWith(".end")) {
-                    // end of file
-                }
-                else if (keyword.startsWith("x")) {
-                    SpiceInstance inst = parseSubcktInstance(tokens);
-                    addInstance(inst);
-                }
-                else if (keyword.startsWith("r")) {
-                    SpiceInstance inst = parseResistor(tokens);
-                    addInstance(inst);
-                }
-                else if (keyword.startsWith("c")) {
-                    SpiceInstance inst = parseCapacitor(tokens);
-                    addInstance(inst);
-                }
-                else if (keyword.startsWith("m")) {
-                    SpiceInstance inst = parseMosfet(tokens);
-                    addInstance(inst);
-                }
-                else if (keyword.equals(".protect") || keyword.equals(".unprotect")) {
-                    // ignore
-                }
-                else {
-                    prWarn("Parser does not recognize: "+line);
-                }
+                parseLine(line, verbose);
             }
             reader.close();
         } catch (IOException e) {
             System.out.println("Error reading file "+file.getPath()+": "+e.getMessage());
         }
+    }
+
+    private void readMacro(String libFileName, String macroName, boolean verbose) {
+        File libFile = resolveFile(libFileName);
+        SpiceLibrary library;
+        try {
+            library = readLibrary(libFile, verbose);
+        } catch (IOException e) {
+            prErr("Can't read library file " + libFileName);
+            return;
+        }
+        Integer macroStart = library.libIndex.get(macroName.toLowerCase());
+        if (macroStart == null)
+        {
+            prErr("Can't file libary " + macroName + " in file " + libFileName);
+            return;
+        }
+
+        File saveFile = file;
+        BufferedReader saveReader = reader;
+        Iterator<String> saveMacroReader = macroReader;
+        StringBuilder saveLines = lines;
+        int saveLine = lineno;
+        try
+        {
+            file = libFile;
+            reader = null;
+            macroReader = library.lines.listIterator(macroStart);
+            lines = new StringBuilder();
+            lineno = macroStart;
+            String line;
+
+            while ((line = readLine()) != null)
+            {
+                if (line.length() >= 5 && line.substring(0, 5).toLowerCase().equals(".endl"))
+                {
+                    break;
+                }
+                parseLine(line, verbose);
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading file "+file.getPath()+": "+e.getMessage());
+        } finally
+        {
+            file = saveFile;
+            reader = saveReader;
+            macroReader = saveMacroReader;
+            lines = saveLines;
+            lineno = saveLine;
+        }
+    }
+
+    private void parseLine(String line, boolean verbose)
+    {
+        line = line.trim();
+        String[] tokens = getTokens(line);
+        if (tokens.length == 0)
+            return;
+        String keyword = tokens[0].toLowerCase();
+
+        if (keyword.equals(".include"))
+        {
+            if (tokens.length < 2)
+            {
+                prErr("No file specified for .include");
+                return;
+            }
+            String ifile = tokens[1];
+            File newFile = resolveFile(ifile);
+//            if (ifile.startsWith("/") || !ifile.startsWith("\\"))
+//            {
+//                // absolute path
+//                newFile = new File(ifile);
+//            }
+//            {
+//                // relative path, add to current path
+//                newFile = new File(file.getParent(), ifile);
+//                ifile = newFile.getPath();
+//            }
+            File saveFile = file;
+            BufferedReader saveReader = reader;
+            Iterator<String> saveMacroReader = macroReader;
+            StringBuilder saveLines = lines;
+            int saveLine = lineno;
+
+            try
+            {
+                if (verbose)
+                    System.out.println("Reading include file " + ifile);
+                readFile(newFile, verbose);
+            } catch (FileNotFoundException e)
+            {
+                file = saveFile;
+                lineno = saveLine;
+                prErr("Include file does not exist: " + ifile);
+            }
+            file = saveFile;
+            reader = saveReader;
+            macroReader = saveMacroReader;
+            lines = saveLines;
+            lineno = saveLine;
+        } else if (parseLibraries && keyword.startsWith(".lib"))
+        {
+            if (tokens.length < 3)
+            {
+                prErr("No library specified for .lib");
+                return;
+            }
+            String lfile = tokens[1];
+            String macroName = tokens[2];
+            readMacro(lfile, macroName, verbose);
+        } else if (keyword.startsWith(".opt"))
+        {
+            if (currentSubckt() != null)
+            {
+                prErr(".opt inside .subckt");
+            }
+            parseOptions(options, 1, tokens);
+        } else if (keyword.equals(".param"))
+        {
+            SpiceSubckt currentSubckt = currentSubckt();
+            parseParams(currentSubckt != null ? currentSubckt.getLocalParams() : globalParams, 1, tokens);
+        } else if (keyword.equals(".subckt"))
+        {
+            SpiceSubckt currentSubckt = currentSubckt();
+            SpiceSubckt newSubckt = parseSubckt(tokens);
+            SpiceSubckt oldSubckt = currentSubckt != null
+                ? currentSubckt.addSubckt(newSubckt)
+                : subckts.put(newSubckt.getName().toLowerCase(), newSubckt);
+            if (oldSubckt != null)
+            {
+                prErr("Subckt " + currentSubckt.getName()
+                    + " already defined");
+            }
+            currentSubcktStack.add(newSubckt);
+        } else if (keyword.equals(".global"))
+        {
+            if (currentSubckt() != null)
+            {
+                prErr(".global inside .subckt");
+            }
+            for (int i = 1; i < tokens.length; i++)
+            {
+                if (!globalNets.contains(tokens[i]))
+                    globalNets.add(tokens[i]);
+            }
+        } else if (keyword.startsWith(".ends"))
+        {
+            if (currentSubckt() != null)
+                currentSubcktStack.remove(currentSubcktStack.size() - 1);
+        } else if (keyword.startsWith(".end"))
+        {
+            // end of file
+            if (currentSubckt() != null)
+            {
+                prErr("Expected .ends " + currentSubckt().getName());
+            }
+        } else if (keyword.equals(".model"))
+        {
+            SpiceModel model = parseModel(tokens);
+            SpiceSubckt currentSubckt = currentSubckt();
+            if (currentSubckt != null) {
+                currentSubckt.addModel(model);
+            } else {
+                globalModels.put(model.getName().toLowerCase(), model);
+            }
+        } else if (keyword.equals(".ic"))
+        {
+            SpiceInstance ic = parseInitial(tokens);
+            addInstance(ic);
+        } else if (keyword.equals(".tran"))
+        {
+            SpiceInstance ic = parseTran(tokens);
+            addInstance(ic);
+        } else if (keyword.startsWith("x"))
+        {
+            SpiceInstance inst = parseSubcktInstance(tokens);
+            addInstance(inst);
+        } else if (keyword.startsWith("r"))
+        {
+            SpiceInstance inst = parseResistor(tokens);
+            addInstance(inst);
+        } else if (keyword.startsWith("c"))
+        {
+            SpiceInstance inst = parseCapacitor(tokens);
+            addInstance(inst);
+        } else if (keyword.startsWith("v"))
+        {
+            SpiceInstance inst = parseVoltageSource(tokens);
+            addInstance(inst);
+        } else if (keyword.startsWith("m"))
+        {
+            SpiceInstance inst = parseMosfet(tokens);
+            addInstance(inst);
+        } else if (keyword.equals(".protect") || keyword.equals(".unprotect"))
+        {
+            // ignore
+        } else
+        {
+            prWarn("Parser does not recognize: " + line);
+        }
+    }
+
+    private File resolveFile(String newName)
+    {
+        if (newName.startsWith("/") || newName.startsWith("\\"))
+        {
+            // absolute path
+            return new File(newName);
+        }
+        {
+            // relative path, add to current path
+            return new File(file.getParent(), newName);
+        }
+    }
+
+    private SpiceLibrary readLibrary(File libFile, boolean verbose) throws IOException {
+        SpiceLibrary theLibrary = libraries.get(libFile);
+        if (theLibrary == null) {
+            if (verbose)
+                System.out.println("Reading library file " + libFile);
+            theLibrary = new SpiceLibrary(libFile);
+            libraries.put(libFile, theLibrary);
+        }
+        return theLibrary;
     }
 
     private void prErr(String msg) {
@@ -202,6 +359,8 @@ public class SpiceNetlistReader {
                 }
             }
             else if (c == '\'') {
+                if (PARENS_ONLY_IN_QUOTES)
+                    assert inparens == 0;
                 if (inparens > 0) continue;
                 inquotes = true;
                 if (start != i) {
@@ -217,10 +376,10 @@ public class SpiceNetlistReader {
                     tokens.add(line.substring(start, i));
                 start = i+1;
             }
-            else if (c == '(') {
+            else if ((!PARENS_ONLY_IN_QUOTES || inquotes) && c == '(') {
                 inparens++;
             }
-            else if (c == ')') {
+            else if ((!PARENS_ONLY_IN_QUOTES || inquotes) && c == ')') {
                 if (inparens == 0) {
                     prErr("Too many ')'s");
                     break;
@@ -266,7 +425,11 @@ public class SpiceNetlistReader {
         return ret;
     }
 
-    private void parseOptions(HashMap<String,String> map, int start, String [] tokens) {
+    private SpiceSubckt currentSubckt() {
+        return currentSubcktStack.isEmpty() ? null : currentSubcktStack.get(currentSubcktStack.size() - 1);
+    }
+
+    private void parseOptions(Map<String,String> map, int start, String [] tokens) {
         for (int i=start; i<tokens.length; i++) {
             int e = tokens[i].indexOf('=');
             String pname = tokens[i];
@@ -283,13 +446,13 @@ public class SpiceNetlistReader {
         }
     }
 
-    private void parseParams(HashMap<String,String> map, int start, String [] tokens) {
+    private void parseParams(Map<String,String> map, int start, String [] tokens) {
         for (int i=start; i<tokens.length; i++) {
             parseParam(map, tokens[i], null);
         }
     }
 
-    private void parseParam(HashMap<String,String> map, String parval, String defaultParName) {
+    private void parseParam(Map<String,String> map, String parval, String defaultParName) {
         int e = parval.indexOf('=');
         String pname = defaultParName;
         String value = parval;
@@ -320,14 +483,21 @@ public class SpiceNetlistReader {
 
     private SpiceInstance parseSubcktInstance(String [] parts) {
         String name = parts[0].substring(1);
-        List<String> nets = new ArrayList<String>();
+        List<String> nets = new ArrayList<>();
         int i=1;
         for (; i<parts.length; i++) {
             if (parts[i].contains("=")) break;  // parameter
             nets.add(parts[i]);
         }
         String subcktName = nets.remove(nets.size()-1); // last one is subckt reference
-        SpiceSubckt subckt = subckts.get(subcktName.toLowerCase());
+        SpiceSubckt subckt = null;
+        for (int j = currentSubcktStack.size() - 1; subckt == null && j >= 0; j--) {
+            subckt = currentSubcktStack.get(j).findSubckt(subcktName);
+        }
+        if (subckt == null)
+        {
+            subckt = subckts.get(subcktName.toLowerCase());
+        }
         if (subckt == null) {
             prErr("Cannot find subckt for "+subcktName);
             return null;
@@ -347,6 +517,7 @@ public class SpiceNetlistReader {
 
     private void addInstance(SpiceInstance inst) {
         if (inst == null) return;
+        SpiceSubckt currentSubckt = currentSubckt();
         if (currentSubckt != null)
             currentSubckt.addInstance(inst);
         else
@@ -379,6 +550,19 @@ public class SpiceNetlistReader {
         return inst;
     }
 
+    private SpiceInstance parseVoltageSource(String [] parts) {
+        if (parts.length < 4) {
+            prErr("Not enough arguments for voltage");
+            return null;
+        }
+        SpiceInstance inst = new SpiceInstance(parts[0]);
+        for (int i=1; i<3; i++) {
+            inst.addNet(parts[i]);
+        }
+        parseParam(inst.getParams(), parts[3], "dc");
+        return inst;
+    }
+
     private SpiceInstance parseMosfet(String [] parts) {
         if (parts.length < 8) {
             prErr("Not enough arguments for mosfet");
@@ -390,13 +574,51 @@ public class SpiceNetlistReader {
             inst.addNet(parts[i]);
         }
         String model = parts[i];
-        inst.getParams().put("model", model);
+        inst.addModel(model);
         i++;
         parseParams(inst.getParams(), i, parts);
         return inst;
     }
 
+    private SpiceModel parseModel(String[] parts)
+    {
+        if (parts.length < 3) {
+            prErr("Not enough arguments for resistor");
+            return null;
+        }
+        int i = 1;
+        String modName = parts[i++];
+        String modFlag = parts[i++];
+        SpiceModel model = new SpiceModel(modName, modFlag);
+        if (parts.length >= 4 && parts[i].equals("(") && parts[parts.length - 1].equals(")"))
+        {
+            parts = Arrays.copyOf(parts, parts.length - 1);
+            parseParams(model.getParams(), i + 1, parts);
+        } else
+        {
+            parseParams(model.getParams(), i, parts);
+        }
+        return model;
+    }
+
+    private SpiceInstance parseInitial(String[] parts) {
+        SpiceInstance inst = new SpiceInstance(parts[0]);
+        int i = 1;
+        parseParams(inst.getParams(), i, parts);
+        return inst;
+    }
+
+    private SpiceInstance parseTran(String[] parts) {
+        if (parts.length < 3) {
+            prErr("Not enough arguments for resistor");
+            return null;
+        }
+        SpiceInstance inst = new SpiceInstance(parts[0] + " " + parts[1] + " " + parts[2]);
+        return inst;
+    }
+
     private void parseComment(String line) {
+        SpiceSubckt currentSubckt = currentSubckt();
         if (currentSubckt == null) return;
         String [] parts = line.split("\\s+");
         for (int i=0; i<parts.length; i++) {
@@ -421,7 +643,12 @@ public class SpiceNetlistReader {
     private String readLine() throws IOException {
         while (true) {
             lineno++;
-            String line = reader.readLine();
+            String line = null;
+            if (macroReader != null && macroReader.hasNext()) {
+                line = macroReader.next();
+            } else if (reader != null) {
+                line = reader.readLine();
+            }
             if (line == null) {
                 // EOF
                 if (lines.length() == 0) return null;
@@ -485,7 +712,15 @@ public class SpiceNetlistReader {
         }
         out.println();
         for (String key : globalParams.keySet()) {
-            out.println(".param "+key+"="+globalParams.get(key));
+            if (WRITE_PARAMS_IN_QUOTES) {
+                out.println(".param "+key+"='"+globalParams.get(key)+"'");
+            } else {
+                out.println(".param "+key+"="+globalParams.get(key));
+            }
+        }
+        out.println();
+        for (SpiceModel model : globalModels.values()) {
+            model.write(out);
         }
         out.println();
         for (String net : globalNets) {
@@ -502,6 +737,7 @@ public class SpiceNetlistReader {
         }
         out.println();
         out.println(".end");
+        out.flush();
         if (out != System.out) out.close();
     }
 
@@ -549,6 +785,29 @@ public class SpiceNetlistReader {
         }
     }
 
+    static class SpiceLibrary
+    {
+        private final List<String> lines = new ArrayList<>();
+        private final Map<String,Integer> libIndex = new HashMap<>();
+
+        SpiceLibrary(File file) throws IOException
+        {
+            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    lines.add(line);
+                    if (line.length() >= 4 && line.substring(0, 4).toLowerCase().equals(".lib"))
+                    {
+                        String[] pieces = line.split("[ \t]+");
+                        if (pieces.length == 2) {
+                            libIndex.put(pieces[1].toLowerCase(), lines.size());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // ======================== Spice Netlist Information ============================
 
     // =================================== test ================================
@@ -557,7 +816,7 @@ public class SpiceNetlistReader {
         SpiceNetlistReader reader = new SpiceNetlistReader();
 
         try {
-            reader.readFile("/import/async/cad/2006/bic/jkg/bic/testSims/test_clk_regen.spi", true);
+            reader.readFile(new File("/import/async/cad/2006/bic/jkg/bic/testSims/test_clk_regen.spi"), true);
         } catch (FileNotFoundException e) {
             System.out.println(e.getMessage());
         }

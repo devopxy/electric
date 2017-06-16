@@ -22,10 +22,10 @@
 package com.sun.electric.tool.io.input.spicenetlist;
 
 import java.util.List;
-import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.io.PrintStream;
+import java.util.Map;
 
 /**
  * User: gainsley
@@ -33,25 +33,22 @@ import java.io.PrintStream;
  */
 
 public class SpiceInstance {
-    private char type;                  // spice type
-    private String name;
-    private List<String> nets;
-    private SpiceSubckt subckt;              // may be null if primitive element
-    private HashMap<String,String> params;
+    private final char type;                  // spice type
+    private final String name;
+    private String model;
+    private final List<String> nets = new ArrayList<>();
+    private final SpiceSubckt subckt;              // may be null if primitive element
+    private final Map<String,String> params = new LinkedHashMap<>();
 
     public SpiceInstance(String typeAndName) {
         this.type = typeAndName.charAt(0);
         this.name = typeAndName.substring(1);
-        this.nets = new ArrayList<String>();
         this.subckt = null;
-        this.params = new LinkedHashMap<String,String>();
     }
     public SpiceInstance(SpiceSubckt subckt, String name) {
         this.type = 'x';
         this.name = name;
-        this.nets = new ArrayList<String>();
         this.subckt = subckt;
-        this.params = new LinkedHashMap<String,String>();
         for (String key : subckt.getParams().keySet()) {
             // set default param values
             this.params.put(key, subckt.getParams().get(key));
@@ -60,16 +57,20 @@ public class SpiceInstance {
     public char getType() { return type; }
     public String getName() { return name; }
     public List<String> getNets() { return nets; }
+    public void addModel(String model) { this.model = model; }
     public void addNet(String net) { nets.add(net); }
-    public HashMap<String,String> getParams() { return params; }
+    public Map<String,String> getParams() { return params; }
     public SpiceSubckt getSubckt() { return subckt; }
     public void write(PrintStream out) {
-        StringBuffer buf = new StringBuffer();
+        StringBuilder buf = new StringBuilder();
         buf.append(type);
         buf.append(name);
         buf.append(" ");
         for (String net : nets) {
             buf.append(net); buf.append(" ");
+        }
+        if (model != null) {
+            buf.append(model).append(" ");
         }
         if (subckt != null) {
             buf.append(subckt.getName());
@@ -80,7 +81,11 @@ public class SpiceInstance {
             String value = params.get(key);
             if (value != null) {
                 buf.append("=");
-                buf.append(value);
+                if (SpiceNetlistReader.WRITE_PARAMS_IN_QUOTES) {
+                    buf.append("'").append(value).append("'");
+                } else {
+                    buf.append(value);
+                }
             }
             buf.append(" ");
         }

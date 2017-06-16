@@ -32,17 +32,16 @@ import java.io.PrintStream;
 public class SpiceSubckt {
     public enum PortType { IN, OUT, BIDIR }
 
-    private String name;
-    private List<String> ports;
-    private HashMap<String,String> params;
-    private List<SpiceInstance> instances;
-    private HashMap<String,PortType> porttypes;
+    private final String name;
+    private final List<String> ports = new ArrayList<>();
+    private final Map<String,String> params = new LinkedHashMap<>();
+    private final Map<String,SpiceModel> localModels = new LinkedHashMap<>();
+    private final Map<String,String> localParams = new LinkedHashMap<>();
+    private final List<SpiceInstance> instances = new ArrayList<>();
+    private final Map<String,PortType> porttypes = new HashMap<>();
+    private final Map<String,SpiceSubckt> subckts = new LinkedHashMap<>();
     public SpiceSubckt(String name) {
         this.name = name;
-        this.ports = new ArrayList<String>();
-        this.params = new LinkedHashMap<String,String>();
-        this.instances = new ArrayList<SpiceInstance>();
-        this.porttypes = new HashMap<String,PortType>();
     }
     public String getName() { return name; }
     public void addPort(String port) { ports.add(port); }
@@ -56,7 +55,9 @@ public class SpiceSubckt {
     }
     public List<String> getPorts() { return ports; }
     public String getParamValue(String name) { return params.get(name); }
-    public HashMap<String,String> getParams() { return params; }
+    public Map<String,String> getParams() { return params; }
+    public Map<String,String> getLocalParams() { return localParams; }
+    void addModel(SpiceModel model) { localModels.put(model.getName().toLowerCase(), model); }
     void addInstance(SpiceInstance inst) { instances.add(inst); }
     public List<SpiceInstance> getInstances() { return instances; }
     public void setPortType(String port, PortType type) {
@@ -64,8 +65,16 @@ public class SpiceSubckt {
             porttypes.put(port, type);
     }
     public PortType getPortType(String port) { return porttypes.get(port); }
+    SpiceSubckt addSubckt(SpiceSubckt subckt)
+    {
+        return subckts.put(subckt.name.toLowerCase(), subckt);
+    }
+    public SpiceSubckt findSubckt(String subcktName)
+    {
+        return subckts.get(subcktName.toLowerCase());
+    }
     public void write(PrintStream out) {
-        StringBuffer buf = new StringBuffer(".subckt ");
+        StringBuilder buf = new StringBuilder(".subckt ");
         buf.append(name);
         buf.append(" ");
         for (String port : ports) {
@@ -75,11 +84,30 @@ public class SpiceSubckt {
         for (String key : params.keySet()) {
             buf.append(key);
             buf.append("=");
-            buf.append(params.get(key));
+            if (SpiceNetlistReader.WRITE_PARAMS_IN_QUOTES) {
+                buf.append("'").append(params.get(key)).append("'");
+            } else {
+                buf.append(params.get(key));
+
+            }
             buf.append(" ");
         }
         buf.append("\n");
         SpiceNetlistReader.multiLinePrint(out, false, buf.toString());
+        for (String key : localParams.keySet()) {
+            if (SpiceNetlistReader.WRITE_PARAMS_IN_QUOTES) {
+                out.println(".param "+key+"='"+localParams.get(key) +"'");
+            } else {
+                out.println(".param "+key+"="+localParams.get(key));
+            }
+        }
+        for (SpiceModel model : localModels.values()) {
+            model.write(out);
+        }
+        for (SpiceSubckt subckt: subckts.values())
+        {
+            subckt.write(out);
+        }
         for (SpiceInstance inst : instances) {
             inst.write(out);
         }
