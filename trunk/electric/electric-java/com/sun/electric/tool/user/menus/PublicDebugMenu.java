@@ -33,6 +33,7 @@ import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.drc.MinArea;
 import com.sun.electric.tool.io.FileType;
 import com.sun.electric.tool.io.input.JELIB2;
+import com.sun.electric.tool.io.input.spicenetlist.SpiceNetlistReader;
 import com.sun.electric.tool.routing.Routing;
 import com.sun.electric.tool.routing.SeaOfGates;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesEngine;
@@ -47,6 +48,7 @@ import com.sun.electric.util.TextUtils;
 import com.sun.electric.util.acl2.ACL2Reader;
 import com.sun.electric.util.acl2.GenPkgImports;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URL;
@@ -159,6 +161,27 @@ public class PublicDebugMenu {
                     }
                 }),
 
+                new EMenu("Spice",
+
+                new EMenuItem("Read Spice")
+                {
+                    @Override
+                    public void run()
+                    {
+                        String spicePath = OpenFile.chooseInputFile(FileType.SPICE, "Spice deck", false);
+                        if (spicePath == null) return;
+                        SpiceNetlistReader reader = new SpiceNetlistReader(true);
+                        try
+                        {
+                            reader.readFile(spicePath, true);
+                        } catch (FileNotFoundException e)
+                        {
+                            System.out.println(e.getMessage());
+                        }
+
+                        reader.writeFile("/tmp/output.spi");
+                    }
+                }),
 				new EMenu("DRC",
 
 				new EMenuItem("Check _Minimum Area...") {
