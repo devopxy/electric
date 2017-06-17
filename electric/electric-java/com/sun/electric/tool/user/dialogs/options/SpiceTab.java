@@ -72,6 +72,7 @@ public class SpiceTab extends PreferencePanel
 		// the top section: writing spice decks
 		spiceEnginePopup.addItem(SimulationTool.SpiceEngine.SPICE_ENGINE_2);
 		spiceEnginePopup.addItem(SimulationTool.SpiceEngine.SPICE_ENGINE_3);
+		spiceEnginePopup.addItem(SimulationTool.SpiceEngine.SPICE_ENGINE_NG);
 		spiceEnginePopup.addItem(SimulationTool.SpiceEngine.SPICE_ENGINE_H);
 		spiceEnginePopup.addItem(SimulationTool.SpiceEngine.SPICE_ENGINE_P);
 		spiceEnginePopup.addItem(SimulationTool.SpiceEngine.SPICE_ENGINE_G);
@@ -181,7 +182,7 @@ public class SpiceTab extends PreferencePanel
 
 		// reading spice
 		spicePlaceAfterReading.setSelected(SimulationTool.isSpiceInputPlaces());
-		
+
 		// writing backslash in CDL
 		cdlBackslash.setSelected(SimulationTool.isCDLLashOn());
 	}
@@ -300,7 +301,7 @@ public class SpiceTab extends PreferencePanel
 		// reading spice
 		booleanNow = spicePlaceAfterReading.isSelected();
 		if (SimulationTool.isSpiceInputPlaces() != booleanNow) SimulationTool.setSpiceInputPlaces(booleanNow);
-		
+
 		// cdl backlash
 		booleanNow = cdlBackslash.isSelected();
 		if (SimulationTool.isCDLLashOn() != booleanNow) SimulationTool.setCDLLashOn(booleanNow);
