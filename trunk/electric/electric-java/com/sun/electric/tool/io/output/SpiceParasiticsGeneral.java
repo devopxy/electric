@@ -33,11 +33,11 @@ public class SpiceParasiticsGeneral
 		return segmentedNets;
 	}
 
-	public void writeSubcircuitHeader(CellSignal cs, StringBuffer infstr)
+	public void writeSubcircuitHeader(CellSignal cs, StringBuilder infstr)
 	{
 	}
 
-	public void getParasiticName(Nodable no, Network subNet, SpiceSegmentedNets subSegmentedNets, StringBuffer infstr)
+	public void getParasiticName(Nodable no, Network subNet, SpiceSegmentedNets subSegmentedNets, StringBuilder infstr)
 	{
 	}
 

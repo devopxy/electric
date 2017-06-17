@@ -109,8 +109,9 @@ public class Spice extends Topology
 	/** key of Variable holding Xyce templates. */				public static final Variable.Key SPICE_XYCE_TEMPLATE_KEY = Variable.newKey("ATTR_SPICE_template_xyce");
 	/** key of Variable holding GnuCap templates. */			public static final Variable.Key SPICE_GC_TEMPLATE_KEY = Variable.newKey("ATTR_SPICE_template_gnucap");
 	/** key of Variable holding Smart Spice templates. */		public static final Variable.Key SPICE_SM_TEMPLATE_KEY = Variable.newKey("ATTR_SPICE_template_smartspice");
-	/** key of Variable holding Smart Spice templates. */		public static final Variable.Key SPICE_A_TEMPLATE_KEY = Variable.newKey("ATTR_SPICE_template_assura");
-	/** key of Variable holding Smart Spice templates. */		public static final Variable.Key SPICE_C_TEMPLATE_KEY = Variable.newKey("ATTR_SPICE_template_calibre");
+	/** key of Variable holding Assure templates. */		    public static final Variable.Key SPICE_A_TEMPLATE_KEY = Variable.newKey("ATTR_SPICE_template_assura");
+	/** key of Variable holding Calibre templates. */		    public static final Variable.Key SPICE_C_TEMPLATE_KEY = Variable.newKey("ATTR_SPICE_template_calibre");
+	/** key of Variable holding Ngspice templates. */		    public static final Variable.Key SPICE_NG_TEMPLATE_KEY = Variable.newKey("ATTR_SPICE_template_ngspice");
 	/** key of Variable holding Spice model file. */		    public static final Variable.Key SPICE_NETLIST_FILE_KEY = Variable.newKey("ATTR_SPICE_netlist_file");
 	/** key of Variable holding SPICE code. */					public static final Variable.Key SPICE_CARD_KEY = Variable.newKey("SIM_spice_card");
 	/** key of Variable holding SPICE declaration. */			public static final Variable.Key SPICE_DECLARATION_KEY = Variable.newKey("SIM_spice_declaration");
@@ -395,6 +396,7 @@ public class Spice extends Topology
 			case SPICE_ENGINE_O:                                                              break;
 			case SPICE_ENGINE_H_ASSURA:  preferedEngineTemplateKey = SPICE_A_TEMPLATE_KEY;  assuraHSpice = true; break;
 			case SPICE_ENGINE_H_CALIBRE: preferedEngineTemplateKey = SPICE_C_TEMPLATE_KEY;  assuraHSpice = true; break;
+            case SPICE_ENGINE_NG:        preferedEngineTemplateKey = SPICE_NG_TEMPLATE_KEY;   break;
 		}
         if (useCDL) {
             preferedEngineTemplateKey = CDL_TEMPLATE_KEY;
@@ -413,9 +415,19 @@ public class Spice extends Topology
         markCellsToUniquify(topCell);
 
 		// setup the legal characters
-		legalSpiceChars = SPICELEGALCHARS;
-		if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_P ||
-			spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_G) legalSpiceChars = PSPICELEGALCHARS;
+        switch (spiceEngine)
+        {
+            case SPICE_ENGINE_P:
+            case SPICE_ENGINE_G:
+                legalSpiceChars = PSPICELEGALCHARS;
+                break;
+            default:
+                legalSpiceChars = SPICELEGALCHARS;
+                break;
+        }
+//		legalSpiceChars = SPICELEGALCHARS;
+//		if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_P ||
+//			spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_G) legalSpiceChars = PSPICELEGALCHARS;
 
 		// start writing the spice deck
 		if (useCDL)
@@ -488,23 +500,41 @@ public class Spice extends Topology
             {
                 if (globalSize > 0)
                 {
-                    StringBuffer infstr = new StringBuffer();
-                    if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_XYCE) {
-                    	infstr.append("\n*** Globals\n");
-                    } else {
-                    	infstr.append("\n.global");
+                    StringBuilder infstr = new StringBuilder();
+                    switch (spiceEngine)
+                    {
+                        case SPICE_ENGINE_XYCE:
+                            infstr.append("\n*** Globals\n");
+                            break;
+                        default:
+                            infstr.append("\n.global");
+                            break;
                     }
+//                    if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_XYCE) {
+//                    	infstr.append("\n*** Globals\n");
+//                    } else {
+//                    	infstr.append("\n.global");
+//                    }
                     for(int i=0; i<globalSize; i++)
                     {
                         Global global = globals.get(i);
                         String name = global.getName();
                         if (global == Global.power) { if (getPowerName(null) != null) name = getPowerName(null); }
                         if (global == Global.ground) { if (getGroundName(null) != null) name = getGroundName(null); }
-                        if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_XYCE) {
-                        	infstr.append(" $" + name);
-                        } else {
-                        	infstr.append(" " + name);
+                        switch (spiceEngine)
+                        {
+                            case SPICE_ENGINE_XYCE:
+                            	infstr.append(" $" + name);
+                                break;
+                            default:
+                            	infstr.append(" " + name);
+                                break;
                         }
+//                        if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_XYCE) {
+//                        	infstr.append(" $" + name);
+//                        } else {
+//                        	infstr.append(" " + name);
+//                        }
                     }
                     infstr.append("\n");
                     multiLinePrint(false, infstr.toString());
@@ -640,7 +670,7 @@ public class Spice extends Topology
 
 			multiLinePrint(true, "\n*** SUBCIRCUIT " + cellName + " FROM CELL " + cell.describe(false) + "\n");
 
-			StringBuffer infstr = new StringBuffer();
+			StringBuilder infstr = new StringBuilder();
 			infstr.append(".SUBCKT " + cellName);
 			for(Iterator<CellSignal> sIt = cni.getCellSignals(); sIt.hasNext(); )
 			{
@@ -681,12 +711,23 @@ public class Spice extends Topology
                     		value = evalParam(context, info.getParentInst(), paramVar, forceEval);
                     } else if (!isNetlistableParam(cell, paramVar))
                         continue;
-                    if ((spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_O || spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_XYCE) &&
-                    	firstParam)
+                    switch (spiceEngine)
                     {
-                        infstr.append(" param:");
-                    	firstParam = false;
+                        case SPICE_ENGINE_O:
+                        case SPICE_ENGINE_XYCE:
+                            if (firstParam)
+                            {
+                                infstr.append(" param:");
+                            	firstParam = false;
+                            }
+                            break;
                     }
+//                    if ((spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_O || spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_XYCE) &&
+//                    	firstParam)
+//                    {
+//                        infstr.append(" param:");
+//                    	firstParam = false;
+//                    }
                     infstr.append(" " + paramVar.getTrueName() + "=" + value);
 				}
 			}
@@ -746,7 +787,7 @@ public class Spice extends Topology
 						for(int i=0; i<manyLines.length; i++)
 						{
 							String line = manyLines[i].toString();
-							StringBuffer infstr = replacePortsAndVars(line, no, context, cni, segmentedNets, info, false, forceEval);
+							StringBuilder infstr = replacePortsAndVars(line, no, context, cni, segmentedNets, info, false, forceEval);
 		                    // Writing MFactor if available. Not sure here
 							if (i == 0) writeMFactor(context, no, infstr);
 							infstr.append('\n');
@@ -755,7 +796,7 @@ public class Spice extends Topology
 					} else
 					{
 						String line = varTemplate.getObject().toString();
-						StringBuffer infstr = replacePortsAndVars(line, no, context, cni, segmentedNets, info, false, forceEval);
+						StringBuilder infstr = replacePortsAndVars(line, no, context, cni, segmentedNets, info, false, forceEval);
 	                    // Writing MFactor if available. Not sure here
 						writeMFactor(context, no, infstr);
 
@@ -777,7 +818,7 @@ public class Spice extends Topology
 
 				String modelChar = "X";
 				if (no.getName() != null) modelChar += getSafeNetName(no.getName(), false);
-				StringBuffer infstr = new StringBuffer();
+				StringBuilder infstr = new StringBuilder();
 				infstr.append(modelChar);
 				for(Iterator<CellSignal> sIt = subCni.getCellSignals(); sIt.hasNext(); )
 				{
@@ -928,7 +969,7 @@ public class Spice extends Topology
 			String line = ((PrimitiveNode)ni.getProto()).getSpiceTemplate();
 			if (line != null)
 			{
-				StringBuffer infstr = replacePortsAndVars(line, no, context, cni, segmentedNets, info, false, forceEval);
+				StringBuilder infstr = replacePortsAndVars(line, no, context, cni, segmentedNets, info, false, forceEval);
                 // Writing MFactor if available. Not sure here
 				writeMFactor(context, no, infstr);
 
@@ -1251,7 +1292,7 @@ public class Spice extends Topology
 				modelChar = "Q";
 			}
 			if (ni.getName() != null) modelChar += getSafeNetName(ni.getName(), false);
-			StringBuffer infstr = new StringBuffer();
+			StringBuilder infstr = new StringBuilder();
 			String drainName = getPortName(drainCs);
 			String gateName = getPortName(gateCs);
 			String sourceName = getPortName(sourceCs);
@@ -1281,6 +1322,15 @@ public class Spice extends Topology
                 reportWarning("Warning: transistor has null size " + ni.describe(false));
             else
             {
+                boolean spiceH = false;
+                switch (spiceEngine)
+                {
+                    case SPICE_ENGINE_H:
+                    case SPICE_ENGINE_H_ASSURA:
+                    case SPICE_ENGINE_NG:
+                        spiceH = true;
+                        break;
+                }
             	// write the length
             	Double foundLen = null;
                 Variable varLen = ni.getVar(Schematics.ATTR_LENGTH);
@@ -1308,7 +1358,8 @@ public class Spice extends Topology
 	                        fun == PrimitiveNode.Function.TRADMOS || fun == PrimitiveNode.Function.TRA4DMOS ||
 	                        ((fun == PrimitiveNode.Function.TRANJFET || fun == PrimitiveNode.Function.TRAPJFET ||
 	                          fun == PrimitiveNode.Function.TRADMES || fun == PrimitiveNode.Function.TRAEMES) &&
-	                          (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H || spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H_ASSURA)))
+                             spiceH))
+//	                          (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H || spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H_ASSURA)))
 	                    {
 	                        // schematic transistors may be text
 	                        if (size.getDoubleLength() == 0 && size.getLength() instanceof String)
@@ -1357,7 +1408,8 @@ public class Spice extends Topology
 	                        fun == PrimitiveNode.Function.TRADMOS || fun == PrimitiveNode.Function.TRA4DMOS ||
 	                        ((fun == PrimitiveNode.Function.TRANJFET || fun == PrimitiveNode.Function.TRAPJFET ||
 	                          fun == PrimitiveNode.Function.TRADMES || fun == PrimitiveNode.Function.TRAEMES) &&
-	                          (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H || spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H_ASSURA)))
+                             spiceH))
+//	                          (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H || spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H_ASSURA)))
 	                    {
 	                        if ((size.getDoubleWidth() == 0) && (size.getWidth() instanceof String)) {
 	                            infstr.append(" W="+formatParam((String)size.getWidth(), TextDescriptor.Unit.DISTANCE, false));
@@ -1601,7 +1653,7 @@ public class Spice extends Topology
             msg += " Taking '" + uniqueName + "' now.";
             dumpMessage(msg, true);
         }
-        StringBuffer uniqueCellName = new StringBuffer(uniqueName);
+        StringBuilder uniqueCellName = new StringBuilder(uniqueName);
 
         if (uniquifyCells.get(cell) != null && modelOverrides.get(cell) == null) {
             // if this cell is marked to be make unique, make a unique name out of the var context
@@ -1647,7 +1699,7 @@ public class Spice extends Topology
 //                uniqueNames.put(uniqueCellName.toString(), i);
 //            }
 //            int numOfCharactersToDelete = uniqueCellName.length() - limit + 10;
-//            StringBuffer uniqueCellName2 = new StringBuffer(uniqueCellName.delete(0, numOfCharactersToDelete));
+//            StringBuilder uniqueCellName2 = new StringBuilder(uniqueCellName.delete(0, numOfCharactersToDelete));
 //            uniqueCellName = uniqueCellName.delete(limit-10, uniqueCellName.length());
 //            uniqueCellName.append("-ID"+i);
 //        }
@@ -1660,10 +1712,10 @@ public class Spice extends Topology
      * Method to determine if the cell name must be truncated due to character limit.
      * If yes, function will remove the first characters of the name string as
      * variations of the same cell would differ in the last characters.
-     * @param uniqueCellName StringBuffer representing the nname
+     * @param uniqueCellName StringBuilder representing the nname
      * @return String
      */
-    private StringBuffer getUniqueCellName(StringBuffer uniqueCellName)
+    private StringBuilder getUniqueCellName(StringBuilder uniqueCellName)
     {
         // if it is over the length limit, truncate it
         int limit = maxNameLength();
@@ -1874,7 +1926,7 @@ public class Spice extends Topology
 		if (!cardVar.isDisplay()) return;
 		if (obj instanceof String)
 		{
-	        StringBuffer buf = replacePortsAndVars((String)obj, context.getNodable(), context.pop(), null, segNets, info, flatNetNames, forceEval);
+	        StringBuilder buf = replacePortsAndVars((String)obj, context.getNodable(), context.pop(), null, segNets, info, flatNetNames, forceEval);
 			buf.append('\n');
 			String msg = buf.toString();
 			boolean isComment = false;
@@ -1885,7 +1937,7 @@ public class Spice extends Topology
 			String [] strings = (String [])obj;
 			for(int i=0; i<strings.length; i++)
 			{
-	            StringBuffer buf = replacePortsAndVars(strings[i], context.getNodable(), context.pop(), null, segNets, info, flatNetNames, forceEval);
+	            StringBuilder buf = replacePortsAndVars(strings[i], context.getNodable(), context.pop(), null, segNets, info, flatNetNames, forceEval);
 				buf.append('\n');
 				String msg = buf.toString();
 				boolean isComment = false;
@@ -1979,10 +2031,10 @@ public class Spice extends Topology
      * @param forceEval always evaluate parameters to numbers
      * @return the modified line
      */
-    private StringBuffer replacePortsAndVars(String line, Nodable no, VarContext context,
+    private StringBuilder replacePortsAndVars(String line, Nodable no, VarContext context,
                                        CellNetInfo cni, SpiceSegmentedNets segNets,
                                        HierarchyEnumerator.CellInfo info, boolean flatNetNames, boolean forceEval) {
-    	StringBufferQuoteParity infstr = new StringBufferQuoteParity();
+    	StringBuilderQuoteParity infstr = new StringBuilderQuoteParity();
         NodeProto prototype = null;
     	PrimitiveNode prim = null;
     	if (no != null)
@@ -2197,12 +2249,12 @@ public class Spice extends Topology
                 }
             }
         }
-        return infstr.getStringBuffer();
+        return infstr.getStringBuilder();
     }
 
-    private static class StringBufferQuoteParity
+    private static class StringBuilderQuoteParity
     {
-    	private StringBuffer sb = new StringBuffer();
+    	private StringBuilder sb = new StringBuilder();
     	private int quoteCount;
     	private int parenDepth;
 
@@ -2230,7 +2282,7 @@ public class Spice extends Topology
 
     	boolean inParens() { return parenDepth > 0; }
 
-    	StringBuffer getStringBuffer() { return sb; }
+    	StringBuilder getStringBuilder() { return sb; }
     }
 
     /**
@@ -2338,9 +2390,16 @@ public class Spice extends Topology
 	/** Method to return the proper name of Ground */
 	protected String getGroundName(Network net)
 	{
-		if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_2 ||
-			spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_P ||
-			spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_G) return "0";
+        switch (spiceEngine)
+        {
+            case SPICE_ENGINE_2:
+            case SPICE_ENGINE_P:
+            case SPICE_ENGINE_G:
+                return "0";
+        }
+//		if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_2 ||
+//			spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_P ||
+//			spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_G) return "0";
 
 		if (net != null)
 		{
@@ -2586,7 +2645,7 @@ public class Spice extends Topology
      * @param no Nodable representing the node
      * @param infstr Buffer where to write to
      */
-    private void writeMFactor(VarContext context, Nodable no, StringBuffer infstr)
+    private void writeMFactor(VarContext context, Nodable no, StringBuilder infstr)
     {
         Variable mVar = no.getVar(SimulationTool.M_FACTOR_KEY);
         if (mVar == null) return;
@@ -2782,7 +2841,7 @@ public class Spice extends Topology
 		if (ni.getName() != null) partName += getSafeNetName(ni.getName(), false);
 
         // add M factor if there
-        StringBuffer sbExtra = new StringBuffer(extra);
+        StringBuilder sbExtra = new StringBuilder(extra);
         writeMFactor(context, ni, sbExtra);
 
         String name0 = getPortName(cs0);
@@ -3031,8 +3090,14 @@ public class Spice extends Topology
     public static String getSafeNetName(String name, SimulationTool.SpiceEngine engine)
     {
         String legalSpiceChars = SPICELEGALCHARS;
-        if (engine == SimulationTool.SpiceEngine.SPICE_ENGINE_P)
-            legalSpiceChars = PSPICELEGALCHARS;
+        switch (engine)
+        {
+            case SPICE_ENGINE_P:
+                legalSpiceChars = PSPICELEGALCHARS;
+                break;
+        }
+//        if (engine == SimulationTool.SpiceEngine.SPICE_ENGINE_P)
+//            legalSpiceChars = PSPICELEGALCHARS;
         return getSafeNetName(name, legalSpiceChars, engine);
     }
 
@@ -3075,11 +3140,24 @@ public class Spice extends Topology
 		}
 		if (allAlNum) return name;
 
-		StringBuffer sb = new StringBuffer();
-		if (TextUtils.isDigit(name.charAt(0)) &&
-			spiceEngine != SimulationTool.SpiceEngine.SPICE_ENGINE_G &&
-			spiceEngine != SimulationTool.SpiceEngine.SPICE_ENGINE_P &&
-			spiceEngine != SimulationTool.SpiceEngine.SPICE_ENGINE_2) sb.append('_');
+		StringBuilder sb = new StringBuilder();
+        switch (spiceEngine)
+        {
+            case SPICE_ENGINE_G:
+            case SPICE_ENGINE_P:
+            case SPICE_ENGINE_2:
+                break;
+            default:
+                if (TextUtils.isDigit(name.charAt(0)))
+                {
+                    sb.append(' ');
+                }
+                break;
+        }
+//		if (TextUtils.isDigit(name.charAt(0)) &&
+//			spiceEngine != SimulationTool.SpiceEngine.SPICE_ENGINE_G &&
+//			spiceEngine != SimulationTool.SpiceEngine.SPICE_ENGINE_P &&
+//			spiceEngine != SimulationTool.SpiceEngine.SPICE_ENGINE_2) sb.append('_');
 		for(int t=0; t<name.length(); t++)
 		{
 			char chr = name.charAt(t);
@@ -3126,11 +3204,23 @@ public class Spice extends Topology
 		if (!wrapped)
 		{
 	        // Spice2 and Spice3 don't need a wrapper
-			if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_2 ||
-				spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_3) return value;
-	        if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_O)
-	        	value = "{" + value + "}"; else
-	        		value = "'" + value + "'";
+            switch (spiceEngine)
+            {
+                case SPICE_ENGINE_2:
+                case SPICE_ENGINE_3:
+                    return value;
+                case SPICE_ENGINE_O:
+                	value = "{" + value + "}";
+                    break;
+                default:
+                    value = "'" + value + "'";
+                    break;
+            }
+//			if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_2 ||
+//				spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_3) return value;
+//	        if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_O)
+//	        	value = "{" + value + "}"; else
+//	        		value = "'" + value + "'";
 		}
         return value;
     }
@@ -3158,18 +3248,36 @@ public class Spice extends Topology
             return;
         }
 
-		if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_2 || spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_3 ||
-			spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_G || spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_S)
-		{
-			multiLinePrint(false, ".include " + fileName + "\n");
-		} else if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H || spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H_ASSURA ||
-                spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H_CALIBRE)
-		{
-			multiLinePrint(false, ".include '" + fileName + "'\n");
-		} else if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_P)
-		{
-			multiLinePrint(false, ".INC " + fileName + "\n");
-		}
+        switch (spiceEngine)
+        {
+            case SPICE_ENGINE_2:
+            case SPICE_ENGINE_3:
+            case SPICE_ENGINE_G:
+            case SPICE_ENGINE_S:
+    			multiLinePrint(false, ".include " + fileName + "\n");
+                break;
+            case SPICE_ENGINE_H:
+            case SPICE_ENGINE_H_ASSURA:
+            case SPICE_ENGINE_H_CALIBRE:
+            case SPICE_ENGINE_NG:
+    			multiLinePrint(false, ".include '" + fileName + "'\n");
+                break;
+            case SPICE_ENGINE_P:
+    			multiLinePrint(false, ".INC " + fileName + "\n");
+                break;
+        }
+//		if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_2 || spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_3 ||
+//			spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_G || spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_S)
+//		{
+//			multiLinePrint(false, ".include " + fileName + "\n");
+//		} else if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H || spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H_ASSURA ||
+//                   spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_H_CALIBRE)
+//		{
+//			multiLinePrint(false, ".include '" + fileName + "'\n");
+//		} else if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_P)
+//		{
+//			multiLinePrint(false, ".INC " + fileName + "\n");
+//		}
 	}
 
 	/**
@@ -3194,8 +3302,14 @@ public class Spice extends Topology
 	public void multiLinePrint(boolean isComment, String str)
 	{
 		// convert "@" characters to "_" for Opus
-        if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_O)
-        	str = str.replaceAll("@", "_");
+        switch (spiceEngine)
+        {
+            case SPICE_ENGINE_O:
+            	str = str.replaceAll("@", "_");
+                break;
+        }
+//        if (spiceEngine == SimulationTool.SpiceEngine.SPICE_ENGINE_O)
+//        	str = str.replaceAll("@", "_");
 
         // put in line continuations, if over the limit of chars per line
 		String contChar = "+";

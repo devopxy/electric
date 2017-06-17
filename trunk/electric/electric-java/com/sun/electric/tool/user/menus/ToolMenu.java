@@ -191,7 +191,7 @@ public class ToolMenu {
 				public void run() { new LanguageScripts(); }
 			},
 			SEPARATOR);
-	
+
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() { setDynamicLanguageMenu(); }
 		});
@@ -208,7 +208,7 @@ public class ToolMenu {
 				expRouters.length > 7 ? new DynamicExperimentalRoutingMenuItem(expRouters[7]) : null);
 
 		// calculating boolean only once
-		boolean hasIRSIM = IRSIM.hasIRSIM(); 
+		boolean hasIRSIM = IRSIM.hasIRSIM();
 		// mnemonic keys available: B F H JK Q XYZ
 		return new EMenu("_Tools",
 
@@ -332,7 +332,7 @@ public class ToolMenu {
 				}),
 
 			// ------------------- Simulation (SPICE)
-			// mnemonic keys available: B IJK QR VWXYZ
+			// mnemonic keys available: B  JK QR VWXYZ
 			new EMenu("Simulation (_Spice)",
 				new EMenuItem("Write Spice _Deck...") {
 					public void run() { FileMenu.exportCommand(FileType.SPICE, true); }
@@ -371,6 +371,9 @@ public class ToolMenu {
 				},
 				new EMenuItem("Set Spice _3 Template") {
 					public void run() { makeTemplate(Spice.SPICE_3_TEMPLATE_KEY, false); }
+				},
+				new EMenuItem("Set Ngsp_ice Template") {
+					public void run() { makeTemplate(Spice.SPICE_NG_TEMPLATE_KEY, false); }
 				},
 				new EMenuItem("Set _HSpice Template") {
 					public void run() { makeTemplate(Spice.SPICE_H_TEMPLATE_KEY, false); }
@@ -574,9 +577,9 @@ public class ToolMenu {
 					new EMenuItem("_Black Box") {
 						public void run() { NccCellAnnotations.makeNCCAnnotationMenuCommand("blackBox <comment explaining why>"); }
 					}),
-					
+
 					SEPARATOR,
-					
+
 					new EMenuItem("Import Calibre LVS Errors for Current Cell...") {
 						public void run() { importCalibreLVSErrors(); }
 					}),
@@ -605,9 +608,9 @@ public class ToolMenu {
 				new EMenuItem("Calculate Network _Quality") {
 					public void run() { calculateNetworkQualityCommand(); }
 				},
-				
+
 				SEPARATOR,
-				
+
 				new EMenuItem("Show _All Networks") {
 					public void run() { showAllNetworksCommand(); }
 				},
@@ -868,9 +871,9 @@ public class ToolMenu {
 				}
 				}),
 
-			
+
 			MenuCommands.makeExtraMenu("pcell.gui.MainMenu", false),
-			
+
 			// ------------------- Information and Language Interpreters
 
 			SEPARATOR,
@@ -1253,7 +1256,7 @@ public class ToolMenu {
 			loadResourceLibraries(resource, type);
         }};
 	}
-	
+
 	/**
 	 * Method to handle the "Show Network" command.
 	 */
@@ -1611,12 +1614,12 @@ public class ToolMenu {
 		EditWindow wnd = EditWindow.needCurrent();
 		if (wnd == null) return;
 		Cell cell = wnd.getCell();
-		if (cell == null) 
+		if (cell == null)
 		{
 			System.out.println("No cell selected");
 			return;
 		}
-		
+
 		HashSet<Network> nets = (HashSet<Network>) wnd.getHighlighter().getHighlightedNetworks();
 		if (nets.isEmpty()) {
 			System.out.println("No network in " + cell + " selected");
@@ -1624,7 +1627,7 @@ public class ToolMenu {
 		}
 		WireQualityMetric metric = new WireQualityMetric("test", null);
 		metric.setOutput(System.out);
-		
+
 		for (Iterator<Network> itNet = nets.iterator(); itNet.hasNext();)
 		{
 			metric.calculate(itNet.next());
@@ -1632,7 +1635,7 @@ public class ToolMenu {
 		metric.printAverageResults();
 		TopLevel.setBusyCursor(false);
 	}
-	
+
 	/**
 	 * Method to highlight every network in the current cell using a different
 	 * color
@@ -2159,7 +2162,7 @@ public class ToolMenu {
 	{
 		new MakeTemplate(templateKey, false, eo, value, EPoint.ORIGIN);
 	}
-	
+
 	/**
 	 * Method to create a new template in the current cell. Templates can be for
 	 * SPICE or Verilog, depending on the Variable name.
@@ -2172,14 +2175,14 @@ public class ToolMenu {
 
 		Cell cell = Job.getUserInterface().needCurrentCell();
 		Object val = null;
-		
+
 		if (selectKey) // allow to select the file from disk
 		{
 			String tmp = OpenFile.chooseInputFile(null, "Select File", false, User.getWorkingDirectory(), true, null);
 			if (tmp != null)
 				val = tmp;
-		}      
-		
+		}
+
 		new MakeTemplate(templateKey, selectKey, cell, val, (cell != null) ? cell.newVarOffset() : EPoint.ORIGIN);
 	}
 
@@ -2198,7 +2201,7 @@ public class ToolMenu {
             	System.out.println("No ElectricObject available for template");
             	return;
 			}
-			
+
 			templateOffset = offset;
 			if (value != null && val != null)
 				System.out.println("Overwriting original value");
@@ -2221,7 +2224,7 @@ public class ToolMenu {
 			}
 			TextDescriptor td = ep.getCellTextDescriptor().withInterior(true)
 					.withDispPart(TextDescriptor.DispPos.NAMEVALUE).withOff(templateOffset.getX(), templateOffset.getY());
-			if (value == null) 
+			if (value == null)
 			{
 				templateObj.newVar(templateKey, "*Undefined", td);
 			} else {
@@ -2229,11 +2232,11 @@ public class ToolMenu {
 			}
 			return true;
 		}
-        
+
         @Override
     	public void terminateOK() {
         	Variable addedVar = templateObj.getVar(templateKey);
-        	
+
         	if (addedVar == null)
         		System.out.println("Warning: should this happen in MakeTemplate:terminateOK?");
         	else
@@ -2265,7 +2268,7 @@ public class ToolMenu {
 	{
 		Cell curCell = WindowFrame.needCurCell();
 		if (curCell == null) return;
-		new AcuteAngleFill(curCell);		
+		new AcuteAngleFill(curCell);
 	}
 
 	public static void listToolsCommand() {
@@ -2898,7 +2901,7 @@ public class ToolMenu {
 				IOTool.getGDSCellNameLenMax(), IOTool.isGDSOutUpperCase());
 		CalibreDrcErrors.importErrors(fileName, mangledNames, "DRC", false);
 	}
-	
+
 	/**
 	 * Method to import Calibre LVS Errors into Electric and display them as
 	 * ErrorLogger.
@@ -2922,7 +2925,7 @@ public class ToolMenu {
 				IOTool.getGDSCellNameLenMax(), IOTool.isGDSOutUpperCase());
 		CalibreLVSErrors.importErrors(fileName, cell, "LVS", false);
 	}
-	
+
 	/**
 	 * Method to export DRC deck to XML file
 	 */

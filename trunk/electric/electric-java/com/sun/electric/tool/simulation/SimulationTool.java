@@ -34,7 +34,6 @@ import com.sun.electric.database.variable.EditWindow_;
 import com.sun.electric.database.variable.UserInterface;
 import com.sun.electric.database.variable.VarContext;
 import com.sun.electric.database.variable.Variable;
-import com.sun.electric.lib.LibFile;
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.Tool;
@@ -886,7 +885,7 @@ public class SimulationTool extends Tool
     public static void setVerilogNoWriteEmptyModules(boolean b) { cacheVerilogNoWriteEmptyModules.setBoolean(b); }
     public static boolean isVerilogNoWriteEmptyModules() { return cacheVerilogNoWriteEmptyModules.getBoolean(); }
     public static boolean isFactoryVerilogNoWriteEmptyModules() { return cacheVerilogNoWriteEmptyModules.getBooleanFactoryValue(); }
-    
+
     /****************************** CDL OPTIONS ******************************/
 
 	private static Pref cacheCDLLibName = Pref.makeStringPref("CDLLibName", tool.prefs, "");
@@ -1146,7 +1145,8 @@ public class SimulationTool extends Tool
 		/** HSpice engine for Assura. */	SPICE_ENGINE_H_ASSURA(6, "HSpice for Assura"),
 		/** HSpice engine for Calibre. */	SPICE_ENGINE_H_CALIBRE(7, "HSpice for Calibre"),
 		/** Xyce Spice engine. */			SPICE_ENGINE_XYCE(8, "Xyce"),
-		/** Spice Opus engine. */			SPICE_ENGINE_O(9, "Spice Opus");
+		/** Spice Opus engine. */			SPICE_ENGINE_O(9, "Spice Opus"),
+        /** Ngspice engine. */              SPICE_ENGINE_NG(10, "Ngspice");
 
 		private int code;
 		private String name;
@@ -1176,6 +1176,7 @@ public class SimulationTool extends Tool
 	 * SpiceEngine.SPICE_ENGINE_XYCE for Xyce.<BR>
 	 * SpiceEngine.SPICE_ENGINE_H_ASSURA for HSpice for Assura.<BR>
 	 * SpiceEngine.SPICE_ENGINE_H_CALIBRE for HSpice for Calibre.<BR>
+	 * SpiceEngine.SPICE_ENGINE_NG for Ngspice.<BR>
 	 * Where SpiceEngine.SPICE_ENGINE_3 is the default.
 	 */
 	public static SpiceEngine getSpiceEngine()
@@ -1202,7 +1203,8 @@ public class SimulationTool extends Tool
 	 * SpiceEngine.SPICE_ENGINE_O for Spice Opus.<BR>
 	 * SpiceEngine.SPICE_ENGINE_XYCE for Xyce.<BR>
 	 * SpiceEngine.SPICE_ENGINE_H_ASSURA for HSpice for Assura.<BR>
-	 * SpiceEngine.SPICE_ENGINE_H_CALIBRE for HSpice for Calibre.
+	 * SpiceEngine.SPICE_ENGINE_H_CALIBRE for HSpice for Calibre.<BR>
+	 * SpiceEngine.SPICE_ENGINE_NG for Ngspice.
 	 */
 	public static void setSpiceEngine(SpiceEngine engine) { cacheSpiceEngine.setInt(engine.code()); }
 	/**
@@ -1670,7 +1672,7 @@ public class SimulationTool extends Tool
 	public static void setSpiceInputPlaces(boolean b) { cacheSpiceInputPlaces.setBoolean(b); }
 	/** Get whether or not we automatically place cell contents after importing Spice decks, by default */
 	public static boolean isFactorySpiceInputPlaces() { return cacheSpiceInputPlaces.getBooleanFactoryValue(); }
-	
+
 	// Temporary solution until output parameters are verified
 	private static Pref cacheCDLLash = Pref.makeBooleanPref("CDLLash", tool.prefs, false);
 	/** Get whether or not we automatically place cell contents after importing Spice decks */
