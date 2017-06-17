@@ -26,66 +26,130 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.io.PrintStream;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * User: gainsley
  * Date: Aug 3, 2006
  */
-
-public class SpiceInstance {
+public class SpiceInstance
+{
     private final char type;                  // spice type
     private final String name;
-    private String model;
+    private String modName;
+    private SpiceModel model;
     private final List<String> nets = new ArrayList<>();
     private final SpiceSubckt subckt;              // may be null if primitive element
-    private final Map<String,String> params = new LinkedHashMap<>();
+    private final Map<String, String> params = new LinkedHashMap<>();
 
-    public SpiceInstance(String typeAndName) {
+    public SpiceInstance(String typeAndName)
+    {
         this.type = typeAndName.charAt(0);
         this.name = typeAndName.substring(1);
         this.subckt = null;
     }
-    public SpiceInstance(SpiceSubckt subckt, String name) {
+
+    public SpiceInstance(SpiceSubckt subckt, String name)
+    {
         this.type = 'x';
         this.name = name;
         this.subckt = subckt;
-        for (String key : subckt.getParams().keySet()) {
-            // set default param values
-            this.params.put(key, subckt.getParams().get(key));
+//        for (String key : subckt.getParams().keySet()) {
+//            // set default param values
+//            this.params.put(key, subckt.getParams().get(key));
+//        }
+    }
+
+    public char getType()
+    {
+        return type;
+    }
+
+    public String getName()
+    {
+        return name;
+    }
+
+    public List<String> getNets()
+    {
+        return nets;
+    }
+
+    public void addModName(String modName)
+    {
+        this.modName = modName;
+    }
+
+    void linkModel(SpiceNetlistReader reader, List<SpiceSubckt> currentSubcktStack)
+    {
+        if (modName == null)
+            return;
+        for (int j = currentSubcktStack.size() - 1; model == null && j >= 0; j--)
+        {
+            model = currentSubcktStack.get(j).findModel(modName);
+        }
+        if (model == null)
+        {
+            model = reader.getGlobalModels().get(modName.toLowerCase());
+        }
+        if (model == null)
+        {
+            reader.prErr("Cannot find model for " + modName);
         }
     }
-    public char getType() { return type; }
-    public String getName() { return name; }
-    public List<String> getNets() { return nets; }
-    public void addModel(String model) { this.model = model; }
-    public void addNet(String net) { nets.add(net); }
-    public Map<String,String> getParams() { return params; }
-    public SpiceSubckt getSubckt() { return subckt; }
-    public void write(PrintStream out) {
+
+    public void addNet(String net)
+    {
+        nets.add(net);
+    }
+
+    public Map<String, String> getParams()
+    {
+        return params;
+    }
+
+    public SpiceSubckt getSubckt()
+    {
+        return subckt;
+    }
+
+    void markUsed(Set<SpiceSubckt> usedSubckts, Set<SpiceModel> usedModels)
+    {
+        if (subckt != null) {
+            subckt.markUsed(usedSubckts, usedModels);
+        }
+        if (model != null) {
+            usedModels.add(model);
+        }
+    }
+
+    public void write(PrintStream out)
+    {
         StringBuilder buf = new StringBuilder();
         buf.append(type);
         buf.append(name);
         buf.append(" ");
-        for (String net : nets) {
-            buf.append(net); buf.append(" ");
+        for (String net : nets)
+        {
+            buf.append(net);
+            buf.append(" ");
         }
-        if (model != null) {
-            buf.append(model).append(" ");
+        if (model != null)
+        {
+            buf.append(model.getModPrefix()).append(" ");
         }
-        if (subckt != null) {
+        if (subckt != null)
+        {
             buf.append(subckt.getName());
             buf.append(" ");
         }
-        for (String key : params.keySet()) {
+        for (String key : params.keySet())
+        {
             buf.append(key);
             String value = params.get(key);
-            if (value != null) {
-                buf.append("=");
-                if (SpiceNetlistReader.WRITE_PARAMS_IN_QUOTES) {
-                    buf.append("'").append(value).append("'");
-                } else {
-                    buf.append(value);
-                }
+            if (value != null)
+            {
+                buf.append("=").append(value);
             }
             buf.append(" ");
         }

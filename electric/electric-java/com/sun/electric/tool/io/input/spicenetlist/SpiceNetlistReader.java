@@ -32,8 +32,8 @@ import java.util.*;
  */
 public class SpiceNetlistReader {
 
-    private static final boolean PARENS_ONLY_IN_QUOTES = true;
-    static final boolean WRITE_PARAMS_IN_QUOTES = true;
+    private static final boolean STRIP_QUOTES = false;
+    private static final boolean WRITE_ONLY_USED = true;
 
     private final boolean parseLibraries;
     private File file;
@@ -63,6 +63,7 @@ public class SpiceNetlistReader {
 
     public Map<String,String> getOptions() { return options; }
     public Map<String,String> getGlobalParams() { return globalParams; }
+    public Map<String,SpiceModel> getGlobalModels() { return globalModels; }
     public List<SpiceInstance> getTopLevelInstances() { return topLevelInstances; }
     public Collection<SpiceSubckt> getSubckts() { return subckts.values(); }
     public List<String> getGlobalNets() { return globalNets; }
@@ -243,8 +244,13 @@ public class SpiceNetlistReader {
             }
         } else if (keyword.startsWith(".ends"))
         {
-            if (currentSubckt() != null)
+            SpiceSubckt currentSubckt = currentSubckt();
+            if (currentSubckt != null) {
+                for (SpiceInstance inst: currentSubckt.getInstances()) {
+                    inst.linkModel(this, currentSubcktStack);
+                }
                 currentSubcktStack.remove(currentSubcktStack.size() - 1);
+            }
         } else if (keyword.startsWith(".end"))
         {
             // end of file
@@ -254,13 +260,7 @@ public class SpiceNetlistReader {
             }
         } else if (keyword.equals(".model"))
         {
-            SpiceModel model = parseModel(tokens);
-            SpiceSubckt currentSubckt = currentSubckt();
-            if (currentSubckt != null) {
-                currentSubckt.addModel(model);
-            } else {
-                globalModels.put(model.getName().toLowerCase(), model);
-            }
+            parseModel(tokens);
         } else if (keyword.equals(".ic"))
         {
             SpiceInstance ic = parseInitial(tokens);
@@ -300,6 +300,10 @@ public class SpiceNetlistReader {
 
     private File resolveFile(String newName)
     {
+        if (newName.startsWith("'") && newName.endsWith("'"))
+        {
+            newName = newName.substring(1, newName.length() - 1);
+        }
         if (newName.startsWith("/") || newName.startsWith("\\"))
         {
             // absolute path
@@ -322,7 +326,7 @@ public class SpiceNetlistReader {
         return theLibrary;
     }
 
-    private void prErr(String msg) {
+    void prErr(String msg) {
         System.out.println("Error ("+getLocation()+"): "+msg);
     }
     private void prWarn(String msg) {
@@ -335,14 +339,14 @@ public class SpiceNetlistReader {
     /**
      * Get the tokens in a line.  Tokens are separated by whitespace,
      * unless that whitespace is surrounded by single quotes, or parentheses.
-     * When quotes are used, those quotes are removed from the string literal.
+     * When quotes are used and STRIP_QUOTES=true , those quotes are removed from the string literal.
      * The construct <code>name=value</code> is returned as three tokens,
      * the second being the char '='.
      * @param line the line to parse
      * @return an array of tokens
      */
     private String [] getTokens(String line) {
-        List<String> tokens = new ArrayList<String>();
+        List<String> tokens = new ArrayList<>();
         int start = 0;
         boolean inquotes = false;
         int inparens = 0;
@@ -353,21 +357,20 @@ public class SpiceNetlistReader {
                 if (c == '\'') {
                     if (inparens > 0) continue;
                     // end string literal
-                    tokens.add(line.substring(start, i));
+                    tokens.add(line.substring(start, STRIP_QUOTES ? i : i + 1));
                     start = i+1;
                     inquotes = false;
                 }
             }
             else if (c == '\'') {
-                if (PARENS_ONLY_IN_QUOTES)
-                    assert inparens == 0;
+                assert STRIP_QUOTES || inparens == 0;
                 if (inparens > 0) continue;
                 inquotes = true;
                 if (start != i) {
                     prErr("Improper use of open quote '");
                     break;
                 }
-                start = i+1;
+                start = STRIP_QUOTES ? i+1 : i;
             }
             // else !inquotes:
             else if (Character.isWhitespace(c) && inparens == 0) {
@@ -376,10 +379,10 @@ public class SpiceNetlistReader {
                     tokens.add(line.substring(start, i));
                 start = i+1;
             }
-            else if ((!PARENS_ONLY_IN_QUOTES || inquotes) && c == '(') {
+            else if ((STRIP_QUOTES || inquotes) && c == '(') {
                 inparens++;
             }
-            else if ((!PARENS_ONLY_IN_QUOTES || inquotes) && c == ')') {
+            else if ((STRIP_QUOTES || inquotes) && c == ')') {
                 if (inparens == 0) {
                     prErr("Too many ')'s");
                     break;
@@ -467,7 +470,10 @@ public class SpiceNetlistReader {
             prErr("Badly formatted param=val: "+parval);
             return;
         }
-        map.put(pname.toLowerCase(), value);
+        String old = map.put(pname.toLowerCase(), value);
+        if (old != null) {
+            prWarn("Redefinition of param " + pname + " " + old + " --> " + value);
+        }
     }
 
     private SpiceSubckt parseSubckt(String [] parts) {
@@ -505,7 +511,14 @@ public class SpiceNetlistReader {
         SpiceInstance inst = new SpiceInstance(subckt, name);
         for (String net : nets)
             inst.addNet(net);
-        parseParams(inst.getParams(), i, parts);
+        Map<String,String> instParams = inst.getParams();
+        parseParams(instParams, i, parts);
+        for (String key : subckt.getParams().keySet()) {
+            // set default param values
+            if (!instParams.containsKey(key)) {
+                instParams.put(key, subckt.getParams().get(key));
+            }
+        }
         // consistency check
         if (inst.getNets().size() != subckt.getPorts().size()) {
             prErr("Number of ports do not match: "+inst.getNets().size()+
@@ -573,32 +586,58 @@ public class SpiceNetlistReader {
         for (; i<5; i++) {
             inst.addNet(parts[i]);
         }
-        String model = parts[i];
-        inst.addModel(model);
+        String modelName = parts[i];
+        inst.addModName(modelName);
         i++;
         parseParams(inst.getParams(), i, parts);
         return inst;
     }
 
-    private SpiceModel parseModel(String[] parts)
+    private void parseModel(String[] parts)
     {
-        if (parts.length < 3) {
-            prErr("Not enough arguments for resistor");
-            return null;
+        if (parts.length < 3)
+        {
+            prErr("Not enough arguments for token");
+            return;
         }
         int i = 1;
         String modName = parts[i++];
         String modFlag = parts[i++];
-        SpiceModel model = new SpiceModel(modName, modFlag);
-        if (parts.length >= 4 && parts[i].equals("(") && parts[parts.length - 1].equals(")"))
+        String modSuffix = "";
+        int ind = modName.indexOf('.');
+        if (ind >= 0)
         {
-            parts = Arrays.copyOf(parts, parts.length - 1);
-            parseParams(model.getParams(), i + 1, parts);
+            modSuffix = modName.substring(ind);
+            modName = modName.substring(0, ind);
+        }
+        SpiceModel model;
+        SpiceSubckt currentSubckt = currentSubckt();
+        if (currentSubckt != null)
+        {
+            model = currentSubckt.addModel(modName, modFlag);
         } else
         {
-            parseParams(model.getParams(), i, parts);
+            String key = modName.toLowerCase();
+            model = globalModels.get(key);
+            if (model == null)
+            {
+                model = new SpiceModel(modName, modFlag);
+                globalModels.put(key, model);
+            }
         }
-        return model;
+        if (!modFlag.equals(model.getFlag()))
+        {
+            prErr("model flag " + modFlag + " mismatches previos flag " + model.getFlag());
+        }
+        String[] paramTokens;
+        if (parts.length >= 4 && parts[i].equals("(") && parts[parts.length - 1].equals(")"))
+        {
+            paramTokens = Arrays.copyOfRange(parts, i + 1, parts.length - 1);
+        } else
+        {
+            paramTokens = Arrays.copyOfRange(parts, i, parts.length);
+        }
+        parseParams(model.newParams(modSuffix), 0, paramTokens);
     }
 
     private SpiceInstance parseInitial(String[] parts) {
@@ -701,6 +740,18 @@ public class SpiceNetlistReader {
     }
 
     public void write(PrintStream out) {
+        Set<SpiceSubckt> usedSubckts = null;
+        Set<SpiceModel> usedModels = null;
+        if (WRITE_ONLY_USED)
+        {
+            usedSubckts = new HashSet<>();
+            usedModels = new HashSet<>();
+            for (SpiceInstance inst : topLevelInstances)
+            {
+                inst.markUsed(usedSubckts, usedModels);
+            }
+        }
+
         out.println("* Spice netlist");
         for (String key : options.keySet()) {
             String value = options.get(key);
@@ -712,15 +763,11 @@ public class SpiceNetlistReader {
         }
         out.println();
         for (String key : globalParams.keySet()) {
-            if (WRITE_PARAMS_IN_QUOTES) {
-                out.println(".param "+key+"='"+globalParams.get(key)+"'");
-            } else {
-                out.println(".param "+key+"="+globalParams.get(key));
-            }
+            out.println(".param "+key+"="+globalParams.get(key));
         }
         out.println();
         for (SpiceModel model : globalModels.values()) {
-            model.write(out);
+            model.write(out, usedModels);
         }
         out.println();
         for (String net : globalNets) {
@@ -729,7 +776,7 @@ public class SpiceNetlistReader {
         out.println();
         for (String subcktName : subckts.keySet()) {
             SpiceSubckt subckt = subckts.get(subcktName);
-            subckt.write(out);
+            subckt.write(out, usedSubckts, usedModels);
             out.println();
         }
         for (SpiceInstance inst : topLevelInstances) {

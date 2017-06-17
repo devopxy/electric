@@ -24,54 +24,70 @@ package com.sun.electric.tool.io.input.spicenetlist;
 import java.io.PrintStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  *
  */
 public class SpiceModel
 {
-    private final String name;
+    private final String modPrefix;
     private final String flag;
-    private final Map<String, String> params = new LinkedHashMap<>();
+    /**
+     * Map from model suffix (like ".1) to a map from parameter names to parameter values.
+     */
+    private final Map<String, Map<String, String>> paramSets = new LinkedHashMap<>();
 
-    SpiceModel(String name, String flag)
+    SpiceModel(String modPrefix, String flag)
     {
-        this.name = name;
+        this.modPrefix = modPrefix;
         this.flag = flag;
     }
 
-    public String getName()
+    public String getModPrefix()
     {
-        return name;
+        return modPrefix;
     }
 
-    public Map<String, String> getParams()
+    public String getFlag()
     {
-        return params;
+        return flag;
     }
 
-    public void write(PrintStream out)
+    public Map<String, String> newParams(String modSuffix)
     {
-        StringBuilder buf = new StringBuilder();
-        buf.append(".model ").append(name).append(" ").append(flag).append(" ");
-        for (String key : params.keySet())
+        modSuffix = modSuffix.toLowerCase();
+        Map<String, String> newParams = new LinkedHashMap<>();
+        paramSets.put(modSuffix, newParams);
+        return newParams;
+    }
+
+    public void write(PrintStream out, Set<SpiceModel> usedModels)
+    {
+        if (usedModels != null && !usedModels.contains(this))
         {
-            buf.append(key);
-            String value = params.get(key);
-            if (value != null)
-            {
-                buf.append("=");
-                if (SpiceNetlistReader.WRITE_PARAMS_IN_QUOTES)
-                {
-                    buf.append("'").append(value).append("'");
-                } else
-                {
-                    buf.append(value);
-                }
-            }
-            buf.append(" ");
+            return;
         }
-        buf.append("\n");
-        SpiceNetlistReader.multiLinePrint(out, false, buf.toString());
+        for (Map.Entry<String, Map<String, String>> e : paramSets.entrySet())
+        {
+            String modSuffix = e.getKey();
+            Map<String, String> paramSet = e.getValue();
+            StringBuilder buf = new StringBuilder();
+            buf.append(".model ").append(modPrefix).append(modSuffix)
+                .append(" ").append(flag).append(" ");
+            for (Map.Entry<String, String> e1 : paramSet.entrySet())
+            {
+                String key = e1.getKey();
+                String value = e1.getValue();
+                buf.append(key);
+                if (value != null)
+                {
+                    buf.append("=").append(value);
+                }
+                buf.append(" ");
+            }
+            buf.append("\n");
+            SpiceNetlistReader.multiLinePrint(out, false, buf.toString());
+        }
     }
 }

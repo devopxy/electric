@@ -57,7 +57,19 @@ public class SpiceSubckt {
     public String getParamValue(String name) { return params.get(name); }
     public Map<String,String> getParams() { return params; }
     public Map<String,String> getLocalParams() { return localParams; }
-    void addModel(SpiceModel model) { localModels.put(model.getName().toLowerCase(), model); }
+    SpiceModel findModel(String modName) {
+        return localModels.get(modName.toLowerCase());
+    }
+    SpiceModel addModel(String modPrefix, String modFlag)
+    {
+        String key = modPrefix.toLowerCase();
+        SpiceModel model = localModels.get(key);
+        if (model == null) {
+            model = new SpiceModel(modPrefix, modFlag);
+            localModels.put(key, model);
+        }
+        return model;
+    }
     void addInstance(SpiceInstance inst) { instances.add(inst); }
     public List<SpiceInstance> getInstances() { return instances; }
     public void setPortType(String port, PortType type) {
@@ -73,7 +85,21 @@ public class SpiceSubckt {
     {
         return subckts.get(subcktName.toLowerCase());
     }
-    public void write(PrintStream out) {
+
+    void markUsed(Set<SpiceSubckt> usedSubckts, Set<SpiceModel> usedModels)
+    {
+        if (usedSubckts.add(this)) {
+            for (SpiceInstance inst: instances) {
+                inst.markUsed(usedSubckts, usedModels);
+            }
+        }
+    }
+
+
+    public void write(PrintStream out, Set<SpiceSubckt> usedSubckts, Set<SpiceModel> usedModels) {
+        if (usedSubckts != null && !usedSubckts.contains(this)) {
+            return;
+        }
         StringBuilder buf = new StringBuilder(".subckt ");
         buf.append(name);
         buf.append(" ");
@@ -82,31 +108,19 @@ public class SpiceSubckt {
             buf.append(" ");
         }
         for (String key : params.keySet()) {
-            buf.append(key);
-            buf.append("=");
-            if (SpiceNetlistReader.WRITE_PARAMS_IN_QUOTES) {
-                buf.append("'").append(params.get(key)).append("'");
-            } else {
-                buf.append(params.get(key));
-
-            }
-            buf.append(" ");
+            buf.append(key).append("=").append(params.get(key)).append(" ");
         }
         buf.append("\n");
         SpiceNetlistReader.multiLinePrint(out, false, buf.toString());
         for (String key : localParams.keySet()) {
-            if (SpiceNetlistReader.WRITE_PARAMS_IN_QUOTES) {
-                out.println(".param "+key+"='"+localParams.get(key) +"'");
-            } else {
-                out.println(".param "+key+"="+localParams.get(key));
-            }
+            out.println(".param "+key+"="+localParams.get(key));
         }
         for (SpiceModel model : localModels.values()) {
-            model.write(out);
+            model.write(out, usedModels);
         }
         for (SpiceSubckt subckt: subckts.values())
         {
-            subckt.write(out);
+            subckt.write(out, usedSubckts, usedModels);
         }
         for (SpiceInstance inst : instances) {
             inst.write(out);
