@@ -21,6 +21,9 @@
  */
 package com.sun.electric.util.acl2;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Non-leaf node of ACL2 object.
  * Often a ACL2 object are used to represent a list.
@@ -35,12 +38,18 @@ class ACL2Cons extends ACL2Object
      */
     final ACL2Object car;
     /**
-     * The right sun.
+     * The right son.
      */
     final ACL2Object cdr;
     private int hashCode;
+    private static final Map<ACL2Cons, ACL2Cons> allNormed = new HashMap<>();
 
-    ACL2Cons(boolean norm, ACL2Object car, ACL2Object cdr)
+    ACL2Cons(ACL2Object car, ACL2Object cdr)
+    {
+        this(false, car, cdr);
+    }
+
+    private ACL2Cons(boolean norm, ACL2Object car, ACL2Object cdr)
     {
         super(norm);
         if (car == null || cdr == null)
@@ -49,6 +58,18 @@ class ACL2Cons extends ACL2Object
         }
         this.car = car;
         this.cdr = cdr;
+    }
+
+    static ACL2Cons intern(ACL2Object car, ACL2Object cdr)
+    {
+        ACL2Cons v = new ACL2Cons(true, car.intern(), cdr.intern());
+        ACL2Cons result = allNormed.get(v);
+        if (result == null)
+        {
+            result = v;
+            allNormed.put(v, result);
+        }
+        return result;
     }
 
     @Override
@@ -77,19 +98,18 @@ class ACL2Cons extends ACL2Object
     }
 
     @Override
-    public boolean equals(Object o)
+    ACL2Object internImpl()
     {
-        if (o instanceof ACL2Cons)
-        {
-            ACL2Cons that = (ACL2Cons)o;
-            if (this.hashCode() != that.hashCode())
-            {
-                return false;
-            }
-            return this == that
-                || car.equals(that.car) && this.cdr.equals(that.cdr);
-        }
-        return false;
+        return intern(car, cdr);
+    }
+
+    @Override
+    boolean equalsImpl(ACL2Object o)
+    {
+        ACL2Cons that = (ACL2Cons)o;
+        return this.hashCode() == that.hashCode()
+            && this.car.equals(that.car)
+            && this.cdr.equals(that.cdr);
     }
 
     @Override

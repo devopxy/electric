@@ -29,27 +29,31 @@ class ACL2Character extends ACL2Object
 {
 
     final char c;
+    private static final ACL2Character[] allNormed = new ACL2Character[256];
 
-    ACL2Character(char c)
+    static
     {
-        super(false);
-        if (c >= 0x100)
+        for (char c = 0; c < allNormed.length; c++)
         {
-            throw new IllegalArgumentException();
+            allNormed[c] = new ACL2Character(c);
         }
+    }
+
+    private ACL2Character(char c)
+    {
+        super(true);
         this.c = c;
+    }
+
+    static ACL2Character intern(char c)
+    {
+        return allNormed[c];
     }
 
     @Override
     public String rep()
     {
         return "#\\" + c;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        return o instanceof ACL2Character && c == ((ACL2Character)o).c;
     }
 
     @Override

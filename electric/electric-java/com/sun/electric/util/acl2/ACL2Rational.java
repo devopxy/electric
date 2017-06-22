@@ -21,6 +21,9 @@
  */
 package com.sun.electric.util.acl2;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * ACL2 rational number.
  * Its value is a rational number but not an integer number.
@@ -28,15 +31,32 @@ package com.sun.electric.util.acl2;
 class ACL2Rational extends ACL2Object
 {
     final Rational r;
+    private static final Map<Rational, ACL2Rational> allNormed = new HashMap<>();
 
     ACL2Rational(Rational r)
     {
-        super(false);
+        this(false, r);
+    }
+
+    private ACL2Rational(boolean normed, Rational r)
+    {
+        super(normed);
         if (r.isInteger())
         {
             throw new IllegalArgumentException();
         }
         this.r = r;
+    }
+
+    static ACL2Rational intern(Rational r)
+    {
+        ACL2Rational result = allNormed.get(r);
+        if (result == null)
+        {
+            result = new ACL2Rational(true, r);
+            allNormed.put(r, result);
+        }
+        return result;
     }
 
     @Override
@@ -148,10 +168,15 @@ class ACL2Rational extends ACL2Object
     }
 
     @Override
-    public boolean equals(Object o)
+    ACL2Object internImpl()
     {
-        return o instanceof ACL2Rational
-            && r.equals(((ACL2Rational)o).r);
+        return intern(r);
+    }
+
+    @Override
+    boolean equalsImpl(ACL2Object o)
+    {
+        return r.equals(((ACL2Rational)o).r);
     }
 
     @Override

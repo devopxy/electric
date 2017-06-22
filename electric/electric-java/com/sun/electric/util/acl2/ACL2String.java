@@ -21,6 +21,9 @@
  */
 package com.sun.electric.util.acl2;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * ACL2 string.
  * This is an atom. Its value is 8-bit ASCII string.
@@ -28,13 +31,19 @@ package com.sun.electric.util.acl2;
 class ACL2String extends ACL2Object
 {
 
-    public final String s;
+    final String s;
 
-    static final ACL2String EMPTY = new ACL2String(false, "");
+    private static final Map<String, ACL2String> allNormed = new HashMap<>();
+    static final ACL2String EMPTY = intern("");
 
-    ACL2String(boolean norm, String s)
+    ACL2String(String s)
     {
-        super(norm);
+        this(false, s);
+    }
+
+    private ACL2String(boolean normed, String s)
+    {
+        super(normed);
         for (int i = 0; i < s.length(); i++)
         {
             if (s.charAt(i) >= 0x100)
@@ -43,6 +52,17 @@ class ACL2String extends ACL2Object
             }
         }
         this.s = s;
+    }
+
+    static ACL2String intern(String s)
+    {
+        ACL2String result = allNormed.get(s);
+        if (result == null)
+        {
+            result = new ACL2String(true, s);
+            allNormed.put(s, result);
+        }
+        return result;
     }
 
     @Override
@@ -58,9 +78,15 @@ class ACL2String extends ACL2Object
     }
 
     @Override
-    public boolean equals(Object o)
+    ACL2Object internImpl()
     {
-        return o instanceof ACL2String && s.equals(((ACL2String)o).s);
+        return intern(s);
+    }
+
+    @Override
+    boolean equalsImpl(ACL2Object that)
+    {
+        return s.equals(((ACL2String)that).s);
     }
 
     @Override

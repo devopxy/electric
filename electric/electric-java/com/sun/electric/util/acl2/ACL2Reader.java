@@ -36,7 +36,6 @@ import java.util.Map;
  */
 public class ACL2Reader
 {
-
     public final ACL2Object root;
     public final int nNat;
     public final int nInt;
@@ -44,17 +43,18 @@ public class ACL2Reader
     public final int nComplex;
     public final int nChar;
     public final int nStr;
+    public final int nNormStr;
     public final int nPkg;
     public final int nSym;
     public final int nCons;
+    public final int nNormCons;
 
+    private static final int MAGIC_V1 = 0xAC120BC7;
+    private static final int MAGIC_V2 = 0xAC120BC8;
+    private static final int MAGIC_V3 = 0xAC120BC9;
+
+    private final int magic;
     private final List<ACL2Object> allObjs = new ArrayList<>();
-
-
-    {
-        allObjs.add(ACL2Symbol.NIL);
-        allObjs.add(ACL2Symbol.T);
-    }
 
     private static void check(boolean p)
     {
@@ -79,11 +79,20 @@ public class ACL2Reader
         return result;
     }
 
-    private static String readStr(DataInputStream in) throws IOException
+    private String readStr(DataInputStream in) throws IOException
     {
         int len = readInt(in).intValueExact();
-        boolean normd = (len & 1) != 0;
-        len >>>= 1;
+        boolean normd = false;
+        if (magic >= MAGIC_V3)
+        {
+            normd = (len & 1) != 0;
+            len >>>= 1;
+        }
+        return readString(in, len);
+    }
+
+    private static String readString(DataInputStream in, int len) throws IOException
+    {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < len; i++)
         {
@@ -96,14 +105,19 @@ public class ACL2Reader
     {
         try (DataInputStream in = new DataInputStream(new FileInputStream(f)))
         {
-            int magic = in.readInt();
-            check(magic == 0xAC120BC9);
+            magic = in.readInt();
+            check(magic >= MAGIC_V1 && magic <= MAGIC_V3);
+            if (magic >= MAGIC_V2)
+            {
+                allObjs.add(ACL2Symbol.NIL);
+                allObjs.add(ACL2Symbol.T);
+            }
             int len = readInt(in).intValueExact();
             nNat = readInt(in).intValueExact();
             for (int i = 0; i < nNat; i++)
             {
                 BigInteger n = readInt(in);
-                allObjs.add(new ACL2Integer(n));
+                allObjs.add(ACL2Integer.intern(n));
             }
             int ratsLen = readInt(in).intValueExact();
             int nNegInt = 0;
@@ -119,11 +133,11 @@ public class ACL2Reader
                 }
                 if (denom.equals(BigInteger.ONE))
                 {
-                    allObjs.add(new ACL2Integer(num));
+                    allObjs.add(ACL2Integer.intern(num));
                     nNegInt++;
                 } else
                 {
-                    allObjs.add(new ACL2Rational(Rational.valueOf(num, denom)));
+                    allObjs.add(ACL2Rational.intern(Rational.valueOf(num, denom)));
                 }
             }
             nInt = nNat + nNegInt;
@@ -147,20 +161,36 @@ public class ACL2Reader
                 {
                     numI = numI.negate();
                 }
-                allObjs.add(new ACL2Complex(Rational.valueOf(numR, denomR), Rational.valueOf(numI, denomI)));
+                allObjs.add(ACL2Complex.intern(Rational.valueOf(numR, denomR), Rational.valueOf(numI, denomI)));
             }
             nChar = readInt(in).intValueExact();
             for (int i = 0; i < nChar; i++)
             {
                 char c = (char)(in.readByte() & 0xFF);
-                allObjs.add(new ACL2Character(c));
+                allObjs.add(ACL2Character.intern(c));
             }
             nStr = readInt(in).intValueExact();
+            int nNormStrings = 0;
             for (long i = 0; i < nStr; i++)
             {
-                String s = readStr(in);
-                allObjs.add(new ACL2String(false, s));
+                int strlen = readInt(in).intValueExact();
+                boolean normed = false;
+                if (magic >= MAGIC_V3)
+                {
+                    normed = (strlen & 1) != 0;
+                    strlen >>>= 1;
+                }
+                String s = readString(in, strlen);
+                if (normed)
+                {
+                    nNormStrings++;
+                } else
+                {
+                    System.out.println("String " + s + " is not normed");
+                }
+                allObjs.add(normed ? ACL2String.intern(s) : new ACL2String(s));
             }
+            nNormStr = nNormStrings;
             nPkg = readInt(in).intValueExact();
             int numSymsTotal = 0;
             for (int i = 0; i < nPkg; i++)
@@ -176,28 +206,43 @@ public class ACL2Reader
             }
             nSym = numSymsTotal;
             nCons = readInt(in).intValueExact();
+            int nNormConses = 0;
             for (int i = 0; i < nCons; i++)
             {
                 int car = readInt(in).intValueExact();
                 int cdr = readInt(in).intValueExact();
-                boolean norm = (car & 1) != 0;
-                car >>>= 1;
-                allObjs.add(new ACL2Cons(norm, allObjs.get(car), allObjs.get(cdr)));
-            }
-//            System.out.println("FALS");
-            for (;;)
-            {
-                long fal0 = readInt(in).longValueExact();
-                if (fal0 == 0)
+                boolean normed = false;
+                if (magic >= MAGIC_V2)
                 {
-                    break;
+                    normed = (car & 1) != 0;
+                    car >>>= 1;
                 }
-                long fal1 = readInt(in).longValueExact();
+                ACL2Object carObj = allObjs.get(car);
+                ACL2Object cdrObj = allObjs.get(cdr);
+                if (normed)
+                {
+                    nNormConses++;
+                }
+                allObjs.add(normed ? ACL2Cons.intern(carObj, cdrObj) : new ACL2Cons(carObj, cdrObj));
+            }
+            nNormCons = nNormConses;
+            if (magic >= MAGIC_V3)
+            {
+//            System.out.println("FALS");
+                for (;;)
+                {
+                    int fal0 = readInt(in).intValueExact();
+                    if (fal0 == 0)
+                    {
+                        break;
+                    }
+                    int fal1 = readInt(in).intValueExact();
 //                System.out.println(" " + fal0 + " " + fal1);
+                }
             }
             int magicEnd = in.readInt();
-            check(magicEnd == 0xAC120BC9);
-            root = allObjs.get(len);
+            check(magicEnd == magic);
+            root = allObjs.get(magic >= MAGIC_V2 ? len : len - 1);
         }
     }
 

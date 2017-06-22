@@ -21,6 +21,9 @@
  */
 package com.sun.electric.util.acl2;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * ACL2 complex-rational number.
  * Its value is a complex number with rational real part and rational nonzero imaginary part.
@@ -30,16 +33,34 @@ class ACL2Complex extends ACL2Object
 
     final Rational re;
     final Rational im;
+    private static Map<ACL2Complex, ACL2Complex> allNormed = new HashMap<>();
 
     ACL2Complex(Rational re, Rational im)
     {
-        super(false);
+        this(false, re, im);
+    }
+
+    private ACL2Complex(boolean normed, Rational re, Rational im)
+    {
+        super(normed);
         if (im.signum() == 0)
         {
             throw new IllegalArgumentException();
         }
         this.re = re;
         this.im = im;
+    }
+
+    static ACL2Complex intern(Rational re, Rational im)
+    {
+        ACL2Complex v = new ACL2Complex(true, re, im);
+        ACL2Complex result = allNormed.get(v);
+        if (result == null)
+        {
+            result = v;
+            allNormed.put(v, result);
+        }
+        return result;
     }
 
     @Override
@@ -152,11 +173,15 @@ class ACL2Complex extends ACL2Object
     }
 
     @Override
-    public boolean equals(Object o)
+    ACL2Object internImpl()
     {
-        return o instanceof ACL2Complex
-            && re.equals(((ACL2Complex)o).re)
-            && im.equals(((ACL2Complex)o).im);
+        return intern(re, im);
+    }
+
+    @Override
+    boolean equalsImpl(ACL2Object that)
+    {
+        return re.equals(((ACL2Complex)that).re) && im.equals(((ACL2Complex)that).im);
     }
 
     @Override

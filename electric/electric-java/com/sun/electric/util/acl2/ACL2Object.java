@@ -39,11 +39,11 @@ public abstract class ACL2Object
 
     private static long nextId = 0;
     private long id = -1;
-    private boolean norm;
+    boolean normed;
 
-    ACL2Object(boolean norm)
+    ACL2Object(boolean normed)
     {
-        this.norm = norm;
+        this.normed = normed;
     }
 
     public static ACL2Object valueOf(BigInteger v)
@@ -61,11 +61,6 @@ public abstract class ACL2Object
         return new ACL2Integer(BigInteger.valueOf(v));
     }
 
-    static ACL2Object zero()
-    {
-        return new ACL2Integer(BigInteger.ZERO);
-    }
-
     static ACL2Object valueOf(Rational r)
     {
         return r.isInteger() ? new ACL2Integer(r.n) : new ACL2Rational(r);
@@ -74,6 +69,11 @@ public abstract class ACL2Object
     static ACL2Object valueOf(Rational re, Rational im)
     {
         return im.signum() == 0 ? valueOf(re) : new ACL2Complex(re, im);
+    }
+
+    public static ACL2Object valueOf(String s)
+    {
+        return new ACL2String(s);
     }
 
     public static ACL2Object valueOf(String pk, String nm)
@@ -123,7 +123,7 @@ public abstract class ACL2Object
 
     ACL2Object fix()
     {
-        return isACL2Number() ? this : zero();
+        return isACL2Number() ? this : ACL2Integer.ZERO;
     }
 
     Rational ratfix()
@@ -133,12 +133,12 @@ public abstract class ACL2Object
 
     ACL2Object unaryMinus()
     {
-        return zero();
+        return ACL2Integer.ZERO;
     }
 
     ACL2Object unarySlash()
     {
-        return zero();
+        return ACL2Integer.ZERO;
     }
 
     ACL2Object binaryPlus(ACL2Object y)
@@ -217,6 +217,37 @@ public abstract class ACL2Object
         {
             return id = nextId++;
         }
+    }
+
+    public boolean isNormed()
+    {
+        return normed;
+    }
+
+    public ACL2Object intern()
+    {
+        return normed ? this : internImpl();
+    }
+
+    ACL2Object internImpl()
+    {
+        return this;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o.getClass() == getClass())
+        {
+            ACL2Object that = (ACL2Object)o;
+            return this.normed && that.normed ? this == that : equalsImpl(that);
+        }
+        return false;
+    }
+
+    boolean equalsImpl(ACL2Object that)
+    {
+        throw new AssertionError(); // should not be called
     }
 
     @Override
