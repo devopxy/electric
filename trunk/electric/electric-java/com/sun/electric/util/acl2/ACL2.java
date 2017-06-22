@@ -90,10 +90,10 @@ public class ACL2
             BigInteger v = ((ACL2Integer)x).v;
             if (v.signum() >= 0 && v.bitLength() <= 8)
             {
-                return new ACL2Character((char)v.shortValueExact());
+                return ACL2Character.intern((char)v.shortValueExact());
             }
         }
-        return new ACL2Character((char)0);
+        return ACL2Character.intern((char)0);
     }
 
     public static ACL2Object characterp(ACL2Object x)
@@ -107,7 +107,7 @@ public class ACL2
         {
             return new ACL2Integer(BigInteger.valueOf(((ACL2Character)x).c));
         }
-        return ACL2Object.zero();
+        return ACL2Integer.ZERO;
     }
 
     public static ACL2Object complex(ACL2Object x, ACL2Object y)
@@ -130,7 +130,7 @@ public class ACL2
                 String s = ((ACL2String)x).s;
                 for (int i = s.length() - 1; i >= 0; i++)
                 {
-                    result = new ACL2Cons(false, new ACL2Character(s.charAt(i)), result);
+                    result = cons(ACL2Character.intern(s.charAt(i)), result);
                 }
             }
             return result;
@@ -148,13 +148,13 @@ public class ACL2
                 sb.append(c);
                 x = xc.cdr;
             }
-            return new ACL2String(false, sb.toString());
+            return new ACL2String(sb.toString());
         }
     }
 
     public static ACL2Object cons(ACL2Object x, ACL2Object y)
     {
-        return new ACL2Cons(false, x, y);
+        return new ACL2Cons(x, y);
     }
 
     public static ACL2Object consp(ACL2Object x)
@@ -183,7 +183,7 @@ public class ACL2
         {
             return ACL2Object.valueOf(((ACL2Complex)x).im);
         }
-        return ACL2Object.zero();
+        return ACL2Integer.ZERO;
     }
 
     public static ACL2Object integerp(ACL2Object x)
@@ -210,7 +210,7 @@ public class ACL2
         {
             return new ACL2Integer(((ACL2Rational)x).r.n);
         }
-        return ACL2Object.zero();
+        return ACL2Integer.ZERO;
     }
 
     public static ACL2Object rationalp(ACL2Object x)
@@ -236,7 +236,7 @@ public class ACL2
     {
         if (x instanceof ACL2Symbol)
         {
-            return new ACL2String(false, ((ACL2Symbol)x).nm);
+            return ((ACL2Symbol)x).nm;
         }
         return ACL2String.EMPTY;
     }
@@ -245,7 +245,7 @@ public class ACL2
     {
         if (x instanceof ACL2Symbol)
         {
-            return new ACL2String(false, ((ACL2Symbol)x).pkg.name);
+            return ((ACL2Symbol)x).pkg.name;
         }
         return ACL2String.EMPTY;
     }
@@ -254,26 +254,40 @@ public class ACL2
     {
         return ACL2Symbol.valueOf(x instanceof ACL2Symbol);
     }
-    
+
     //////////////
-    
-    public static ACL2Object booleanp(ACL2Object x) {
+    public static ACL2Object booleanp(ACL2Object x)
+    {
         return ACL2Object.valueOf(NIL.equals(x) || T.equals(x));
     }
 
-    public static ACL2Object keywordp(ACL2Object x) {
-        return ACL2Object.valueOf(x instanceof ACL2Symbol && ((ACL2Symbol) x).pkg == ACL2Symbol.KEYWORD);
+    public static ACL2Object keywordp(ACL2Object x)
+    {
+        return ACL2Object.valueOf(x instanceof ACL2Symbol && ((ACL2Symbol)x).pkg == ACL2Symbol.KEYWORD);
     }
-    
-    public static ACL2Object fix(ACL2Object x) {
+
+    public static ACL2Object fix(ACL2Object x)
+    {
         return x.isACL2Number() ? x : ACL2Object.valueOf(0);
     }
-    
-    public static ACL2Object rfix(ACL2Object x) {
+
+    public static ACL2Object rfix(ACL2Object x)
+    {
         return x instanceof ACL2Rational || x instanceof ACL2Integer ? x : ACL2Object.valueOf(0);
     }
-    
-    public static ACL2Object ifix(ACL2Object x) {
+
+    public static ACL2Object ifix(ACL2Object x)
+    {
         return x instanceof ACL2Integer ? x : ACL2Object.valueOf(0);
+    }
+
+    public static ACL2Object honscopy(ACL2Object x)
+    {
+        return x.intern();
+    }
+
+    public static ACL2Object hons(ACL2Object x, ACL2Object y)
+    {
+        return ACL2Cons.intern(x, y);
     }
 }

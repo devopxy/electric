@@ -38,7 +38,7 @@ import java.util.Set;
 class ACL2Symbol extends ACL2Object
 {
 
-    final String nm;
+    final ACL2String nm;
     final Package pkg;
 
     private static Map<String, Package> knownPackages = new HashMap<>();
@@ -73,21 +73,25 @@ class ACL2Symbol extends ACL2Object
                     case '-':
                         int ind;
                         String pkgName;
-                        if (line.charAt(1) == '|') {
+                        if (line.charAt(1) == '|')
+                        {
                             ind = line.indexOf(2, '|');
                             pkgName = line.substring(2, ind);
                             ind++;
-                        } else {
+                        } else
+                        {
                             ind = line.indexOf(':');
                             pkgName = line.substring(1, ind);
                         }
                         Package pkg = knownPackages.get(pkgName);
                         assert line.charAt(ind) == ':';
                         String symName = unquote(line.substring(ind + 1));
-                        if (line.charAt(0) == '-') {
+                        if (line.charAt(0) == '-')
+                        {
                             boolean ok = curImports.remove(pkg.symbols.get(symName));
                             assert ok;
-                        } else {
+                        } else
+                        {
                             assert !pkg.imports.containsKey(symName);
                             boolean ok = curImports.add(pkg.getSymbol(symName));
                             assert ok;
@@ -108,7 +112,8 @@ class ACL2Symbol extends ACL2Object
                         } else
                         {
                             ind = line.indexOf(' ');
-                            if (ind < 0) {
+                            if (ind < 0)
+                            {
                                 ind = line.length();
                             }
                             curPkgName = line.substring(0, ind);
@@ -154,10 +159,6 @@ class ACL2Symbol extends ACL2Object
     private ACL2Symbol(Package pkg, String nm)
     {
         super(true);
-//        if (nm.isEmpty())
-//        {
-//            throw new IllegalArgumentException();
-//        }
         for (int i = 0; i < nm.length(); i++)
         {
             if (nm.charAt(i) >= 0x100)
@@ -166,13 +167,13 @@ class ACL2Symbol extends ACL2Object
             }
         }
         this.pkg = pkg;
-        this.nm = nm;
+        this.nm = ACL2String.intern(nm);
     }
 
     @Override
     public String rep()
     {
-        return pkg.name + "::" + nm;
+        return pkg.name.s + "::" + nm.s;
     }
 
     @Override
@@ -186,7 +187,7 @@ class ACL2Symbol extends ACL2Object
 
     static class Package
     {
-        final String name;
+        final ACL2String name;
         private final Map<String, ACL2Symbol> imports = new HashMap<>();
         private final Map<String, ACL2Symbol> symbols = new HashMap<>();
 
@@ -203,10 +204,10 @@ class ACL2Symbol extends ACL2Object
                     throw new IllegalArgumentException();
                 }
             }
-            this.name = name;
+            this.name = ACL2String.intern(name);
             for (ACL2Symbol impSym : importsSyms)
             {
-                ACL2Symbol old = imports.put(impSym.nm, impSym);
+                ACL2Symbol old = imports.put(impSym.nm.s, impSym);
                 assert old == null;
             }
         }
@@ -222,7 +223,8 @@ class ACL2Symbol extends ACL2Object
             if (sym == null)
             {
                 sym = new ACL2Symbol(this, symName);
-                symbols.put(symName, sym);
+                ACL2Symbol old = symbols.put(symName, sym);
+                assert old == null;
             }
             return sym;
         }
@@ -231,6 +233,12 @@ class ACL2Symbol extends ACL2Object
         public int hashCode()
         {
             return name.hashCode();
+        }
+
+        @Override
+        public String toString()
+        {
+            return name.s;
         }
     }
 
