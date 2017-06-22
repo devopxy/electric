@@ -99,18 +99,6 @@ public class ACL2ObjectTest
     }
 
     /**
-     * Test of zero method, of class ACL2Object.
-     */
-    @Test
-    public void testZero()
-    {
-        System.out.println("zero");
-        ACL2Object expResult = new ACL2Integer(BigInteger.ZERO);
-        ACL2Object result = ACL2Object.zero();
-        assertEquals(expResult, result);
-    }
-
-    /**
      * Test of valueOf method, of class ACL2Object.
      */
     @Test
@@ -210,7 +198,7 @@ public class ACL2ObjectTest
     public void testStringValueExact()
     {
         System.out.println("stringValueExact");
-        ACL2Object instance = new ACL2String(false, "CAFEBABE");
+        ACL2Object instance = new ACL2String("CAFEBABE");
         String expResult = "CAFEBABE";
         String result = instance.stringValueExact();
         assertEquals(expResult, result);
