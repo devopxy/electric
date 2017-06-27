@@ -26,6 +26,7 @@ import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
@@ -59,6 +60,26 @@ public class Vec4Rsh<V extends Svar> extends SvexCall<V>
         public <V extends Svar> Vec4Rsh<V> build(Svex<V>[] args)
         {
             return new Vec4Rsh<>(args[0], args[1]);
+        }
+
+        @Override
+        public <V extends Svar> Svex<V> callStar(Svex<V>[] args)
+        {
+            assert args.length == 2;
+            Svex<V> sh = args[0];
+            if (sh instanceof SvexQuote)
+            {
+                Vec4 shVal = ((SvexQuote)sh).val;
+                if (shVal.isVec2())
+                {
+                    BigInteger shV = ((Vec2)shVal).getVal();
+                    if (shV.signum() >= 0)
+                    {
+                        return args[1].rsh(shV.intValueExact());
+                    }
+                }
+            }
+            return super.callStar(args);
         }
 
         @Override

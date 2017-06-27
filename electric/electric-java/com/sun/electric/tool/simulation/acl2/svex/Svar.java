@@ -24,6 +24,8 @@ package com.sun.electric.tool.simulation.acl2.svex;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A single variable in a symbolic vector expression.
@@ -119,6 +121,25 @@ public abstract class Svar
         default <V1 extends Svar> V newVar(V1 svar)
         {
             return Builder.this.newVar(svar.getACL2Name(), svar.getDelay(), svar.isNonblocking());
+        }
+
+        default <V1 extends Svar> V addDelay(V1 svar, int delay)
+        {
+            if (delay < 0)
+            {
+                throw new IllegalArgumentException();
+            }
+            return newVar(svar.makeACL2Object(), svar.getDelay() + delay, svar.isNonblocking());
+        }
+
+        default <V1 extends Svar> List<V> addDelay(List<V1> svarlist, int delay)
+        {
+            List<V> result = new ArrayList<>(svarlist.size());
+            for (V1 svar : svarlist)
+            {
+                result.add(addDelay(svar, delay));
+            }
+            return result;
         }
 
         V newVar(ACL2Object name, int delay, boolean nonblocking);

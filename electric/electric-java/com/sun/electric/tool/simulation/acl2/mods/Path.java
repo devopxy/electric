@@ -88,9 +88,11 @@ public abstract class Path
         return depth;
     }
 
-    private static class Wire extends Path
+    public abstract Path append(Path y);
+
+    static class Wire extends Path
     {
-        private final Name name;
+        final Name name;
 
         Wire(ACL2Object impl)
         {
@@ -108,6 +110,12 @@ public abstract class Path
         public ACL2Object getKind()
         {
             return KEYWORD_WIRE;
+        }
+
+        @Override
+        public Path append(Path y)
+        {
+            return new Path.Scope(name, y);
         }
 
         @Override
@@ -129,10 +137,10 @@ public abstract class Path
         }
     }
 
-    private static class Scope extends Path
+    static class Scope extends Path
     {
-        private final Path subpath;
-        private final Name namespace;
+        final Path subpath;
+        final Name namespace;
 
         Scope(ACL2Object impl)
         {
@@ -152,6 +160,12 @@ public abstract class Path
         public ACL2Object getKind()
         {
             return KEYWORD_SCOPE;
+        }
+
+        @Override
+        public Path append(Path y)
+        {
+            return new Path.Scope(namespace, subpath.append(y));
         }
 
         @Override

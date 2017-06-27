@@ -26,6 +26,7 @@ import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
@@ -59,6 +60,26 @@ public class Vec4SignExt<V extends Svar> extends SvexCall<V>
         public <V extends Svar> Vec4SignExt<V> build(Svex<V>[] args)
         {
             return new Vec4SignExt<>(args[0], args[1]);
+        }
+
+        @Override
+        public <V extends Svar> Svex<V> callStar(Svex<V>[] args)
+        {
+            assert args.length == 2;
+            Svex<V> width = args[0];
+            if (width instanceof SvexQuote)
+            {
+                Vec4 wVal = ((SvexQuote)width).val;
+                if (wVal.isVec2())
+                {
+                    BigInteger wV = ((Vec2)wVal).getVal();
+                    if (wV.signum() >= 0)
+                    {
+                        return args[1].signx(wV.intValueExact());
+                    }
+                }
+            }
+            return super.callStar(args);
         }
 
         @Override

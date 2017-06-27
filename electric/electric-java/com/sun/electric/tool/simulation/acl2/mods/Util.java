@@ -76,4 +76,15 @@ public class Util
         return result;
     }
 
+    public static ACL2Object revList(ACL2Object list)
+    {
+        ACL2Object rev = NIL;
+        while (consp(list).bool())
+        {
+            rev = cons(car(list), rev);
+            list = cdr(list);
+        }
+        return rev;
+    }
+
 }

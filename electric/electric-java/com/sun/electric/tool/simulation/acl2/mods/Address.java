@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: Path.java
+ * File: Address.java
  *
  * Copyright (c) 2017, Static Free Software. All rights reserved.
  *
@@ -33,6 +33,8 @@ public class Address
 {
     public static final ACL2Object KEYWORD_ADDRESS = ACL2Object.valueOf("KEYWORD", "ADDRESS");
     public static final ACL2Object KEYWORD_ROOT = ACL2Object.valueOf("KEYWORD", "ROOT");
+    public static final int INDEX_NIL = -1;
+    public static final int SCOPE_ROOT = -1;
 
     private final ACL2Object impl;
 
@@ -53,11 +55,12 @@ public class Address
                 Util.check(index >= 0);
             } else
             {
-                index = -1;
+                Util.checkNil(list.get(2));
+                index = INDEX_NIL;
             }
             if (KEYWORD_ROOT.equals(list.get(3)))
             {
-                scope = -1;
+                scope = SCOPE_ROOT;
             } else
             {
                 scope = list.get(3).intValueExact();
@@ -66,7 +69,7 @@ public class Address
         } else
         {
             path = Path.fromACL2(impl);
-            index = -1;
+            index = INDEX_NIL;
             scope = 0;
         }
     }
@@ -77,11 +80,11 @@ public class Address
         {
             throw new NullPointerException();
         }
-        if (index < -1 || scope < -1)
+        if (index < INDEX_NIL || scope < SCOPE_ROOT)
         {
             throw new IllegalArgumentException();
         }
-        if (scope == 0 && index == -1)
+        if (scope == 0 && index == INDEX_NIL)
         {
             impl = path.getACL2Object();
         } else
@@ -120,5 +123,10 @@ public class Address
     public Integer getScope()
     {
         return scope >= 0 ? scope : null;
+    }
+
+    public SvarAddr toVar()
+    {
+        return new SvarAddr(this, 0, false);
     }
 }

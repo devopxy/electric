@@ -122,6 +122,11 @@ public abstract class SvexFunction
 
     public abstract <V extends Svar> SvexCall<V> build(Svex<V>[] args);
 
+    public <V extends Svar> Svex<V> callStar(Svex<V>[] args)
+    {
+        return build(args);
+    }
+
     public abstract Vec4 apply(Vec4... args);
 
     protected Vec4 shiftCore(int amt, Vec4 src)
@@ -221,7 +226,7 @@ public abstract class SvexFunction
         public <V extends Svar> SvexCall<V> build(Svex<V>[] args)
         {
             assert args.length == arity;
-            return new SvexCall<>(this, args);
+            return SvexCall.newCall(this, args);
         }
 
         @Override
