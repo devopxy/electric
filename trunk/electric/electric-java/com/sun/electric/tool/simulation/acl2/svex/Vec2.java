@@ -67,6 +67,12 @@ public class Vec2 extends Vec4
     }
 
     @Override
+    public boolean isIndex()
+    {
+        return val.signum() >= 0;
+    }
+
+    @Override
     public boolean isVec3()
     {
         return true;

@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex;
 
+import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.Map;
 import java.util.Set;
@@ -34,6 +35,7 @@ import java.util.Set;
 public class SvexVar<V extends Svar> extends Svex<V>
 {
     public V svar;
+    private final ACL2Object impl;
 
     public SvexVar(V svar)
     {
@@ -42,12 +44,13 @@ public class SvexVar<V extends Svar> extends Svex<V>
             throw new NullPointerException();
         }
         this.svar = svar;
+        impl = honscopy(svar.makeACL2Object());
     }
 
     @Override
-    public ACL2Object makeACL2Object()
+    public ACL2Object getACL2Object()
     {
-        return svar.makeACL2Object();
+        return impl;
     }
 
     @Override
@@ -58,6 +61,18 @@ public class SvexVar<V extends Svar> extends Svex<V>
         {
             V1 newVar = builder.newVar(svar);
             svex = new SvexVar<>(newVar);
+            cache.put(this, svex);
+        }
+        return svex;
+    }
+
+    @Override
+    public <V1 extends Svar> Svex<V1> addDelay(int delay, Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache)
+    {
+        Svex<V1> svex = cache.get(this);
+        if (svex == null)
+        {
+            svex = new SvexVar<>(builder.addDelay(svar, delay));
             cache.put(this, svex);
         }
         return svex;
@@ -86,6 +101,18 @@ public class SvexVar<V extends Svar> extends Svex<V>
     {
         Vec4 val = subst.get(svar);
         return val != null ? new SvexQuote(val) : this;
+    }
+
+    @Override
+    public boolean isLhsUnbounded()
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isLhs()
+    {
+        return false;
     }
 
     @Override

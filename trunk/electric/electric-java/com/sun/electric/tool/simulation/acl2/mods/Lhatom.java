@@ -22,8 +22,16 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
+import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Rsh;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * An SVar or X at left-hand side of SVEX assignment.
@@ -40,6 +48,10 @@ public abstract class Lhatom<V extends Svar>
     public abstract int getRsh();
 
     public abstract <V1 extends Svar> Lhatom<V1> convertVars(Svar.Builder<V1> builder);
+
+    public abstract Vec4 eval(Map<V, Vec4> env);
+
+    public abstract Svex<V> toSvex();
 
     @Override
     public String toString()
@@ -85,6 +97,17 @@ public abstract class Lhatom<V extends Svar>
             return new Z<>();
         }
 
+        @Override
+        public Vec4 eval(Map<V, Vec4> env)
+        {
+            return Vec4.Z;
+        }
+
+        @Override
+        public Svex<V> toSvex()
+        {
+            return new SvexQuote<>(Vec4.Z);
+        }
     }
 
     public static class Var<V extends Svar> extends Lhatom<V>
@@ -113,7 +136,7 @@ public abstract class Lhatom<V extends Svar>
             }
         }
 
-        Var(V name, int rsh)
+        public Var(V name, int rsh)
         {
             if (name == null)
             {
@@ -153,6 +176,21 @@ public abstract class Lhatom<V extends Svar>
         {
             V1 newName = builder.newVar(name);
             return new Var<>(newName, rsh);
+        }
+
+        @Override
+        public Vec4 eval(Map<V, Vec4> env)
+        {
+            Vec4 sh = new Vec2(BigInteger.valueOf(rsh));
+            Vec4 x = env.getOrDefault(name, Vec4.X);
+            return Vec4Rsh.FUNCTION.apply(sh, x);
+        }
+
+        @Override
+        public Svex<V> toSvex()
+        {
+            Svex<V> svexVar = new SvexVar<>(name);
+            return rsh != 0 ? svexVar.rsh(rsh) : svexVar;
         }
     }
 }

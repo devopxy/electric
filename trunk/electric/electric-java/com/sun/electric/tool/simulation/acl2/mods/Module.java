@@ -23,10 +23,10 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
-import static com.sun.electric.util.acl2.ACL2.car;
-import static com.sun.electric.util.acl2.ACL2.cdr;
+import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -88,5 +88,45 @@ public class Module<V extends Svar>
             Lhs old = aliaspairs.put(lhs, rhs);
             Util.check(old == null);
         }
+    }
+
+    Module(Collection<Wire> wires, Collection<ModInst> insts,
+        Map<Lhs<V>, Driver<V>> assigns, Map<Lhs<V>, Lhs<V>> aliaspairs)
+    {
+        this.wires.addAll(wires);
+        this.insts.addAll(insts);
+        this.assigns.putAll(assigns);
+        this.aliaspairs.putAll(aliaspairs);
+    }
+
+    ACL2Object getACL2Object()
+    {
+        ACL2Object wiresList = NIL;
+        for (int i = wires.size() - 1; i >= 0; i--)
+        {
+            wiresList = cons(wires.get(i).getACL2Object(), wiresList);
+        }
+        ACL2Object instsList = NIL;
+        for (int i = insts.size() - 1; i >= 0; i--)
+        {
+            instsList = cons(insts.get(i).getACL2Object(), instsList);
+        }
+        ACL2Object assignsList = NIL;
+        for (Map.Entry<Lhs<V>, Driver<V>> e : assigns.entrySet())
+        {
+            assignsList = cons(cons(e.getKey().getACL2Object(), e.getValue().getACl2Object()), assignsList);
+        }
+        assignsList = Util.revList(assignsList);
+        ACL2Object aliasesList = NIL;
+        for (Map.Entry<Lhs<V>, Lhs<V>> e : aliaspairs.entrySet())
+        {
+            aliasesList = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), aliasesList);
+        }
+        aliasesList = Util.revList(aliasesList);
+        return cons(cons(Util.SV_WIRES, wiresList),
+            cons(cons(Util.SV_INSTS, instsList),
+                cons(cons(Util.SV_ASSIGNS, assignsList),
+                    cons(cons(Util.SV_ALIASPAIRS, aliasesList),
+                        NIL))));
     }
 }

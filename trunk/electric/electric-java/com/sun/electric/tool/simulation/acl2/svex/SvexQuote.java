@@ -36,6 +36,7 @@ public class SvexQuote<V extends Svar> extends Svex<V>
 {
 
     public final Vec4 val;
+    private final ACL2Object impl;
 
     public SvexQuote(Vec4 val)
     {
@@ -44,20 +45,35 @@ public class SvexQuote<V extends Svar> extends Svex<V>
             throw new NullPointerException();
         }
         this.val = val;
+        if (val.isVec2())
+        {
+            impl = honscopy(val.makeAcl2Object());
+        } else
+        {
+            impl = hons(QUOTE, hons(val.makeAcl2Object(), NIL));
+        }
     }
 
     @Override
-    public ACL2Object makeACL2Object()
+    public ACL2Object getACL2Object()
     {
-        if (val.isVec2())
-        {
-            return val.makeAcl2Object();
-        }
-        return cons(QUOTE, cons(val.makeAcl2Object(), NIL));
+        return impl;
     }
 
     @Override
     public <V1 extends Svar> Svex<V1> convertVars(Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache)
+    {
+        Svex<V1> svex = cache.get(this);
+        if (svex == null)
+        {
+            svex = new SvexQuote<>(val);
+            cache.put(this, svex);
+        }
+        return svex;
+    }
+
+    @Override
+    public <V1 extends Svar> Svex<V1> addDelay(int delay, Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache)
     {
         Svex<V1> svex = cache.get(this);
         if (svex == null)
@@ -89,6 +105,18 @@ public class SvexQuote<V extends Svar> extends Svex<V>
     public Svex<V> patch(Map<V, Vec4> subst, Map<SvexCall<V>, SvexCall<V>> memoize)
     {
         return this;
+    }
+
+    @Override
+    public boolean isLhsUnbounded()
+    {
+        return val.equals(Vec4.Z);
+    }
+
+    @Override
+    public boolean isLhs()
+    {
+        return val.equals(Vec4.Z);
     }
 
     @Override

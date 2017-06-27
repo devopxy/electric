@@ -22,8 +22,13 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
+import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
+import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -91,12 +96,12 @@ public class ModDb
      * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODDB-WIREIDX-_E3PATH>
      *
      * @param wireidx
-     * @param modix
+     * @param modidx
      * @return
      */
-    public Path wireidxToPath(int wireidx, int modix)
+    public Path wireidxToPath(int wireidx, int modidx)
     {
-        ElabMod elabMod = mods.get(modix);
+        ElabMod elabMod = mods.get(modidx);
         if (wireidx < 0 || wireidx >= elabMod.totalWires)
         {
             throw new IllegalArgumentException();
@@ -111,6 +116,183 @@ public class ModDb
             elabMod = elabModInst.modidx;
         }
         return Path.makePath(stack, elabMod.wireTable[wireidx].name);
+    }
+
+    /**
+     * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODDB-PATH-_E3WIREIDX>
+     *
+     * @param path
+     * @param modidx
+     * @return
+     */
+    public int pathToWireIdx(Path path, int modidx)
+    {
+        ElabMod elabMod = mods.get(modidx);
+        int wireOffset = 0;
+        while (path instanceof Path.Scope)
+        {
+            Path.Scope pathScope = (Path.Scope)path;
+            ElabModInst instidx = elabMod.modInstNameIdxes.get(pathScope.namespace);
+            if (instidx == null)
+            {
+                throw new RuntimeException("In module " + elabMod.modName + ": missing: " + pathScope.namespace);
+            }
+            wireOffset += instidx.wireOffrset;
+            elabMod = instidx.modidx;
+            path = pathScope.subpath;
+        }
+        Path.Wire pathWire = (Path.Wire)path;
+        Integer wireIdx = elabMod.wireNameIdxes.get(pathWire.name);
+        if (wireIdx == null)
+        {
+            throw new RuntimeException("In module " + elabMod.modName + ": missing: " + pathWire.name);
+        }
+        return wireOffset + wireIdx;
+    }
+
+    /**
+     * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODDB-PATH-_E3WIREIDX>
+     *
+     * @param path
+     * @param modidx
+     * @return
+     */
+    public Wire pathToWireDecl(Path path, int modidx)
+    {
+        ElabMod elabMod = mods.get(modidx);
+        while (path instanceof Path.Scope)
+        {
+            Path.Scope pathScope = (Path.Scope)path;
+            ElabModInst instidx = elabMod.modInstNameIdxes.get(pathScope.namespace);
+            if (instidx == null)
+            {
+                throw new RuntimeException("In module " + elabMod.modName + ": missing: " + pathScope.namespace);
+            }
+            elabMod = instidx.modidx;
+            path = pathScope.subpath;
+        }
+        Path.Wire pathWire = (Path.Wire)path;
+        Integer wireIdx = elabMod.wireNameIdxes.get(pathWire.name);
+        if (wireIdx == null)
+        {
+            throw new RuntimeException("In module " + elabMod.modName + ": missing: " + pathWire.name);
+        }
+        return elabMod.wireTable[wireIdx];
+    }
+
+    public int addressToWireIdx(Address addr, ModScope scope)
+    {
+        ModScope scope1 = addr.scope == Address.SCOPE_ROOT ? scope.top() : scope.nth(addr.scope);
+        int localIdx = pathToWireIdx(addr.path, scope1.modIdx.index);
+        return localIdx + scope1.wireOffset;
+    }
+
+    public Wire addressToWireDecl(Address addr, ModScope scope)
+    {
+        ModScope scope1 = addr.scope == Address.SCOPE_ROOT ? scope.top() : scope.nth(addr.scope);
+        return pathToWireDecl(addr.path, scope1.modIdx.index);
+    }
+
+    public Path[] wireidxToPaths(int[] wires, int modidx)
+    {
+        Path[] result = new Path[wires.length];
+        for (int i = 0; i < wires.length; i++)
+        {
+            result[i] = wireidxToPath(wires[i], modidx);
+        }
+        return result;
+    }
+
+    public SvarAddr svarNamedToIndexed(SvarAddr svar, int modidx)
+    {
+        Address addr = svar.getAddress();
+        if (addr.scope != 0)
+        {
+            return svar.withIndex(Address.INDEX_NIL);
+        }
+        int idx = pathToWireIdx(addr.path, modidx);
+        return svar.withIndex(idx);
+    }
+
+    private Svex<SvarAddr> svexNamedToIndex(Svex<SvarAddr> x, int modidx, Map<Svex<SvarAddr>, Svex<SvarAddr>> svexCache)
+    {
+        Svex<SvarAddr> result = svexCache.get(x);
+        if (result == null)
+        {
+            if (x instanceof SvexVar)
+            {
+                SvexVar<SvarAddr> xv = (SvexVar<SvarAddr>)x;
+                SvarAddr name = svarNamedToIndexed(xv.svar, modidx);
+                result = new SvexVar<>(name);
+            } else if (x instanceof SvexQuote)
+            {
+                result = x;
+            } else
+            {
+                SvexCall<SvarAddr> sc = (SvexCall<SvarAddr>)x;
+                Svex<SvarAddr>[] args = sc.getArgs();
+                Svex<SvarAddr>[] newArgs = Svex.newSvexArray(args.length);
+                for (int i = 0; i < args.length; i++)
+                {
+                    newArgs[i] = svexNamedToIndex(args[i], modidx, svexCache);
+                }
+                result = SvexCall.newCall(sc.fun, newArgs);
+            }
+            svexCache.put(x, result);
+        }
+        return result;
+    }
+
+    private Lhs<SvarAddr> lhsNamedToIndex(Lhs<SvarAddr> x, int modidx)
+    {
+        List<Lhrange<SvarAddr>> newRanges = new ArrayList<>();
+        for (Lhrange<SvarAddr> range : x.ranges)
+        {
+            SvarAddr svar = range.getVar();
+            if (svar != null)
+            {
+                svar = svarNamedToIndexed(svar, modidx);
+                range = new Lhrange<>(range.getWidth(), new Lhatom.Var<>(svar, range.getRsh()));
+            }
+            newRanges.add(range);
+        }
+        return new Lhs<>(newRanges);
+    }
+
+    private Module<SvarAddr> moduleNamedToIndex(Module<SvarAddr> m, int modidx)
+    {
+        Map<Svex<SvarAddr>, Svex<SvarAddr>> svexCache = new HashMap<>();
+        Map<Lhs<SvarAddr>, Driver<SvarAddr>> newAssigns = new LinkedHashMap<>();
+        for (Map.Entry<Lhs<SvarAddr>, Driver<SvarAddr>> e : m.assigns.entrySet())
+        {
+            Lhs<SvarAddr> newLhs = lhsNamedToIndex(e.getKey(), modidx);
+            Driver<SvarAddr> driver = e.getValue();
+            Svex<SvarAddr> newSvex = svexNamedToIndex(driver.svex, modidx, svexCache);
+            Driver<SvarAddr> newDriver = new Driver<>(newSvex, driver.strength);
+            newAssigns.put(newLhs, newDriver);
+        }
+        Map<Lhs<SvarAddr>, Lhs<SvarAddr>> newAliasepairs = new LinkedHashMap<>();
+        for (Map.Entry<Lhs<SvarAddr>, Lhs<SvarAddr>> e : m.aliaspairs.entrySet())
+        {
+            Lhs<SvarAddr> newLhs = lhsNamedToIndex(e.getKey(), modidx);
+            Lhs<SvarAddr> newRhs = lhsNamedToIndex(e.getValue(), modidx);
+            newAliasepairs.put(newLhs, newRhs);
+        }
+        return new Module<>(m.wires, m.insts, newAssigns, newAliasepairs);
+    }
+
+    public Map<ModName, Module<SvarAddr>> modalistNamedToIndex(Map<ModName, Module<SvarAddr>> modalist)
+    {
+        Map<ModName, Module<SvarAddr>> result = new LinkedHashMap<>();
+        for (Map.Entry<ModName, Module<SvarAddr>> e : modalist.entrySet())
+        {
+            ModName modName = e.getKey();
+            Module<SvarAddr> module = e.getValue();
+            int modidx = modnameIdxes.get(modName).index;
+            Module<SvarAddr> newModule = moduleNamedToIndex(module, modidx);
+            result.put(modName, newModule);
+        }
+        return result;
     }
 
     private <V extends Svar> void moduleToDb(ModName modName, Map<ModName, Module<V>> modalist)
@@ -237,6 +419,75 @@ public class ModDb
             this.wireOffrset = wireOffset;
             this.instOffset = instOffset;
             instMeas = modidx.modMeas + 1;
+        }
+    }
+
+    public class ModScope
+    {
+        final ElabMod modIdx;
+        final int wireOffset;
+        final int instOffset;
+        final ModScope upper;
+
+        ModScope(ElabMod modIdx)
+        {
+            this(modIdx, 0, 0, null);
+        }
+
+        private ModScope(ElabMod modIdx, int wireOffset, int instOffset, ModScope upper)
+        {
+            this.modIdx = modIdx;
+            this.wireOffset = wireOffset;
+            this.instOffset = instOffset;
+            this.upper = upper;
+        }
+
+        boolean okp()
+        {
+            if (mods.get(modIdx.index) != modIdx)
+            {
+                return false;
+            }
+            if (upper == null)
+            {
+                return wireOffset == 0 && instOffset == 0;
+            } else
+            {
+                return upper.okp()
+                    && upper.wireOffset <= wireOffset
+                    && modIdx.totalWires + wireOffset <= upper.modIdx.totalWires + upper.wireOffset
+                    && upper.instOffset <= instOffset
+                    && modIdx.totalInsts + instOffset >= upper.modIdx.totalInsts + upper.instOffset;
+            }
+        }
+
+        ModScope pushFrame(int instidx)
+        {
+            ElabModInst elabModInst = modIdx.modInstTable[instidx];
+            return new ModScope(elabModInst.modidx,
+                elabModInst.wireOffrset + wireOffset,
+                elabModInst.instOffset + instOffset,
+                this);
+        }
+
+        ModScope top()
+        {
+            ModScope result = this;
+            while (result.upper != null)
+            {
+                result = result.upper;
+            }
+            return result;
+        }
+
+        ModScope nth(int n)
+        {
+            ModScope result = this;
+            while (n > 0 && result.upper != null)
+            {
+                result = result.upper;
+            }
+            return result;
         }
     }
 }

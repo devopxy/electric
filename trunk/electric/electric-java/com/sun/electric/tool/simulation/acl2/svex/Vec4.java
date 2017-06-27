@@ -38,6 +38,8 @@ public abstract class Vec4
 
     public abstract boolean isVec2();
 
+    public abstract boolean isIndex();
+
     public abstract boolean isVec3();
 
     public abstract BigInteger getUpper();
@@ -82,6 +84,12 @@ public abstract class Vec4
 
         @Override
         public boolean isVec2()
+        {
+            return false;
+        }
+
+        @Override
+        public boolean isIndex()
         {
             return false;
         }

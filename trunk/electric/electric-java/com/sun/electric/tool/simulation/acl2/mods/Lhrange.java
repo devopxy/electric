@@ -23,8 +23,15 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
+import java.util.Map;
 
 /**
  * An atom with width from left-hand side of SVEX assignment.
@@ -58,15 +65,81 @@ public class Lhrange<V extends Svar>
         Util.check(w >= 1);
     }
 
-    Lhrange(int w, Lhatom<V> atom)
+    public Lhrange(int w, Lhatom<V> atom)
     {
         this.w = w;
         this.atom = atom;
     }
 
+    public ACL2Object getACL2Object()
+    {
+        ACL2Object atomImpl = atom.getACL2Object();
+        return w == 1 ? atomImpl : cons(ACL2Object.valueOf(w), atomImpl);
+    }
+
     public <V1 extends Svar> Lhrange<V1> convertVars(Svar.Builder<V1> builder)
     {
         return new Lhrange<>(w, atom.convertVars(builder));
+    }
+
+    public Vec4 eval(Map<V, Vec4> env)
+    {
+        return Vec4Concat.FUNCTION.apply(new Vec2(BigInteger.valueOf(w)), atom.eval(env), Vec4.Z);
+    }
+
+    public Svex<V> toSvex()
+    {
+        Svex<V>[] args = Svex.newSvexArray(3);
+        args[0] = new SvexQuote<>(new Vec2(BigInteger.valueOf(w)));
+        args[1] = atom.toSvex();
+        args[2] = new SvexQuote<>(Vec4.Z);
+        return Vec4Concat.FUNCTION.build(args);
+    }
+
+    public Lhatom<V> nextbit()
+    {
+        if (atom instanceof Lhatom.Var)
+        {
+            return new Lhatom.Var<>(atom.getVar(), w + atom.getRsh());
+        } else
+        {
+            return atom;
+        }
+    }
+
+    public boolean combinable(Lhatom<V> y)
+    {
+        V vx = getVar();
+        V vy = y.getVar();
+        if (vx == null)
+        {
+            return vy == null;
+        } else
+        {
+            return vx.equals(vy) && y.getRsh() == getRsh() + w;
+        }
+    }
+
+    public Lhrange<V> combine(Lhrange<V> y)
+    {
+        V vx = getVar();
+        V vy = y.getVar();
+        if (vx == null)
+        {
+            if (vy == null)
+            {
+                return new Lhrange<>(w + y.w, atom);
+            }
+        } else if (vx.equals(vy) && y.getRsh() == getRsh() + w)
+        {
+            return new Lhrange<>(w + y.w, atom);
+        }
+        return null;
+    }
+
+    public Lhatom<V> getAtom()
+    {
+        return atom;
     }
 
     public V getVar()

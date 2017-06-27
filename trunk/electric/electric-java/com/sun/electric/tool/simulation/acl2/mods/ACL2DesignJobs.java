@@ -33,14 +33,18 @@ import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.user.User;
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Object;
 import com.sun.electric.util.acl2.ACL2Reader;
+import com.sun.electric.util.acl2.ACL2Writer;
 import java.io.File;
 import java.io.IOException;
 
 import java.io.PrintStream;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -242,7 +246,7 @@ public class ACL2DesignJobs
                             {
                                 continue;
                             }
-                            out.print("  // alias" + lr + " <->");
+                            out.print("  // alias " + lr + " <->");
                             for (Lhrange<SVarExt> lr1 : r.ranges)
                             {
                                 svar = lr1.getVar();
@@ -663,7 +667,7 @@ public class ACL2DesignJobs
                         ModuleExt m = e.getValue();
                         out.println();
                         out.println("(local (define |check-" + mn + "| ()");
-                        out.println("  (let ((m (cdr (assoc-equal '" + mn + " (design->modalist *" + designName + "*)))))");
+                        out.println("  (let ((m (cdr (assoc-equal \"" + mn + "\" (design->modalist *" + designName + "*)))))");
                         out.println("    (equal (compute-driver-masks (hons-copy (strip-cars (strip-cdrs (module->assigns m))))) `(");
                         for (Map.Entry<Lhs<SVarExt>, DriverExt> e1 : m.assigns.entrySet())
                         {
@@ -686,7 +690,6 @@ public class ACL2DesignJobs
                             for (SVarExt var : vars)
                             {
                                 SVarExt.LocalWire lw = (SVarExt.LocalWire)var;
-                                out.println();
                                 Svex<SVarExt> svex = new SvexVar<>(lw);
                                 BigInteger mask = masks.get(svex);
                                 if (mask == null)
@@ -717,6 +720,98 @@ public class ACL2DesignJobs
                     }
                     out.println("))");
 
+                }
+            } catch (IOException e)
+            {
+                return false;
+            }
+            return true;
+        }
+    }
+
+    public static void namedToIndexed(File saoFile, String designName, String outFileName)
+    {
+        new NamedToIndexedJob(saoFile, designName, outFileName).startJob();
+    }
+
+    private static class NamedToIndexedJob extends Job
+    {
+        private final File saoFile;
+        private final String designName;
+        private final String outFileName;
+
+        private NamedToIndexedJob(File saoFile, String designName, String outFileName)
+        {
+            super("Named->Indexed", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
+            this.saoFile = saoFile;
+            this.designName = designName;
+            this.outFileName = outFileName;
+        }
+
+        @Override
+        public boolean doIt() throws JobException
+        {
+            try
+            {
+                ACL2Reader sr = new ACL2Reader(saoFile);
+                SvarAddr.Builder builder = new SvarAddr.Builder();
+                Design<SvarAddr> design = new Design<>(builder, sr.root);
+                ModDb db = new ModDb(design.top, design.modalist);
+                Map<ModName, Module<SvarAddr>> indexedMods = db.modalistNamedToIndex(design.modalist);
+                ACL2Object indexedAlist = NIL;
+                for (Map.Entry<ModName, Module<SvarAddr>> e : indexedMods.entrySet())
+                {
+                    indexedAlist = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), indexedAlist);
+                }
+                indexedAlist = Util.revList(indexedAlist);
+
+                File outFile = new File(outFileName);
+                File outDir = outFile.getParentFile();
+                File saoIndexedFile = new File(outDir, designName + "-indexed.sao");
+                ACL2Writer.write(indexedAlist, saoIndexedFile);
+                try (PrintStream out = new PrintStream(outFileName))
+                {
+                    out.println("(in-package \"SV\")");
+                    out.println("(include-book \"std/util/defconsts\" :dir :system)");
+                    out.println("(include-book \"std/util/defrule\" :dir :system)");
+                    out.println("(include-book \"centaur/sv/mods/moddb\" :dir :system)");
+                    out.println("(include-book \"centaur/misc/hons-extra\" :dir :system)");
+                    out.println();
+                    out.println("(defconsts (*" + designName + "* state)");
+                    out.println("  (serialize-read \"" + designName + ".sao\"))");
+                    out.println();
+                    out.println("(defconsts (*" + designName + "-indexed* state)");
+                    out.println("  (serialize-read \"" + designName + "-indexed.sao\"))");
+                    out.println();
+                    out.println("(define svex-moddb-indexed");
+                    out.println("  ((x design-p))");
+                    out.println("  :guard (modalist-addr-p (design->modalist x))");
+                    out.println("  :guard-hints ((\"goal\" :do-not-induct t");
+                    out.println("                 :in-theory (e/d () (create-moddb moddb->nmods))))");
+                    out.println("  (b* (((acl2::local-stobjs moddb)");
+                    out.println("        (mv indexed moddb))");
+                    out.println("       (moddb (moddb-clear moddb))");
+                    out.println("       ((design x) x)");
+                    out.println("       (modalist x.modalist)");
+                    out.println("       (topmod x.top)");
+                    out.println("       ((with-fast modalist))");
+                    out.println("       ((unless (modhier-loopfree-p topmod modalist))");
+                    out.println("        (mv");
+                    out.println("         (msg \"Module ~s0 has an instance loop!~%\" topmod)");
+                    out.println("         moddb))");
+                    out.println("       (moddb (module->db topmod modalist moddb))");
+                    out.println("       ((mv err indexed) (modalist-named->indexed modalist moddb :quiet t))");
+                    out.println("       ((when err)");
+                    out.println("        (mv (msg \"Error indexing wire names: ~@0~%\" err)");
+                    out.println("            moddb)))");
+                    out.println("    (mv indexed moddb)))");
+                    out.println();
+                    out.println("(rule (modalist-p *" + designName + "-indexed*))");
+                    out.println();
+                    out.println("(rule");
+                    out.println(" (equal");
+                    out.println("  (svex-moddb-indexed *" + designName + "*)");
+                    out.println("  *" + designName + "-indexed*))");
                 }
             } catch (IOException e)
             {
