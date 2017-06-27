@@ -62,11 +62,13 @@ class ACL2Cons extends ACL2Object
 
     static ACL2Cons intern(ACL2Object car, ACL2Object cdr)
     {
-        ACL2Cons v = new ACL2Cons(true, car.intern(), cdr.intern());
+        car = car.intern();
+        cdr = cdr.intern();
+        ACL2Cons v = new ACL2Cons(false, car, cdr);
         ACL2Cons result = allNormed.get(v);
         if (result == null)
         {
-            result = v;
+            result = new ACL2Cons(true, car, cdr);
             allNormed.put(v, result);
         }
         return result;

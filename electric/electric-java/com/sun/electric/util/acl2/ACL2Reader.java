@@ -51,7 +51,7 @@ public class ACL2Reader
 
     private static final int MAGIC_V1 = 0xAC120BC7;
     private static final int MAGIC_V2 = 0xAC120BC8;
-    private static final int MAGIC_V3 = 0xAC120BC9;
+    static final int MAGIC_V3 = 0xAC120BC9;
 
     private final int magic;
     private final List<ACL2Object> allObjs = new ArrayList<>();
@@ -186,7 +186,7 @@ public class ACL2Reader
                     nNormStrings++;
                 } else
                 {
-                    System.out.println("String " + s + " is not normed");
+//                    System.out.println("String " + s + " is not normed");
                 }
                 allObjs.add(normed ? ACL2String.intern(s) : new ACL2String(s));
             }
