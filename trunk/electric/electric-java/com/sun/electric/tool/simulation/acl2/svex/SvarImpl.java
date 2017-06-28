@@ -31,13 +31,22 @@ import java.util.Map;
  * Implementation of a single variable in a symbolic vector expression.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVAR>.
  */
-public class SvarImpl extends Svar
+public class SvarImpl<N> extends Svar
 {
+    private final N name;
+    private final int delayImpl;
     private final ACL2Object impl;
 
-    private SvarImpl(ACL2Object impl)
+    private SvarImpl(N name, int delayImpl, ACL2Object impl)
     {
+        this.name = name;
+        this.delayImpl = delayImpl;
         this.impl = impl;
+    }
+
+    public N getName()
+    {
+        return name;
     }
 
     @Override
@@ -49,27 +58,13 @@ public class SvarImpl extends Svar
     @Override
     public int getDelay()
     {
-        if (consp(impl).bool())
-        {
-            int delay = cdr(cdr(impl)).intValueExact();
-            return delay >= 0 ? delay : ~delay;
-        } else
-        {
-            return 0;
-        }
+        return delayImpl >= 0 ? delayImpl : ~delayImpl;
     }
 
     @Override
     public boolean isNonblocking()
     {
-        if (consp(impl).bool())
-        {
-            int delay = cdr(cdr(impl)).intValueExact();
-            return delay < 0;
-        } else
-        {
-            return false;
-        }
+        return delayImpl < 0;
     }
 
     public ACL2Object getACL2Object()
@@ -83,32 +78,36 @@ public class SvarImpl extends Svar
         return impl.rep();
     }
 
-    public static class Builder implements Svar.Builder<SvarImpl>
+    public abstract static class Builder<N> implements Svar.Builder<SvarImpl<N>>
     {
 
-        private final Map<ACL2Object, SvarImpl> cache = new HashMap<>();
+        private final Map<ACL2Object, SvarImpl<N>> cache = new HashMap<>();
+
+        public abstract N newName(ACL2Object nameImpl);
+
+        public abstract ACL2Object getACL2Object(N name);
+
+        public SvarImpl<N> newVar(N name, int delay, boolean nonblocking)
+        {
+            ACL2Object nameImpl = getACL2Object(name);
+            return newVar(nameImpl, delay, nonblocking);
+        }
 
         @Override
-        public SvarImpl newVar(ACL2Object name, int delay, boolean nonblocking)
+        public SvarImpl<N> newVar(ACL2Object nameImpl, int delay, boolean nonblocking)
         {
             assert delay >= 0;
-            ACL2Object impl;
-            boolean simpleName = (stringp(name).bool() || (symbolp(name).bool() && !booleanp(name).bool()));
-            if (simpleName && !nonblocking && delay == 0)
-            {
-                impl = name;
-            } else
-            {
-                if (nonblocking)
-                {
-                    delay = ~delay;
-                }
-                impl = cons(KEYWORD_VAR, cons(name, ACL2Object.valueOf(delay)));
-            }
-            SvarImpl svar = cache.get(impl);
+            boolean simpleName = (stringp(nameImpl).bool()
+                || (symbolp(nameImpl).bool() && !booleanp(nameImpl).bool()));
+            int delayImpl = nonblocking ? ~delay : delay;
+            ACL2Object impl = simpleName && delayImpl == 0
+                ? honscopy(nameImpl)
+                : hons(KEYWORD_VAR, hons(nameImpl, ACL2Object.valueOf(delayImpl)));
+            SvarImpl<N> svar = cache.get(impl);
             if (svar == null)
             {
-                svar = new SvarImpl(impl);
+                N name = newName(nameImpl);
+                svar = new SvarImpl<>(name, delayImpl, impl);
                 cache.put(impl, svar);
             }
             return svar;

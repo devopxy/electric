@@ -46,7 +46,7 @@ public class DesignExt
 
     public DesignExt(ACL2Object impl)
     {
-        this(new Design<>(new SvarPath.Builder(), impl));
+        this(new Design<>(new Path.SvarBuilder(), impl));
     }
 
     public <V extends Svar> DesignExt(Design<V> b)
