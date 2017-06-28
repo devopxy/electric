@@ -25,6 +25,7 @@ import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
@@ -41,10 +42,8 @@ import java.io.IOException;
 
 import java.io.PrintStream;
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -754,12 +753,12 @@ public class ACL2DesignJobs
             try
             {
                 ACL2Reader sr = new ACL2Reader(saoFile);
-                SvarAddr.Builder builder = new SvarAddr.Builder();
-                Design<SvarAddr> design = new Design<>(builder, sr.root);
+                Address.SvarBuilder builder = new Address.SvarBuilder();
+                Design<SvarImpl<Address>> design = new Design<>(builder, sr.root);
                 ModDb db = new ModDb(design.top, design.modalist);
-                Map<ModName, Module<SvarAddr>> indexedMods = db.modalistNamedToIndex(design.modalist);
+                Map<ModName, Module<SvarImpl<Address>>> indexedMods = db.modalistNamedToIndex(design.modalist);
                 ACL2Object indexedAlist = NIL;
-                for (Map.Entry<ModName, Module<SvarAddr>> e : indexedMods.entrySet())
+                for (Map.Entry<ModName, Module<SvarImpl<Address>>> e : indexedMods.entrySet())
                 {
                     indexedAlist = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), indexedAlist);
                 }

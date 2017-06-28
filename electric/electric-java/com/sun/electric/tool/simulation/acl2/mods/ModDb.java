@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
@@ -203,38 +204,40 @@ public class ModDb
         return result;
     }
 
-    public SvarAddr svarNamedToIndexed(SvarAddr svar, int modidx)
+    public SvarImpl<Address> svarNamedToIndexed(SvarImpl<Address> svar, int modidx, Address.SvarBuilder builder)
     {
-        Address addr = svar.getAddress();
-        if (addr.scope != 0)
+        Address addr = svar.getName();
+        int idx = addr.scope != 0 ? Address.INDEX_NIL : pathToWireIdx(addr.getPath(), modidx);
+        if (addr.index == idx)
         {
-            return svar.withIndex(Address.INDEX_NIL);
+            return svar;
         }
-        int idx = pathToWireIdx(addr.path, modidx);
-        return svar.withIndex(idx);
+        Address newAddr = new Address(addr.getPath(), idx, addr.getScope());
+        return builder.newVar(newAddr, svar.getDelay(), svar.isNonblocking());
     }
 
-    private Svex<SvarAddr> svexNamedToIndex(Svex<SvarAddr> x, int modidx, Map<Svex<SvarAddr>, Svex<SvarAddr>> svexCache)
+    private Svex<SvarImpl<Address>> svexNamedToIndex(Svex<SvarImpl<Address>> x, int modidx,
+        Address.SvarBuilder builder, Map<Svex<SvarImpl<Address>>, Svex<SvarImpl<Address>>> svexCache)
     {
-        Svex<SvarAddr> result = svexCache.get(x);
+        Svex<SvarImpl<Address>> result = svexCache.get(x);
         if (result == null)
         {
             if (x instanceof SvexVar)
             {
-                SvexVar<SvarAddr> xv = (SvexVar<SvarAddr>)x;
-                SvarAddr name = svarNamedToIndexed(xv.svar, modidx);
+                SvexVar<SvarImpl<Address>> xv = (SvexVar<SvarImpl<Address>>)x;
+                SvarImpl<Address> name = svarNamedToIndexed(xv.svar, modidx, builder);
                 result = new SvexVar<>(name);
             } else if (x instanceof SvexQuote)
             {
                 result = x;
             } else
             {
-                SvexCall<SvarAddr> sc = (SvexCall<SvarAddr>)x;
-                Svex<SvarAddr>[] args = sc.getArgs();
-                Svex<SvarAddr>[] newArgs = Svex.newSvexArray(args.length);
+                SvexCall<SvarImpl<Address>> sc = (SvexCall<SvarImpl<Address>>)x;
+                Svex<SvarImpl<Address>>[] args = sc.getArgs();
+                Svex<SvarImpl<Address>>[] newArgs = Svex.newSvexArray(args.length);
                 for (int i = 0; i < args.length; i++)
                 {
-                    newArgs[i] = svexNamedToIndex(args[i], modidx, svexCache);
+                    newArgs[i] = svexNamedToIndex(args[i], modidx, builder, svexCache);
                 }
                 result = SvexCall.newCall(sc.fun, newArgs);
             }
@@ -243,15 +246,15 @@ public class ModDb
         return result;
     }
 
-    private Lhs<SvarAddr> lhsNamedToIndex(Lhs<SvarAddr> x, int modidx)
+    private Lhs<SvarImpl<Address>> lhsNamedToIndex(Lhs<SvarImpl<Address>> x, int modidx, Address.SvarBuilder builder)
     {
-        List<Lhrange<SvarAddr>> newRanges = new ArrayList<>();
-        for (Lhrange<SvarAddr> range : x.ranges)
+        List<Lhrange<SvarImpl<Address>>> newRanges = new ArrayList<>();
+        for (Lhrange<SvarImpl<Address>> range : x.ranges)
         {
-            SvarAddr svar = range.getVar();
+            SvarImpl<Address> svar = range.getVar();
             if (svar != null)
             {
-                svar = svarNamedToIndexed(svar, modidx);
+                svar = svarNamedToIndexed(svar, modidx, builder);
                 range = new Lhrange<>(range.getWidth(), new Lhatom.Var<>(svar, range.getRsh()));
             }
             newRanges.add(range);
@@ -259,37 +262,38 @@ public class ModDb
         return new Lhs<>(newRanges);
     }
 
-    private Module<SvarAddr> moduleNamedToIndex(Module<SvarAddr> m, int modidx)
+    private Module<SvarImpl<Address>> moduleNamedToIndex(Module<SvarImpl<Address>> m, int modidx, Address.SvarBuilder builder)
     {
-        Map<Svex<SvarAddr>, Svex<SvarAddr>> svexCache = new HashMap<>();
-        Map<Lhs<SvarAddr>, Driver<SvarAddr>> newAssigns = new LinkedHashMap<>();
-        for (Map.Entry<Lhs<SvarAddr>, Driver<SvarAddr>> e : m.assigns.entrySet())
+        Map<Svex<SvarImpl<Address>>, Svex<SvarImpl<Address>>> svexCache = new HashMap<>();
+        Map<Lhs<SvarImpl<Address>>, Driver<SvarImpl<Address>>> newAssigns = new LinkedHashMap<>();
+        for (Map.Entry<Lhs<SvarImpl<Address>>, Driver<SvarImpl<Address>>> e : m.assigns.entrySet())
         {
-            Lhs<SvarAddr> newLhs = lhsNamedToIndex(e.getKey(), modidx);
-            Driver<SvarAddr> driver = e.getValue();
-            Svex<SvarAddr> newSvex = svexNamedToIndex(driver.svex, modidx, svexCache);
-            Driver<SvarAddr> newDriver = new Driver<>(newSvex, driver.strength);
+            Lhs<SvarImpl<Address>> newLhs = lhsNamedToIndex(e.getKey(), modidx, builder);
+            Driver<SvarImpl<Address>> driver = e.getValue();
+            Svex<SvarImpl<Address>> newSvex = svexNamedToIndex(driver.svex, modidx, builder, svexCache);
+            Driver<SvarImpl<Address>> newDriver = new Driver<>(newSvex, driver.strength);
             newAssigns.put(newLhs, newDriver);
         }
-        Map<Lhs<SvarAddr>, Lhs<SvarAddr>> newAliasepairs = new LinkedHashMap<>();
-        for (Map.Entry<Lhs<SvarAddr>, Lhs<SvarAddr>> e : m.aliaspairs.entrySet())
+        Map<Lhs<SvarImpl<Address>>, Lhs<SvarImpl<Address>>> newAliasepairs = new LinkedHashMap<>();
+        for (Map.Entry<Lhs<SvarImpl<Address>>, Lhs<SvarImpl<Address>>> e : m.aliaspairs.entrySet())
         {
-            Lhs<SvarAddr> newLhs = lhsNamedToIndex(e.getKey(), modidx);
-            Lhs<SvarAddr> newRhs = lhsNamedToIndex(e.getValue(), modidx);
+            Lhs<SvarImpl<Address>> newLhs = lhsNamedToIndex(e.getKey(), modidx, builder);
+            Lhs<SvarImpl<Address>> newRhs = lhsNamedToIndex(e.getValue(), modidx, builder);
             newAliasepairs.put(newLhs, newRhs);
         }
         return new Module<>(m.wires, m.insts, newAssigns, newAliasepairs);
     }
 
-    public Map<ModName, Module<SvarAddr>> modalistNamedToIndex(Map<ModName, Module<SvarAddr>> modalist)
+    public Map<ModName, Module<SvarImpl<Address>>> modalistNamedToIndex(Map<ModName, Module<SvarImpl<Address>>> modalist)
     {
-        Map<ModName, Module<SvarAddr>> result = new LinkedHashMap<>();
-        for (Map.Entry<ModName, Module<SvarAddr>> e : modalist.entrySet())
+        Address.SvarBuilder builder = new Address.SvarBuilder();
+        Map<ModName, Module<SvarImpl<Address>>> result = new LinkedHashMap<>();
+        for (Map.Entry<ModName, Module<SvarImpl<Address>>> e : modalist.entrySet())
         {
             ModName modName = e.getKey();
-            Module<SvarAddr> module = e.getValue();
+            Module<SvarImpl<Address>> module = e.getValue();
             int modidx = modnameIdxes.get(modName).index;
-            Module<SvarAddr> newModule = moduleNamedToIndex(module, modidx);
+            Module<SvarImpl<Address>> newModule = moduleNamedToIndex(module, modidx, builder);
             result.put(modName, newModule);
         }
         return result;
