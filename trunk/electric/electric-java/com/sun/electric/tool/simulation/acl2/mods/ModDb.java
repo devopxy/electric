@@ -43,7 +43,7 @@ public class ModDb
     final List<ElabMod> mods = new ArrayList<>();
     final Map<ModName, ElabMod> modnameIdxes = new HashMap<>();
 
-    <N extends SvarName> ModDb(ModName modName, Map<ModName, Module<N>> modalist)
+    public <N extends SvarName> ModDb(ModName modName, Map<ModName, Module<N>> modalist)
     {
         moduleToDb(modName, modalist);
     }

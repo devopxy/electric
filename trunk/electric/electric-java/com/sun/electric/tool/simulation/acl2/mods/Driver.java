@@ -37,7 +37,7 @@ import java.util.Map;
 public class Driver<N extends SvarName>
 {
     public final Svex<N> svex;
-    final int strength;
+    public final int strength;
 
     Driver(Svar.Builder<N> builder, Map<ACL2Object, Svex<N>> svexCache, ACL2Object impl)
     {

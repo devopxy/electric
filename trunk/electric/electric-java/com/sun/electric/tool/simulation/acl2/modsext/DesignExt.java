@@ -19,8 +19,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.sun.electric.tool.simulation.acl2.mods;
+package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.Design;
+import com.sun.electric.tool.simulation.acl2.mods.ModInst;
+import com.sun.electric.tool.simulation.acl2.mods.ModName;
+import com.sun.electric.tool.simulation.acl2.mods.Module;
+import com.sun.electric.tool.simulation.acl2.mods.Path;
+import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.util.TextUtils;
 import com.sun.electric.util.acl2.ACL2Object;
