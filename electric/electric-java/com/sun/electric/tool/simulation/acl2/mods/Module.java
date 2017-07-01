@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
@@ -36,16 +37,16 @@ import java.util.Map;
  * SV module.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODULE>.
  *
- * @param <V> Type of Svex variables
+ * @param <N> Type of name of Svex variables
  */
-public class Module<V extends Svar>
+public class Module<N extends SvarName>
 {
     public final List<Wire> wires = new ArrayList<>();
     public final List<ModInst> insts = new ArrayList<>();
-    public final Map<Lhs<V>, Driver<V>> assigns = new LinkedHashMap<>();
-    public final Map<Lhs<V>, Lhs<V>> aliaspairs = new LinkedHashMap<>();
+    public final Map<Lhs<N>, Driver<N>> assigns = new LinkedHashMap<>();
+    public final Map<Lhs<N>, Lhs<N>> aliaspairs = new LinkedHashMap<>();
 
-    Module(Svar.Builder<V> builder, ACL2Object impl)
+    Module(Svar.Builder<N> builder, ACL2Object impl)
     {
         List<ACL2Object> fields = Util.getList(impl, true);
         Util.check(fields.size() == 4);
@@ -68,12 +69,12 @@ public class Module<V extends Svar>
         }
         pair = fields.get(2);
         Util.check(car(pair).equals(Util.SV_ASSIGNS));
-        Map<ACL2Object, Svex<V>> svexCache = new HashMap<>();
+        Map<ACL2Object, Svex<N>> svexCache = new HashMap<>();
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
-            Lhs<V> lhs = new Lhs<>(builder, car(pair));
-            Driver<V> driver = new Driver<>(builder, svexCache, cdr(pair));
+            Lhs<N> lhs = new Lhs<>(builder, car(pair));
+            Driver<N> driver = new Driver<>(builder, svexCache, cdr(pair));
             Driver old = assigns.put(lhs, driver);
             Util.check(old == null);
         }
@@ -83,15 +84,15 @@ public class Module<V extends Svar>
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
-            Lhs<V> lhs = new Lhs<>(builder, car(pair));
-            Lhs<V> rhs = new Lhs<>(builder, cdr(pair));
+            Lhs<N> lhs = new Lhs<>(builder, car(pair));
+            Lhs<N> rhs = new Lhs<>(builder, cdr(pair));
             Lhs old = aliaspairs.put(lhs, rhs);
             Util.check(old == null);
         }
     }
 
     Module(Collection<Wire> wires, Collection<ModInst> insts,
-        Map<Lhs<V>, Driver<V>> assigns, Map<Lhs<V>, Lhs<V>> aliaspairs)
+        Map<Lhs<N>, Driver<N>> assigns, Map<Lhs<N>, Lhs<N>> aliaspairs)
     {
         this.wires.addAll(wires);
         this.insts.addAll(insts);
@@ -112,13 +113,13 @@ public class Module<V extends Svar>
             instsList = cons(insts.get(i).getACL2Object(), instsList);
         }
         ACL2Object assignsList = NIL;
-        for (Map.Entry<Lhs<V>, Driver<V>> e : assigns.entrySet())
+        for (Map.Entry<Lhs<N>, Driver<N>> e : assigns.entrySet())
         {
             assignsList = cons(cons(e.getKey().getACL2Object(), e.getValue().getACl2Object()), assignsList);
         }
         assignsList = Util.revList(assignsList);
         ACL2Object aliasesList = NIL;
-        for (Map.Entry<Lhs<V>, Lhs<V>> e : aliaspairs.entrySet())
+        for (Map.Entry<Lhs<N>, Lhs<N>> e : aliaspairs.entrySet())
         {
             aliasesList = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), aliasesList);
         }

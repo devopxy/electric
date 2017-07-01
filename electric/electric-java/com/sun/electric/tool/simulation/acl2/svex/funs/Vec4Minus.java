@@ -21,7 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
-import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -33,14 +33,16 @@ import java.util.Map;
 /**
  * Integer subtraction of two 4vecs.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-MINUS>.
+ *
+ * @param <N> Type of name of Svex variables
  */
-public class Vec4Minus<V extends Svar> extends SvexCall<V>
+public class Vec4Minus<N extends SvarName> extends SvexCall<N>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex<V> x;
-    public final Svex<V> y;
+    public final Svex<N> x;
+    public final Svex<N> y;
 
-    public Vec4Minus(Svex<V> x, Svex<V> y)
+    public Vec4Minus(Svex<N> x, Svex<N> y)
     {
         super(FUNCTION, x, y);
         this.x = x;
@@ -55,7 +57,7 @@ public class Vec4Minus<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4Minus<V> build(Svex<V>[] args)
+        public <N extends SvarName> Vec4Minus<N> build(Svex<N>[] args)
         {
             return new Vec4Minus<>(args[0], args[1]);
         }
@@ -75,7 +77,7 @@ public class Vec4Minus<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
+        protected <N extends SvarName> BigInteger[] svmaskFor(BigInteger mask, Svex<N>[] args, Map<Svex<N>, Vec4> xevalMemoize)
         {
             return new BigInteger[]
             {

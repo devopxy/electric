@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import static com.sun.electric.util.acl2.ACL2.*;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -41,17 +42,16 @@ public class WireExt
     public final Wire b;
 
     final ModuleExt parent;
-    final SVarExt.LocalWire curVar;
-    final SVarExt.LocalWire prevVar;
+    final PathExt.LocalWire path;
 
     public boolean used, exported;
     BigInteger assignedBits;
     String global;
-    final SortedMap<Lhrange, WireDriver> drivers = new TreeMap<>(LHRANGE_COMPARATOR);
+    final SortedMap<Lhrange<PathExt>, WireDriver> drivers = new TreeMap<>(LHRANGE_COMPARATOR);
 
     // only for exports
-    List<Map<SVarExt.LocalWire, BigInteger>> fineDeps0;
-    List<Map<SVarExt.LocalWire, BigInteger>> fineDeps1;
+    List<Map<Svar<PathExt>, BigInteger>> fineDeps0;
+    List<Map<Svar<PathExt>, BigInteger>> fineDeps1;
 
     WireExt(ModuleExt parent, Wire b)
     {
@@ -63,8 +63,7 @@ public class WireExt
             Util.check(parent.modName.isCoretype);
         }
         Util.check(b.delay == 0);
-        curVar = new SVarExt.LocalWire(this, 0);
-        prevVar = new SVarExt.LocalWire(this, 1);
+        path = new PathExt.LocalWire(this);
     }
 
     public Name getName()
@@ -172,11 +171,16 @@ public class WireExt
         return global != null && !global.isEmpty();
     }
 
+    /**
+     * WireDriver is used together with Lhrange.
+     * It says that Lhrange.width bits are driven either by
+     * assignement driver[width+:lsh] or by port inst pi[width+:lsh] (without delay).
+     */
     public static class WireDriver
     {
         public final int lsh;
         public final DriverExt driver;
-        public final SVarExt.PortInst pi;
+        public final PathExt.PortInst pi;
 
         WireDriver(int lsh, DriverExt driver)
         {
@@ -185,7 +189,7 @@ public class WireExt
             this.pi = null;
         }
 
-        WireDriver(int lsh, SVarExt.PortInst pi)
+        WireDriver(int lsh, PathExt.PortInst pi)
         {
             this.lsh = lsh;
             this.driver = null;
@@ -193,17 +197,24 @@ public class WireExt
         }
     }
 
-    public void addDriver(Lhrange lr, int lsh, Object driver)
+    /**
+     * @param lr Lhrange from left-hand side. Must be this wire without delay
+     * @param lsh offset in driver bits
+     * @param driver either DriverExt or PathExt.PortInst
+     */
+    public void addDriver(Lhrange<PathExt> lr, int lsh, Object driver)
     {
-        SVarExt.LocalWire lw = (SVarExt.LocalWire)lr.getVar();
+        Svar<PathExt> svar = lr.getVar();
+        assert svar.getDelay() == 0;
+        PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
         Util.check(lw.wire == this);
         WireDriver wd;
         if (driver instanceof DriverExt)
         {
             wd = new WireDriver(lsh, (DriverExt)driver);
-        } else if (driver instanceof SVarExt.PortInst)
+        } else if (driver instanceof PathExt.PortInst)
         {
-            wd = new WireDriver(lsh, (SVarExt.PortInst)driver);
+            wd = new WireDriver(lsh, (PathExt.PortInst)driver);
         } else
         {
             throw new UnsupportedOperationException();
@@ -212,20 +223,21 @@ public class WireExt
         Util.check(old == null);
     }
 
-    public SVarExt.LocalWire getVar(int delay)
+    public Svar<PathExt> getVar(int delay)
     {
-        switch (delay)
-        {
-            case 0:
-                return curVar;
-            case 1:
-                return prevVar;
-            default:
-                throw new IllegalArgumentException();
-        }
+        return parent.newVar(path, delay, false);
+//        switch (delay)
+//        {
+//            case 0:
+//                return curVar;
+//            case 1:
+//                return prevVar;
+//            default:
+//                throw new IllegalArgumentException();
+//        }
     }
 
-    public List<Map<SVarExt.LocalWire, BigInteger>> getFineDeps(boolean clockHigh)
+    public List<Map<Svar<PathExt>, BigInteger>> getFineDeps(boolean clockHigh)
     {
         assert exported && isAssigned();
         return clockHigh ? fineDeps1 : fineDeps0;
@@ -233,8 +245,8 @@ public class WireExt
 
     public String showFineDeps(int bit)
     {
-        Map<SVarExt.LocalWire, BigInteger> dep0 = getFineDeps(false).get(bit);
-        Map<SVarExt.LocalWire, BigInteger> dep1 = getFineDeps(true).get(bit);
+        Map<Svar<PathExt>, BigInteger> dep0 = getFineDeps(false).get(bit);
+        Map<Svar<PathExt>, BigInteger> dep1 = getFineDeps(true).get(bit);
         if (dep0.equals(dep1))
         {
             return showFineDeps(dep0);
@@ -244,18 +256,18 @@ public class WireExt
         }
     }
 
-    private String showFineDeps(Map<SVarExt.LocalWire, BigInteger> dep)
+    private String showFineDeps(Map<Svar<PathExt>, BigInteger> dep)
     {
         String s = "";
-        for (Map.Entry<SVarExt.LocalWire, BigInteger> e : dep.entrySet())
+        for (Map.Entry<Svar<PathExt>, BigInteger> e : dep.entrySet())
         {
-            SVarExt.LocalWire lw = e.getKey();
+            Svar<PathExt> svar = e.getKey();
             BigInteger mask = e.getValue();
             if (!s.isEmpty())
             {
                 s += ",";
             }
-            s += lw.toString(mask);
+            s += svar.toString(mask);
         }
         return s;
     }
@@ -263,21 +275,21 @@ public class WireExt
     void setFineDeps(boolean clockHigh, Map<Object, Set<Object>> closure)
     {
         assert exported && isAssigned();
-        List<Map<SVarExt.LocalWire, BigInteger>> fineDeps = new ArrayList<>();
+        List<Map<Svar<PathExt>, BigInteger>> fineDeps = new ArrayList<>();
         fineDeps.clear();
         for (int i = 0; i < getWidth(); i++)
         {
             ModuleExt.WireBit wb = new ModuleExt.WireBit(this, i);
-            Map<SVarExt.LocalWire, BigInteger> fineDep = new LinkedHashMap<>();
+            Map<Svar<PathExt>, BigInteger> fineDep = new LinkedHashMap<>();
             for (Object o : closure.get(wb))
             {
                 ModuleExt.WireBit wb1 = (ModuleExt.WireBit)o;
-                BigInteger mask = fineDep.get(wb1.wire.curVar);
+                BigInteger mask = fineDep.get(wb1.wire.getVar(0));
                 if (mask == null)
                 {
                     mask = BigInteger.ZERO;
                 }
-                fineDep.put(wb1.wire.curVar, mask.setBit(wb1.bit));
+                fineDep.put(wb1.wire.getVar(0), mask.setBit(wb1.bit));
             }
             fineDeps.add(fineDep);
         }

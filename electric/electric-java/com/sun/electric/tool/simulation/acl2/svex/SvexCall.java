@@ -35,27 +35,27 @@ import java.util.Set;
  * A function applied to some expressions.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVEX-CALL>.
  *
- * @param <V> Type of Svex variables
+ * @param <N> Type of name of Svex variables
  */
-public class SvexCall<V extends Svar> extends Svex<V>
+public class SvexCall<N extends SvarName> extends Svex<N>
 {
     public final SvexFunction fun;
-    protected final Svex<V>[] args;
+    protected final Svex<N>[] args;
     private final ACL2Object impl;
 
     @SafeVarargs
-    public static <V extends Svar> SvexCall<V> newCall(SvexFunction fun, Svex<V>... args)
+    public static <N extends SvarName> SvexCall<N> newCall(SvexFunction fun, Svex<N>... args)
     {
         return new SvexCall<>(fun, args);
     }
 
     @SafeVarargs
-    protected SvexCall(SvexFunction fun, Svex<V>... args)
+    protected SvexCall(SvexFunction fun, Svex<N>... args)
     {
         assert fun.arity == args.length;
         this.fun = fun;
         this.args = args.clone();
-        for (Svex<V> arg : this.args)
+        for (Svex<N> arg : this.args)
         {
             if (arg == null)
             {
@@ -65,7 +65,8 @@ public class SvexCall<V extends Svar> extends Svex<V>
         impl = makeACL2Object(fun, args);
     }
 
-    private static <V extends Svar> ACL2Object makeACL2Object(SvexFunction fun, Svex<V>... args)
+    @SafeVarargs
+    private static <N extends SvarName> ACL2Object makeACL2Object(SvexFunction fun, Svex<N>... args)
     {
         ACL2Object impl = NIL;
         for (int i = args.length - 1; i >= 0; i--)
@@ -75,7 +76,7 @@ public class SvexCall<V extends Svar> extends Svex<V>
         return hons(fun.fn, impl);
     }
 
-    public Svex<V>[] getArgs()
+    public Svex<N>[] getArgs()
     {
         return args.clone();
     }
@@ -87,12 +88,12 @@ public class SvexCall<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public <V1 extends Svar> Svex<V1> convertVars(Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache)
+    public <N1 extends SvarName> Svex<N1> convertVars(Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache)
     {
-        Svex<V1> svex = cache.get(this);
+        Svex<N1> svex = cache.get(this);
         if (svex == null)
         {
-            Svex<V1>[] newArgs = Svex.newSvexArray(fun.arity);
+            Svex<N1>[] newArgs = Svex.newSvexArray(fun.arity);
             for (int i = 0; i < fun.arity; i++)
             {
                 newArgs[i] = args[i].convertVars(builder, cache);
@@ -104,12 +105,12 @@ public class SvexCall<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public <V1 extends Svar> Svex<V1> addDelay(int delay, Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache)
+    public <N1 extends SvarName> Svex<N1> addDelay(int delay, Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache)
     {
-        Svex<V1> svex = cache.get(this);
+        Svex<N1> svex = cache.get(this);
         if (svex == null)
         {
-            Svex<V1>[] newArgs = Svex.newSvexArray(fun.arity);
+            Svex<N1>[] newArgs = Svex.newSvexArray(fun.arity);
             for (int i = 0; i < fun.arity; i++)
             {
                 newArgs[i] = args[i].addDelay(delay, builder, cache);
@@ -121,11 +122,11 @@ public class SvexCall<V extends Svar> extends Svex<V>
     }
 
     @Override
-    protected void collectVars(Set<V> result, Set<SvexCall<V>> visited)
+    protected void collectVars(Set<Svar<N>> result, Set<SvexCall<N>> visited)
     {
         if (visited.add(this))
         {
-            for (Svex<V> arg : args)
+            for (Svex<N> arg : args)
             {
                 arg.collectVars(result, visited);
             }
@@ -133,13 +134,13 @@ public class SvexCall<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public <R, D> R accept(Visitor<V, R, D> visitor, D data)
+    public <R, D> R accept(Visitor<N, R, D> visitor, D data)
     {
         return visitor.visitCall(fun, args, data);
     }
 
     @Override
-    public Vec4 xeval(Map<Svex<V>, Vec4> memoize)
+    public Vec4 xeval(Map<Svex<N>, Vec4> memoize)
     {
         Vec4 result = memoize.get(this);
         if (result == null)
@@ -151,11 +152,11 @@ public class SvexCall<V extends Svar> extends Svex<V>
     }
 
     @Override
-    void toposort(Set<Svex<V>> downTop)
+    void toposort(Set<Svex<N>> downTop)
     {
         if (!downTop.contains(this))
         {
-            for (Svex<V> arg : args)
+            for (Svex<N> arg : args)
             {
                 arg.toposort(downTop);
             }
@@ -164,12 +165,12 @@ public class SvexCall<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public Svex<V> patch(Map<V, Vec4> subst, Map<SvexCall<V>, SvexCall<V>> memoize)
+    public Svex<N> patch(Map<Svar<N>, Vec4> subst, Map<SvexCall<N>, SvexCall<N>> memoize)
     {
-        SvexCall<V> svex = memoize.get(this);
+        SvexCall<N> svex = memoize.get(this);
         if (svex == null)
         {
-            Svex<V>[] newArgs = Svex.newSvexArray(args.length);
+            Svex<N>[] newArgs = Svex.newSvexArray(args.length);
             boolean changed = false;
             for (int i = 0; i < args.length; i++)
             {
@@ -187,17 +188,17 @@ public class SvexCall<V extends Svar> extends Svex<V>
     {
         if (fun == Vec4Concat.FUNCTION)
         {
-            Vec4Concat<V> svex = (Vec4Concat<V>)this;
-            Svex<V> w = svex.width;
-            Svex<V> lo = svex.low;
-            Svex<V> hi = svex.high;
-            return w instanceof SvexQuote && ((SvexQuote<V>)w).val.isIndex() && lo.isLhsUnbounded() && hi.isLhsUnbounded();
+            Vec4Concat<N> svex = (Vec4Concat<N>)this;
+            Svex<N> w = svex.width;
+            Svex<N> lo = svex.low;
+            Svex<N> hi = svex.high;
+            return w instanceof SvexQuote && ((SvexQuote<N>)w).val.isIndex() && lo.isLhsUnbounded() && hi.isLhsUnbounded();
         } else if (fun == Vec4Rsh.FUNCTION)
         {
-            Vec4Rsh<V> svex = (Vec4Rsh<V>)this;
-            Svex<V> sh = svex.shift;
-            Svex<V> x = svex.x;
-            return sh instanceof SvexQuote && ((SvexQuote<V>)sh).val.isIndex() && x.isLhsUnbounded();
+            Vec4Rsh<N> svex = (Vec4Rsh<N>)this;
+            Svex<N> sh = svex.shift;
+            Svex<N> x = svex.x;
+            return sh instanceof SvexQuote && ((SvexQuote<N>)sh).val.isIndex() && x.isLhsUnbounded();
         }
         return false;
     }
@@ -207,28 +208,28 @@ public class SvexCall<V extends Svar> extends Svex<V>
     {
         if (fun == Vec4Concat.FUNCTION)
         {
-            Vec4Concat<V> svex = (Vec4Concat<V>)this;
-            Svex<V> w = svex.width;
-            Svex<V> lo = svex.low;
-            Svex<V> hi = svex.high;
-            return w instanceof SvexQuote && ((SvexQuote<V>)w).val.isIndex() && lo.isLhsUnbounded() && hi.isLhs();
+            Vec4Concat<N> svex = (Vec4Concat<N>)this;
+            Svex<N> w = svex.width;
+            Svex<N> lo = svex.low;
+            Svex<N> hi = svex.high;
+            return w instanceof SvexQuote && ((SvexQuote<N>)w).val.isIndex() && lo.isLhsUnbounded() && hi.isLhs();
         } else if (fun == Vec4Rsh.FUNCTION)
         {
-            Vec4Rsh<V> svex = (Vec4Rsh<V>)this;
-            Svex<V> sh = svex.shift;
-            Svex<V> x = svex.x;
-            return sh instanceof SvexQuote && ((SvexQuote<V>)sh).val.isIndex() && x.isLhs();
+            Vec4Rsh<N> svex = (Vec4Rsh<N>)this;
+            Svex<N> sh = svex.shift;
+            Svex<N> x = svex.x;
+            return sh instanceof SvexQuote && ((SvexQuote<N>)sh).val.isIndex() && x.isLhs();
         }
         return false;
     }
 
     @Override
-    public MatchConcat<V> matchConcat()
+    public MatchConcat<N> matchConcat()
     {
         if (fun == Vec4Concat.FUNCTION)
         {
-            Vec4Concat<V> svex = (Vec4Concat<V>)this;
-            Svex<V> width = svex.width;
+            Vec4Concat<N> svex = (Vec4Concat<N>)this;
+            Svex<N> width = svex.width;
             if (width instanceof SvexQuote)
             {
                 Vec4 wval = ((SvexQuote)width).val;
@@ -242,11 +243,11 @@ public class SvexCall<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public MatchExt<V> matchExt()
+    public MatchExt<N> matchExt()
     {
         if (fun == Vec4ZeroExt.FUNCTION || fun == Vec4SignExt.FUNCTION)
         {
-            Svex<V> width = args[0];
+            Svex<N> width = args[0];
             if (width instanceof SvexQuote)
             {
                 Vec4 wval = ((SvexQuote)width).val;
@@ -261,11 +262,11 @@ public class SvexCall<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public MatchRsh<V> matchRsh()
+    public MatchRsh<N> matchRsh()
     {
         if (fun == Vec4Rsh.FUNCTION)
         {
-            Svex<V> shift = args[0];
+            Svex<N> shift = args[0];
             if (shift instanceof SvexQuote)
             {
                 Vec4 sval = ((SvexQuote)shift).val;
@@ -283,7 +284,7 @@ public class SvexCall<V extends Svar> extends Svex<V>
     {
         if (o instanceof SvexCall)
         {
-            SvexCall that = (SvexCall)o;
+            SvexCall<N> that = (SvexCall<N>)o;
             if (!this.fun.equals(that.fun))
             {
                 return false;

@@ -21,7 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
-import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -33,15 +33,17 @@ import java.util.Map;
 /**
  * Bitwise multiple if-then-elses of 4vecs; doesn’t unfloat then/else values.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-BIT_F3>.
+ *
+ * @param <N> Type of name of Svex variables
  */
-public class Vec4IteBit<V extends Svar> extends SvexCall<V>
+public class Vec4IteBit<N extends SvarName> extends SvexCall<N>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex<V> test;
-    public final Svex<V> then;
-    public final Svex<V> els;
+    public final Svex<N> test;
+    public final Svex<N> then;
+    public final Svex<N> els;
 
-    public Vec4IteBit(Svex<V> test, Svex<V> then, Svex<V> els)
+    public Vec4IteBit(Svex<N> test, Svex<N> then, Svex<N> els)
     {
         super(FUNCTION, test, then, els);
         this.test = test;
@@ -57,7 +59,7 @@ public class Vec4IteBit<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4IteBit<V> build(Svex<V>[] args)
+        public <N extends SvarName> Vec4IteBit<N> build(Svex<N>[] args)
         {
             return new Vec4IteBit<>(args[0], args[1], args[2]);
         }
@@ -90,9 +92,9 @@ public class Vec4IteBit<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
+        protected <N extends SvarName> BigInteger[] svmaskFor(BigInteger mask, Svex<N>[] args, Map<Svex<N>, Vec4> xevalMemoize)
         {
-            Svex<V> tests = args[0];
+            Svex<N> tests = args[0];
             Vec4 tval = tests.xeval(xevalMemoize);
             BigInteger testsNon0 = tval.getUpper().or(tval.getLower());
             BigInteger testsNon1 = tval.getUpper().and(tval.getLower()).not();

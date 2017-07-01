@@ -21,8 +21,6 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
-import static com.sun.electric.util.acl2.ACL2.*;
-import com.sun.electric.util.acl2.ACL2Object;
 import java.util.HashMap;
 
 import java.util.Map;
@@ -37,7 +35,7 @@ public class ModInstExt
 
     final ModuleExt parent;
     final ModuleExt proto;
-    final Map<Name, SVarExt.PortInst> portInsts = new HashMap<>();
+    final Map<Name, PathExt.PortInst> portInsts = new HashMap<>();
 
     ModInstExt(ModuleExt parent, ModInst b, Map<ModName, ModuleExt> downTop)
     {
@@ -57,15 +55,18 @@ public class ModInstExt
         return b.modname;
     }
 
-    SVarExt.PortInst newPortInst(ACL2Object name)
+    PathExt.PortInst newPortInst(Path.Scope path)
     {
-        assert getInstname().getACL2Object().equals(car(name));
-        WireExt wire = proto.wiresIndex.get(new Name(cdr(name)));
-        SVarExt.PortInst pi = portInsts.get(wire.getName());
+        assert path.namespace.equals(getInstname());
+        Path.Wire pathWire = (Path.Wire)path.subpath;
+//        assert getInstname().getACL2Object().equals(car(name));
+//        WireExt wire = proto.wiresIndex.get(new Name(cdr(name)));
+//        PathExt.PortInst pi = portInsts.get(wire.getName());
+        PathExt.PortInst pi = portInsts.get(pathWire.name);
         if (pi == null)
         {
-            pi = new SVarExt.PortInst(this, wire);
-            portInsts.put(wire.getName(), pi);
+            pi = new PathExt.PortInst(this, path);
+            portInsts.put(pathWire.name, pi);
         }
         return pi;
     }

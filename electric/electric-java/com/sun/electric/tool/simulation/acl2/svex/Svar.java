@@ -30,12 +30,19 @@ import java.util.List;
 /**
  * A single variable in a symbolic vector expression.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVAR>.
+ *
+ * @param <N> Type of name of Svex variables
  */
-public abstract class Svar
+public interface Svar<N extends SvarName>
 {
     public static ACL2Object KEYWORD_VAR = ACL2Object.valueOf("KEYWORD", "VAR");
 
-    public abstract ACL2Object getACL2Name();
+    public default ACL2Object getACL2Name()
+    {
+        return getName().getACL2Object();
+    }
+
+    public abstract N getName();
 
     public abstract int getDelay();
 
@@ -43,7 +50,12 @@ public abstract class Svar
 
     public abstract String toString(BigInteger mask);
 
-    public ACL2Object makeACL2Object()
+    public default String toLispString(int width, int rsh)
+    {
+        return toString(BigIntegerUtil.logheadMask(width).shiftLeft(rsh));
+    }
+
+    public default ACL2Object makeACL2Object()
     {
         ACL2Object name = getACL2Name();
         int delay = getDelay();
@@ -56,31 +68,14 @@ public abstract class Svar
         return cons(KEYWORD_VAR, cons(name, ACL2Object.valueOf(nonblocking ? -delay - 1 : delay)));
     }
 
-    @Override
-    public boolean equals(Object o)
+    public static interface Builder<N extends SvarName>
     {
-        if (o instanceof Svar)
-        {
-            Svar that = (Svar)o;
-            return this.getACL2Name().equals(that.getACL2Name())
-                && this.getDelay() == that.getDelay()
-                && this.isNonblocking() == that.isNonblocking();
-        }
-        return false;
-    }
 
-    @Override
-    public int hashCode()
-    {
-        int hash = 7;
-        hash = 59 * hash + getACL2Name().hashCode();
-        hash = 59 * hash + getDelay();
-        return hash;
-    }
+        N newName(ACL2Object nameImpl);
 
-    public static abstract interface Builder<V extends Svar>
-    {
-        default V fromACL2(ACL2Object rep)
+        Svar<N> newVar(ACL2Object name, int delay, boolean nonblocking);
+
+        default Svar<N> fromACL2(ACL2Object rep)
         {
             if (consp(rep).bool())
             {
@@ -98,7 +93,7 @@ public abstract class Svar
                         || delay != 0
                         || nonblocking)
                     {
-                        return Builder.this.newVar(name, delay, nonblocking);
+                        return newVar(name, delay, nonblocking);
                     }
                 }
             } else if (stringp(rep).bool() || symbolp(rep).bool() && !booleanp(rep).bool())
@@ -108,22 +103,28 @@ public abstract class Svar
             throw new IllegalArgumentException();
         }
 
-        default V newVar(ACL2Object name)
+        default Svar<N> newVar(ACL2Object name)
         {
-            return Builder.this.newVar(name, 0);
+            return newVar(name, 0);
         }
 
-        default V newVar(ACL2Object name, int delay)
+        default Svar<N> newVar(ACL2Object name, int delay)
         {
-            return Builder.this.newVar(name, delay, false);
+            return newVar(name, delay, false);
         }
 
-        default <V1 extends Svar> V newVar(V1 svar)
+        default Svar<N> newVar(N name, int delay, boolean nonblocking)
         {
-            return Builder.this.newVar(svar.getACL2Name(), svar.getDelay(), svar.isNonblocking());
+            ACL2Object nameImpl = name.getACL2Object();
+            return newVar(nameImpl, delay, nonblocking);
         }
 
-        default <V1 extends Svar> V addDelay(V1 svar, int delay)
+        default <N1 extends SvarName> Svar<N> newVar(Svar<N1> svar)
+        {
+            return newVar(svar.getACL2Name(), svar.getDelay(), svar.isNonblocking());
+        }
+
+        default <N1 extends SvarName> Svar<N> addDelay(Svar<N1> svar, int delay)
         {
             if (delay < 0)
             {
@@ -132,16 +133,14 @@ public abstract class Svar
             return newVar(svar.makeACL2Object(), svar.getDelay() + delay, svar.isNonblocking());
         }
 
-        default <V1 extends Svar> List<V> addDelay(List<V1> svarlist, int delay)
+        default <N1 extends SvarName> List<Svar<N>> addDelay(List<Svar<N1>> svarlist, int delay)
         {
-            List<V> result = new ArrayList<>(svarlist.size());
-            for (V1 svar : svarlist)
+            List<Svar<N>> result = new ArrayList<>(svarlist.size());
+            for (Svar<N1> svar : svarlist)
             {
                 result.add(addDelay(svar, delay));
             }
             return result;
         }
-
-        V newVar(ACL2Object name, int delay, boolean nonblocking);
     }
 }

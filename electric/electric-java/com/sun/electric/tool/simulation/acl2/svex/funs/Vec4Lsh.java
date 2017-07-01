@@ -22,7 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
-import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -34,14 +34,16 @@ import java.util.Map;
 /**
  * Left “arithmetic” shift of 4vecs.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-LSH>.
+ *
+ * @param <N> Type of name of Svex variables
  */
-public class Vec4Lsh<V extends Svar> extends SvexCall<V>
+public class Vec4Lsh<N extends SvarName> extends SvexCall<N>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex<V> shift;
-    public final Svex<V> x;
+    public final Svex<N> shift;
+    public final Svex<N> x;
 
-    public Vec4Lsh(Svex<V> shift, Svex<V> x)
+    public Vec4Lsh(Svex<N> shift, Svex<N> x)
     {
         super(FUNCTION, shift, x);
         this.shift = shift;
@@ -56,7 +58,7 @@ public class Vec4Lsh<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4Lsh<V> build(Svex<V>[] args)
+        public <N extends SvarName> Vec4Lsh<N> build(Svex<N>[] args)
         {
             return new Vec4Lsh<>(args[0], args[1]);
         }
@@ -75,7 +77,7 @@ public class Vec4Lsh<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
+        protected <N extends SvarName> BigInteger[] svmaskFor(BigInteger mask, Svex<N>[] args, Map<Svex<N>, Vec4> xevalMemoize)
         {
             if (mask.signum() == 0)
             {
@@ -84,7 +86,7 @@ public class Vec4Lsh<V extends Svar> extends SvexCall<V>
                     BigInteger.ZERO, BigInteger.ZERO
                 };
             }
-            Svex<V> shift = args[0];
+            Svex<N> shift = args[0];
             Vec4 shiftVal = shift.xeval(xevalMemoize);
             if (!shiftVal.isVec2())
             {

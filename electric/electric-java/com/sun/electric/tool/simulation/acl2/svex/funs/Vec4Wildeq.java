@@ -22,7 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
-import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -33,14 +33,16 @@ import java.util.Map;
 /**
  * True if for every pair of corresponding bits of a and b, either they are equal or the bit from b is X or Z.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-WILDEQ>.
+ *
+ * @param <N> Type of name of Svex variables
  */
-public class Vec4Wildeq<V extends Svar> extends SvexCall<V>
+public class Vec4Wildeq<N extends SvarName> extends SvexCall<N>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex<V> x;
-    public final Svex<V> y;
+    public final Svex<N> x;
+    public final Svex<N> y;
 
-    public Vec4Wildeq(Svex<V> x, Svex<V> y)
+    public Vec4Wildeq(Svex<N> x, Svex<N> y)
     {
         super(FUNCTION, x, y);
         this.x = x;
@@ -48,7 +50,7 @@ public class Vec4Wildeq<V extends Svar> extends SvexCall<V>
     }
 
     @Override
-    public Vec4 xeval(Map<Svex<V>, Vec4> memoize)
+    public Vec4 xeval(Map<Svex<N>, Vec4> memoize)
     {
         Vec4 result = memoize.get(this);
         if (result == null)
@@ -67,7 +69,7 @@ public class Vec4Wildeq<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4Wildeq<V> build(Svex<V>[] args)
+        public <N extends SvarName> Vec4Wildeq<N> build(Svex<N>[] args)
         {
             return new Vec4Wildeq<>(args[0], args[1]);
         }
@@ -82,7 +84,7 @@ public class Vec4Wildeq<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
+        protected <N extends SvarName> BigInteger[] svmaskFor(BigInteger mask, Svex<N>[] args, Map<Svex<N>, Vec4> xevalMemoize)
         {
             if (mask.signum() == 0)
             {
@@ -91,7 +93,7 @@ public class Vec4Wildeq<V extends Svar> extends SvexCall<V>
                     BigInteger.ZERO, BigInteger.ZERO
                 };
             }
-            Svex<V> b = args[1];
+            Svex<N> b = args[1];
             Vec4 bVal = b.xeval(xevalMemoize);
             BigInteger bNonZ = bVal.getLower().andNot(bVal.getUpper()).not();
             return new BigInteger[]

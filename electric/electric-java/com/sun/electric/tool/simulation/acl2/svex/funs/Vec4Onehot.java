@@ -21,7 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
-import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -33,13 +33,15 @@ import java.util.Map;
 /**
  * Count of 1 bits in a 4vec (X-monotonic).
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-ONEHOT>.
+ *
+ * @param <N> Type of name of Svex variables
  */
-public class Vec4Onehot<V extends Svar> extends SvexCall<V>
+public class Vec4Onehot<N extends SvarName> extends SvexCall<N>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex<V> x;
+    public final Svex<N> x;
 
-    public Vec4Onehot(Svex<V> x)
+    public Vec4Onehot(Svex<N> x)
     {
         super(FUNCTION, x);
         this.x = x;
@@ -53,7 +55,7 @@ public class Vec4Onehot<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4Onehot<V> build(Svex<V>[] args)
+        public <N extends SvarName> Vec4Onehot<N> build(Svex<N>[] args)
         {
             return new Vec4Onehot<>(args[0]);
         }
@@ -74,7 +76,7 @@ public class Vec4Onehot<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
+        protected <N extends SvarName> BigInteger[] svmaskFor(BigInteger mask, Svex<N>[] args, Map<Svex<N>, Vec4> xevalMemoize)
         {
             return new BigInteger[]
             {

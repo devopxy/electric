@@ -30,8 +30,10 @@ import java.util.Map;
 /**
  * Implementation of a single variable in a symbolic vector expression.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVAR>.
+ *
+ * @param <N> Type of name of Svex variables
  */
-public class SvarImpl<N> extends Svar
+public class SvarImpl<N extends SvarName> implements Svar<N>
 {
     private final N name;
     private final int delayImpl;
@@ -44,6 +46,7 @@ public class SvarImpl<N> extends Svar
         this.impl = impl;
     }
 
+    @Override
     public N getName()
     {
         return name;
@@ -75,26 +78,46 @@ public class SvarImpl<N> extends Svar
     @Override
     public String toString(BigInteger mask)
     {
-        return impl.rep();
+        String s = name.toString(mask);
+        if (isNonblocking())
+        {
+            s = "#?" + getDelay() + " " + s;
+        } else if (getDelay() != 0)
+        {
+            s = "#" + getDelay() + " " + s;
+        }
+        return s;
     }
 
-    public abstract static class Builder<N> implements Svar.Builder<SvarImpl<N>>
+    @Override
+    public boolean equals(Object o)
     {
-
-        private final Map<ACL2Object, SvarImpl<N>> cache = new HashMap<>();
-
-        public abstract N newName(ACL2Object nameImpl);
-
-        public abstract ACL2Object getACL2Object(N name);
-
-        public SvarImpl<N> newVar(N name, int delay, boolean nonblocking)
+        if (o instanceof Svar)
         {
-            ACL2Object nameImpl = getACL2Object(name);
-            return newVar(nameImpl, delay, nonblocking);
+            Svar that = (Svar)o;
+            return this.getACL2Name().equals(that.getACL2Name())
+                && this.getDelay() == that.getDelay()
+                && this.isNonblocking() == that.isNonblocking();
         }
+        return false;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int hash = 7;
+        hash = 59 * hash + getACL2Name().hashCode();
+        hash = 59 * hash + getDelay();
+        return hash;
+    }
+
+    public abstract static class Builder<N extends SvarName> implements Svar.Builder<N>
+    {
+        private final Map<ACL2Object, N> nameCache = new HashMap<>();
+        private final Map<ACL2Object, Svar<N>> svarCache = new HashMap<>();
 
         @Override
-        public SvarImpl<N> newVar(ACL2Object nameImpl, int delay, boolean nonblocking)
+        public Svar<N> newVar(ACL2Object nameImpl, int delay, boolean nonblocking)
         {
             assert delay >= 0;
             boolean simpleName = (stringp(nameImpl).bool()
@@ -103,12 +126,17 @@ public class SvarImpl<N> extends Svar
             ACL2Object impl = simpleName && delayImpl == 0
                 ? honscopy(nameImpl)
                 : hons(KEYWORD_VAR, hons(nameImpl, ACL2Object.valueOf(delayImpl)));
-            SvarImpl<N> svar = cache.get(impl);
+            Svar<N> svar = svarCache.get(impl);
             if (svar == null)
             {
-                N name = newName(nameImpl);
+                N name = nameCache.get(nameImpl);
+                if (name == null)
+                {
+                    name = newName(nameImpl);
+                    nameCache.put(nameImpl, name);
+                }
                 svar = new SvarImpl<>(name, delayImpl, impl);
-                cache.put(impl, svar);
+                svarCache.put(impl, svar);
             }
             return svar;
         }

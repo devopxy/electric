@@ -22,7 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
-import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
@@ -43,7 +43,7 @@ public class ModDb
     final List<ElabMod> mods = new ArrayList<>();
     final Map<ModName, ElabMod> modnameIdxes = new HashMap<>();
 
-    <V extends Svar> ModDb(ModName modName, Map<ModName, Module<V>> modalist)
+    <N extends SvarName> ModDb(ModName modName, Map<ModName, Module<N>> modalist)
     {
         moduleToDb(modName, modalist);
     }
@@ -204,7 +204,7 @@ public class ModDb
         return result;
     }
 
-    public SvarImpl<Address> svarNamedToIndexed(SvarImpl<Address> svar, int modidx, Address.SvarBuilder builder)
+    public Svar<Address> svarNamedToIndexed(Svar<Address> svar, int modidx, Address.SvarBuilder builder)
     {
         Address addr = svar.getName();
         int idx = addr.scope != 0 ? Address.INDEX_NIL : pathToWireIdx(addr.getPath(), modidx);
@@ -216,25 +216,25 @@ public class ModDb
         return builder.newVar(newAddr, svar.getDelay(), svar.isNonblocking());
     }
 
-    private Svex<SvarImpl<Address>> svexNamedToIndex(Svex<SvarImpl<Address>> x, int modidx,
-        Address.SvarBuilder builder, Map<Svex<SvarImpl<Address>>, Svex<SvarImpl<Address>>> svexCache)
+    private Svex<Address> svexNamedToIndex(Svex<Address> x, int modidx,
+        Address.SvarBuilder builder, Map<Svex<Address>, Svex<Address>> svexCache)
     {
-        Svex<SvarImpl<Address>> result = svexCache.get(x);
+        Svex<Address> result = svexCache.get(x);
         if (result == null)
         {
             if (x instanceof SvexVar)
             {
-                SvexVar<SvarImpl<Address>> xv = (SvexVar<SvarImpl<Address>>)x;
-                SvarImpl<Address> name = svarNamedToIndexed(xv.svar, modidx, builder);
+                SvexVar<Address> xv = (SvexVar<Address>)x;
+                Svar<Address> name = svarNamedToIndexed(xv.svar, modidx, builder);
                 result = new SvexVar<>(name);
             } else if (x instanceof SvexQuote)
             {
                 result = x;
             } else
             {
-                SvexCall<SvarImpl<Address>> sc = (SvexCall<SvarImpl<Address>>)x;
-                Svex<SvarImpl<Address>>[] args = sc.getArgs();
-                Svex<SvarImpl<Address>>[] newArgs = Svex.newSvexArray(args.length);
+                SvexCall<Address> sc = (SvexCall<Address>)x;
+                Svex<Address>[] args = sc.getArgs();
+                Svex<Address>[] newArgs = Svex.newSvexArray(args.length);
                 for (int i = 0; i < args.length; i++)
                 {
                     newArgs[i] = svexNamedToIndex(args[i], modidx, builder, svexCache);
@@ -246,60 +246,61 @@ public class ModDb
         return result;
     }
 
-    private Lhs<SvarImpl<Address>> lhsNamedToIndex(Lhs<SvarImpl<Address>> x, int modidx, Address.SvarBuilder builder)
+    private Lhs<Address> lhsNamedToIndex(Lhs<Address> x, int modidx, Address.SvarBuilder builder)
     {
-        List<Lhrange<SvarImpl<Address>>> newRanges = new ArrayList<>();
-        for (Lhrange<SvarImpl<Address>> range : x.ranges)
+        List<Lhrange<Address>> newRanges = new ArrayList<>();
+        for (Lhrange<Address> range : x.ranges)
         {
-            SvarImpl<Address> svar = range.getVar();
+            Svar<Address> svar = range.getVar();
             if (svar != null)
             {
                 svar = svarNamedToIndexed(svar, modidx, builder);
-                range = new Lhrange<>(range.getWidth(), new Lhatom.Var<>(svar, range.getRsh()));
+                Lhatom<Address> atom = new Lhatom.Var<>(svar, range.getRsh());
+                range = new Lhrange<>(range.getWidth(), atom);
             }
             newRanges.add(range);
         }
         return new Lhs<>(newRanges);
     }
 
-    private Module<SvarImpl<Address>> moduleNamedToIndex(Module<SvarImpl<Address>> m, int modidx, Address.SvarBuilder builder)
+    private Module<Address> moduleNamedToIndex(Module<Address> m, int modidx, Address.SvarBuilder builder)
     {
-        Map<Svex<SvarImpl<Address>>, Svex<SvarImpl<Address>>> svexCache = new HashMap<>();
-        Map<Lhs<SvarImpl<Address>>, Driver<SvarImpl<Address>>> newAssigns = new LinkedHashMap<>();
-        for (Map.Entry<Lhs<SvarImpl<Address>>, Driver<SvarImpl<Address>>> e : m.assigns.entrySet())
+        Map<Svex<Address>, Svex<Address>> svexCache = new HashMap<>();
+        Map<Lhs<Address>, Driver<Address>> newAssigns = new LinkedHashMap<>();
+        for (Map.Entry<Lhs<Address>, Driver<Address>> e : m.assigns.entrySet())
         {
-            Lhs<SvarImpl<Address>> newLhs = lhsNamedToIndex(e.getKey(), modidx, builder);
-            Driver<SvarImpl<Address>> driver = e.getValue();
-            Svex<SvarImpl<Address>> newSvex = svexNamedToIndex(driver.svex, modidx, builder, svexCache);
-            Driver<SvarImpl<Address>> newDriver = new Driver<>(newSvex, driver.strength);
+            Lhs<Address> newLhs = lhsNamedToIndex(e.getKey(), modidx, builder);
+            Driver<Address> driver = e.getValue();
+            Svex<Address> newSvex = svexNamedToIndex(driver.svex, modidx, builder, svexCache);
+            Driver<Address> newDriver = new Driver<>(newSvex, driver.strength);
             newAssigns.put(newLhs, newDriver);
         }
-        Map<Lhs<SvarImpl<Address>>, Lhs<SvarImpl<Address>>> newAliasepairs = new LinkedHashMap<>();
-        for (Map.Entry<Lhs<SvarImpl<Address>>, Lhs<SvarImpl<Address>>> e : m.aliaspairs.entrySet())
+        Map<Lhs<Address>, Lhs<Address>> newAliasepairs = new LinkedHashMap<>();
+        for (Map.Entry<Lhs<Address>, Lhs<Address>> e : m.aliaspairs.entrySet())
         {
-            Lhs<SvarImpl<Address>> newLhs = lhsNamedToIndex(e.getKey(), modidx, builder);
-            Lhs<SvarImpl<Address>> newRhs = lhsNamedToIndex(e.getValue(), modidx, builder);
+            Lhs<Address> newLhs = lhsNamedToIndex(e.getKey(), modidx, builder);
+            Lhs<Address> newRhs = lhsNamedToIndex(e.getValue(), modidx, builder);
             newAliasepairs.put(newLhs, newRhs);
         }
         return new Module<>(m.wires, m.insts, newAssigns, newAliasepairs);
     }
 
-    public Map<ModName, Module<SvarImpl<Address>>> modalistNamedToIndex(Map<ModName, Module<SvarImpl<Address>>> modalist)
+    public Map<ModName, Module<Address>> modalistNamedToIndex(Map<ModName, Module<Address>> modalist)
     {
         Address.SvarBuilder builder = new Address.SvarBuilder();
-        Map<ModName, Module<SvarImpl<Address>>> result = new LinkedHashMap<>();
-        for (Map.Entry<ModName, Module<SvarImpl<Address>>> e : modalist.entrySet())
+        Map<ModName, Module<Address>> result = new LinkedHashMap<>();
+        for (Map.Entry<ModName, Module<Address>> e : modalist.entrySet())
         {
             ModName modName = e.getKey();
-            Module<SvarImpl<Address>> module = e.getValue();
+            Module<Address> module = e.getValue();
             int modidx = modnameIdxes.get(modName).index;
-            Module<SvarImpl<Address>> newModule = moduleNamedToIndex(module, modidx, builder);
+            Module<Address> newModule = moduleNamedToIndex(module, modidx, builder);
             result.put(modName, newModule);
         }
         return result;
     }
 
-    private <V extends Svar> void moduleToDb(ModName modName, Map<ModName, Module<V>> modalist)
+    private <N extends SvarName> void moduleToDb(ModName modName, Map<ModName, Module<N>> modalist)
     {
         ElabMod elabMod = modnameIdxes.get(modName);
         if (elabMod != null)
@@ -311,7 +312,7 @@ public class ModDb
             throw new IllegalArgumentException("Module loop " + modName);
         }
         modnameIdxes.put(modName, null);
-        Module<V> module = modalist.get(modName);
+        Module<N> module = modalist.get(modName);
         if (module == null)
         {
             throw new IllegalArgumentException("Module not found " + modName);

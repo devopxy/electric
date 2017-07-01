@@ -21,7 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
-import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.util.TextUtils;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
@@ -39,7 +39,7 @@ import java.util.TreeMap;
  */
 public class DesignExt
 {
-    public final Design<? extends Svar> b;
+    public final Design<? extends SvarName> b;
 
     public final Map<ModName, ModuleExt> downTop = new LinkedHashMap<>();
     public final Map<ModName, ModuleExt> topDown = new LinkedHashMap<>();
@@ -49,7 +49,7 @@ public class DesignExt
         this(new Design<>(new Path.SvarBuilder(), impl));
     }
 
-    public <V extends Svar> DesignExt(Design<V> b)
+    public <N extends SvarName> DesignExt(Design<N> b)
     {
         this.b = b;
 
@@ -116,7 +116,7 @@ public class DesignExt
         {
             return;
         }
-        Module<? extends Svar> module = b.modalist.get(mn);
+        Module<? extends SvarName> module = b.modalist.get(mn);
         for (ModInst modInst : module.insts)
         {
             addToDownTop(modInst.modname);

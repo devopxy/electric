@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
@@ -37,21 +38,21 @@ import java.util.Map;
  * An SVar or X at left-hand side of SVEX assignment.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____LHATOM>.
  *
- * @param <V> Type of Svex Variables
+ * @param <N> Type of name of Svex Variables
  */
-public abstract class Lhatom<V extends Svar>
+public abstract class Lhatom<N extends SvarName>
 {
     public abstract ACL2Object getACL2Object();
 
-    public abstract V getVar();
+    public abstract Svar<N> getVar();
 
     public abstract int getRsh();
 
-    public abstract <V1 extends Svar> Lhatom<V1> convertVars(Svar.Builder<V1> builder);
+    public abstract <N1 extends SvarName> Lhatom<N1> convertVars(Svar.Builder<N1> builder);
 
-    public abstract Vec4 eval(Map<V, Vec4> env);
+    public abstract Vec4 eval(Map<Svar<N>, Vec4> env);
 
-    public abstract Svex<V> toSvex();
+    public abstract Svex<N> toSvex();
 
     @Override
     public String toString()
@@ -59,7 +60,7 @@ public abstract class Lhatom<V extends Svar>
         return getACL2Object().rep();
     }
 
-    public static <V extends Svar> Lhatom<V> valueOf(Svar.Builder<V> builder, ACL2Object impl)
+    public static <N extends SvarName> Lhatom<N> valueOf(Svar.Builder<N> builder, ACL2Object impl)
     {
         if (symbolp(impl).bool())
         {
@@ -71,7 +72,7 @@ public abstract class Lhatom<V extends Svar>
         return new Lhatom.Var<>(builder, impl);
     }
 
-    public static class Z<V extends Svar> extends Lhatom<V>
+    public static class Z<N extends SvarName> extends Lhatom<N>
     {
         @Override
         public ACL2Object getACL2Object()
@@ -80,7 +81,7 @@ public abstract class Lhatom<V extends Svar>
         }
 
         @Override
-        public V getVar()
+        public Svar<N> getVar()
         {
             return null;
         }
@@ -92,30 +93,30 @@ public abstract class Lhatom<V extends Svar>
         }
 
         @Override
-        public <V1 extends Svar> Lhatom<V1> convertVars(Svar.Builder<V1> builder)
+        public <N1 extends SvarName> Lhatom<N1> convertVars(Svar.Builder<N1> builder)
         {
             return new Z<>();
         }
 
         @Override
-        public Vec4 eval(Map<V, Vec4> env)
+        public Vec4 eval(Map<Svar<N>, Vec4> env)
         {
             return Vec4.Z;
         }
 
         @Override
-        public Svex<V> toSvex()
+        public Svex<N> toSvex()
         {
             return new SvexQuote<>(Vec4.Z);
         }
     }
 
-    public static class Var<V extends Svar> extends Lhatom<V>
+    public static class Var<N extends SvarName> extends Lhatom<N>
     {
-        public final V name;
+        public final Svar<N> name;
         public final int rsh;
 
-        Var(Svar.Builder<V> builder, ACL2Object impl)
+        Var(Svar.Builder<N> builder, ACL2Object impl)
         {
             if (consp(impl).bool())
             {
@@ -136,7 +137,7 @@ public abstract class Lhatom<V extends Svar>
             }
         }
 
-        public Var(V name, int rsh)
+        public Var(Svar<N> name, int rsh)
         {
             if (name == null)
             {
@@ -160,7 +161,7 @@ public abstract class Lhatom<V extends Svar>
         }
 
         @Override
-        public V getVar()
+        public Svar<N> getVar()
         {
             return name;
         }
@@ -172,14 +173,14 @@ public abstract class Lhatom<V extends Svar>
         }
 
         @Override
-        public <V1 extends Svar> Lhatom<V1> convertVars(Svar.Builder<V1> builder)
+        public <N1 extends SvarName> Lhatom<N1> convertVars(Svar.Builder<N1> builder)
         {
-            V1 newName = builder.newVar(name);
+            Svar<N1> newName = builder.newVar(name);
             return new Var<>(newName, rsh);
         }
 
         @Override
-        public Vec4 eval(Map<V, Vec4> env)
+        public Vec4 eval(Map<Svar<N>, Vec4> env)
         {
             Vec4 sh = new Vec2(BigInteger.valueOf(rsh));
             Vec4 x = env.getOrDefault(name, Vec4.X);
@@ -187,9 +188,9 @@ public abstract class Lhatom<V extends Svar>
         }
 
         @Override
-        public Svex<V> toSvex()
+        public Svex<N> toSvex()
         {
-            Svex<V> svexVar = new SvexVar<>(name);
+            Svex<N> svexVar = new SvexVar<>(name);
             return rsh != 0 ? svexVar.rsh(rsh) : svexVar;
         }
     }

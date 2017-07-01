@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import static com.sun.electric.util.acl2.ACL2.car;
 import static com.sun.electric.util.acl2.ACL2.cdr;
 import static com.sun.electric.util.acl2.ACL2.consp;
@@ -34,14 +35,14 @@ import java.util.Map;
  * SVEX design.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____DESIGN>.
  *
- * @param <V> Type of Svex variables
+ * @param <N> Type of names in Svex variables
  */
-public class Design<V extends Svar>
+public class Design<N extends SvarName>
 {
-    final Map<ModName, Module<V>> modalist = new LinkedHashMap<>();
+    final Map<ModName, Module<N>> modalist = new LinkedHashMap<>();
     public final ModName top;
 
-    public Design(Svar.Builder<V> builder, ACL2Object impl)
+    public Design(Svar.Builder<N> builder, ACL2Object impl)
     {
         List<ACL2Object> fields = Util.getList(impl, true);
         Util.check(fields.size() == 2);
@@ -52,7 +53,7 @@ public class Design<V extends Svar>
         while (consp(rawModalist).bool())
         {
             ModName modName = ModName.valueOf(car(car(rawModalist)));
-            Module<V> module = new Module<>(builder, cdr(car(rawModalist)));
+            Module<N> module = new Module<>(builder, cdr(car(rawModalist)));
             Module old = modalist.put(modName, module);
             Util.check(old == null);
             rawModalist = cdr(rawModalist);

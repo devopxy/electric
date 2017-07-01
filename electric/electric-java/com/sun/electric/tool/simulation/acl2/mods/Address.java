@@ -21,9 +21,12 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.List;
 
@@ -31,7 +34,7 @@ import java.util.List;
  * Type of the names of wires, module instances, and namespaces (such as datatype fields).
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____ADDRESS>.
  */
-public class Address
+public class Address implements SvarName
 {
     public static final ACL2Object KEYWORD_ADDRESS = ACL2Object.valueOf("KEYWORD", "ADDRESS");
     public static final ACL2Object KEYWORD_ROOT = ACL2Object.valueOf("KEYWORD", "ROOT");
@@ -102,7 +105,8 @@ public class Address
         this.scope = scope;
     }
 
-    ACL2Object getACL2Object()
+    @Override
+    public ACL2Object getACL2Object()
     {
         return impl;
     }
@@ -127,9 +131,14 @@ public class Address
         return scope >= 0 ? scope : null;
     }
 
-    public SvarImpl<Address> toVar(SvarBuilder builder)
+    public Svar<Address> toVar(SvarBuilder builder)
     {
         return builder.newVar(impl, 0, false);
+    }
+
+    @Override
+    public String toString(BigInteger mask) {
+        throw new UnsupportedOperationException();
     }
 
     public static class SvarBuilder extends SvarImpl.Builder<Address>
@@ -140,19 +149,13 @@ public class Address
             return Address.fromACL2(nameImpl);
         }
 
-        @Override
-        public ACL2Object getACL2Object(Address name)
-        {
-            return name.getACL2Object();
-        }
-
-        public SvarImpl<Address> makeSimpleSvar(Name name)
+        public Svar<Address> makeSimpleSvar(Name name)
         {
             Path path = Path.simplePath(name);
             return newVar(new Address(path, Address.INDEX_NIL, 0), 0, false);
         }
 
-        public SvarImpl<Address> makeScopedSvar(Name scope, Name name)
+        public Svar<Address> makeScopedSvar(Name scope, Name name)
         {
             Path path = Path.makePath(Arrays.asList(scope), name);
             return newVar(new Address(path, Address.INDEX_NIL, 0), 0, false);

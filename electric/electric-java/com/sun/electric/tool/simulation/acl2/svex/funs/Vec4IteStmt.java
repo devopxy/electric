@@ -22,7 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
-import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -34,15 +34,17 @@ import java.util.Map;
 /**
  * Atomic if-then-else of 4vecs. Has the property that when branches are equal, the result is equal to the branch, regardless of the test.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-_F3_A2>.
+ *
+ * @param <N> Type of name of Svex variables
  */
-public class Vec4IteStmt<V extends Svar> extends SvexCall<V>
+public class Vec4IteStmt<N extends SvarName> extends SvexCall<N>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex<V> test;
-    public final Svex<V> then;
-    public final Svex<V> els;
+    public final Svex<N> test;
+    public final Svex<N> then;
+    public final Svex<N> els;
 
-    public Vec4IteStmt(Svex<V> test, Svex<V> then, Svex<V> els)
+    public Vec4IteStmt(Svex<N> test, Svex<N> then, Svex<N> els)
     {
         super(FUNCTION, test, then, els);
         this.test = test;
@@ -58,7 +60,7 @@ public class Vec4IteStmt<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4IteStmt<V> build(Svex<V>[] args)
+        public <N extends SvarName> Vec4IteStmt<N> build(Svex<N>[] args)
         {
             return new Vec4IteStmt<>(args[0], args[1], args[2]);
         }
@@ -90,7 +92,7 @@ public class Vec4IteStmt<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
+        protected <N extends SvarName> BigInteger[] svmaskFor(BigInteger mask, Svex<N>[] args, Map<Svex<N>, Vec4> xevalMemoize)
         {
             if (mask.signum() == 0)
             {
@@ -99,9 +101,9 @@ public class Vec4IteStmt<V extends Svar> extends SvexCall<V>
                     BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO
                 };
             }
-            Svex<V> test = args[0];
-            Svex<V> th = args[1];
-            Svex<V> el = args[2];
+            Svex<N> test = args[0];
+            Svex<N> th = args[1];
+            Svex<N> el = args[2];
             Vec4 testVal = test.xeval(xevalMemoize);
             BigInteger testOnes = testVal.getUpper().and(testVal.getLower());
             if (testOnes.signum() != 0)

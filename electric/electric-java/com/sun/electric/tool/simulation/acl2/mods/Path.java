@@ -22,15 +22,17 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
 import java.util.List;
 
 /**
  * Type of the names of wires, module instances, and namespaces (such as datatype fields).
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____PATH>.
  */
-public abstract class Path
+public abstract class Path implements SvarName
 {
     public static ACL2Object KEYWORD_WIRE = ACL2Object.valueOf("KEYWORD", "WIRE");
     public static ACL2Object KEYWORD_SCOPE = ACL2Object.valueOf("KEYWORD", "SCOPE");
@@ -42,9 +44,15 @@ public abstract class Path
         this.impl = impl;
     }
 
+    @Override
     public ACL2Object getACL2Object()
     {
         return impl;
+    }
+
+    @Override
+    public String toString(BigInteger mask) {
+        throw new UnsupportedOperationException();
     }
 
     public static Path fromACL2(ACL2Object impl)
@@ -203,12 +211,6 @@ public abstract class Path
         public Path newName(ACL2Object nameImpl)
         {
             return Path.fromACL2(nameImpl);
-        }
-
-        @Override
-        public ACL2Object getACL2Object(Path name)
-        {
-            return name.getACL2Object();
         }
     }
 }

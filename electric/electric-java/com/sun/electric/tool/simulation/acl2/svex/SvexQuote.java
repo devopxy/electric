@@ -30,9 +30,9 @@ import java.util.Set;
  * A "quoted constant" 4vec which represents itself.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVEX-QUOTE>.
  *
- * @param <V> Type of Svex variables
+ * @param <N> Type of name of Svex variables
  */
-public class SvexQuote<V extends Svar> extends Svex<V>
+public class SvexQuote<N extends SvarName> extends Svex<N>
 {
 
     public final Vec4 val;
@@ -61,9 +61,9 @@ public class SvexQuote<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public <V1 extends Svar> Svex<V1> convertVars(Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache)
+    public <N1 extends SvarName> Svex<N1> convertVars(Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache)
     {
-        Svex<V1> svex = cache.get(this);
+        Svex<N1> svex = cache.get(this);
         if (svex == null)
         {
             svex = new SvexQuote<>(val);
@@ -73,9 +73,9 @@ public class SvexQuote<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public <V1 extends Svar> Svex<V1> addDelay(int delay, Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache)
+    public <N1 extends SvarName> Svex<N1> addDelay(int delay, Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache)
     {
-        Svex<V1> svex = cache.get(this);
+        Svex<N1> svex = cache.get(this);
         if (svex == null)
         {
             svex = new SvexQuote<>(val);
@@ -85,24 +85,24 @@ public class SvexQuote<V extends Svar> extends Svex<V>
     }
 
     @Override
-    protected void collectVars(Set<V> result, Set<SvexCall<V>> visited)
+    protected void collectVars(Set<Svar<N>> result, Set<SvexCall<N>> visited)
     {
     }
 
     @Override
-    public <R, D> R accept(Visitor<V, R, D> visitor, D data)
+    public <R, D> R accept(Visitor<N, R, D> visitor, D data)
     {
         return visitor.visitConst(val, data);
     }
 
     @Override
-    public Vec4 xeval(Map<Svex<V>, Vec4> memoize)
+    public Vec4 xeval(Map<Svex<N>, Vec4> memoize)
     {
         return val;
     }
 
     @Override
-    public Svex<V> patch(Map<V, Vec4> subst, Map<SvexCall<V>, SvexCall<V>> memoize)
+    public Svex<N> patch(Map<Svar<N>, Vec4> subst, Map<SvexCall<N>, SvexCall<N>> memoize)
     {
         return this;
     }

@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
@@ -40,27 +41,27 @@ public class DriverExt
 {
     final ModuleExt parent;
 
-    private final Driver<SVarExt> b;
+    private final Driver<PathExt> b;
     final String name;
 
-    Map<SVarExt, BigInteger> crudeDeps0;
-    Map<SVarExt, BigInteger> crudeDeps1;
-    final List<Map<SVarExt, BigInteger>> fineDeps0 = new ArrayList<>();
-    final List<Map<SVarExt, BigInteger>> fineDeps1 = new ArrayList<>();
+    Map<Svar<PathExt>, BigInteger> crudeDeps0;
+    Map<Svar<PathExt>, BigInteger> crudeDeps1;
+    final List<Map<Svar<PathExt>, BigInteger>> fineDeps0 = new ArrayList<>();
+    final List<Map<Svar<PathExt>, BigInteger>> fineDeps1 = new ArrayList<>();
 
-    DriverExt(ModuleExt parent, Driver<SVarExt> b, String name)
+    DriverExt(ModuleExt parent, Driver<PathExt> b, String name)
     {
         this.parent = parent;
         this.b = b;
         this.name = name;
         Util.check(b.strength == 6);
-        for (SVarExt svar : b.svex.collectVars())
+        for (Svar<PathExt> svar : b.svex.collectVars())
         {
-            Util.check(svar instanceof SVarExt.LocalWire);
+            Util.check(svar.getName() instanceof PathExt.LocalWire);
         }
     }
 
-    public Svex<SVarExt> getSvex()
+    public Svex<PathExt> getSvex()
     {
         return b.svex;
     }
@@ -77,34 +78,44 @@ public class DriverExt
         return getSvex().toString();
     }
 
-    public final Set<SVarExt> collectVars()
+    public final Set<Svar<PathExt>> collectVars()
     {
         return getSvex().collectVars();
     }
 
     void markUsed()
     {
-        for (SVarExt svar : collectVars())
+        for (Svar<PathExt> svar : collectVars())
         {
-            ((SVarExt.LocalWire)svar).markUsed();
+            ((PathExt.LocalWire)svar.getName()).markUsed();
         }
     }
 
-    Map<SVarExt, BigInteger> getCrudeDeps(boolean clockHigh)
+    Map<Svar<PathExt>, BigInteger> getCrudeDeps(boolean clockHigh)
     {
         return clockHigh ? crudeDeps1 : crudeDeps0;
     }
 
-    List<Map<SVarExt, BigInteger>> getFineDeps(boolean clockHigh)
+    List<Map<Svar<PathExt>, BigInteger>> getFineDeps(boolean clockHigh)
     {
         return clockHigh ? fineDeps1 : fineDeps0;
     }
 
-    void computeDeps(int width, boolean clkVal, Map<SVarExt, Vec4> env, Map<SvexCall<SVarExt>, SvexCall<SVarExt>> patchMemoize)
+    /**
+     * Compute crude and fine dependencies of this driver.
+     * Driver SV expression is patched by assumption about clock value
+     *
+     * @param width width of this driver used by left-hand side
+     * @param clkVal which clock value is assumed in the patch
+     * @param env environment for the patch
+     * @param patchMemoize memoization cache for patch
+     */
+    void computeDeps(int width, boolean clkVal, Map<Svar<PathExt>, Vec4> env,
+        Map<SvexCall<PathExt>, SvexCall<PathExt>> patchMemoize)
     {
-        Svex<SVarExt> patched = getSvex().patch(env, patchMemoize);
+        Svex<PathExt> patched = getSvex().patch(env, patchMemoize);
         BigInteger mask = BigIntegerUtil.MINUS_ONE;
-        Map<SVarExt, BigInteger> varsWithMasks = patched.collectVarsWithMasks(mask);
+        Map<Svar<PathExt>, BigInteger> varsWithMasks = patched.collectVarsWithMasks(mask);
         if (clkVal)
         {
             crudeDeps1 = varsWithMasks;
@@ -112,7 +123,7 @@ public class DriverExt
         {
             crudeDeps0 = varsWithMasks;
         }
-        List<Map<SVarExt, BigInteger>> fineDeps = getFineDeps(clkVal);
+        List<Map<Svar<PathExt>, BigInteger>> fineDeps = getFineDeps(clkVal);
         fineDeps.clear();
         for (int bit = 0; bit < width; bit++)
         {

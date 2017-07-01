@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
@@ -31,20 +32,20 @@ import java.util.Map;
  * Driver - SVEX expression with strength.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____DRIVER>.
  *
- * @param <V> Type of Svex variables
+ * @param <N> Type of name of Svex variables
  */
-public class Driver<V extends Svar>
+public class Driver<N extends SvarName>
 {
-    public final Svex<V> svex;
+    public final Svex<N> svex;
     final int strength;
 
-    Driver(Svar.Builder<V> builder, Map<ACL2Object, Svex<V>> svexCache, ACL2Object impl)
+    Driver(Svar.Builder<N> builder, Map<ACL2Object, Svex<N>> svexCache, ACL2Object impl)
     {
         svex = Svex.valueOf(builder, car(impl), svexCache);
         strength = cdr(impl).intValueExact();
     }
 
-    public Driver(Svex<V> svex, int strength)
+    public Driver(Svex<N> svex, int strength)
     {
         this.svex = svex;
         this.strength = strength;
@@ -55,9 +56,10 @@ public class Driver<V extends Svar>
         return cons(svex.getACL2Object(), ACL2Object.valueOf(strength));
     }
 
-    public <V1 extends Svar> Driver<V1> convertVars(Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> svexCache)
+    public <N1 extends SvarName> Driver<N1> convertVars(Svar.Builder<N1> builder,
+        Map<Svex<N>, Svex<N1>> svexCache)
     {
-        Svex<V1> newSvex = svex.convertVars(builder, svexCache);
+        Svex<N1> newSvex = svex.convertVars(builder, svexCache);
         return new Driver<>(newSvex, strength);
     }
 
