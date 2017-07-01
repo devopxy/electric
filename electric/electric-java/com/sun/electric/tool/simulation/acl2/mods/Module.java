@@ -100,7 +100,7 @@ public class Module<N extends SvarName>
         this.aliaspairs.putAll(aliaspairs);
     }
 
-    ACL2Object getACL2Object()
+    public ACL2Object getACL2Object()
     {
         ACL2Object wiresList = NIL;
         for (int i = wires.size() - 1; i >= 0; i--)

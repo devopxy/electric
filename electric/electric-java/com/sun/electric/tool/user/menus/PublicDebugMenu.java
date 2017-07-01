@@ -39,7 +39,7 @@ import com.sun.electric.tool.routing.SeaOfGates;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesEngine;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesEngineFactory;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesHandlers;
-import com.sun.electric.tool.simulation.acl2.mods.ACL2DesignJobs;
+import com.sun.electric.tool.simulation.acl2.modsext.ACL2DesignJobs;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.UserInterfaceMain;
 import com.sun.electric.tool.user.dialogs.OpenFile;

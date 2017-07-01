@@ -19,8 +19,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.sun.electric.tool.simulation.acl2.mods;
+package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
+import com.sun.electric.tool.simulation.acl2.mods.Name;
+import com.sun.electric.tool.simulation.acl2.mods.Util;
+import com.sun.electric.tool.simulation.acl2.mods.Wire;
+import com.sun.electric.tool.simulation.acl2.mods.Wiretype;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import static com.sun.electric.util.acl2.ACL2.*;
 import java.math.BigInteger;

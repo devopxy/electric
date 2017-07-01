@@ -39,7 +39,7 @@ import java.util.Map;
  */
 public class Design<N extends SvarName>
 {
-    final Map<ModName, Module<N>> modalist = new LinkedHashMap<>();
+    public final Map<ModName, Module<N>> modalist = new LinkedHashMap<>();
     public final ModName top;
 
     public Design(Svar.Builder<N> builder, ACL2Object impl)

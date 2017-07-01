@@ -51,7 +51,8 @@ public abstract class Path implements SvarName
     }
 
     @Override
-    public String toString(BigInteger mask) {
+    public String toString(BigInteger mask)
+    {
         throw new UnsupportedOperationException();
     }
 
@@ -99,9 +100,9 @@ public abstract class Path implements SvarName
 
     public abstract Path append(Path y);
 
-    static class Wire extends Path
+    public static class Wire extends Path
     {
-        final Name name;
+        public final Name name;
 
         Wire(ACL2Object impl)
         {
@@ -109,7 +110,7 @@ public abstract class Path implements SvarName
             name = new Name(impl);
         }
 
-        Wire(Name name)
+        public Wire(Name name)
         {
             super(name.getACL2Object());
             this.name = name;
@@ -146,10 +147,10 @@ public abstract class Path implements SvarName
         }
     }
 
-    static class Scope extends Path
+    public static class Scope extends Path
     {
-        final Path subpath;
-        final Name namespace;
+        public final Path subpath;
+        public final Name namespace;
 
         Scope(ACL2Object impl)
         {
