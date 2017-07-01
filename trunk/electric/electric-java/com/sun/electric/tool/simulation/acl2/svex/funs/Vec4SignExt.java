@@ -22,7 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
-import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
@@ -36,13 +36,13 @@ import java.util.Map;
  * Like logext for 4vecs; the width is also a 4vec.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-SIGN-EXT>.
  */
-public class Vec4SignExt<V extends Svar> extends SvexCall<V>
+public class Vec4SignExt<N extends SvarName> extends SvexCall<N>
 {
     public static final Function FUNCTION = new Function();
-    public final Svex<V> width;
-    public final Svex<V> x;
+    public final Svex<N> width;
+    public final Svex<N> x;
 
-    public Vec4SignExt(Svex<V> width, Svex<V> x)
+    public Vec4SignExt(Svex<N> width, Svex<N> x)
     {
         super(FUNCTION, width, x);
         this.width = width;
@@ -57,16 +57,16 @@ public class Vec4SignExt<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        public <V extends Svar> Vec4SignExt<V> build(Svex<V>[] args)
+        public <N extends SvarName> Vec4SignExt<N> build(Svex<N>[] args)
         {
             return new Vec4SignExt<>(args[0], args[1]);
         }
 
         @Override
-        public <V extends Svar> Svex<V> callStar(Svex<V>[] args)
+        public <N extends SvarName> Svex<N> callStar(Svex<N>[] args)
         {
             assert args.length == 2;
-            Svex<V> width = args[0];
+            Svex<N> width = args[0];
             if (width instanceof SvexQuote)
             {
                 Vec4 wVal = ((SvexQuote)width).val;
@@ -121,7 +121,7 @@ public class Vec4SignExt<V extends Svar> extends SvexCall<V>
         }
 
         @Override
-        protected <V extends Svar> BigInteger[] svmaskFor(BigInteger mask, Svex<V>[] args, Map<Svex<V>, Vec4> xevalMemoize)
+        protected <N extends SvarName> BigInteger[] svmaskFor(BigInteger mask, Svex<N>[] args, Map<Svex<N>, Vec4> xevalMemoize)
         {
             if (mask.signum() == 0)
             {
@@ -130,7 +130,7 @@ public class Vec4SignExt<V extends Svar> extends SvexCall<V>
                     BigInteger.ZERO, BigInteger.ZERO
                 };
             }
-            Svex<V> width = args[0];
+            Svex<N> width = args[0];
             Vec4 widthVal = width.xeval(xevalMemoize);
             if (!widthVal.isVec2())
             {

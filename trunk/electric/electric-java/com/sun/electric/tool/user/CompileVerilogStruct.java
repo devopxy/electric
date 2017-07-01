@@ -52,9 +52,10 @@ import com.sun.electric.tool.simulation.acl2.mods.ModInstExt;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.ModuleExt;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
-import com.sun.electric.tool.simulation.acl2.mods.SVarExt;
+import com.sun.electric.tool.simulation.acl2.mods.PathExt;
 import com.sun.electric.tool.simulation.acl2.mods.WireExt;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.util.TextUtils;
 import com.sun.electric.util.acl2.ACL2Reader;
 import com.sun.electric.util.math.DBMath;
@@ -428,18 +429,18 @@ public class CompileVerilogStruct
                     assert old == null;
                 }
             }
-            for (Map.Entry<Lhs<SVarExt>, DriverExt> e1 : m.assigns.entrySet())
+            for (Map.Entry<Lhs<PathExt>, DriverExt> e1 : m.assigns.entrySet())
             {
-                Lhs<SVarExt> lhs = e1.getKey();
+                Lhs<PathExt> lhs = e1.getKey();
                 DriverExt rhs = e1.getValue();
                 String instanceName = lhs.toString();
                 instanceName = null;
-                Map<SVarExt, BigInteger> inputs = rhs.getSvex().collectVarsWithMasks(BigIntegerUtil.logheadMask(lhs.width()));
+                Map<Svar<PathExt>, BigInteger> inputs = rhs.getSvex().collectVarsWithMasks(BigIntegerUtil.logheadMask(lhs.width()));
                 String[] assignInputs = new String[inputs.size()];
                 int i = 0;
-                for (Map.Entry<SVarExt, BigInteger> e2 : inputs.entrySet())
+                for (Map.Entry<Svar<PathExt>, BigInteger> e2 : inputs.entrySet())
                 {
-                    SVarExt.LocalWire lw = (SVarExt.LocalWire) e2.getKey();
+                    PathExt.LocalWire lw = (PathExt.LocalWire) e2.getKey().getName();
                     BigInteger mask = e2.getValue();
                     assignInputs[i++] = lw.toString(mask);
                 }
@@ -454,16 +455,16 @@ public class CompileVerilogStruct
                 assert !vInstance.ports.containsKey(vPort);
                 vInstance.addConnection(vPort, signals);
             }
-            for (Map.Entry<Lhs<SVarExt>,Lhs<SVarExt>> e1: m.aliaspairs.entrySet())
+            for (Map.Entry<Lhs<PathExt>,Lhs<PathExt>> e1: m.aliaspairs.entrySet())
             {
-                Lhs<SVarExt> lhs = e1.getKey();
-                Lhs<SVarExt> rhs = e1.getValue();
+                Lhs<PathExt> lhs = e1.getKey();
+                Lhs<PathExt> rhs = e1.getValue();
                 assert lhs.ranges.size() == 1;
-                if (!(lhs.ranges.get(0).getVar() instanceof SVarExt.PortInst))
+                if (!(lhs.ranges.get(0).getVar().getName() instanceof PathExt.PortInst))
                 {
                     continue;
                 }
-                SVarExt.PortInst pi = (SVarExt.PortInst) lhs.ranges.get(0).getVar();
+                PathExt.PortInst pi = (PathExt.PortInst) lhs.ranges.get(0).getVar().getName();
                 VInstance vInstance = instances.get(pi.inst.getInstname());
                 if (vInstance == null)
                 {
@@ -473,7 +474,7 @@ public class CompileVerilogStruct
                 String[] signals = new String[rhs.ranges.size()];
                 for (int i = 0; i < rhs.ranges.size(); i++)
                 {
-                    Lhrange<SVarExt> lr = rhs.ranges.get(i);
+                    Lhrange<PathExt> lr = rhs.ranges.get(i);
                     signals[signals.length - i - 1] = toElectricString(lr);
                 }
                 VPort vPort = new VPort(vInstance, portName, signals.length > 1);
@@ -485,12 +486,12 @@ public class CompileVerilogStruct
         processModules();
     }
 
-    private static String toElectricString(Lhs<SVarExt> lhs)
+    private static String toElectricString(Lhs<PathExt> lhs)
     {
         String s = "";
         for (int i = lhs.ranges.size() - 1; i >= 0; i--)
         {
-            Lhrange<SVarExt> lr = lhs.ranges.get(i);
+            Lhrange<PathExt> lr = lhs.ranges.get(i);
             s += toElectricString(lr);
             if (i > 0)
             {
@@ -500,9 +501,9 @@ public class CompileVerilogStruct
         return s;
     }
 
-    private static String toElectricString(Lhrange<SVarExt> lr)
+    private static String toElectricString(Lhrange<PathExt> lr)
     {
-        SVarExt name = lr.getVar();
+        Svar<PathExt> name = lr.getVar();
         if (name == null)
         {
             throw new UnsupportedOperationException();

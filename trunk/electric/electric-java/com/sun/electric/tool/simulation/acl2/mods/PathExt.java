@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: SvarExt.java
+ * File: Path.java
  *
  * Copyright (c) 2017, Static Free Software. All rights reserved.
  *
@@ -23,29 +23,30 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
-import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 
 /**
- * SVAR extended by parent, instance and wire.
+ *
  */
-public abstract class SVarExt extends Svar
+public abstract class PathExt implements SvarName
 {
+    final Path b;
 
     final ModuleExt parent;
-
     public WireExt wire;
 
-    SVarExt(ModuleExt parent)
+    PathExt(ModuleExt parent, Path b)
     {
+        this.b = b;
         this.parent = parent;
     }
 
     @Override
-    public boolean isNonblocking()
+    public ACL2Object getACL2Object()
     {
-        return false;
+        return b.getACL2Object();
     }
 
     @Override
@@ -54,40 +55,30 @@ public abstract class SVarExt extends Svar
         return toString(BigIntegerUtil.logheadMask(wire.getWidth()));
     }
 
-    public String toLispString(int width, int rsh)
-    {
-        return toString(BigIntegerUtil.logheadMask(width).shiftLeft(rsh));
-    }
-
-    public static class PortInst extends SVarExt
+    public static class PortInst extends PathExt
     {
         public final ModInstExt inst;
+//        public final SvarImpl<PathExt> svar;
         Lhs source;
         Object driver;
 
-        public PortInst(ModInstExt inst, WireExt wire)
+        PortInst(ModInstExt inst, Path.Scope path)
         {
-            super(inst.parent);
+            super(inst.parent, path);
             this.inst = inst;
-            ModuleExt sm = inst.proto;
-            this.wire = wire;
+            Path.Wire pathWire = (Path.Wire)path.subpath;
+            wire = inst.proto.wiresIndex.get(pathWire.name);
             wire.exported = true;
         }
 
-        @Override
-        public ACL2Object getACL2Name()
-        {
-            return cons(inst.getInstname().getACL2Object(), wire.getName().getACL2Object());
-        }
-
-        void addSource(Lhs<SVarExt> source)
+        void addSource(Lhs<PathExt> source)
         {
             Util.check(this.source == null);
             this.source = source;
             assert source.width() == wire.getWidth();
-            for (Lhrange<SVarExt> lhr : source.ranges)
+            for (Lhrange<PathExt> lhr : source.ranges)
             {
-                SVarExt svar = lhr.getVar();
+                Svar<PathExt> svar = lhr.getVar();
                 assert svar.getDelay() == 0;
             }
         }
@@ -106,16 +97,10 @@ public abstract class SVarExt extends Svar
         }
 
         @SuppressWarnings("unchecked")
-        Lhs<SVarExt> getDriverLhs()
+        Lhs<PathExt> getDriverLhs()
         {
             assert driver instanceof Lhs;
-            return (Lhs<SVarExt>)driver;
-        }
-
-        @Override
-        public int getDelay()
-        {
-            return 0;
+            return (Lhs<PathExt>)driver;
         }
 
         @Override
@@ -123,32 +108,17 @@ public abstract class SVarExt extends Svar
         {
             return inst.getInstname() + "." + wire.toString(mask);
         }
-
     }
 
-    public static class LocalWire extends SVarExt
+    public static class LocalWire extends PathExt
     {
         public final Name name;
-        public final int delay;
 
-        LocalWire(WireExt wire, int delay)
+        LocalWire(WireExt wire)
         {
-            super(wire.parent);
+            super(wire.parent, new Path.Wire(wire.getName()));
             this.name = wire.getName();
             this.wire = wire;
-            this.delay = delay;
-        }
-
-        @Override
-        public ACL2Object getACL2Name()
-        {
-            return name.getACL2Object();
-        }
-
-        @Override
-        public int getDelay()
-        {
-            return delay;
         }
 
         public void markUsed()
@@ -159,12 +129,7 @@ public abstract class SVarExt extends Svar
         @Override
         public String toString(BigInteger mask)
         {
-            String s = wire.toString(mask);
-            if (delay != 0)
-            {
-                s = "#" + delay + " " + s;
-            }
-            return s;
+            return wire.toString(mask);
         }
 
         @Override
@@ -174,7 +139,6 @@ public abstract class SVarExt extends Svar
             {
                 LocalWire that = (LocalWire)o;
                 return this.name.equals(that.name)
-                    && this.delay == that.delay
                     && this.parent == that.parent;
             }
             return false;
@@ -183,9 +147,8 @@ public abstract class SVarExt extends Svar
         @Override
         public int hashCode()
         {
-            int hash = name.hashCode();
-            hash = 43 * hash + this.delay;
-            return hash;
+            return name.hashCode();
         }
     }
+
 }

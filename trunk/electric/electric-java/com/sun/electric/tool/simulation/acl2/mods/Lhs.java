@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
@@ -39,26 +40,26 @@ import java.util.Map;
  * A shorthand format for an expression consisting of a concatenation of parts of variables.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____LHS>.
  *
- * @param <V> Type of Svex variables
+ * @param <N> Type of name of Svex variables
  */
-public class Lhs<V extends Svar>
+public class Lhs<N extends SvarName>
 {
-    public final List<Lhrange<V>> ranges = new LinkedList<>();
+    public final List<Lhrange<N>> ranges = new LinkedList<>();
 
-    Lhs(Svar.Builder<V> builder, ACL2Object impl)
+    Lhs(Svar.Builder<N> builder, ACL2Object impl)
     {
         List<ACL2Object> l = Util.getList(impl, true);
         Util.check(!l.isEmpty());
         int lsh = 0;
         for (ACL2Object o : l)
         {
-            Lhrange<V> lhr = new Lhrange<>(builder, o, lsh);
+            Lhrange<N> lhr = new Lhrange<>(builder, o, lsh);
             ranges.add(lhr);
             lsh += lhr.getWidth();
         }
     }
 
-    public Lhs(List<Lhrange<V>> ranges)
+    public Lhs(List<Lhrange<N>> ranges)
     {
         this.ranges.addAll(ranges);
     }
@@ -73,22 +74,22 @@ public class Lhs<V extends Svar>
         return list;
     }
 
-    public <V1 extends Svar> Lhs<V1> convertVars(Svar.Builder<V1> builder)
+    public <N1 extends SvarName> Lhs<N1> convertVars(Svar.Builder<N1> builder)
     {
-        List<Lhrange<V1>> newRanges = new ArrayList<>();
-        for (Lhrange<V> range : ranges)
+        List<Lhrange<N1>> newRanges = new ArrayList<>();
+        for (Lhrange<N> range : ranges)
         {
             newRanges.add(range.convertVars(builder));
         }
         return new Lhs<>(newRanges);
     }
 
-    public Vec4 eval(Map<V, Vec4> env)
+    public Vec4 eval(Map<Svar<N>, Vec4> env)
     {
         Vec4 result = Vec4.Z;
         for (int i = ranges.size() - 1; i >= 0; i--)
         {
-            Lhrange<V> range = ranges.get(i);
+            Lhrange<N> range = ranges.get(i);
             result = Vec4Concat.FUNCTION.apply(
                 new Vec2(BigInteger.valueOf(range.getWidth())),
                 range.eval(env),
@@ -107,9 +108,9 @@ public class Lhs<V extends Svar>
         return size;
     }
 
-    public Lhs<V> cons(Lhrange<V> x)
+    public Lhs<N> cons(Lhrange<N> x)
     {
-        List<Lhrange<V>> newRanges = new ArrayList<>();
+        List<Lhrange<N>> newRanges = new ArrayList<>();
         if (ranges.isEmpty())
         {
             if (x.getVar() != null)
@@ -118,7 +119,7 @@ public class Lhs<V extends Svar>
             }
         } else
         {
-            Lhrange<V> comb = x.combine(ranges.get(0));
+            Lhrange<N> comb = x.combine(ranges.get(0));
             if (comb != null)
             {
                 if (ranges.size() > 1 || comb.getVar() != null)
@@ -135,13 +136,13 @@ public class Lhs<V extends Svar>
         return new Lhs<>(newRanges);
     }
 
-    Lhs<V> norm()
+    Lhs<N> norm()
     {
-        List<Lhrange<V>> newRanges = new ArrayList<>();
+        List<Lhrange<N>> newRanges = new ArrayList<>();
         newRanges.addAll(ranges);
         for (int i = newRanges.size() - 1; i >= 0; i--)
         {
-            Lhrange<V> range = newRanges.get(i);
+            Lhrange<N> range = newRanges.get(i);
             if (i == newRanges.size() - 1)
             {
                 if (range.getVar() == null)
@@ -150,7 +151,7 @@ public class Lhs<V extends Svar>
                 }
             } else
             {
-                Lhrange<V> comb = range.combine(newRanges.get(i + 1));
+                Lhrange<N> comb = range.combine(newRanges.get(i + 1));
                 if (comb != null)
                 {
                     newRanges.remove(i + 1);
@@ -170,13 +171,13 @@ public class Lhs<V extends Svar>
         return norm().equals(this);
     }
 
-    public Lhs<V> concat(int w, Lhs<V> y)
+    public Lhs<N> concat(int w, Lhs<N> y)
     {
-        List<Lhrange<V>> newRanges = new ArrayList<>();
+        List<Lhrange<N>> newRanges = new ArrayList<>();
         int ww = 0;
         for (int i = 0; i < ranges.size() && ww < w; i++)
         {
-            Lhrange<V> range = ranges.get(i);
+            Lhrange<N> range = ranges.get(i);
             if (ww + range.getWidth() <= w)
             {
                 newRanges.add(range);
@@ -195,20 +196,20 @@ public class Lhs<V extends Svar>
         return new Lhs<>(newRanges).norm();
     }
 
-    public Lhs<V> rsh(int sh)
+    public Lhs<N> rsh(int sh)
     {
-        List<Lhrange<V>> newRanges = new ArrayList<>();
+        List<Lhrange<N>> newRanges = new ArrayList<>();
         newRanges.addAll(ranges);
         while (sh > 0 && !newRanges.isEmpty())
         {
-            Lhrange<V> range = ranges.get(0);
+            Lhrange<N> range = ranges.get(0);
             if (range.getWidth() < sh)
             {
                 newRanges.remove(0);
                 sh -= range.getWidth();
             } else
             {
-                V svar = range.getVar();
+                Svar<N> svar = range.getVar();
                 if (svar != null)
                 {
                     newRanges.add(new Lhrange<>(sh, new Lhatom.Var<>(svar, range.getRsh() + sh)));

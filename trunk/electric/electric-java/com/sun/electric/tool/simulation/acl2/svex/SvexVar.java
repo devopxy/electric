@@ -30,14 +30,14 @@ import java.util.Set;
  * A variable, which represents a 4vec.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____SVEX-VAR>.
  *
- * @param <V> Type of Svex variables
+ * @param <N> Type of name of Svex variables
  */
-public class SvexVar<V extends Svar> extends Svex<V>
+public class SvexVar<N extends SvarName> extends Svex<N>
 {
-    public V svar;
+    public Svar<N> svar;
     private final ACL2Object impl;
 
-    public SvexVar(V svar)
+    public SvexVar(Svar<N> svar)
     {
         if (svar == null)
         {
@@ -54,12 +54,12 @@ public class SvexVar<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public <V1 extends Svar> Svex<V1> convertVars(Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache)
+    public <N1 extends SvarName> Svex<N1> convertVars(Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache)
     {
-        Svex<V1> svex = cache.get(this);
+        Svex<N1> svex = cache.get(this);
         if (svex == null)
         {
-            V1 newVar = builder.newVar(svar);
+            Svar<N1> newVar = builder.newVar(svar);
             svex = new SvexVar<>(newVar);
             cache.put(this, svex);
         }
@@ -67,9 +67,9 @@ public class SvexVar<V extends Svar> extends Svex<V>
     }
 
     @Override
-    public <V1 extends Svar> Svex<V1> addDelay(int delay, Svar.Builder<V1> builder, Map<Svex<V>, Svex<V1>> cache)
+    public <N1 extends SvarName> Svex<N1> addDelay(int delay, Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache)
     {
-        Svex<V1> svex = cache.get(this);
+        Svex<N1> svex = cache.get(this);
         if (svex == null)
         {
             svex = new SvexVar<>(builder.addDelay(svar, delay));
@@ -79,25 +79,25 @@ public class SvexVar<V extends Svar> extends Svex<V>
     }
 
     @Override
-    protected void collectVars(Set<V> result, Set<SvexCall<V>> visited)
+    protected void collectVars(Set<Svar<N>> result, Set<SvexCall<N>> visited)
     {
         result.add(svar);
     }
 
     @Override
-    public <R, D> R accept(Visitor<V, R, D> visitor, D data)
+    public <R, D> R accept(Visitor<N, R, D> visitor, D data)
     {
         return visitor.visitVar(svar, data);
     }
 
     @Override
-    public Vec4 xeval(Map<Svex<V>, Vec4> memoize)
+    public Vec4 xeval(Map<Svex<N>, Vec4> memoize)
     {
         return Vec4.X;
     }
 
     @Override
-    public Svex<V> patch(Map<V, Vec4> subst, Map<SvexCall<V>, SvexCall<V>> memoize)
+    public Svex<N> patch(Map<Svar<N>, Vec4> subst, Map<SvexCall<N>, SvexCall<N>> memoize)
     {
         Vec4 val = subst.get(svar);
         return val != null ? new SvexQuote(val) : this;

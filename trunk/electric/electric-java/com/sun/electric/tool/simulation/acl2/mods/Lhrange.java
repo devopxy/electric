@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
@@ -37,14 +38,14 @@ import java.util.Map;
  * An atom with width from left-hand side of SVEX assignment.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____LHRANGE>.
  *
- * @param <V> Type of Svex variables
+ * @param <N> Type of name of Svex variables
  */
-public class Lhrange<V extends Svar>
+public class Lhrange<N extends SvarName>
 {
     private final int w;
-    private final Lhatom<V> atom;
+    private final Lhatom<N> atom;
 
-    Lhrange(Svar.Builder<V> builder, ACL2Object impl, int lsh)
+    Lhrange(Svar.Builder<N> builder, ACL2Object impl, int lsh)
     {
         if (consp(impl).bool())
         {
@@ -65,7 +66,7 @@ public class Lhrange<V extends Svar>
         Util.check(w >= 1);
     }
 
-    public Lhrange(int w, Lhatom<V> atom)
+    public Lhrange(int w, Lhatom<N> atom)
     {
         this.w = w;
         this.atom = atom;
@@ -77,26 +78,26 @@ public class Lhrange<V extends Svar>
         return w == 1 ? atomImpl : cons(ACL2Object.valueOf(w), atomImpl);
     }
 
-    public <V1 extends Svar> Lhrange<V1> convertVars(Svar.Builder<V1> builder)
+    public <N1 extends SvarName> Lhrange<N1> convertVars(Svar.Builder<N1> builder)
     {
         return new Lhrange<>(w, atom.convertVars(builder));
     }
 
-    public Vec4 eval(Map<V, Vec4> env)
+    public Vec4 eval(Map<Svar<N>, Vec4> env)
     {
         return Vec4Concat.FUNCTION.apply(new Vec2(BigInteger.valueOf(w)), atom.eval(env), Vec4.Z);
     }
 
-    public Svex<V> toSvex()
+    public Svex<N> toSvex()
     {
-        Svex<V>[] args = Svex.newSvexArray(3);
+        Svex<N>[] args = Svex.newSvexArray(3);
         args[0] = new SvexQuote<>(new Vec2(BigInteger.valueOf(w)));
         args[1] = atom.toSvex();
         args[2] = new SvexQuote<>(Vec4.Z);
         return Vec4Concat.FUNCTION.build(args);
     }
 
-    public Lhatom<V> nextbit()
+    public Lhatom<N> nextbit()
     {
         if (atom instanceof Lhatom.Var)
         {
@@ -107,10 +108,10 @@ public class Lhrange<V extends Svar>
         }
     }
 
-    public boolean combinable(Lhatom<V> y)
+    public boolean combinable(Lhatom<N> y)
     {
-        V vx = getVar();
-        V vy = y.getVar();
+        Svar<N> vx = getVar();
+        Svar<N> vy = y.getVar();
         if (vx == null)
         {
             return vy == null;
@@ -120,10 +121,10 @@ public class Lhrange<V extends Svar>
         }
     }
 
-    public Lhrange<V> combine(Lhrange<V> y)
+    public Lhrange<N> combine(Lhrange<N> y)
     {
-        V vx = getVar();
-        V vy = y.getVar();
+        Svar<N> vx = getVar();
+        Svar<N> vy = y.getVar();
         if (vx == null)
         {
             if (vy == null)
@@ -137,12 +138,12 @@ public class Lhrange<V extends Svar>
         return null;
     }
 
-    public Lhatom<V> getAtom()
+    public Lhatom<N> getAtom()
     {
         return atom;
     }
 
-    public V getVar()
+    public Svar<N> getVar()
     {
         return atom.getVar();
     }
@@ -160,7 +161,7 @@ public class Lhrange<V extends Svar>
     @Override
     public String toString()
     {
-        V name = getVar();
+        Svar<N> name = getVar();
         if (name != null)
         {
             return name.toString(BigIntegerUtil.logheadMask(getWidth()).shiftLeft(getRsh()));
