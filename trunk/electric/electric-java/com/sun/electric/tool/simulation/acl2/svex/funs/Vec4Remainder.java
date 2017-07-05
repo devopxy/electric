@@ -53,7 +53,7 @@ public class Vec4Remainder<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_PROCENT, 2);
+            super(FunctionSyms.SV_PROCENT, 2, "4vec-remainder");
         }
 
         @Override

@@ -51,7 +51,7 @@ public class Vec4Countones<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_COUNTONES, 1);
+            super(FunctionSyms.SV_COUNTONES, 1, "4vec-countones");
         }
 
         @Override

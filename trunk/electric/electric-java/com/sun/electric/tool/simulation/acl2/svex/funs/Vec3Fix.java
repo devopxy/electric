@@ -50,7 +50,7 @@ public class Vec3Fix<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_UNFLOAT, 1);
+            super(FunctionSyms.SV_UNFLOAT, 1, "3vec-fix");
         }
 
         @Override

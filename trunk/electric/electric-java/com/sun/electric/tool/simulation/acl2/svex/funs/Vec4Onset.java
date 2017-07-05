@@ -50,7 +50,7 @@ public class Vec4Onset<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_ONP, 1);
+            super(FunctionSyms.SV_ONP, 1, "4vec-onset");
         }
 
         @Override

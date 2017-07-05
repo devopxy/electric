@@ -50,7 +50,7 @@ public class Vec4Xdet<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_XDET, 1);
+            super(FunctionSyms.SV_XDET, 1, "4vec-xdet");
         }
 
         @Override

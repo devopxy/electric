@@ -53,7 +53,7 @@ public class Vec4BitExtract<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_BITSEL, 2);
+            super(FunctionSyms.SV_BITSEL, 2, "4vec-bit-extract");
         }
 
         @Override

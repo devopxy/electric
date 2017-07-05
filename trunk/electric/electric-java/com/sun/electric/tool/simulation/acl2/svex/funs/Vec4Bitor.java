@@ -53,7 +53,7 @@ public class Vec4Bitor<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_BITOR, 2);
+            super(FunctionSyms.SV_BITOR, 2, "4vec-bitor");
         }
 
         @Override

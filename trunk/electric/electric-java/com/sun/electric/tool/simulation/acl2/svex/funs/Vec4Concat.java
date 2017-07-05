@@ -57,7 +57,7 @@ public class Vec4Concat<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_CONCAT, 3);
+            super(FunctionSyms.SV_CONCAT, 3, "4vec-concat");
         }
 
         @Override

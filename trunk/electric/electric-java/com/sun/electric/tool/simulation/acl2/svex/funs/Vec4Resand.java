@@ -52,7 +52,7 @@ public class Vec4Resand<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_RESAND, 2);
+            super(FunctionSyms.SV_RESAND, 2, "4vec-resand");
         }
 
         @Override

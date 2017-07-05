@@ -55,7 +55,7 @@ public class Vec4IteBit<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_BIT_QUEST, 3);
+            super(FunctionSyms.SV_BIT_QUEST, 3, "4vec-bit?");
         }
 
         @Override

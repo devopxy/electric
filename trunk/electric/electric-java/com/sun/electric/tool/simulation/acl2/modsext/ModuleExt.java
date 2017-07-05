@@ -72,6 +72,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
     final Map<Name, ModInstExt> instsIndex = new HashMap<>();
     int useCount;
 
+    final boolean hasState;
+    final Set<WireExt> stateWires = new LinkedHashSet<>();
     Set<WireExt> combinationalInputs0;
     Set<WireExt> combinationalInputs1;
 
@@ -88,12 +90,17 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
             Util.check(old == null);
         }
 
+        boolean hasState = false;
         for (ModInst modInst : b.insts)
         {
             ModInstExt mi = new ModInstExt(this, modInst, downTop);
             insts.add(mi);
             ModInstExt old = instsIndex.put(mi.getInstname(), mi);
             Util.check(old == null);
+            if (mi.proto.hasState)
+            {
+                hasState = true;
+            }
         }
 
         Map<Svex<N>, Svex<PathExt>> svexCache = new HashMap<>();
@@ -122,7 +129,17 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
             }
             markAssigned(lhs, BigIntegerUtil.MINUS_ONE);
             drv.markUsed();
+            for (Svar<PathExt> svar : drv.collectVars())
+            {
+                if (svar.getDelay() != 0)
+                {
+                    Util.check(svar.getDelay() == 1);
+                    PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
+                    stateWires.add(lw.wire);
+                }
+            }
         }
+        this.hasState = hasState || !stateWires.isEmpty();
 
         for (Map.Entry<Lhs<N>, Lhs<N>> e : b.aliaspairs.entrySet())
         {
@@ -181,6 +198,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
                     Util.check(rhs.ranges.size() == 1);
                     PathExt.PortInst rhsPi = (PathExt.PortInst)rhs.ranges.get(0).getVar().getName();
                     Util.check(rhsPi.inst.getModname().isCoretype);
+                    rhsPi.addDriver(lhs);
 //                    System.out.println("lw string " + lw + " in " + modName);
                 } else if (integerp(lw.name.getACL2Object()).bool())
                 {
@@ -274,6 +292,14 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
         }
     }
 
+    void checkExports()
+    {
+        for (ModInstExt inst : insts)
+        {
+            inst.checkExports();
+        }
+    }
+
     Set<WireExt> getCombinationalInputs(boolean clockVal)
     {
         return clockVal ? combinationalInputs1 : combinationalInputs0;
@@ -281,6 +307,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
 
     void computeCombinationalInputs(String global)
     {
+        checkExports();
         computeDriverDeps(global, false);
         computeDriverDeps(global, true);
 
@@ -371,10 +398,10 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
     {
         Map<Svar<PathExt>, Vec4> patchEnv = makePatchEnv(global, clkOne ? Vec2.ONE : Vec2.ZERO);
         Map<SvexCall<PathExt>, SvexCall<PathExt>> patchMemoize = new HashMap<>();
-        for (Map.Entry<Lhs<PathExt>, DriverExt> e1 : assigns.entrySet())
+        for (Map.Entry<Lhs<PathExt>, DriverExt> e : assigns.entrySet())
         {
-            Lhs<PathExt> l = e1.getKey();
-            DriverExt d = e1.getValue();
+            Lhs<PathExt> l = e.getKey();
+            DriverExt d = e.getValue();
             d.computeDeps(l.width(), clkOne, patchEnv, patchMemoize);
         }
     }
@@ -702,7 +729,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
         {
             int hash = 3;
             hash = 29 * hash + wire.hashCode();
-            hash = 29 * hash + this.bit;
+            hash = 29 * hash + bit;
             return hash;
         }
     }

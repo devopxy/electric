@@ -53,7 +53,7 @@ public class Vec4Rsh<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_RSH, 2);
+            super(FunctionSyms.SV_RSH, 2, "4vec-rsh");
         }
 
         @Override

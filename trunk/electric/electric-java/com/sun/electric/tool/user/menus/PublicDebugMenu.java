@@ -40,6 +40,7 @@ import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesEngine;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesEngineFactory;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesHandlers;
 import com.sun.electric.tool.simulation.acl2.modsext.ACL2DesignJobs;
+import com.sun.electric.tool.simulation.acl2.modsext.GenFsmJob;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.UserInterfaceMain;
 import com.sun.electric.tool.user.dialogs.OpenFile;
@@ -66,6 +67,22 @@ public class PublicDebugMenu {
 		// SEPARATOR,
                 new EMenu("ACL2",
 
+
+                new EMenuItem("Gen phase FSM") {
+                    @Override
+                    public void run()
+                    {
+                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized SVEX design", false);
+                        if (saoPath == null) return;
+                        URL fileURL = TextUtils.makeURLToFile(saoPath);
+                        File f = TextUtils.getFile(fileURL);
+                        String defaultOutName = User.getWorkingDirectory()
+                            + File.separator + TextUtils.getFileNameWithoutExtension(saoPath) + "-phase2.lisp";
+                        String outPath = OpenFile.chooseOutputFile(FileType.LISP, "Lisp with Phase FSM", defaultOutName);
+                        if (outPath == null) return;
+                        GenFsmJob.genFsm(f, outPath);
+                    }
+                },
                 new EMenuItem("Import _SAO...") {	public void run() {
                     importLibraryCommand(FileType.SAO, false, false, false, false); }},
                 new EMenuItem("Count objects in SAO file") {

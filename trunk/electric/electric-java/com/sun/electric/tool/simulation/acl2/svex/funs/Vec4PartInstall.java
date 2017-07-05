@@ -58,7 +58,7 @@ public class Vec4PartInstall<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_PARTINST, 4);
+            super(FunctionSyms.SV_PARTINST, 4, "4vec-part-install");
         }
 
         @Override

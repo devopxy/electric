@@ -51,7 +51,7 @@ public class Vec4Parity<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_UXOR, 1);
+            super(FunctionSyms.SV_UXOR, 1, "4vec-parity");
         }
 
         @Override

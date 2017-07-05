@@ -51,7 +51,7 @@ public class Vec4Bitnot<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_BITNOT, 1);
+            super(FunctionSyms.SV_BITNOT, 1, "4vec-bitnot");
         }
 
         @Override

@@ -53,7 +53,7 @@ public class Vec4SignExt<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_SIGNX, 2);
+            super(FunctionSyms.SV_SIGNX, 2, "4vec-sign-ext");
         }
 
         @Override

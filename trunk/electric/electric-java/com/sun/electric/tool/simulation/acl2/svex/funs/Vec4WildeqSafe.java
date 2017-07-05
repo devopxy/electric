@@ -53,7 +53,7 @@ public class Vec4WildeqSafe<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_SAFER_EQ_EQ_QUEST, 2);
+            super(FunctionSyms.SV_SAFER_EQ_EQ_QUEST, 2, "4vec-wildeq-safe");
         }
 
         @Override

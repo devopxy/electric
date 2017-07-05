@@ -52,7 +52,7 @@ public class Vec4Resor<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_RESOR, 2);
+            super(FunctionSyms.SV_RESOR, 2, "4vec-resor");
         }
 
         @Override

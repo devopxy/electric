@@ -52,7 +52,7 @@ public class Vec4ReductionAnd<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_UAND, 1);
+            super(FunctionSyms.SV_UAND, 1, "4vec-reduction-and");
         }
 
         @Override

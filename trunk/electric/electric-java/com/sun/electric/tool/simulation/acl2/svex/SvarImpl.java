@@ -76,9 +76,15 @@ public class SvarImpl<N extends SvarName> implements Svar<N>
     }
 
     @Override
+    public String toString()
+    {
+        return toString(null);
+    }
+
+    @Override
     public String toString(BigInteger mask)
     {
-        String s = name.toString(mask);
+        String s = mask != null ? name.toString(mask) : name.toString();
         if (isNonblocking())
         {
             s = "#?" + getDelay() + " " + s;

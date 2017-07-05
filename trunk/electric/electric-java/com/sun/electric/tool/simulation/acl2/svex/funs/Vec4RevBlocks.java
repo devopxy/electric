@@ -56,7 +56,7 @@ public class Vec4RevBlocks<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_BLKREV, 3);
+            super(FunctionSyms.SV_BLKREV, 3, "4vec-rev-blocks");
         }
 
         @Override
