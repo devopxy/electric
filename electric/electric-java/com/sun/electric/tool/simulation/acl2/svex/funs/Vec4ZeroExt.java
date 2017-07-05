@@ -55,7 +55,7 @@ public class Vec4ZeroExt<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_ZEROX, 2);
+            super(FunctionSyms.SV_ZEROX, 2, "4vec-zero-ext");
         }
 
         @Override

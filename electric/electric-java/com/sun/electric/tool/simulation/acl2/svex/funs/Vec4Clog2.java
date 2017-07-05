@@ -51,7 +51,7 @@ public class Vec4Clog2<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_CLOG2, 1);
+            super(FunctionSyms.SV_CLOG2, 1, "4vec-clog2");
         }
 
         @Override

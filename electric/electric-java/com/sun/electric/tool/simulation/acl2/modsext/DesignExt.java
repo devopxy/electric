@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.simulation.acl2.mods.Design;
+import com.sun.electric.tool.simulation.acl2.mods.ModDb;
 import com.sun.electric.tool.simulation.acl2.mods.ModInst;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
@@ -33,6 +34,7 @@ import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,6 +48,7 @@ import java.util.TreeMap;
 public class DesignExt
 {
     public final Design<? extends SvarName> b;
+    public final ModDb moddb;
 
     public final Map<ModName, ModuleExt> downTop = new LinkedHashMap<>();
     public final Map<ModName, ModuleExt> topDown = new LinkedHashMap<>();
@@ -58,12 +61,22 @@ public class DesignExt
     public <N extends SvarName> DesignExt(Design<N> b)
     {
         this.b = b;
+        moddb = new ModDb(b.top, b.modalist);
+        Util.check(moddb.nMods() == b.modalist.size());
 
-        for (ModName mn : b.modalist.keySet())
-        {
-            addToDownTop(mn);
-        }
+        addToDownTop(b.top);
+//        for (ModName mn : b.modalist.keySet())
+//        {
+//            addToDownTop(mn);
+//        }
         Util.check(downTop.size() == b.modalist.size());
+        int modidx = 0;
+        for (Iterator<ModName> it = downTop.keySet().iterator(); it.hasNext(); modidx++)
+        {
+
+            Util.check(moddb.modidxGetName(modidx).equals(it.next()));
+        }
+        assert modidx == moddb.nMods();
 
         List<ModName> keys = new ArrayList<>(downTop.keySet());
         for (int i = keys.size() - 1; i >= 0; i--)

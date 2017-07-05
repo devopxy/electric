@@ -56,7 +56,7 @@ public class Vec4IteStmt<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_QUEST_STAR, 3);
+            super(FunctionSyms.SV_QUEST_STAR, 3, "4vec-?*");
         }
 
         @Override

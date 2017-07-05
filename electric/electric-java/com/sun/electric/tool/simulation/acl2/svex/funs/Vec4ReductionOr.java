@@ -51,7 +51,7 @@ public class Vec4ReductionOr<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_UOR, 1);
+            super(FunctionSyms.SV_UOR, 1, "4vec-reduction-or");
         }
 
         @Override

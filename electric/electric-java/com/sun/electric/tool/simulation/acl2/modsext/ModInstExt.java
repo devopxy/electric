@@ -81,4 +81,17 @@ public class ModInstExt
     {
         return b.toString();
     }
+
+    void checkExports()
+    {
+        for (WireExt export : proto.wires)
+        {
+            if (export.exported)
+            {
+                PathExt.PortInst pi = portInsts.get(export.b.name);
+                Util.check(pi != null && (pi.source != null || pi.driver != null));
+                Util.check(pi.source == null || pi.driver == null);
+            }
+        }
+    }
 }

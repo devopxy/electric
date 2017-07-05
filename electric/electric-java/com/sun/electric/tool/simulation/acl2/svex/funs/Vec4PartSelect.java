@@ -56,7 +56,7 @@ public class Vec4PartSelect<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_PARTSEL, 3);
+            super(FunctionSyms.SV_PARTSEL, 3, "4vec-part-select");
         }
 
         @Override

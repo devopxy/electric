@@ -53,7 +53,7 @@ public class Vec4Lt<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.CL_LT, 2);
+            super(FunctionSyms.CL_LT, 2, "4vec-<");
         }
 
         @Override

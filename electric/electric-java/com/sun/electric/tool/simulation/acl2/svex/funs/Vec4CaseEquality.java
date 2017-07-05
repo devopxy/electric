@@ -65,7 +65,7 @@ public class Vec4CaseEquality<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_EQ_EQ_EQ, 2);
+            super(FunctionSyms.SV_EQ_EQ_EQ, 2, "4vec-===");
         }
 
         @Override

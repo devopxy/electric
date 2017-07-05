@@ -48,6 +48,16 @@ public class ModDb
         moduleToDb(modName, modalist);
     }
 
+    public int nMods()
+    {
+        return mods.size();
+    }
+
+    public ModName modidxGetName(int modidx)
+    {
+        return mods.get(modidx).modName;
+    }
+
     /**
      * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODDB-MOD-NWIRES>
      *

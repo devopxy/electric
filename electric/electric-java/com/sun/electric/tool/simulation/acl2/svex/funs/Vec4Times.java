@@ -53,7 +53,7 @@ public class Vec4Times<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.CL_STAR, 2);
+            super(FunctionSyms.CL_STAR, 2, "4vec-times");
         }
 
         @Override

@@ -51,7 +51,7 @@ public class Vec4Onehot<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_ONEHOT, 1);
+            super(FunctionSyms.SV_ONEHOT, 1, "4vec-onehot");
         }
 
         @Override

@@ -32,7 +32,7 @@ public class Name
 {
     public final ACL2Object impl;
 
-    Name(ACL2Object impl)
+    public Name(ACL2Object impl)
     {
         this.impl = impl;
         if (stringp(impl).bool())

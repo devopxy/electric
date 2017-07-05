@@ -51,7 +51,7 @@ public class Vec4Uminus<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_UMINUS, 1);
+            super(FunctionSyms.SV_UMINUS, 1, "4vec-uminus");
         }
 
         @Override

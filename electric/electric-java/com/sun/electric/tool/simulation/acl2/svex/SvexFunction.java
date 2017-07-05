@@ -39,6 +39,7 @@ public abstract class SvexFunction
 {
     public final ACL2Object fn;
     public final int arity;
+    public final String applyFn;
 
     private static final Map<ACL2Object, SvexFunction> FUNCTIONS = new HashMap<>();
 
@@ -110,7 +111,7 @@ public abstract class SvexFunction
         return fun;
     }
 
-    public SvexFunction(ACL2Object fn, int arity)
+    public SvexFunction(ACL2Object fn, int arity, String applyFn)
     {
         if (!isFnSym(fn))
         {
@@ -118,6 +119,7 @@ public abstract class SvexFunction
         }
         this.fn = fn;
         this.arity = arity;
+        this.applyFn = applyFn;
     }
 
     public abstract <N extends SvarName> SvexCall<N> build(Svex<N>[] args);
@@ -219,7 +221,7 @@ public abstract class SvexFunction
     {
         public Undefined(ACL2Object fn, int arity)
         {
-            super(fn, arity);
+            super(fn, arity, "UNDEFINED-" + arity);
         }
 
         @Override

@@ -53,7 +53,7 @@ public class Vec4Quotient<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.CL_SLASH, 2);
+            super(FunctionSyms.CL_SLASH, 2, "4vec-quotient");
         }
 
         @Override

@@ -30,6 +30,7 @@ import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModDb;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
+import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
@@ -69,7 +70,10 @@ public class ACL2DesignJobs
     {
         private final File saoFile;
         private final String outFileName;
-        private final String clockName = "l2clk";
+        private final String[] clockNames =
+        {
+            "l2clk"
+        };
 
         private DumpDesignJob(File saoFile, String outFileName)
         {
@@ -85,6 +89,17 @@ public class ACL2DesignJobs
             {
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 DesignExt design = new DesignExt(sr.root);
+                ModuleExt topModule = design.downTop.get(design.getTop());
+                String clockName = null;
+                for (String c : clockNames)
+                {
+                    Name name = new Name(ACL2Object.valueOf(c));
+                    if (topModule.wiresIndex.containsKey(name))
+                    {
+                        clockName = c;
+                        break;
+                    }
+                }
                 design.computeCombinationalInputs(clockName);
                 try (PrintStream out = new PrintStream(outFileName))
                 {
@@ -232,7 +247,27 @@ public class ACL2DesignJobs
 //                                    out.print(" | 0 => " + dep0 + " | 1 => " + dep1);
 //                                }
 //                            }
-                            out.println(" // " + d.name);
+                            out.print(" // " + d.name);
+                            String sState = "";
+                            for (Map.Entry<Svar<PathExt>, BigInteger> e2 : d.getCrudeDeps(false).entrySet())
+                            {
+                                Svar<PathExt> svar = e2.getKey();
+                                BigInteger mask = e2.getValue();
+                                if (svar.getDelay() == 0 || mask == null || mask.signum() == 0)
+                                {
+                                    continue;
+                                }
+                                if (!sState.isEmpty())
+                                {
+                                    sState += ",";
+                                }
+                                sState += svar.toString(mask);
+                            }
+                            if (!sState.isEmpty())
+                            {
+//                                out.print(" STATE " + sState);
+                            }
+                            out.println();
 //                            out.println("    // 0 depends on " + graph0.get(d.name));
 //                            out.println("    // 1 depends on " + graph1.get(d.name));
 //                            out.println("    // 0 closure " + closure0.get(d.name));
@@ -268,6 +303,10 @@ public class ACL2DesignJobs
                     }
                     out.println("// totalUseCount=" + totalUseCount);
                     out.println("// design.top=" + design.getTop());
+                    if (clockName != null)
+                    {
+                        out.println("// clock=" + clockName);
+                    }
                 }
             } catch (IOException e)
             {

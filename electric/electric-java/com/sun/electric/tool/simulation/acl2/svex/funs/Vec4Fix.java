@@ -50,7 +50,7 @@ public class Vec4Fix<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.ACL2_ID, 1);
+            super(FunctionSyms.ACL2_ID, 1, "4vec-fix");
         }
 
         @Override

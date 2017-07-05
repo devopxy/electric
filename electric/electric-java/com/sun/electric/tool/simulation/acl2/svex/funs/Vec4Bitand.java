@@ -53,7 +53,7 @@ public class Vec4Bitand<N extends SvarName> extends SvexCall<N>
     {
         private Function()
         {
-            super(FunctionSyms.SV_BITAND, 2);
+            super(FunctionSyms.SV_BITAND, 2, "4vec-bitand");
         }
 
         @Override
