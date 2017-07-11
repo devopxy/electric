@@ -28,11 +28,14 @@ import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4ZeroExt;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 
 import java.util.Set;
@@ -284,6 +287,7 @@ public abstract class Svex<N extends SvarName>
 
     public abstract Svex<N> patch(Map<Svar<N>, Vec4> subst, Map<SvexCall<N>, SvexCall<N>> memoize);
 
+    /* rsh-concat.lisp */
     public abstract boolean isLhsUnbounded();
 
     public abstract boolean isLhs();
@@ -355,13 +359,13 @@ public abstract class Svex<N extends SvarName>
         }
         if (this instanceof SvexQuote)
         {
-            return new SvexQuote<N>(Vec4Rsh.FUNCTION.apply(new Vec2(BigInteger.valueOf(sh)),
+            return new SvexQuote<>(Vec4Rsh.FUNCTION.apply(new Vec2(sh),
                 ((SvexQuote<N>)this).val));
         }
         MatchRsh<N> matchRsh = matchRsh();
         if (matchRsh != null)
         {
-            Svex<N> shift = new SvexQuote<>(new Vec2(BigInteger.valueOf(matchRsh.width + sh)));
+            Svex<N> shift = new SvexQuote<>(new Vec2(matchRsh.width + sh));
             Svex<N>[] newArgs = Svex.newSvexArray(2);
             newArgs[0] = shift;
             newArgs[1] = matchRsh.subexp;
@@ -370,7 +374,7 @@ public abstract class Svex<N extends SvarName>
         MatchConcat<N> matchConcat = matchConcat();
         if (matchConcat != null && sh >= matchConcat.width)
         {
-            Svex<N> shift = new SvexQuote<>(new Vec2(BigInteger.valueOf(sh - matchRsh.width)));
+            Svex<N> shift = new SvexQuote<>(new Vec2(sh - matchRsh.width));
             Svex<N>[] newArgs = Svex.newSvexArray(2);
             newArgs[0] = shift;
             newArgs[1] = matchRsh.subexp;
@@ -381,7 +385,7 @@ public abstract class Svex<N extends SvarName>
         {
             return new SvexQuote<>(Vec2.ZERO);
         }
-        Svex<N> shift = new SvexQuote<>(new Vec2(BigInteger.valueOf(sh)));
+        Svex<N> shift = new SvexQuote<>(new Vec2(sh));
         Svex<N>[] newArgs = Svex.newSvexArray(2);
         newArgs[0] = shift;
         newArgs[1] = this;
@@ -400,7 +404,7 @@ public abstract class Svex<N extends SvarName>
         }
         if (this instanceof SvexQuote && y instanceof SvexQuote)
         {
-            Vec4 val = Vec4Rsh.FUNCTION.apply(new Vec2(BigInteger.valueOf(w)),
+            Vec4 val = Vec4Rsh.FUNCTION.apply(new Vec2(w),
                 ((SvexQuote<N>)this).val,
                 ((SvexQuote<N>)y).val);
             return new SvexQuote<>(val);
@@ -417,7 +421,7 @@ public abstract class Svex<N extends SvarName>
         }
         if (!(this instanceof SvexQuote))
         {
-            Svex<N> width = new SvexQuote<>(new Vec2(BigInteger.valueOf(w)));
+            Svex<N> width = new SvexQuote<>(new Vec2(w));
             Svex<N>[] newArgs = Svex.newSvexArray(3);
             newArgs[0] = width;
             newArgs[1] = this;
@@ -427,13 +431,13 @@ public abstract class Svex<N extends SvarName>
         MatchConcat<N> matchConcatY = y.matchConcat();
         if (matchConcatY != null && matchConcatY.lsbs instanceof SvexQuote)
         {
-            Vec4 lsbVal = Vec4Concat.FUNCTION.apply(new Vec2(BigInteger.valueOf(w)),
+            Vec4 lsbVal = Vec4Concat.FUNCTION.apply(new Vec2(w),
                 ((SvexQuote<N>)this).val,
                 ((SvexQuote<N>)matchConcatY.lsbs).val);
             Svex<N> newLsb = new SvexQuote<>(lsbVal);
             return newLsb.concat(w + matchConcatY.width, matchConcatY.msbs);
         }
-        Svex<N> width = new SvexQuote<>(new Vec2(BigInteger.valueOf(w)));
+        Svex<N> width = new SvexQuote<>(new Vec2(w));
         Svex<N>[] newArgs = Svex.newSvexArray(3);
         newArgs[0] = width;
         newArgs[1] = this;
@@ -453,7 +457,7 @@ public abstract class Svex<N extends SvarName>
         }
         if (this instanceof SvexQuote)
         {
-            Vec4 val = Vec4ZeroExt.FUNCTION.apply(new Vec2(BigInteger.valueOf(w)),
+            Vec4 val = Vec4ZeroExt.FUNCTION.apply(new Vec2(w),
                 ((SvexQuote<N>)this).val);
             return new SvexQuote<>(val);
         }
@@ -467,7 +471,7 @@ public abstract class Svex<N extends SvarName>
         {
             return matchExt.lsbs.zerox(w);
         }
-        Svex<N> width = new SvexQuote<>(new Vec2(BigInteger.valueOf(w)));
+        Svex<N> width = new SvexQuote<>(new Vec2(w));
         Svex<N>[] newArgs = Svex.newSvexArray(2);
         newArgs[0] = width;
         newArgs[1] = this;
@@ -486,7 +490,7 @@ public abstract class Svex<N extends SvarName>
         }
         if (this instanceof SvexQuote)
         {
-            Vec4 val = Vec4SignExt.FUNCTION.apply(new Vec2(BigInteger.valueOf(w)),
+            Vec4 val = Vec4SignExt.FUNCTION.apply(new Vec2(w),
                 ((SvexQuote<N>)this).val);
             return new SvexQuote<>(val);
         }
@@ -509,10 +513,37 @@ public abstract class Svex<N extends SvarName>
                 return matchExt.lsbs.zerox(matchExt.width);
             }
         }
-        Svex<N> width = new SvexQuote<>(new Vec2(BigInteger.valueOf(w)));
+        Svex<N> width = new SvexQuote<>(new Vec2(w));
         Svex<N>[] newArgs = Svex.newSvexArray(2);
         newArgs[0] = width;
         newArgs[1] = this;
         return SvexCall.newCall(Vec4ZeroExt.FUNCTION, newArgs);
+    }
+
+    /* rewrite.lisp */
+    void multirefs(Set<SvexCall<N>> seen, Set<SvexCall<N>> multirefs)
+    {
+    }
+
+    public Set<SvexCall<N>> multirefs()
+    {
+        return multirefs(Collections.singleton(this));
+    }
+
+    public static <N extends SvarName> Set<SvexCall<N>> multirefs(Collection<Svex<N>> list)
+    {
+        Set<SvexCall<N>> seen = new HashSet<>();
+        Set<SvexCall<N>> multirefs = new LinkedHashSet<>();
+        for (Svex<N> svex : list)
+        {
+            svex.multirefs(seen, multirefs);
+        }
+        List<SvexCall<N>> multirefsList = new ArrayList<>(multirefs);
+        multirefs.clear();
+        for (int i = multirefsList.size() - 1; i >= 0; i--)
+        {
+            multirefs.add(multirefsList.get(i));
+        }
+        return multirefs;
     }
 }

@@ -279,6 +279,22 @@ public class SvexCall<N extends SvarName> extends Svex<N>
         return null;
     }
 
+    /* rewrite.lisp */
+    @Override
+    void multirefs(Set<SvexCall<N>> seen, Set<SvexCall<N>> multirefs)
+    {
+        if (seen.contains(this))
+        {
+            multirefs.add(this);
+            return;
+        }
+        seen.add(this);
+        for (Svex<N> arg : args)
+        {
+            arg.multirefs(seen, multirefs);
+        }
+    }
+
     @Override
     public boolean equals(Object o)
     {

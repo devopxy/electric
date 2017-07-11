@@ -76,11 +76,12 @@ public class PublicDebugMenu {
                         if (saoPath == null) return;
                         URL fileURL = TextUtils.makeURLToFile(saoPath);
                         File f = TextUtils.getFile(fileURL);
+                        String designName = TextUtils.getFileNameWithoutExtension(saoPath);
                         String defaultOutName = User.getWorkingDirectory()
                             + File.separator + TextUtils.getFileNameWithoutExtension(saoPath) + "-phase2.lisp";
                         String outPath = OpenFile.chooseOutputFile(FileType.LISP, "Lisp with Phase FSM", defaultOutName);
                         if (outPath == null) return;
-                        GenFsmJob.genFsm(f, outPath);
+                        GenFsmJob.genFsm(f, designName, outPath);
                     }
                 },
                 new EMenuItem("Import _SAO...") {	public void run() {
@@ -193,8 +194,19 @@ public class PublicDebugMenu {
                         if (outPath == null) return;
                         ACL2DesignJobs.genAlu(f, outPath);
                     }
-                }),
+                },
 
+                new EMenuItem("Show Tutorial Libs") {
+                    @Override
+                    public void run()
+                    {
+                        String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized Tutorial design", false);
+                        if (saoPath == null) return;
+                        URL fileURL = TextUtils.makeURLToFile(saoPath);
+                        File f = TextUtils.getFile(fileURL);
+                        ACL2DesignJobs.showSvexLibs(f);
+                    }
+                }),
                 new EMenu("Spice",
 
                 new EMenuItem("Read Spice")

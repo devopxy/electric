@@ -39,6 +39,37 @@ public class Wire
     public final boolean revp;
     public final Wiretype wiretype;
 
+    public Wire(Name name, int width)
+    {
+        this(name, width, 0, 0, false, Wiretype.WIRE);
+    }
+
+    public Wire(Name name, int width, int low_idx, int delay, boolean revp, Wiretype wiretype)
+    {
+        if (name == null)
+        {
+            throw new NullPointerException();
+        }
+        if (width <= 0)
+        {
+            throw new IllegalArgumentException();
+        }
+        if (delay < 0)
+        {
+            throw new IllegalArgumentException();
+        }
+        if (wiretype == null)
+        {
+            throw new NullPointerException();
+        }
+        this.name = name;
+        this.width = width;
+        this.low_idx = low_idx;
+        this.delay = delay;
+        this.revp = revp;
+        this.wiretype = wiretype;
+    }
+
     public Wire(ACL2Object impl)
     {
         ACL2Object cons0 = car(impl);
@@ -211,6 +242,25 @@ public class Wire
             s += "[" + low_idx + "]";
         }
         return s;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o instanceof Wire)
+        {
+            Wire that = (Wire)o;
+            return this.getACL2Object().equals(that.getACL2Object());
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int hash = 3;
+        hash = 59 * hash + name.hashCode();
+        return hash;
     }
 
 }

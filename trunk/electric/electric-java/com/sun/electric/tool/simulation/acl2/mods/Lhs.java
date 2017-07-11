@@ -29,7 +29,6 @@ import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
 import com.sun.electric.util.acl2.ACL2;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
-import java.math.BigInteger;
 import java.util.ArrayList;
 
 import java.util.LinkedList;
@@ -91,7 +90,7 @@ public class Lhs<N extends SvarName>
         {
             Lhrange<N> range = ranges.get(i);
             result = Vec4Concat.FUNCTION.apply(
-                new Vec2(BigInteger.valueOf(range.getWidth())),
+                new Vec2(range.getWidth()),
                 range.eval(env),
                 result);
         }

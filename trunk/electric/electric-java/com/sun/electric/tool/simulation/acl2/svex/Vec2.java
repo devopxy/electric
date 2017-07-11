@@ -30,9 +30,9 @@ import java.math.BigInteger;
  */
 public class Vec2 extends Vec4
 {
-    public static final Vec2 ZERO = new Vec2(BigInteger.ZERO);
-    public static final Vec2 ONE = new Vec2(BigInteger.ONE);
-    public static final Vec2 MINUS_ONE = new Vec2(BigIntegerUtil.MINUS_ONE);
+    public static final Vec2 ZERO = new Vec2(0);
+    public static final Vec2 ONE = new Vec2(1);
+    public static final Vec2 MINUS_ONE = new Vec2(-1);
 
     private final BigInteger val;
 
@@ -43,6 +43,16 @@ public class Vec2 extends Vec4
             throw new NullPointerException();
         }
         this.val = val;
+    }
+
+    public Vec2(long val)
+    {
+        this(BigInteger.valueOf(val));
+    }
+
+    public Vec2(int val)
+    {
+        this(BigInteger.valueOf(val));
     }
 
     public static Vec2 valueOf(boolean b)

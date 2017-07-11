@@ -31,7 +31,6 @@ import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
-import java.math.BigInteger;
 import java.util.Map;
 
 /**
@@ -85,13 +84,13 @@ public class Lhrange<N extends SvarName>
 
     public Vec4 eval(Map<Svar<N>, Vec4> env)
     {
-        return Vec4Concat.FUNCTION.apply(new Vec2(BigInteger.valueOf(w)), atom.eval(env), Vec4.Z);
+        return Vec4Concat.FUNCTION.apply(new Vec2(w), atom.eval(env), Vec4.Z);
     }
 
     public Svex<N> toSvex()
     {
         Svex<N>[] args = Svex.newSvexArray(3);
-        args[0] = new SvexQuote<>(new Vec2(BigInteger.valueOf(w)));
+        args[0] = new SvexQuote<>(new Vec2(w));
         args[1] = atom.toSvex();
         args[2] = new SvexQuote<>(Vec4.Z);
         return Vec4Concat.FUNCTION.build(args);
@@ -169,5 +168,25 @@ public class Lhrange<N extends SvarName>
         {
             return w + "'Z";
         }
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o instanceof Lhrange)
+        {
+            Lhrange<?> that = (Lhrange<?>)o;
+            return this.atom.equals(that.atom) && this.w == that.w;
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int hash = 7;
+        hash = 79 * hash + w;
+        hash = 79 * hash + atom.hashCode();
+        return hash;
     }
 }
