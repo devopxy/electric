@@ -33,6 +33,16 @@ public class ModInst
     public final Name instname;
     public final ModName modname;
 
+    public ModInst(Name instname, ModName modname)
+    {
+        if (instname == null || modname == null)
+        {
+            throw new NullPointerException();
+        }
+        this.instname = instname;
+        this.modname = modname;
+    }
+
     ModInst(ACL2Object impl)
     {
         instname = new Name(car(impl));

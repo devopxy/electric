@@ -31,7 +31,9 @@ import com.sun.electric.tool.simulation.acl2.mods.ModDb;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
+import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
+import com.sun.electric.tool.simulation.acl2.mods.Wire;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
@@ -51,8 +53,10 @@ import java.io.IOException;
 
 import java.io.PrintStream;
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -286,7 +290,7 @@ public class ACL2DesignJobs
                             assert !svar.isNonblocking();
                             if (svar.getName() instanceof PathExt.PortInst)
                             {
-                                continue;
+//                                continue;
                             }
                             out.print("  // alias " + lr + " <->");
                             for (Lhrange<PathExt> lr1 : r.ranges)
@@ -343,6 +347,96 @@ public class ACL2DesignJobs
                 GenFsm gen = cls.newInstance();
                 gen.gen(saoFile, outFileName);
             } catch (InstantiationException | IllegalAccessException | IOException e)
+            {
+                System.out.println(e.getMessage());
+                return false;
+            }
+            return true;
+        }
+    }
+
+    public static void showSvexLibs(File saoFile)
+    {
+        new ShowSvexLibsJob<>(GenTutorial.class, saoFile).startJob();
+    }
+
+    public static class ShowSvexLibsJob<T extends GenFsmNew> extends Job
+    {
+        private final Class<T> cls;
+        private final File saoFile;
+
+        public ShowSvexLibsJob(Class<T> cls, File saoFile)
+        {
+            super("Show used Svex Libs", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
+            this.cls = cls;
+            this.saoFile = saoFile;
+        }
+
+        @Override
+        public boolean doIt() throws JobException
+        {
+            try
+            {
+                GenFsmNew gen = cls.newInstance();
+                gen.scanLib(saoFile);
+                gen.showLibs();
+            } catch (InstantiationException | IllegalAccessException | IOException e)
+            {
+                System.out.println(e.getMessage());
+                return false;
+            }
+            return true;
+        }
+    }
+
+    public static void compareSvexLibs(File[] saoFiles)
+    {
+        new CompareSvexLibsJob(saoFiles).startJob();
+    }
+
+    private static class CompareSvexLibsJob extends Job
+    {
+        private final File[] saoFiles;
+
+        public CompareSvexLibsJob(File[] saoFiles)
+        {
+            super("Compare Svex Libs", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
+            this.saoFiles = saoFiles;
+        }
+
+        @Override
+        public boolean doIt() throws JobException
+        {
+            try
+            {
+                Map<ModName, Module<Address>> modMap = new HashMap<>();
+                for (File saoFile : saoFiles)
+                {
+                    System.out.println(saoFile);
+                    ACL2Reader sr = new ACL2Reader(saoFile);
+                    Address.SvarBuilder builder = new Address.SvarBuilder();
+                    Design<Address> design = new Design<>(builder, sr.root);
+                    for (Map.Entry<ModName, Module<Address>> e : design.modalist.entrySet())
+                    {
+                        ModName modName = e.getKey();
+                        Module<Address> newM = e.getValue();
+                        Module<Address> oldM = modMap.get(modName);
+                        if (oldM != null)
+                        {
+                            if (newM.equals(oldM))
+                            {
+                                assert newM.getACL2Object().equals(oldM.getACL2Object());
+                            } else
+                            {
+                                System.out.println("Defferent module " + modName + " in " + saoFile);
+                            }
+                        } else
+                        {
+                            modMap.put(modName, newM);
+                        }
+                    }
+                }
+            } catch (IOException e)
             {
                 System.out.println(e.getMessage());
                 return false;
@@ -877,6 +971,10 @@ public class ACL2DesignJobs
             "bbus"
         };
 
+        public Alu()
+        {
+        }
+
         @Override
         protected boolean ignore_wire(WireExt w)
         {
@@ -904,27 +1002,79 @@ public class ACL2DesignJobs
             return modname.startsWith("flop$width=")
                 && wireName.equals("q");
         }
-
-        public Alu()
-        {
-            super("alu", "alu16");
-        }
-        /*
-Used Svex functions:
-SV::BITNOT
-SV::CONCAT
-SV::BITAND
-SV::RSH
-SV::?
-SV::ZEROX
-SV::==
-SV::PARTSEL
-COMMON-LISP::+
-COMMON-LISP::*
-COMMON-LISP::<
-SV::BITXOR
-SV::BITOR
-SV::B-
-         */
     }
+
+    public static class GenTutorial extends GenFsmNew
+    {
+
+        public GenTutorial()
+        {
+        }
+
+        @Override
+        protected List<ParameterizedModule> getParameterizedModules()
+        {
+            return Arrays.asList(aluFlop, boothFlop);
+        }
+    }
+
+    private static final ParameterizedModule aluFlop = new ParameterizedModule("tutorial", "flop")
+    {
+        @Override
+        public List<Wire> genWires(Map<String, String> params)
+        {
+            Builder b = newBuilder(params);
+            int width = b.getIntParam("width");
+            b.output("q", width);
+            b.input("d", width);
+            b.global("clk", 1);
+            return b.getWires();
+        }
+
+        @Override
+        protected Module<Path> genModule()
+        {
+            int width = getIntParam("width");
+            output("q", width);
+            input("d", width);
+            global("clk", 1);
+
+            assign("q", width,
+                ite(bitand(bitnot(v("clk", 1)), concat(q(1), v("clk"), q(0))),
+                    concat(q(width), v("d", 1), rsh(q(width), v("q", 1))),
+                    v("q", 1)));
+
+            return getModule();
+        }
+    };
+
+    private static final ParameterizedModule boothFlop = new ParameterizedModule("tutorial", "boothflop")
+    {
+        @Override
+        public List<Wire> genWires(Map<String, String> params)
+        {
+            Builder b = newBuilder(params);
+            int width = b.getIntParam("width");
+            b.output("q", width);
+            b.input("d", width);
+            b.global("clk", 1);
+            return b.getWires();
+        }
+
+        @Override
+        protected Module<Path> genModule()
+        {
+            int width = getIntParam("width");
+            output("q", width);
+            input("d", width);
+            input("clk", 1);
+
+            assign("q", width,
+                ite(bitand(bitnot(v("clk", 1)), concat(q(1), v("clk"), q(0))),
+                    concat(q(width), v("d", 1), rsh(q(width), v("q", 1))),
+                    v("q", 1)));
+
+            return getModule();
+        }
+    };
 }

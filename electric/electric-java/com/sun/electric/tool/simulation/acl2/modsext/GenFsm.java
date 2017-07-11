@@ -23,7 +23,6 @@ package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
-import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
@@ -34,7 +33,6 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import static com.sun.electric.util.acl2.ACL2.*;
-import com.sun.electric.util.acl2.ACL2Object;
 import com.sun.electric.util.acl2.ACL2Reader;
 import java.io.File;
 import java.io.IOException;
@@ -52,13 +50,12 @@ import java.util.Set;
 /**
  * Generate next-state function of control block as ACL2 text
  */
-public abstract class GenFsm
+public abstract class GenFsm extends GenBase
 {
 
     private static final Vec4 X16 = Vec4.valueOf(BigInteger.valueOf(0xffff), BigInteger.valueOf(0));
 
-    private final String projName;
-    private final String topName;
+    private String projName;
     private final Set<WireExt> knownWires = new HashSet<>();
     private final List<WireExt> sortedWires = new ArrayList<>();
     private final Map<WireExt, Map<Lhs<PathExt>, DriverExt>> wireDrivers = new HashMap<>();
@@ -597,18 +594,8 @@ public abstract class GenFsm
     {
         ACL2Reader sr = new ACL2Reader(saoFile);
         DesignExt design = new DesignExt(sr.root);
-        ModName nm = null;
-        ModuleExt m = null;
-        for (Map.Entry<ModName, ModuleExt> e : design.downTop.entrySet())
-        {
-            ACL2Object mn = e.getKey().impl;
-            if (stringp(mn).bool() && mn.stringValueExact().equals(topName))
-            {
-                assert nm == null && m == null;
-                nm = e.getKey();
-                m = e.getValue();
-            }
-        }
+        ModuleExt m = design.downTop.get(design.getTop());
+        projName = design.getTop().impl.stringValueExact();
         try (PrintStream out = new PrintStream(outFileName))
         {
             this.out = out;
@@ -617,46 +604,6 @@ public abstract class GenFsm
         {
             this.out = null;
         }
-    }
-
-    protected GenFsm(String projName, String topName)
-    {
-        this.projName = projName;
-        this.topName = topName;
-    }
-
-    protected PrintStream out;
-    int indent = 0;
-
-    protected void s()
-    {
-        out.println();
-        for (int i = 0; i < indent; i++)
-        {
-            out.print(' ');
-        }
-    }
-
-    protected void b()
-    {
-        indent++;
-    }
-
-    protected void e()
-    {
-        indent--;
-    }
-
-    protected void s(String s)
-    {
-        s();
-        out.print(s);
-    }
-
-    protected void sb(String s)
-    {
-        b();
-        s(s);
     }
 
     protected void genAux()

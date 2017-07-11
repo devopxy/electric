@@ -69,7 +69,7 @@ public class Vec4Countones<N extends SvarName> extends SvexCall<N>
                 BigInteger xv = ((Vec2)x).getVal();
                 if (xv.signum() >= 0)
                 {
-                    return new Vec2(BigInteger.valueOf(xv.bitCount()));
+                    return new Vec2(xv.bitCount());
                 }
             }
             return Vec4.X;

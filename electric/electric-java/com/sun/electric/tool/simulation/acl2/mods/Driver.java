@@ -36,6 +36,8 @@ import java.util.Map;
  */
 public class Driver<N extends SvarName>
 {
+    public static final int DEFAULT_STRENGTH = 6;
+
     public final Svex<N> svex;
     public final int strength;
 
@@ -43,6 +45,11 @@ public class Driver<N extends SvarName>
     {
         svex = Svex.valueOf(builder, car(impl), svexCache);
         strength = cdr(impl).intValueExact();
+    }
+
+    public Driver(Svex<N> svex)
+    {
+        this(svex, DEFAULT_STRENGTH);
     }
 
     public Driver(Svex<N> svex, int strength)
@@ -61,6 +68,26 @@ public class Driver<N extends SvarName>
     {
         Svex<N1> newSvex = svex.convertVars(builder, svexCache);
         return new Driver<>(newSvex, strength);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o instanceof Driver)
+        {
+            Driver<?> that = (Driver<?>)o;
+            return this.svex.equals(that.svex) && this.strength == that.strength;
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int hash = 7;
+        hash = 53 * hash + svex.hashCode();
+        hash = 53 * hash + strength;
+        return hash;
     }
 
 }

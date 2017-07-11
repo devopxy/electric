@@ -31,8 +31,8 @@ import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Rsh;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
-import java.math.BigInteger;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * An SVar or X at left-hand side of SVEX assignment.
@@ -58,6 +58,24 @@ public abstract class Lhatom<N extends SvarName>
     public String toString()
     {
         return getACL2Object().rep();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o instanceof Lhatom)
+        {
+            Lhatom<?> that = (Lhatom<?>)o;
+            return Objects.equals(this.getVar(), that.getVar())
+                && this.getRsh() == that.getRsh();
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hashCode(getVar()) * 13 + getRsh();
     }
 
     public static <N extends SvarName> Lhatom<N> valueOf(Svar.Builder<N> builder, ACL2Object impl)
@@ -182,7 +200,7 @@ public abstract class Lhatom<N extends SvarName>
         @Override
         public Vec4 eval(Map<Svar<N>, Vec4> env)
         {
-            Vec4 sh = new Vec2(BigInteger.valueOf(rsh));
+            Vec4 sh = new Vec2(rsh);
             Vec4 x = env.getOrDefault(name, Vec4.X);
             return Vec4Rsh.FUNCTION.apply(sh, x);
         }

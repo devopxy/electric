@@ -68,7 +68,7 @@ public class Vec4Clog2<N extends SvarName> extends SvexCall<N>
             {
                 BigInteger xv = ((Vec2)x).getVal();
                 int ceil = xv.subtract(BigInteger.ONE).bitLength();
-                return new Vec2(BigInteger.valueOf(ceil));
+                return new Vec2(ceil);
             }
             return Vec4.X;
         }

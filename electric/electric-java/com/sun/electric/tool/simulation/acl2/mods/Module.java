@@ -91,7 +91,7 @@ public class Module<N extends SvarName>
         }
     }
 
-    Module(Collection<Wire> wires, Collection<ModInst> insts,
+    public Module(Collection<Wire> wires, Collection<ModInst> insts,
         Map<Lhs<N>, Driver<N>> assigns, Map<Lhs<N>, Lhs<N>> aliaspairs)
     {
         this.wires.addAll(wires);
@@ -129,5 +129,30 @@ public class Module<N extends SvarName>
                 cons(cons(Util.SV_ASSIGNS, assignsList),
                     cons(cons(Util.SV_ALIASPAIRS, aliasesList),
                         NIL))));
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o instanceof Module)
+        {
+            Module<?> that = (Module<?>)o;
+            return this.wires.equals(that.wires)
+                && this.insts.equals(that.insts)
+                && this.assigns.equals(that.assigns)
+                && this.aliaspairs.equals(that.aliaspairs);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int hash = 3;
+        hash = 89 * hash + wires.hashCode();
+        hash = 89 * hash + insts.hashCode();
+        hash = 89 * hash + assigns.hashCode();
+        hash = 89 * hash + aliaspairs.hashCode();
+        return hash;
     }
 }
