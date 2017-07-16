@@ -40,7 +40,8 @@ import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesEngine;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesEngineFactory;
 import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesHandlers;
 import com.sun.electric.tool.simulation.acl2.modsext.ACL2DesignJobs;
-import com.sun.electric.tool.simulation.acl2.modsext.GenFsmJob;
+import com.sun.electric.tool.simulation.acl2.modsext.GenFsmNew;
+import com.sun.electric.tool.simulation.acl2.modsext.GenTutorial;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.UserInterfaceMain;
 import com.sun.electric.tool.user.dialogs.OpenFile;
@@ -67,8 +68,7 @@ public class PublicDebugMenu {
 		// SEPARATOR,
                 new EMenu("ACL2",
 
-
-                new EMenuItem("Gen phase FSM") {
+                new EMenuItem("Gen phase FSM for Tutorial") {
                     @Override
                     public void run()
                     {
@@ -77,11 +77,7 @@ public class PublicDebugMenu {
                         URL fileURL = TextUtils.makeURLToFile(saoPath);
                         File f = TextUtils.getFile(fileURL);
                         String designName = TextUtils.getFileNameWithoutExtension(saoPath);
-                        String defaultOutName = User.getWorkingDirectory()
-                            + File.separator + TextUtils.getFileNameWithoutExtension(saoPath) + "-phase2.lisp";
-                        String outPath = OpenFile.chooseOutputFile(FileType.LISP, "Lisp with Phase FSM", defaultOutName);
-                        if (outPath == null) return;
-                        GenFsmJob.genFsm(f, designName, outPath);
+                        GenFsmNew.genFsm(GenTutorial.class, f, designName);
                     }
                 },
                 new EMenuItem("Import _SAO...") {	public void run() {

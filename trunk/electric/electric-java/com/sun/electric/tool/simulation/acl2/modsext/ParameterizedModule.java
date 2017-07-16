@@ -30,6 +30,7 @@ import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.Path;
+import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
@@ -58,7 +59,6 @@ import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -95,6 +95,11 @@ public abstract class ParameterizedModule
         this.modName = modName;
         this.paramPrefix = paramPrefix;
         this.paramDelim = paramDelim;
+    }
+
+    protected boolean hasState()
+    {
+        return false;
     }
 
     /**
@@ -164,6 +169,11 @@ public abstract class ParameterizedModule
         return true;
     }
 
+    public String getModNameStr()
+    {
+        return modName;
+    }
+
     /**
      * Return a string value of parameter of current ModName.
      *
@@ -197,6 +207,17 @@ public abstract class ParameterizedModule
     protected void wire(String wireName, int width)
     {
         curBuilder.wire(wireName, width);
+    }
+
+    /**
+     * Generate a local wire for current modName.
+     *
+     * @param name name of a wire
+     * @param width width of wire
+     */
+    protected void wire(Name name, int width)
+    {
+        curBuilder.wire(name, width);
     }
 
     /**
@@ -245,6 +266,17 @@ public abstract class ParameterizedModule
     }
 
     /**
+     * Generate a local wire for current modName.
+     *
+     * @param name name of a wire
+     * @param width width of wire
+     */
+    protected void unused(Name name, int width)
+    {
+        wire(name, width);
+    }
+
+    /**
      * Generate a module instance for current modName.
      *
      * @param instName name of a module instance
@@ -266,6 +298,20 @@ public abstract class ParameterizedModule
     protected void instance(String instName, String modName)
     {
         instance(instName, ModName.valueOf(ACL2Object.valueOf(modName)));
+    }
+
+    /**
+     * Generate an Lhrange for current modName.
+     * Example: <code>r("din", 3, 1)</code> stands for Verilog name din[3:1].
+     *
+     * @param wireName name of a local wire
+     * @param msb most significant bit
+     * @param lsb least significant bit
+     * @return Lhrange
+     */
+    protected Lhrange<Path> r(Name wireName, int msb, int lsb)
+    {
+        return curBuilder.r(wireName, msb, lsb);
     }
 
     /**
@@ -514,6 +560,11 @@ public abstract class ParameterizedModule
         curBuilder.assign(new Lhs<>(Arrays.asList(range1, range2)), svex);
     }
 
+    public void conn(Lhrange<Path> lrange, Lhrange<Path>... ranges)
+    {
+        curBuilder.conn(lrange, ranges);
+    }
+
     /**
      * Generate a connection a port of current instance to a list
      * of Lhranges for current ModName.
@@ -542,18 +593,6 @@ public abstract class ParameterizedModule
     protected Module<Path> getModule()
     {
         return curBuilder.getModule();
-    }
-
-    protected abstract List<Wire> genWires(Map<String, String> params);
-
-    protected List<ModInst> genInsts(Map<String, String> params)
-    {
-        return Collections.emptyList();
-    }
-
-    protected Map<Lhs<Path>, Lhs<Path>> getAliaspairs(Map<String, String> params)
-    {
-        return Collections.emptyMap();
     }
 
     protected Module<Path> genModule()
@@ -627,9 +666,14 @@ public abstract class ParameterizedModule
             return name;
         }
 
+        public void wire(Name name, int width)
+        {
+            wires.add(new Wire(name, width));
+        }
+
         public void wire(String wireName, int width)
         {
-            wires.add(new Wire(getName(wireName), width));
+            wire(getName(wireName), width);
         }
 
         public void input(String wireName, int width)
@@ -668,9 +712,9 @@ public abstract class ParameterizedModule
             instance(ModName.valueOf(ACL2Object.valueOf(modName)), instName);
         }
 
-        public Lhrange<Path> r(String wireName, int leftIndex, int rightIndex)
+        public Lhrange<Path> r(Name wireName, int leftIndex, int rightIndex)
         {
-            Path rpath = Path.simplePath(getName(wireName));
+            Path rpath = Path.simplePath(wireName);
             Svar<Path> svar = builder.newVar(rpath, 0, false);
             int width = leftIndex - rightIndex + 1;
             if (width <= 0)
@@ -678,6 +722,11 @@ public abstract class ParameterizedModule
                 throw new IllegalArgumentException();
             }
             return new Lhrange<>(width, new Lhatom.Var<>(svar, rightIndex));
+        }
+
+        public Lhrange<Path> r(String wireName, int leftIndex, int rightIndex)
+        {
+            return r(getName(wireName), leftIndex, rightIndex);
         }
 
         public Lhrange<Path> r(String instName, String portName, int leftIndex, int rightIndex)
@@ -692,18 +741,21 @@ public abstract class ParameterizedModule
             return new Lhrange<>(width, new Lhatom.Var<>(svar, rightIndex));
         }
 
+        public void conn(Lhrange<Path> lrange, Lhrange<Path>... ranges)
+        {
+            Lhs<Path> lhs = new Lhs<>(Arrays.asList(lrange));
+            Lhs<Path> rhs = new Lhs<>(Arrays.asList(ranges));
+            Util.check(lhs.width() == rhs.width());
+            aliaspairs.put(lhs, rhs);
+        }
+
         public void conn(String instName, String portName, Lhrange<Path>... ranges)
         {
-//            List<Lhrange<Path>> revRanges = new ArrayList<>(ranges.length);
-//            for (int i = ranges.length - 1; i >= 0; i--) {
-//                revRanges.add(ranges[i]);
-//            }
             Lhs<Path> rhs = new Lhs<>(Arrays.asList(ranges));
             Path lpath = Path.makePath(Arrays.asList(getName(instName)), getName(portName));
             Svar<Path> lvar = builder.newVar(lpath, 0, false);
             Lhrange<Path> lrange = new Lhrange<>(rhs.width(), new Lhatom.Var<>(lvar, 0));
-            Lhs<Path> lhs = new Lhs<>(Arrays.asList(lrange));
-            aliaspairs.put(lhs, rhs);
+            conn(lrange, ranges);
         }
 
         public void conn(String instName, String portName, String wireName, int width)
