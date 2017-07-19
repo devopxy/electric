@@ -41,6 +41,7 @@ public class ModInstExt
     final ModuleExt parent;
     final ModuleExt proto;
     final Map<Name, PathExt.PortInst> portInsts = new HashMap<>();
+    boolean splitIt;
 
     ModInstExt(ModuleExt parent, ModInst b, Map<ModName, ModuleExt> downTop)
     {

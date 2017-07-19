@@ -59,8 +59,6 @@ import java.util.Set;
  */
 public class ModuleExt extends SvarImpl.Builder<PathExt>
 {
-    private static final boolean CRUDE_COMBINATIONAL_INPUTS = false;
-
     public final ModName modName;
     public final Module<? extends SvarName> b;
     public final List<WireExt> wires = new ArrayList<>();
@@ -71,11 +69,14 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
     final Map<Name, WireExt> wiresIndex = new HashMap<>();
     final Map<Name, ModInstExt> instsIndex = new HashMap<>();
     int useCount;
+    boolean isTop;
 
     final boolean hasState;
     final Set<WireExt> stateWires = new LinkedHashSet<>();
-    Set<WireExt> combinationalInputs0;
-    Set<WireExt> combinationalInputs1;
+    Set<WireExt> crudeCombinationalInputs0;
+    Set<WireExt> crudeCombinationalInputs1;
+    Set<WireExt> fineCombinationalInputs0;
+    Set<WireExt> fineCombinationalInputs1;
 
     <N extends SvarName> ModuleExt(ModName modName, Module<N> b, Map<ModName, ModuleExt> downTop)
     {
@@ -113,6 +114,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
             DriverExt old = assigns.put(lhs, drv);
             Util.check(old == null);
 
+            drv.setSource(lhs);
             int lsh = 0;
             for (Lhrange<PathExt> lhr : lhs.ranges)
             {
@@ -123,7 +125,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
                 } else
                 {
                     assert lhs.ranges.size() == 1 && lhr.getRsh() == 0 && lsh == 0;
-                    ((PathExt.PortInst)svar.getName()).addDriver(drv);
+//                    drv.setSource(lhr);
+                    ((PathExt.PortInst)svar.getName()).setDriver(drv);
                 }
                 lsh += lhr.getWidth();
             }
@@ -171,12 +174,13 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
                 }
                 if (pi.wire.isAssigned())
                 {
-                    pi.addSource(rhs);
+                    pi.setSource(rhs);
                     BigInteger assignedBits = pi.wire.getAssignedBits();
+                    Util.check(assignedBits.equals(BigIntegerUtil.logheadMask(pi.wire.getWidth())));
                     markAssigned(rhs, assignedBits);
                 } else
                 {
-                    pi.addDriver(rhs);
+                    pi.setDriver(rhs);
                 }
                 if (pi.wire.used)
                 {
@@ -198,7 +202,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
                     Util.check(rhs.ranges.size() == 1);
                     PathExt.PortInst rhsPi = (PathExt.PortInst)rhs.ranges.get(0).getVar().getName();
                     Util.check(rhsPi.inst.getModname().isCoretype);
-                    rhsPi.addDriver(lhs);
+                    rhsPi.setDriver(lhs);
 //                    System.out.println("lw string " + lw + " in " + modName);
                 } else if (integerp(lw.name.getACL2Object()).bool())
                 {
@@ -227,9 +231,12 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
                     lw.wire.markAssigned(assignedBitsRange);
                 } else
                 {
+                    Util.check(lhs.ranges.size() == 1);
+                    Util.check(lr.getRsh() == 0);
                     PathExt.PortInst pi = (PathExt.PortInst)name.getName();
                     Util.check(assignedBitsRange.signum() >= 0 && assignedBitsRange.bitLength() <= pi.wire.getWidth());
-                    Util.check(assignedBitsRange.and(pi.wire.getAssignedBits()).signum() == 0);
+                    Util.check(!pi.wire.isAssigned());
+//                    Util.check(assignedBitsRange.and(pi.wire.getAssignedBits()).signum() == 0);
                 }
             }
             assignedBits = assignedBits.shiftRight(lr.getWidth());
@@ -238,6 +245,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
 
     void markTop()
     {
+        isTop = true;
         useCount = 1;
         for (WireExt w : wires)
         {
@@ -294,15 +302,27 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
 
     void checkExports()
     {
+        for (WireExt wire : wires)
+        {
+            if (wire.exported && wire.isAssigned())
+            {
+                Util.check(wire.getAssignedBits().equals(BigIntegerUtil.logheadMask(wire.getWidth())));
+            }
+        }
         for (ModInstExt inst : insts)
         {
             inst.checkExports();
         }
     }
 
-    Set<WireExt> getCombinationalInputs(boolean clockVal)
+    Set<WireExt> getCrudeCombinationalInputs(boolean clockVal)
     {
-        return clockVal ? combinationalInputs1 : combinationalInputs0;
+        return clockVal ? crudeCombinationalInputs1 : crudeCombinationalInputs0;
+    }
+
+    Set<WireExt> getFineCombinationalInputs(boolean clockVal)
+    {
+        return clockVal ? fineCombinationalInputs1 : fineCombinationalInputs0;
     }
 
     void computeCombinationalInputs(String global)
@@ -311,87 +331,100 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
         computeDriverDeps(global, false);
         computeDriverDeps(global, true);
 
-        combinationalInputs0 = new LinkedHashSet<>();
-        combinationalInputs1 = new LinkedHashSet<>();
-        if (CRUDE_COMBINATIONAL_INPUTS)
-        {
-            Map<Object, Set<Object>> graph0 = computeDepsGraph(false);
-            Map<Object, Set<Object>> closure0 = closure(graph0);
-            Map<Object, Set<Object>> graph1 = computeDepsGraph(true);
-            Map<Object, Set<Object>> closure1 = closure(graph1);
-            for (WireExt out : wires)
-            {
-                if (out.exported && out.isAssigned())
-                {
-                    for (Object dep : closure0.get(out))
-                    {
-                        if (dep instanceof WireExt)
-                        {
-                            WireExt in = (WireExt)dep;
-                            if (in.exported && !in.isAssigned())
-                            {
-                                combinationalInputs0.add(in);
-                            }
-                        }
-                    }
-                    for (Object dep : closure1.get(out))
-                    {
-                        if (dep instanceof WireExt)
-                        {
-                            WireExt in = (WireExt)dep;
-                            if (in.exported && !in.isAssigned())
-                            {
-                                combinationalInputs1.add(in);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
+        fineCombinationalInputs0 = new LinkedHashSet<>();
+        fineCombinationalInputs1 = new LinkedHashSet<>();
         Map<Object, Set<Object>> fineGraph0 = computeFineDepsGraph(false);
-        Map<Object, Set<Object>> fineClosure0 = closure(fineGraph0);
         Map<Object, Set<Object>> fineGraph1 = computeFineDepsGraph(true);
+        Map<Object, Set<Object>> fineClosure0 = closure(fineGraph0);
         Map<Object, Set<Object>> fineClosure1 = closure(fineGraph1);
+//        System.out.println("=== " + modName + " fineDeps0");
+//        showGraph(fineGraph0);
+//        System.out.println("=== " + modName + " fineClosure0");
+//        showGraph(fineClosure0);
+//        System.out.println("=== " + modName + " fineDeps1");
+//        showGraph(fineGraph1);
+//        System.out.println("=== " + modName + " fineClosure1");
+//        showGraph(fineClosure1);
         for (WireExt out : wires)
         {
             if (out.exported && out.isAssigned())
             {
                 out.setFineDeps(false, fineClosure0);
                 out.setFineDeps(true, fineClosure1);
-                if (!CRUDE_COMBINATIONAL_INPUTS)
+                for (Map<Svar<PathExt>, BigInteger> mapForBit : out.fineDeps0)
                 {
-                    for (Map<Svar<PathExt>, BigInteger> mapForBit : out.fineDeps0)
+                    for (Map.Entry<Svar<PathExt>, BigInteger> e : mapForBit.entrySet())
                     {
-                        for (Map.Entry<Svar<PathExt>, BigInteger> e : mapForBit.entrySet())
+                        Svar<PathExt> svar = e.getKey();
+                        BigInteger mask = e.getValue();
+                        if (mask.signum() != 0)
                         {
-                            Svar<PathExt> svar = e.getKey();
-                            BigInteger mask = e.getValue();
-                            if (mask.signum() != 0)
-                            {
-                                assert svar.getDelay() == 0;
-                                PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-                                combinationalInputs0.add(lw.wire);
-                            }
+                            assert svar.getDelay() == 0;
+                            PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
+                            fineCombinationalInputs0.add(lw.wire);
                         }
                     }
-                    for (Map<Svar<PathExt>, BigInteger> mapForBit : out.fineDeps1)
+                }
+                for (Map<Svar<PathExt>, BigInteger> mapForBit : out.fineDeps1)
+                {
+                    for (Map.Entry<Svar<PathExt>, BigInteger> e : mapForBit.entrySet())
                     {
-                        for (Map.Entry<Svar<PathExt>, BigInteger> e : mapForBit.entrySet())
+                        Svar<PathExt> svar = e.getKey();
+                        BigInteger mask = e.getValue();
+                        if (mask.signum() != 0)
                         {
-                            Svar<PathExt> svar = e.getKey();
-                            BigInteger mask = e.getValue();
-                            if (mask.signum() != 0)
-                            {
-                                assert svar.getDelay() == 0;
-                                PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-                                combinationalInputs1.add(lw.wire);
-                            }
+                            assert svar.getDelay() == 0;
+                            PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
+                            fineCombinationalInputs1.add(lw.wire);
                         }
                     }
                 }
             }
         }
+        Map<Object, Set<Object>> fineTransdep0 = transdep(fineGraph0);
+        Map<Object, Set<Object>> fineTransdep1 = transdep(fineGraph1);
+        markInstancesToSplit(fineTransdep0, false);
+        markInstancesToSplit(fineTransdep1, true);
+
+        crudeCombinationalInputs0 = new LinkedHashSet<>();
+        crudeCombinationalInputs1 = new LinkedHashSet<>();
+        Map<Object, Set<Object>> crudeGraph0 = computeDepsGraph(false);
+        Map<Object, Set<Object>> crudeGraph1 = computeDepsGraph(true);
+        Map<Object, Set<Object>> crudeClosure0 = closure(crudeGraph0);
+        Map<Object, Set<Object>> crudeClosure1 = closure(crudeGraph1);
+//            System.out.println("Module " + modName + " crude graph 0");
+//            showGraph(graph0);
+//            System.out.println("Module " + modName + " crude graph 1");
+//            showGraph(graph1);
+        for (WireExt out : wires)
+        {
+            if (out.exported && out.isAssigned())
+            {
+                for (Object dep : crudeClosure0.get(out))
+                {
+                    if (dep instanceof WireExt)
+                    {
+                        WireExt in = (WireExt)dep;
+                        if (in.exported && !in.isAssigned())
+                        {
+                            crudeCombinationalInputs0.add(in);
+                        }
+                    }
+                }
+                for (Object dep : crudeClosure1.get(out))
+                {
+                    if (dep instanceof WireExt)
+                    {
+                        WireExt in = (WireExt)dep;
+                        if (in.exported && !in.isAssigned())
+                        {
+                            crudeCombinationalInputs1.add(in);
+                        }
+                    }
+                }
+            }
+        }
+
     }
 
     private void computeDriverDeps(String global, boolean clkOne)
@@ -424,65 +457,173 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
         Map<Object, Set<Object>> graph = new LinkedHashMap<>();
         for (WireExt w : wires)
         {
-            if (w.exported && w.isAssigned())
+            if (w.isAssigned() || !(w.exported || isTop))
             {
+                BigInteger mask = BigIntegerUtil.logheadMask(w.getWidth());
                 Set<Object> outputDeps = new LinkedHashSet<>();
-                addWireDeps(w.getVar(0), BigIntegerUtil.MINUS_ONE, outputDeps);
+                addWireDeps(w.getVar(0), mask, outputDeps);
                 graph.put(w, outputDeps);
             }
         }
         for (ModInstExt mi : insts)
         {
-            Set<Object> instDeps = new LinkedHashSet<>();
-            for (PathExt.PortInst pi : mi.portInsts.values())
+            if (mi.splitIt)
             {
-                Set<WireExt> combinationalInputs = mi.proto.getCombinationalInputs(clockHigh);
-                if (combinationalInputs.contains(pi.wire))
+                for (PathExt.PortInst piOut : mi.portInsts.values())
                 {
-                    if (pi.driver instanceof DriverExt)
+                    if (piOut.wire.isAssigned())
                     {
-                        instDeps.add(pi.getDriverExt().name);
-                    } else
-                    {
-                        Lhs<PathExt> lhs = pi.getDriverLhs();
-                        for (Lhrange<PathExt> lr : lhs.ranges)
+                        for (int bit = 0; bit < piOut.wire.getWidth(); bit++)
                         {
-                            addWireDeps(lr.getVar(), BigIntegerUtil.MINUS_ONE, instDeps);
+                            WireExt.Bit wb = piOut.getParentBit(bit);
+                            Set<Object> deps = new LinkedHashSet<>();
+                            Map<Svar<PathExt>, BigInteger> fineDeps = piOut.wire.getFineDeps(clockHigh).get(bit);
+                            for (Map.Entry<Svar<PathExt>, BigInteger> e : fineDeps.entrySet())
+                            {
+                                Svar<PathExt> svar = e.getKey();
+                                BigInteger mask = e.getValue();
+                                PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
+                                PathExt.PortInst piIn = mi.portInsts.get(lw.wire.getName());
+                                Util.check(piIn != null);
+                                if (piIn.driver instanceof DriverExt)
+                                {
+                                    addDriverDeps(piIn.getDriverExt(), mask, deps);
+//                                    deps.add(piIn.getDriverExt().name);
+                                } else
+                                {
+                                    Lhs<PathExt> lhs = piIn.getDriverLhs();
+                                    for (Lhrange<PathExt> lr : lhs.ranges)
+                                    {
+                                        BigInteger mask1 = BigIntegerUtil.loghead(lr.getWidth(), mask).shiftLeft(lr.getRsh());
+                                        addWireDeps(lr.getVar(), mask1, deps);
+                                        mask = mask.shiftRight(lr.getWidth());
+                                    }
+                                }
+                            }
+                            graph.put(wb, deps);
                         }
                     }
                 }
+            } else
+            {
+                Set<WireExt> combinationalInputs = mi.proto.getCrudeCombinationalInputs(clockHigh);
+                Set<Object> instDeps = new LinkedHashSet<>();
+                for (PathExt.PortInst pi : mi.portInsts.values())
+                {
+                    if (combinationalInputs.contains(pi.wire))
+                    {
+                        if (pi.driver instanceof DriverExt)
+                        {
+                            BigInteger mask = BigIntegerUtil.logheadMask(pi.wire.getWidth());
+                            addDriverDeps(pi.getDriverExt(), mask, instDeps);
+//                            instDeps.add(pi.getDriverExt().name);
+                        } else
+                        {
+                            Lhs<PathExt> lhs = pi.getDriverLhs();
+                            for (Lhrange<PathExt> lr : lhs.ranges)
+                            {
+                                BigInteger mask = BigIntegerUtil.logheadMask(lr.getWidth()).shiftLeft(lr.getRsh());
+                                addWireDeps(lr.getVar(), mask, instDeps);
+                            }
+                        }
+                    }
+                }
+                graph.put(mi, instDeps);
+                for (PathExt.PortInst pi : mi.portInsts.values())
+                {
+                    if (pi.wire.specialOutput)
+                    {
+                        assert pi.wire.isAssigned();
+                        Lhs<PathExt> lhs = pi.source;
+                        assert lhs.ranges.size() == 1;
+                        Lhrange<PathExt> lrange = lhs.ranges.get(0);
+                        assert lrange.getRsh() == 0;
+                        Svar<PathExt> svar = lrange.getVar();
+                        assert svar.getDelay() == 0;
+                        Set<Object> deps = new LinkedHashSet<>();
+                        for (Map<Svar<PathExt>, BigInteger> fineDeps : pi.wire.getFineDeps(clockHigh))
+                        {
+                            for (Map.Entry<Svar<PathExt>, BigInteger> e : fineDeps.entrySet())
+                            {
+                                Svar<PathExt> svar1 = e.getKey();
+                                BigInteger mask = e.getValue();
+                                PathExt.LocalWire lw = (PathExt.LocalWire)svar1.getName();
+                                PathExt.PortInst piIn = mi.portInsts.get(lw.wire.getName());
+                                Util.check(piIn != null);
+                                if (piIn.driver instanceof DriverExt)
+                                {
+                                    addDriverDeps(piIn.getDriverExt(), mask, deps);
+//                                    deps.add(piIn.getDriverExt().name);
+                                } else
+                                {
+                                    Lhs<PathExt> lhs1 = piIn.getDriverLhs();
+                                    for (Lhrange<PathExt> lr : lhs1.ranges)
+                                    {
+                                        BigInteger mask1 = BigIntegerUtil.loghead(lr.getWidth(), mask).shiftLeft(lr.getRsh());
+                                        addWireDeps(lr.getVar(), mask1, deps);
+                                        mask = mask.shiftRight(lr.getWidth());
+                                    }
+                                }
+                            }
+                        }
+                        graph.put(pi, deps);
+                    }
+                }
             }
-            graph.put(mi, instDeps);
         }
         for (Map.Entry<Lhs<PathExt>, DriverExt> e1 : assigns.entrySet())
         {
             Lhs<PathExt> l = e1.getKey();
             DriverExt d = e1.getValue();
-            assert !l.ranges.isEmpty();
-            Set<Object> driverDeps = new LinkedHashSet<>();
-            for (Map.Entry<Svar<PathExt>, BigInteger> e2 : d.getCrudeDeps(clockHigh).entrySet())
+            if (d.splitIt)
             {
-                Svar<PathExt> svar = e2.getKey();
-                BigInteger mask = e2.getValue();
-                if (mask == null)
+                assert l.ranges.size() == 1;
+                Lhrange<PathExt> lrange = l.ranges.get(0);
+                assert lrange.getRsh() == 0;
+                Svar<PathExt> svar = lrange.getVar();
+                assert svar.getDelay() == 0;
+                List<Map<Svar<PathExt>, BigInteger>> fineDeps = d.getFineDeps(clockHigh);
+                assert fineDeps.size() == lrange.getWidth();
+                for (int bit = 0; bit < lrange.getWidth(); bit++)
                 {
-                    mask = BigInteger.ZERO;
+                    Set<Object> driverDeps = new LinkedHashSet<>();
+                    Map<Svar<PathExt>, BigInteger> fineDep = fineDeps.get(bit);
+                    for (Map.Entry<Svar<PathExt>, BigInteger> e2 : fineDep.entrySet())
+                    {
+                        Svar<PathExt> svar2 = e2.getKey();
+                        BigInteger mask = e2.getValue();
+                        addWireDeps(svar2, mask, driverDeps);
+                    }
+                    graph.put(d.wireBits[bit], driverDeps);
                 }
-                addWireDeps(svar, mask, driverDeps);
+            } else
+            {
+                assert !l.ranges.isEmpty();
+                Set<Object> driverDeps = new LinkedHashSet<>();
+                for (Map.Entry<Svar<PathExt>, BigInteger> e2 : d.getCrudeDeps(clockHigh).entrySet())
+                {
+                    Svar<PathExt> svar = e2.getKey();
+                    BigInteger mask = e2.getValue();
+                    if (mask == null)
+                    {
+                        mask = BigInteger.ZERO;
+                    }
+                    addWireDeps(svar, mask, driverDeps);
+                }
+                graph.put(d.name, driverDeps);
             }
-            graph.put(d.name, driverDeps);
         }
         return graph;
     }
 
     private void addWireDeps(Svar<PathExt> svar, BigInteger mask, Set<Object> deps)
     {
-        if (svar.getDelay() != 0)
+        if (svar.getDelay() != 0 || mask.signum() == 0)
         {
             return;
         }
         PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-        if (!lw.wire.isAssigned())
+        if (!lw.wire.isAssigned() && (lw.wire.exported || isTop))
         {
             deps.add(lw.wire);
             return;
@@ -491,18 +632,50 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
         {
             Lhrange<PathExt> lhr = e3.getKey();
             WireExt.WireDriver wd = e3.getValue();
-            if (lhr.getVar().getDelay() == 0
-                && BigIntegerUtil.logheadMask(lhr.getWidth()).shiftLeft(lhr.getRsh()).and(mask).signum() != 0)
+            BigInteger mask1 = BigIntegerUtil.loghead(lhr.getWidth(), mask.shiftRight(lhr.getRsh()));
+            if (lhr.getVar().getDelay() == 0 && mask1.signum() > 0)
             {
                 if (wd.driver != null)
                 {
-                    deps.add(wd.driver.name);
+                    addDriverDeps(wd.driver, mask1.shiftLeft(wd.lsh), deps);
                 }
                 if (wd.pi != null)
                 {
-                    deps.add(wd.pi.inst);
+                    if (wd.pi.inst.splitIt)
+                    {
+                        for (int i = 0; i < lhr.getWidth(); i++)
+                        {
+                            if (mask1.testBit(i))
+                            {
+                                deps.add(wd.pi.getParentBit(wd.lsh + i));
+                            }
+                        }
+                    } else if (wd.pi.wire.specialOutput)
+                    {
+                        deps.add(wd.pi);
+                    } else
+                    {
+                        deps.add(wd.pi.inst);
+                    }
                 }
             }
+        }
+    }
+
+    private void addDriverDeps(DriverExt driver, BigInteger mask, Set<Object> deps)
+    {
+        if (driver.splitIt)
+        {
+            for (int i = 0; i < driver.wireBits.length; i++)
+            {
+                if (mask.testBit(i))
+                {
+                    deps.add(driver.wireBits[i]);
+                }
+            }
+        } else if (mask.signum() > 0)
+        {
+            deps.add(driver.name);
         }
     }
 
@@ -518,24 +691,25 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
                     Lhrange lhr = e.getKey();
                     WireExt.WireDriver wd = e.getValue();
                     int rsh = lhr.getRsh();
-
                     if (wd.driver != null)
                     {
+                        assert wd.pi == null;
                         for (int i = 0; i < lhr.getWidth(); i++)
                         {
-                            WireBit wb = new WireBit(w, rsh + i);
+                            WireExt.Bit wb = w.getBit(rsh + i);
+                            assert wb == wd.driver.wireBits[wd.lsh + i];
                             Set<Object> dep = new LinkedHashSet<>();
                             addDriverFineDeps(wd.driver, clockHigh, wd.lsh + i, dep);
                             graph.put(wb, dep);
                         }
-                    }
-                    if (wd.pi != null)
+                    } else
                     {
                         PathExt.PortInst piOut = wd.pi;
+                        assert piOut != null;
                         ModInstExt inst = piOut.inst;
                         for (int i = 0; i < lhr.getWidth(); i++)
                         {
-                            WireBit wb = new WireBit(w, rsh + i);
+                            WireExt.Bit wb = w.getBit(rsh + i);
                             Set<Object> dep = new LinkedHashSet<>();
                             Map<Svar<PathExt>, BigInteger> masks = piOut.wire.getFineDeps(clockHigh).get(wd.lsh + i);
                             for (Map.Entry<Svar<PathExt>, BigInteger> e1 : masks.entrySet())
@@ -543,29 +717,13 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
                                 PathExt.LocalWire lw = (PathExt.LocalWire)e1.getKey().getName();
                                 BigInteger mask = e1.getValue();
                                 PathExt.PortInst piIn = inst.portInsts.get(lw.wire.getName());
-                                if (piIn == null)
+                                Util.check(piIn != null);
+                                for (int bit = 0; bit < piIn.getWidth(); bit++)
                                 {
-                                    System.out.println(lw.wire.getName() + " was not found in " + inst.getInstname() + " of " + modName);
-                                    continue;
-                                }
-                                if (piIn.driver instanceof DriverExt)
-                                {
-                                    addDriverFineDeps(piIn.getDriverExt(), clockHigh, mask, dep);
-                                } else
-                                {
-                                    Lhs<PathExt> lhs = piIn.getDriverLhs();
-                                    int lsh = 0;
-                                    for (Lhrange<PathExt> lhrIn : lhs.ranges)
+                                    if (mask.testBit(bit))
                                     {
-                                        PathExt.LocalWire lwIn = (PathExt.LocalWire)lhrIn.getVar().getName();
-                                        for (int j = 0; j < lhrIn.getWidth(); j++)
-                                        {
-                                            if (mask.testBit(lsh + j))
-                                            {
-                                                dep.add(new WireBit(lwIn.wire, lhrIn.getRsh() + j));
-                                            }
-                                        }
-                                        lsh += lhrIn.getWidth();
+                                        assert piIn.getParentBit(bit) != null;
+                                        dep.add(piIn.getParentBit(bit));
                                     }
                                 }
                             }
@@ -573,9 +731,46 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
                         }
                     }
                 }
-                Set<Object> outputDeps = new LinkedHashSet<>();
-                addWireDeps(w.getVar(0), BigIntegerUtil.MINUS_ONE, outputDeps);
-                graph.put(w, outputDeps);
+//                Set<Object> outputDeps = new LinkedHashSet<>();
+//                addWireDeps(w.getVar(0), BigIntegerUtil.MINUS_ONE, outputDeps);
+//                graph.put(w, outputDeps);
+            }
+            if (w.isAssigned() || !isTop && !w.exported)
+            {
+                BigInteger assignedBits = w.getAssignedBits();
+                for (int bit = 0; bit < w.getWidth(); bit++)
+                {
+                    if (!assignedBits.testBit(bit))
+                    {
+                        WireExt.Bit wb = w.getBit(bit);
+                        graph.put(wb, Collections.emptySet());
+                    }
+                }
+            }
+        }
+        for (Map.Entry<Lhs<PathExt>, DriverExt> e : assigns.entrySet())
+        {
+            Lhs<PathExt> lhs = e.getKey();
+            DriverExt drv = e.getValue();
+            if (lhs.ranges.size() != 1)
+            {
+                continue;
+            }
+            Lhrange<PathExt> lhr = lhs.ranges.get(0);
+            Svar<PathExt> svar = lhr.getVar();
+            if (!(svar.getName() instanceof PathExt.PortInst))
+            {
+                continue;
+            }
+            assert lhr.getRsh() == 0;
+            PathExt.PortInst pi = (PathExt.PortInst)svar.getName();
+            for (int bit = 0; bit < lhr.getWidth(); bit++)
+            {
+                WireExt.Bit wb = drv.wireBits[bit];
+                assert wb == pi.getParentBit(bit);
+                Set<Object> dep = new LinkedHashSet<>();
+                addDriverFineDeps(drv, clockHigh, bit, dep);
+                graph.put(wb, dep);
             }
         }
         return graph;
@@ -608,10 +803,125 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
                 {
                     if (maskIn.testBit(j))
                     {
-                        dep.add(new WireBit(lw.wire, j));
+                        assert lw.wire.getBit(j) != null;
+                        dep.add(lw.wire.getBit(j));
                     }
                 }
             }
+        }
+    }
+
+    private void markInstancesToSplit(Map<Object, Set<Object>> transdep, boolean clockHigh)
+    {
+        for (ModInstExt inst : insts)
+        {
+            Set<WireExt> combinationalInputs = inst.proto.getFineCombinationalInputs(clockHigh);
+            Set<Object> inputDeps = new HashSet<>();
+            for (PathExt.PortInst pi : inst.portInsts.values())
+            {
+                WireExt export = pi.wire;
+                if (!combinationalInputs.contains(export))
+                {
+                    continue;
+                }
+                assert !export.isAssigned();
+                for (int bit = 0; bit < export.getWidth(); bit++)
+                {
+                    Set<Object> deps = transdep.get(pi.getParentBit(bit));
+                    if (deps != null)
+                    {
+                        inputDeps.addAll(deps);
+                    }
+                }
+            }
+            Set<WireExt.Bit> outDeps = new LinkedHashSet<>();
+            for (PathExt.PortInst pi : inst.portInsts.values())
+            {
+                WireExt export = pi.wire;
+                if (export.isAssigned())
+                {
+                    for (int bit = 0; bit < export.getWidth(); bit++)
+                    {
+                        if (inputDeps.contains(pi.getParentBit(bit)))
+                        {
+                            outDeps.add(pi.getProtoBit(bit));
+                        }
+                    }
+                }
+            }
+            if (!outDeps.isEmpty())
+            {
+                inst.splitIt = true;
+                System.out.println(modName + " " + inst + " clock=" + (clockHigh ? "1" : "0") + " some combinational inputs depend on these outputs:");
+                System.out.print("   ");
+                for (WireExt.Bit wireBit : outDeps)
+                {
+                    System.out.print(" " + wireBit);
+                }
+                System.out.println();
+            }
+        }
+        for (Map.Entry<Lhs<PathExt>, DriverExt> e : assigns.entrySet())
+        {
+            Lhs<PathExt> lhs = e.getKey();
+            DriverExt drv = e.getValue();
+            Set<Object> inputDeps = new HashSet<>();
+            Map<Svar<PathExt>, BigInteger> crudeDeps = drv.getCrudeDeps(clockHigh);
+            for (Map.Entry<Svar<PathExt>, BigInteger> e1 : crudeDeps.entrySet())
+            {
+                Svar<PathExt> svar = e1.getKey();
+                BigInteger mask = e1.getValue();
+                if (svar.getDelay() != 0)
+                {
+                    continue;
+                }
+                PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
+                for (int bit = 0; bit < lw.wire.getWidth(); bit++)
+                {
+                    if (mask.testBit(bit))
+                    {
+                        Set<Object> deps = transdep.get(lw.wire.getBit(bit));
+                        if (deps != null)
+                        {
+                            inputDeps.addAll(deps);
+                        }
+                    }
+                }
+            }
+            Set<WireExt.Bit> outDeps = new LinkedHashSet<>();
+            for (int bit = 0; bit < lhs.width(); bit++)
+            {
+                WireExt.Bit wb = drv.wireBits[bit];
+                assert wb != null;
+                if (inputDeps.contains(wb))
+                {
+                    outDeps.add(wb);
+                }
+            }
+            if (!outDeps.isEmpty())
+            {
+                drv.splitIt = true;
+                System.out.println(modName + " " + drv.name + " clock=" + (clockHigh ? "1" : "0") + " some combinational inputs depend on these outputs:");
+                System.out.print("   ");
+                for (WireExt.Bit wireBit : outDeps)
+                {
+                    System.out.print(" " + wireBit);
+                }
+                System.out.println();
+            }
+        }
+    }
+
+    void showGraph(Map<Object, Set<Object>> graph)
+    {
+        for (Map.Entry<Object, Set<Object>> e : graph.entrySet())
+        {
+            System.out.print(e.getKey() + " <=");
+            for (Object o : e.getValue())
+            {
+                System.out.print(" " + o);
+            }
+            System.out.println();
         }
     }
 
@@ -658,6 +968,50 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
         return ret;
     }
 
+    Map<Object, Set<Object>> transdep(Map<Object, Set<Object>> rel)
+    {
+        Map<Object, Set<Object>> transdep = new HashMap<>();
+        Set<Object> visited = new HashSet<>();
+        for (Object key : rel.keySet())
+        {
+            transdep(key, rel, transdep, visited);
+        }
+        Util.check(transdep.size() == visited.size());
+        return transdep;
+    }
+
+    private Set<Object> transdep(Object top,
+        Map<Object, Set<Object>> rel,
+        Map<Object, Set<Object>> transdep,
+        Set<Object> visited)
+    {
+        Set<Object> ret = transdep.get(top);
+        if (ret == null)
+        {
+            boolean ok = visited.add(top);
+            if (!ok)
+            {
+                System.out.println("CombinationalLoop!!! in " + top + " of " + modName);
+                return Collections.singleton(top);
+            }
+            Set<Object> dep = rel.get(top);
+            if (dep == null)
+            {
+                ret = Collections.singleton(top);
+            } else
+            {
+                ret = new LinkedHashSet<>();
+                ret.add(top);
+                for (Object svar : dep)
+                {
+                    ret.addAll(transdep(svar, rel, transdep, visited));
+                }
+            }
+            transdep.put(top, ret);
+        }
+        return ret;
+    }
+
     @Override
     public PathExt newName(ACL2Object nameImpl)
     {
@@ -696,41 +1050,4 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
         }
     }
      */
-    static class WireBit
-    {
-        final WireExt wire;
-        final int bit;
-
-        WireBit(WireExt wire, int bit)
-        {
-            this.wire = wire;
-            this.bit = bit;
-        }
-
-        @Override
-        public String toString()
-        {
-            return wire.toString(BigInteger.ONE.shiftLeft(bit));
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (o instanceof WireBit)
-            {
-                WireBit that = (WireBit)o;
-                return this.wire.equals(that.wire) && this.bit == that.bit;
-            }
-            return false;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            int hash = 3;
-            hash = 29 * hash + wire.hashCode();
-            hash = 29 * hash + bit;
-            return hash;
-        }
-    }
 }

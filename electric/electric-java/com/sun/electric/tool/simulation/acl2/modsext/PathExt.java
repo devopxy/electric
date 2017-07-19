@@ -60,12 +60,18 @@ public abstract class PathExt implements SvarName
         return toString(BigIntegerUtil.logheadMask(wire.getWidth()));
     }
 
+    public int getWidth()
+    {
+        return wire.getWidth();
+    }
+
     public static class PortInst extends PathExt
     {
         public final ModInstExt inst;
 //        public final SvarImpl<PathExt> svar;
         Lhs source;
         Object driver;
+        WireExt.Bit[] wireBits;
 
         PortInst(ModInstExt inst, Path.Scope path)
         {
@@ -76,23 +82,64 @@ public abstract class PathExt implements SvarName
             wire.exported = true;
         }
 
-        void addSource(Lhs<PathExt> source)
+        WireExt.Bit getParentBit(int bit)
         {
-            Util.check(this.source == null);
-            this.source = source;
-            assert source.width() == wire.getWidth();
-            for (Lhrange<PathExt> lhr : source.ranges)
-            {
-                Svar<PathExt> svar = lhr.getVar();
-                assert svar.getDelay() == 0;
-            }
+            return wireBits[bit];
         }
 
-        void addDriver(Object driver)
+        WireExt.Bit getProtoBit(int bit)
         {
+            return wire.getBit(bit);
+        }
+
+        void setSource(Lhs<PathExt> source)
+        {
+            Util.check(driver == null);
+            Util.check(this.source == null);
+            this.source = source;
+            setLhs(source);
+//            assert source.width() == wire.getWidth();
+//            for (Lhrange<PathExt> lhr : source.ranges)
+//            {
+//                Svar<PathExt> svar = lhr.getVar();
+//                assert svar.getDelay() == 0;
+//            }
+        }
+
+        void setDriver(DriverExt driver)
+        {
+            Util.check(source == null);
             Util.check(this.driver == null);
-            Util.check(driver instanceof DriverExt || driver instanceof Lhs);
             this.driver = driver;
+            wireBits = driver.wireBits.clone();
+        }
+
+        void setDriver(Lhs<PathExt> driver)
+        {
+            Util.check(source == null);
+            Util.check(this.driver == null);
+            this.driver = driver;
+            setLhs((Lhs<PathExt>)driver);
+        }
+
+        private void setLhs(Lhs<PathExt> lhs)
+        {
+            Util.check(wireBits == null);
+            Util.check(lhs.width() == getWidth());
+            wireBits = new WireExt.Bit[getWidth()];
+            int lsh = 0;
+            for (Lhrange<PathExt> range : lhs.ranges)
+            {
+                Svar<PathExt> svar = range.getVar();
+                Util.check(svar.getDelay() == 0);
+                PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
+                for (int i = 0; i < range.getWidth(); i++)
+                {
+                    wireBits[lsh + i] = lw.wire.getBit(range.getRsh() + i);
+                }
+                lsh += range.getWidth();
+            }
+            assert lsh == getWidth();
         }
 
         DriverExt getDriverExt()
