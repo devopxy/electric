@@ -118,7 +118,7 @@ public abstract class Svex<N extends SvarName>
     {
         StringBuilder sb = new StringBuilder();
         sb.append("svex(");
-        Map<Svar<N>, BigInteger> varsWithMasks = collectVarsWithMasks(BigIntegerUtil.MINUS_ONE);
+        Map<Svar<N>, BigInteger> varsWithMasks = collectVarsWithMasks(BigIntegerUtil.MINUS_ONE, false);
         boolean first = true;
         for (Map.Entry<Svar<N>, BigInteger> e : varsWithMasks.entrySet())
         {
@@ -259,7 +259,7 @@ public abstract class Svex<N extends SvarName>
         return maskMap;
     }
 
-    public Map<Svar<N>, BigInteger> collectVarsWithMasks(BigInteger mask)
+    public Map<Svar<N>, BigInteger> collectVarsWithMasks(BigInteger mask, boolean omitNulls)
     {
         Set<Svar<N>> vars = collectVars();
         Map<Svex<N>, BigInteger> maskAl = maskAlist(mask);
@@ -268,7 +268,10 @@ public abstract class Svex<N extends SvarName>
         {
             SvexVar<N> svv = new SvexVar<>(var);
             BigInteger varMask = maskAl.get(svv);
-            result.put(var, varMask);
+            if (!omitNulls || varMask != null)
+            {
+                result.put(var, varMask);
+            }
         }
         return result;
     }

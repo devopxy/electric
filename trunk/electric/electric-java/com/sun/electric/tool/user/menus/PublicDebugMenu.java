@@ -54,6 +54,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URL;
+import java.util.Collections;
+import java.util.List;
 
 /**
  *
@@ -122,7 +124,8 @@ public class PublicDebugMenu {
                             + File.separator + TextUtils.getFileNameWithoutExtension(saoPath) + ".txt";
                         String outPath = OpenFile.chooseOutputFile(FileType.TEXT, "SVEX design dump", defaultOutName);
                         if (outPath == null) return;
-                        ACL2DesignJobs.dump(f, outPath);
+                        List<String> specialOutputs = Collections.emptyList();
+                        ACL2DesignJobs.dump(f, outPath, specialOutputs);
                     }
                 },
 
