@@ -55,10 +55,15 @@ public class DesignExt
 
     public DesignExt(ACL2Object impl)
     {
-        this(new Design<>(new Path.SvarBuilder(), impl));
+        this(impl, new DesignHints.Dummy());
     }
 
-    public <N extends SvarName> DesignExt(Design<N> b)
+    public DesignExt(ACL2Object impl, DesignHints designHints)
+    {
+        this(new Design<>(new Path.SvarBuilder(), impl), designHints);
+    }
+
+    public <N extends SvarName> DesignExt(Design<N> b, DesignHints edsignHints)
     {
         this.b = b;
         moddb = new ModDb(b.top, b.modalist);
