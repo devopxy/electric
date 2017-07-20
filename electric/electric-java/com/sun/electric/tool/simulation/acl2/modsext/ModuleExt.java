@@ -424,7 +424,17 @@ public class ModuleExt extends SvarImpl.Builder<PathExt>
                 }
             }
         }
-
+        if (!crudeCombinationalInputs0.equals(crudeCombinationalInputs1))
+        {
+            System.out.print("Crude combinational inputs differs in " + modName);
+            if (modName.toString().equals("l1_l1ahdrpgendp"))
+            {
+                System.out.print(" FIXING");
+                Util.check(crudeCombinationalInputs0.containsAll(crudeCombinationalInputs1));
+                crudeCombinationalInputs1 = crudeCombinationalInputs0;
+            }
+            System.out.println();
+        }
     }
 
     private void computeDriverDeps(String global, boolean clkOne)

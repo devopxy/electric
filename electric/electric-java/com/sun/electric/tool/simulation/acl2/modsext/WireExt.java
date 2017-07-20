@@ -272,6 +272,44 @@ public class WireExt
 
     public static String showFineDeps(
         List<Map<Svar<PathExt>, BigInteger>> deps0,
+        List<Map<Svar<PathExt>, BigInteger>> deps1)
+    {
+        Map<Svar<PathExt>, BigInteger> dep0 = combineDeps(deps0);
+        Map<Svar<PathExt>, BigInteger> dep1 = combineDeps(deps1);
+        if (dep0.equals(dep1))
+        {
+            return showFineDeps(dep0);
+        } else
+        {
+            return "0=>" + showFineDeps(dep0) + " | 1=>" + showFineDeps(dep1);
+        }
+    }
+
+    private static Map<Svar<PathExt>, BigInteger> combineDeps(List<Map<Svar<PathExt>, BigInteger>> deps)
+    {
+        Map<Svar<PathExt>, BigInteger> result = new LinkedHashMap<>();
+        for (Map<Svar<PathExt>, BigInteger> dep : deps)
+        {
+            for (Map.Entry<Svar<PathExt>, BigInteger> e : dep.entrySet())
+            {
+                Svar<PathExt> svar = e.getKey();
+                BigInteger mask = e.getValue();
+                if (mask.signum() > 0)
+                {
+                    BigInteger oldMask = result.get(svar);
+                    if (oldMask == null)
+                    {
+                        oldMask = BigInteger.ZERO;
+                    }
+                    result.put(svar, oldMask.or(mask));
+                }
+            }
+        }
+        return result;
+    }
+
+    public static String showFineDeps(
+        List<Map<Svar<PathExt>, BigInteger>> deps0,
         List<Map<Svar<PathExt>, BigInteger>> deps1,
         int bit)
     {

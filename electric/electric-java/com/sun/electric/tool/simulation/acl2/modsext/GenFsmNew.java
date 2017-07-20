@@ -58,9 +58,9 @@ import java.util.TreeSet;
 /**
  *
  */
-public abstract class GenFsmNew extends GenBase
+public class GenFsmNew extends GenBase
 {
-    public static <T extends GenFsmNew> void genFsm(Class<T> cls, File saoFile, String designName)
+    public static <H extends DesignHints> void genFsm(Class<H> cls, File saoFile, String designName)
     {
         new GenFsmJob(cls, saoFile, designName).startJob();
     }
@@ -69,16 +69,23 @@ public abstract class GenFsmNew extends GenBase
     {
         "l2clk"
     };
-    private final Map<ModName, ParameterizedModule> modToParMod = new HashMap<>();
-    private final Map<ParameterizedModule, Map<String, ModName>> parModuleInstances = new HashMap<>();
+    final Map<ModName, ParameterizedModule> modToParMod = new HashMap<>();
+    final Map<ParameterizedModule, Map<String, ModName>> parModuleInstances = new HashMap<>();
     private final Set<Integer> vec4sizes = new TreeSet<>();
     private String designName;
 
-    protected abstract List<ParameterizedModule> getParameterizedModules();
+    private final DesignHints designHints;
+    private final List<ParameterizedModule> parameterizedModules;
+
+    protected GenFsmNew(DesignHints designHints)
+    {
+        this.designHints = designHints;
+        parameterizedModules = designHints.getParameterizedModules();
+    }
 
     ParameterizedModule matchParameterized(ModName modName)
     {
-        for (ParameterizedModule parMod : getParameterizedModules())
+        for (ParameterizedModule parMod : parameterizedModules)
         {
             if (parMod.setCurBuilder(modName))
             {
@@ -91,7 +98,7 @@ public abstract class GenFsmNew extends GenBase
     public void scanLib(File saoFile) throws IOException
     {
         ACL2Reader sr = new ACL2Reader(saoFile);
-        DesignExt design = new DesignExt(sr.root);
+        DesignExt design = new DesignExt(sr.root, designHints);
         scanDesign(design);
         for (ModName modName : design.downTop.keySet())
         {
@@ -105,7 +112,7 @@ public abstract class GenFsmNew extends GenBase
     public void showLibs()
     {
         System.out.println("========= Instances of libs ============");
-        for (ParameterizedModule parModule : getParameterizedModules())
+        for (ParameterizedModule parModule : parameterizedModules)
         {
             Map<String, ModName> parInsts = parModuleInstances.get(parModule);
             if (parInsts != null)
@@ -126,7 +133,7 @@ public abstract class GenFsmNew extends GenBase
 
     void scanDesign(DesignExt design)
     {
-        List<ParameterizedModule> parModules = getParameterizedModules();
+        List<ParameterizedModule> parModules = parameterizedModules;
         for (Map.Entry<ModName, ModuleExt> e : design.downTop.entrySet())
         {
             ModName modName = e.getKey();
@@ -561,13 +568,13 @@ public abstract class GenFsmNew extends GenBase
         }
     }
 
-    static class GenFsmJob<T extends GenFsmNew> extends Job
+    static class GenFsmJob<H extends DesignHints> extends Job
     {
-        private final Class<T> cls;
+        private final Class<H> cls;
         private final File saoFile;
         private final String designName;
 
-        private GenFsmJob(Class<T> cls, File saoFile, String designName)
+        private GenFsmJob(Class<H> cls, File saoFile, String designName)
         {
             super("Dump SV Design", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
             this.cls = cls;
@@ -580,9 +587,10 @@ public abstract class GenFsmNew extends GenBase
         {
             try
             {
-                GenFsmNew gen = cls.newInstance();
+                DesignHints designHints = cls.newInstance();
                 ACL2Reader sr = new ACL2Reader(saoFile);
-                DesignExt design = new DesignExt(sr.root);
+                DesignExt design = new DesignExt(sr.root, designHints);
+                GenFsmNew gen = new GenFsmNew(designHints);
                 File outDir = saoFile.getParentFile();
                 gen.gen(designName, design, outDir);
             } catch (InstantiationException | IllegalAccessException | IOException e)

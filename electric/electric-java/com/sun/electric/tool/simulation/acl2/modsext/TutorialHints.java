@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: GenTutorial.java
+ * File: TutorialHints.java
  *
  * Copyright (c) 2017, Static Free Software. All rights reserved.
  *
@@ -24,21 +24,34 @@ package com.sun.electric.tool.simulation.acl2.modsext;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
 import com.sun.electric.tool.simulation.acl2.mods.Path;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
- *
+ * Design hints for ACL2 SV tutorial.
  */
-public class GenTutorial extends GenFsmNew
+public class TutorialHints implements DesignHints
 {
-    public GenTutorial()
+    public TutorialHints()
     {
     }
 
     @Override
-    protected List<ParameterizedModule> getParameterizedModules()
+    public List<ParameterizedModule> getParameterizedModules()
     {
         return Arrays.asList(aluFlop, boothFlop);
+    }
+
+    @Override
+    public String getGlobalClock()
+    {
+        return "clk";
+    }
+
+    @Override
+    public List<String> getSpecialOutputs()
+    {
+        return Collections.emptyList();
     }
 
     private static final ParameterizedModule aluFlop = new ParameterizedModule("tutorial", "flop")
