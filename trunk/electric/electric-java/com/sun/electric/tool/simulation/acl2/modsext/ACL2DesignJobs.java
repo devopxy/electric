@@ -30,7 +30,6 @@ import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModDb;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
-import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
@@ -51,6 +50,7 @@ import java.io.IOException;
 
 import java.io.PrintStream;
 import java.math.BigInteger;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -64,7 +64,7 @@ import java.util.Set;
  */
 public class ACL2DesignJobs
 {
-    private static final boolean VERBOSE_DUMP = false;
+    private static final int VERBOSE_DUMP = 0;
 
     public static <H extends DesignHints> void dump(Class<H> cls, File saoFile, String outFileName)
     {
@@ -96,22 +96,6 @@ public class ACL2DesignJobs
                 GenFsmNew gen = new GenFsmNew(designHints);
                 gen.scanDesign(design);
                 String clockName = designHints.getGlobalClock();
-                for (String specialOutput : designHints.getSpecialOutputs())
-                {
-                    int indexOfDot = specialOutput.indexOf('.');
-                    String modStr = specialOutput.substring(0, indexOfDot);
-                    String outputStr = specialOutput.substring(indexOfDot + 1);
-                    ModuleExt specModule = design.downTop.get(ModName.valueOf(ACL2Object.valueOf(modStr)));
-                    if (specModule != null)
-                    {
-                        WireExt specWire = specModule.wiresIndex.get(new Name(ACL2Object.valueOf(outputStr)));
-                        if (specWire != null)
-                        {
-                            Util.check(specWire.isAssigned());
-                            specWire.specialOutput = true;
-                        }
-                    }
-                }
                 design.computeCombinationalInputs(clockName);
                 try (PrintStream out = new PrintStream(outFileName))
                 {
@@ -163,12 +147,21 @@ public class ACL2DesignJobs
                     + m.aliaspairs.size() + " aliaspairs "
                     + m.useCount + " useCount");
                 out.println(" wires");
+                if (m.stateWires.isEmpty())
+                {
+                    assert m.stateVars0.isEmpty();
+                    assert m.stateVars1.isEmpty();
+                } else
+                {
+                    out.println("  // state wires: " + m.stateWires);
+                    out.println("  // state " + ModuleExt.showFineDeps(false, m.stateVars0, false, m.stateVars1));
+                }
                 for (WireExt w : m.wires)
                 {
                     if (w.isAssigned())
                     {
                         out.print(w.used ? "  out    " : "  output ");
-                        if (w.assignedBits != null && !BigIntegerUtil.logheadMask(w.getWidth()).equals(w.assignedBits))
+                        if (w.isAssigned() && !BigIntegerUtil.logheadMask(w.getWidth()).equals(w.getAssignedBits()))
                         {
                             out.print("#x" + w.getAssignedBits().toString(16));
                         }
@@ -177,7 +170,7 @@ public class ACL2DesignJobs
                         Util.check(w.getAssignedBits().signum() == 0);
                         out.print(w.used ? "  input  " : "  unused ");
                     }
-                    out.print(w.isGlobal() ? "! " : w.exported ? "* " : "  ");
+                    out.print(w.isGlobal() ? "! " : w.isExport() ? "* " : "  ");
                     out.print(w + " //");
 
                     for (Map.Entry<Lhrange<PathExt>, WireExt.WireDriver> e1 : w.drivers.entrySet())
@@ -188,111 +181,202 @@ public class ACL2DesignJobs
                         if (wd.driver != null)
                         {
                             out.print(wd.driver.name);
+                            if (lhr.getWidth() != wd.driver.getWidth() || wd.lsh != 0)
+                            {
+                                out.print("[" + (wd.lsh + lhr.getWidth() - 1) + ":" + wd.lsh + "]");
+                            }
                         }
                         if (wd.pi != null)
                         {
-                            out.print(wd.pi);
+                            out.print(wd.pi.toString(BigIntegerUtil.logheadMask(lhr.getWidth()).shiftLeft(wd.lsh)));
                         }
                     }
                     out.println();
-                    if (w.isAssigned() || !m.isTop && !w.exported)
+                    if (!w.isInput())
                     {
-                        List<Map<Svar<PathExt>, BigInteger>> fineDeps0 = w.gatherFineDeps(fineGraph0);
-                        List<Map<Svar<PathExt>, BigInteger>> fineDeps1 = w.gatherFineDeps(fineGraph1);
-                        List<Map<Svar<PathExt>, BigInteger>> closureDeps0 = w.gatherFineDeps(fineClosure0);
-                        List<Map<Svar<PathExt>, BigInteger>> closureDeps1 = w.gatherFineDeps(fineClosure1);
-                        if (w.exported && w.isAssigned())
+                        if (w.isOutput())
                         {
-                            out.println("    // " + w + " depends on " + w.showFineDeps(closureDeps0, closureDeps1));
-                        }
-                        if (VERBOSE_DUMP)
-                        {
-                            for (int i = 0; i < w.getWidth(); i++)
+                            String fineStr = w.showFinePortDeps(fineClosure0, fineClosure1);
+                            String crudeStr = m.showCrudePortDeps(w, crudeClosure0, crudeClosure1);
+                            out.println("   // fine  export depends* " + fineStr);
+                            if (!fineStr.equals(crudeStr))
                             {
-                                WireExt.Bit wb = w.getBit(i);
-                                out.println("    // " + wb + " depends on " + WireExt.showFineDeps(fineDeps0, fineDeps1, i));
+                                out.println("   // crude export depends* " + crudeStr);
                             }
-                            for (int i = 0; i < w.getWidth(); i++)
+//                            boolean fineStateDeps0 = w.getFinePortStateDeps(false);
+//                            Map<Svar<PathExt>, BigInteger> fineDeps0 = w.getFinePortDeps(false);
+//                            boolean fineStateDeps1 = w.getFinePortStateDeps(true);
+//                            Map<Svar<PathExt>, BigInteger> fineDeps1 = w.getFinePortDeps(true);
+//                            boolean crudeStateDeps0 = w.getCrudePortStateDeps(false);
+//                            Map<Svar<PathExt>, BigInteger> crudeDeps0 = w.getCrudePortDeps(false);
+//                            boolean crudeStateDeps1 = w.getCrudePortStateDeps(true);
+//                            Map<Svar<PathExt>, BigInteger> crudeDeps1 = w.getCrudePortDeps(true);
+//                            if (fineStateDeps0 != crudeStateDeps0 || !fineDeps0.keySet().equals(crudeDeps0.keySet())
+//                                || fineStateDeps1 != crudeStateDeps1 || !fineDeps1.keySet().equals(crudeDeps1.keySet()))
+//                            {
+//                                out.println("Different Exports!!!");
+//                            }
+                        }
+                        if (VERBOSE_DUMP >= 1)
+                        {
+                            out.println("    // fine  depends  on " + w.showFinePortDeps(fineGraph0, fineGraph1));
+                            out.println("    // fine  depends* on " + w.showFinePortDeps(fineClosure0, fineClosure1));
+                            out.println("    // crude depends  on " + m.showCrudePortDeps(w, crudeGraph0, crudeGraph1));
+                            out.println("    // crude depends* on " + m.showCrudePortDeps(w, crudeClosure0, crudeClosure1));
+//                            out.println("    // crude depends  on " + showCrude(crudeGraph0.get(w), crudeGraph1.get(w)));
+//                            out.println("    // crude depends* on " + showCrude(crudeClosure0.get(w), crudeClosure1.get(w)));
+                        }
+                        if (VERBOSE_DUMP >= 2)
+                        {
+                            BitSet fineStateLocDeps0 = new BitSet();
+                            BitSet fineStateLocDeps1 = new BitSet();
+                            BitSet fineStateTransDeps0 = new BitSet();
+                            BitSet fineStateTransDeps1 = new BitSet();
+                            List<Map<Svar<PathExt>, BigInteger>> fineDeps0 = w.gatherFineBitDeps(fineStateLocDeps0, fineGraph0);
+                            List<Map<Svar<PathExt>, BigInteger>> fineDeps1 = w.gatherFineBitDeps(fineStateLocDeps1, fineGraph1);
+                            List<Map<Svar<PathExt>, BigInteger>> closureDeps0 = w.gatherFineBitDeps(fineStateTransDeps0, fineClosure0);
+                            List<Map<Svar<PathExt>, BigInteger>> closureDeps1 = w.gatherFineBitDeps(fineStateTransDeps1, fineClosure1);
+                            for (int bit = 0; bit < w.getWidth(); bit++)
                             {
-                                WireExt.Bit wb = w.getBit(i);
-                                out.println("    // " + wb + " depends* on " + WireExt.showFineDeps(closureDeps0, closureDeps1, i));
-                                if (w.exported && w.isAssigned())
-                                {
-                                    assert WireExt.showFineDeps(closureDeps0, closureDeps1, i).equals(w.showFineDeps(i));
-                                }
+                                PathExt.Bit pb = w.getBit(bit);
+                                out.println("    // " + pb + " depends on "
+                                    + ModuleExt.showFineDeps(fineStateLocDeps0, fineDeps0, fineStateLocDeps1, fineDeps1, bit));
+                            }
+                            for (int bit = 0; bit < w.getWidth(); bit++)
+                            {
+                                PathExt.Bit pb = w.getBit(bit);
+                                out.println("    // " + pb + " depends* on "
+                                    + ModuleExt.showFineDeps(fineStateTransDeps0, closureDeps0, fineStateTransDeps1, closureDeps1, bit));
                             }
                         }
                     }
                 }
-                if (!m.crudeCombinationalInputs0.equals(m.fineCombinationalInputs0)
-                    || !m.crudeCombinationalInputs1.equals(m.fineCombinationalInputs1))
-                {
-                    if (m.crudeCombinationalInputs0.equals(m.crudeCombinationalInputs1))
-                    {
-                        out.println("// crude combinational inputs: " + m.crudeCombinationalInputs0);
-                    } else
-                    {
-                        out.println("// 0 crude combinational inputs: " + m.crudeCombinationalInputs0);
-                        out.println("// 1 crude combinational inputs: " + m.crudeCombinationalInputs1);
-                    }
-                }
-                out.println("// 0 fine combinational inputs:  " + m.fineCombinationalInputs0);
-                out.println("// 1 fine combinational inputs:  " + m.fineCombinationalInputs1);
                 out.println("// insts");
                 for (ModInstExt mi : m.insts)
                 {
-                    out.print("  " + mi.getModname() + " " + mi.getInstname() + " (");
-                    for (PathExt.PortInst pi : mi.portInsts.values())
+                    out.println("  " + mi.getModname() + " " + mi.getInstname() + " (");
+                    boolean hasExports = false;
+                    for (PathExt.PortInst piIn : mi.portInsts.values())
                     {
-                        if (!pi.wire.isAssigned())
+                        if (!piIn.wire.isInput())
                         {
-                            out.print("." + pi.wire.getName() + "(" + pi.driver + "), ");
+                            continue;
                         }
-                    }
-                    out.println();
-                    boolean first = true;
-                    out.print("    ");
-                    for (PathExt.PortInst pi : mi.portInsts.values())
-                    {
-                        if (pi.wire.isAssigned())
+                        if (hasExports)
                         {
-                            if (first)
-                            {
-                                first = false;
-                            } else
-                            {
-                                out.print(", ");
-                            }
-                            out.print("." + pi.wire.getName() + "(" + pi.source + ")");
-                        }
-                    }
-                    out.println(");");
-                    if (VERBOSE_DUMP)
-                    {
-                        if (mi.splitIt)
-                        {
-                            for (PathExt.PortInst piOut : mi.portInsts.values())
-                            {
-                                if (piOut.wire.isAssigned())
-                                {
-                                    for (int bit = 0; bit < piOut.wire.getWidth(); bit++)
-                                    {
-                                        WireExt.Bit wb = piOut.getParentBit(bit);
-                                        out.println("    // crude " + wb + " depends  on " + showCrude(crudeGraph0.get(wb), crudeGraph1.get(wb)));
-                                        out.println("    // crude " + wb + " depends* on " + showCrude(crudeClosure0.get(wb), crudeClosure1.get(wb)));
-                                    }
-                                }
-                            }
+                            out.print("   ,");
                         } else
                         {
-                            out.println("    // crude depends  on " + showCrude(crudeGraph0.get(mi), crudeGraph1.get(mi)));
-                            out.println("    // crude depends* on " + showCrude(crudeClosure0.get(mi), crudeClosure1.get(mi)));
+                            out.print("    ");
+                            hasExports = true;
+                        }
+                        out.println("." + piIn.wire.getName() + "(" + piIn.driver + ")");
+                        if (VERBOSE_DUMP >= 1)
+                        {
+                            out.println("    // fine  depends  on " + piIn.showFinePortDeps(fineGraph0, fineGraph1));
+                            out.println("    // fine  depends* on " + piIn.showFinePortDeps(fineClosure0, fineClosure1));
+                        }
+                        if (VERBOSE_DUMP >= 2)
+                        {
+                            BitSet fineStateLocDeps0 = new BitSet();
+                            BitSet fineStateLocDeps1 = new BitSet();
+                            BitSet fineStateTransDeps0 = new BitSet();
+                            BitSet fineStateTransDeps1 = new BitSet();
+                            List<Map<Svar<PathExt>, BigInteger>> fineDeps0 = piIn.gatherFineBitDeps(fineStateLocDeps0, fineGraph0);
+                            List<Map<Svar<PathExt>, BigInteger>> fineDeps1 = piIn.gatherFineBitDeps(fineStateLocDeps1, fineGraph1);
+                            List<Map<Svar<PathExt>, BigInteger>> closureDeps0 = piIn.gatherFineBitDeps(fineStateTransDeps0, fineClosure0);
+                            List<Map<Svar<PathExt>, BigInteger>> closureDeps1 = piIn.gatherFineBitDeps(fineStateTransDeps1, fineClosure1);
+                            for (int bit = 0; bit < piIn.wire.getWidth(); bit++)
+                            {
+                                PathExt.Bit pb = piIn.getBit(bit);
+                                out.println("    // fine  " + pb + " depends  on "
+                                    + ModuleExt.showFineDeps(fineStateLocDeps0, fineDeps0, fineStateLocDeps1, fineDeps1, bit));
+//                                if (piOut.splitIt)
+//                                {
+//                                    out.println("    // crude " + pb + " depends  on " + showCrude(crudeGraph0.get(pb), crudeGraph1.get(pb)));
+//                                }
+                            }
+                            for (int bit = 0; bit < piIn.wire.getWidth(); bit++)
+                            {
+                                PathExt.Bit pb = piIn.getBit(bit);
+                                out.println("    // fine  " + pb + " depends* on "
+                                    + ModuleExt.showFineDeps(fineStateLocDeps0, closureDeps0, fineStateLocDeps1, closureDeps1, bit));
+//                                if (piOut.splitIt)
+//                                {
+//                                    out.println("    // crude " + pb + " depends* on " + showCrude(crudeClosure0.get(pb), crudeClosure1.get(pb)));
+//                                }
+                            }
                         }
                     }
-//                            out.println("    // 0 depends on " + graph0.get(mi));
-//                            out.println("    // 1 depends on " + graph1.get(mi));
-//                            out.println("    // 0 closure " + closure0.get(mi));
-//                            out.println("    // 1 closure " + closure1.get(mi));
+                    out.println("   //");
+                    for (PathExt.PortInst piOut : mi.portInsts.values())
+                    {
+                        if (!piOut.wire.isOutput())
+                        {
+                            continue;
+                        }
+                        if (hasExports)
+                        {
+                            out.print("   ,");
+                        } else
+                        {
+                            out.print("    ");
+                            hasExports = true;
+                        }
+                        out.println("." + piOut.wire.getName() + "(" + piOut.source + ")");
+                        if (piOut.splitIt)
+                        {
+                            out.println("    // SPLIT");
+                        }
+                        if (VERBOSE_DUMP >= 1)
+                        {
+                            out.println("    // fine  depends  on " + piOut.showFinePortDeps(fineGraph0, fineGraph1));
+                            out.println("    // fine  depends* on " + piOut.showFinePortDeps(fineClosure0, fineClosure1));
+                            if (!piOut.splitIt)
+                            {
+                                out.println("    // crude depends  on " + m.showCrudePortDeps(piOut, crudeGraph0, crudeGraph1));
+                                out.println("    // crude depends* on " + m.showCrudePortDeps(piOut, crudeClosure0, crudeClosure1));
+//                                out.println("    // crude depends  on " + showCrude(crudeGraph0.get(piOut), crudeGraph1.get(piOut)));
+//                                out.println("    // crude depends* on " + showCrude(crudeClosure0.get(piOut), crudeClosure1.get(piOut)));
+                            }
+                        }
+                        if (VERBOSE_DUMP >= 2 || VERBOSE_DUMP >= 1 && piOut.splitIt)
+                        {
+                            BitSet fineStateLocDeps0 = new BitSet();
+                            BitSet fineStateLocDeps1 = new BitSet();
+                            BitSet fineStateTransDeps0 = new BitSet();
+                            BitSet fineStateTransDeps1 = new BitSet();
+                            List<Map<Svar<PathExt>, BigInteger>> fineDeps0 = piOut.gatherFineBitDeps(fineStateLocDeps0, fineGraph0);
+                            List<Map<Svar<PathExt>, BigInteger>> fineDeps1 = piOut.gatherFineBitDeps(fineStateLocDeps1, fineGraph1);
+                            List<Map<Svar<PathExt>, BigInteger>> closureDeps0 = piOut.gatherFineBitDeps(fineStateTransDeps0, fineClosure0);
+                            List<Map<Svar<PathExt>, BigInteger>> closureDeps1 = piOut.gatherFineBitDeps(fineStateTransDeps1, fineClosure1);
+                            for (int bit = 0; bit < piOut.wire.getWidth(); bit++)
+                            {
+                                PathExt.Bit pb = piOut.getBit(bit);
+                                out.println("    // fine  " + pb + " depends  on "
+                                    + ModuleExt.showFineDeps(fineStateLocDeps0, fineDeps0, fineStateLocDeps1, fineDeps1, bit));
+                                if (piOut.splitIt)
+                                {
+                                    out.println("    // crude " + pb + " depends  on "
+                                        + m.showCrudePortDeps(pb, crudeGraph0, crudeGraph1));
+//                                    out.println("    // crude " + pb + " depends  on " + showCrude(crudeGraph0.get(pb), crudeGraph1.get(pb)));
+                                }
+                            }
+                            for (int bit = 0; bit < piOut.wire.getWidth(); bit++)
+                            {
+                                PathExt.Bit pb = piOut.getBit(bit);
+                                out.println("    // fine  " + pb + " depends* on "
+                                    + ModuleExt.showFineDeps(fineStateLocDeps0, closureDeps0, fineStateLocDeps1, closureDeps1, bit));
+                                if (piOut.splitIt)
+                                {
+                                    out.println("    // crude " + pb + " depends* on "
+                                        + m.showCrudePortDeps(pb, crudeClosure0, crudeClosure1));
+//                                    out.println("    // crude " + pb + " depends* on " + showCrude(crudeClosure0.get(pb), crudeClosure1.get(pb)));
+                                }
+                            }
+                        }
+                    }
+                    out.println("  );");
                 }
                 out.println(" assigns");
                 for (Map.Entry<Lhs<PathExt>, DriverExt> e1 : m.assigns.entrySet())
@@ -309,89 +393,54 @@ public class ACL2DesignJobs
                         out.print((i == 0 ? "  " : ",") + lr);
                     }
 
-                    out.print(" = " + d);
-//                            Set<Svar> deps = d.svex.collectVars();
-//                            Set<SVarExt.LocalWire> dep0 = getDeps(d.svex, m, clkName, Vec2.ZERO);
-//                            Set<SVarExt.LocalWire> dep1 = getDeps(d.svex, m, clkName, Vec2.ONE);
-//                            if (!dep0.equals(deps) || !dep1.equals(deps))
-//                            {
-//                                if (dep0.equals(dep1))
-//                                {
-//                                    out.print(" | => " + dep0);
-//                                } else
-//                                {
-//                                    out.print(" | 0 => " + dep0 + " | 1 => " + dep1);
-//                                }
-//                            }
-                    out.println(" // " + d.name);
-                    String sState0 = "";
-                    for (Map.Entry<Svar<PathExt>, BigInteger> e2 : d.getCrudeDeps(false).entrySet())
+                    out.print(" = " + d.getSvex());
+                    out.println(" // " + d.toString());
+                    if (d.splitIt)
                     {
-                        Svar<PathExt> svar = e2.getKey();
-                        BigInteger mask = e2.getValue();
-                        if (svar.getDelay() == 0 || mask == null || mask.signum() == 0)
-                        {
-                            continue;
-                        }
-                        if (!sState0.isEmpty())
-                        {
-                            sState0 += ",";
-                        }
-                        sState0 += svar.toString(mask);
+                        out.println(" // SPLIT");
                     }
-                    if (!sState0.isEmpty())
+                    if (VERBOSE_DUMP >= 1)
                     {
-                        out.println(" // STATE0 " + sState0);
-                    }
-                    String sState1 = "";
-                    for (Map.Entry<Svar<PathExt>, BigInteger> e2 : d.getCrudeDeps(true).entrySet())
-                    {
-                        Svar<PathExt> svar = e2.getKey();
-                        BigInteger mask = e2.getValue();
-                        if (svar.getDelay() == 0 || mask == null || mask.signum() == 0)
+                        out.println("    // fine  depends  on " + d.showFinePortDeps(fineGraph0, fineGraph1));
+                        out.println("    // fine  depends* on " + d.showFinePortDeps(fineClosure0, fineClosure1));
+                        if (!d.splitIt)
                         {
-                            continue;
+                            out.println("    // crude depends  on " + m.showCrudePortDeps(d, crudeGraph0, crudeGraph1));
+                            out.println("    // crude depends* on " + m.showCrudePortDeps(d, crudeClosure0, crudeClosure1));
+//                            out.println("    // crude depends  on " + showCrude(crudeGraph0.get(d), crudeGraph1.get(d)));
+//                            out.println("    // crude depends* on " + showCrude(crudeClosure0.get(d), crudeClosure1.get(d)));
                         }
-                        if (!sState1.isEmpty())
-                        {
-                            sState1 += ",";
-                        }
-                        sState1 += svar.toString(mask);
                     }
-                    if (!sState1.isEmpty())
+                    if (VERBOSE_DUMP >= 2 || VERBOSE_DUMP >= 1 && d.splitIt)
                     {
-                        out.println(" // STATE1 " + sState1);
-                    }
-                    if (VERBOSE_DUMP)
-                    {
-                        if (d.splitIt)
+                        BitSet fineStateLocDeps0 = new BitSet();
+                        BitSet fineStateLocDeps1 = new BitSet();
+                        BitSet fineStateTransDeps0 = new BitSet();
+                        BitSet fineStateTransDeps1 = new BitSet();
+                        List<Map<Svar<PathExt>, BigInteger>> fineDeps0 = d.gatherFineBitDeps(fineStateLocDeps0, fineGraph0);
+                        List<Map<Svar<PathExt>, BigInteger>> fineDeps1 = d.gatherFineBitDeps(fineStateLocDeps1, fineGraph1);
+                        List<Map<Svar<PathExt>, BigInteger>> closureDeps0 = d.gatherFineBitDeps(fineStateTransDeps0, fineClosure0);
+                        List<Map<Svar<PathExt>, BigInteger>> closureDeps1 = d.gatherFineBitDeps(fineStateTransDeps1, fineClosure1);
+                        for (int bit = 0; bit < l.width(); bit++)
                         {
-                            for (int bit = 0; bit < l.width(); bit++)
+                            PathExt.Bit pb = d.getBit(bit);
+                            out.println("    // fine  " + pb + " depends on "
+                                + ModuleExt.showFineDeps(fineStateLocDeps0, fineDeps0, fineStateLocDeps1, fineDeps1, bit));
+                            if (d.splitIt)
                             {
-                                WireExt.Bit wb = d.wireBits[bit];
-                                out.println("    // crude " + bit + " depends  on " + showCrude(crudeGraph0.get(wb), crudeGraph1.get(wb)));
-                                out.println("    // crude " + bit + " depends* on " + showCrude(crudeClosure0.get(wb), crudeClosure1.get(wb)));
+                                out.println("    // crude " + pb + " depends  on " + m.showCrudePortDeps(pb, crudeGraph0, crudeGraph1));
+//                                out.println("    // crude " + pb + " depends  on " + showCrude(crudeGraph0.get(pb), crudeGraph1.get(pb)));
                             }
-                        } else
-                        {
-                            out.println("    // crude depends  on " + showCrude(crudeGraph0.get(d.name), crudeGraph1.get(d.name)));
-                            out.println("    // crude depends* on " + showCrude(crudeClosure0.get(d.name), crudeClosure1.get(d.name)));
                         }
-                        if (l.ranges.size() == 1 && l.ranges.get(0).getVar().getName() instanceof PathExt.PortInst)
+                        for (int bit = 0; bit < l.width(); bit++)
                         {
-                            List<Map<Svar<PathExt>, BigInteger>> fineDeps0 = d.gatherFineDeps(fineGraph0);
-                            List<Map<Svar<PathExt>, BigInteger>> fineDeps1 = d.gatherFineDeps(fineGraph1);
-                            List<Map<Svar<PathExt>, BigInteger>> closureDeps0 = d.gatherFineDeps(fineClosure0);
-                            List<Map<Svar<PathExt>, BigInteger>> closureDeps1 = d.gatherFineDeps(fineClosure1);
-                            for (int i = 0; i < l.width(); i++)
+                            PathExt.Bit pb = d.getBit(bit);
+                            out.println("    // fine  " + pb + " depends* on "
+                                + ModuleExt.showFineDeps(fineStateTransDeps0, closureDeps0, fineStateTransDeps1, closureDeps1, bit));
+                            if (d.splitIt)
                             {
-                                WireExt.Bit wb = d.wireBits[i];
-                                out.println("    // " + wb + " depends on " + WireExt.showFineDeps(fineDeps0, fineDeps1, i));
-                            }
-                            for (int i = 0; i < l.width(); i++)
-                            {
-                                WireExt.Bit wb = d.wireBits[i];
-                                out.println("    // " + wb + " depends* on " + WireExt.showFineDeps(closureDeps0, closureDeps1, i));
+                                out.println("    // crude " + pb + " depends* on " + m.showCrudePortDeps(pb, crudeClosure0, crudeClosure1));
+//                                out.println("    // crude " + pb + " depends* on " + showCrude(crudeClosure0.get(pb), crudeClosure1.get(pb)));
                             }
                         }
                     }
@@ -428,17 +477,6 @@ public class ACL2DesignJobs
                 out.println("endmodule // " + modName);
                 out.println();
             }
-        }
-    }
-
-    private static String showCrude(Set<Object> dep0, Set<Object> dep1)
-    {
-        if (dep0.equals(dep1))
-        {
-            return dep0.toString();
-        } else
-        {
-            return "0=>" + dep0 + " | 1=>" + dep1;
         }
     }
 

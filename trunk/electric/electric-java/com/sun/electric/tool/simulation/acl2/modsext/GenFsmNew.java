@@ -49,6 +49,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,7 +71,7 @@ public class GenFsmNew extends GenBase
         "l2clk"
     };
     final Map<ModName, ParameterizedModule> modToParMod = new HashMap<>();
-    final Map<ParameterizedModule, Map<String, ModName>> parModuleInstances = new HashMap<>();
+    final Map<ParameterizedModule, Map<String, ModName>> parModuleInstances = new LinkedHashMap<>();
     private final Set<Integer> vec4sizes = new TreeSet<>();
     private String designName;
 
@@ -115,7 +116,7 @@ public class GenFsmNew extends GenBase
         for (ParameterizedModule parModule : parameterizedModules)
         {
             Map<String, ModName> parInsts = parModuleInstances.get(parModule);
-            if (parInsts != null)
+            if (!parInsts.isEmpty())
             {
                 System.out.println(parModule);
                 for (ModName modName : parInsts.values())
@@ -134,6 +135,10 @@ public class GenFsmNew extends GenBase
     void scanDesign(DesignExt design)
     {
         List<ParameterizedModule> parModules = parameterizedModules;
+        for (ParameterizedModule parModule : parModules)
+        {
+            parModuleInstances.put(parModule, new TreeMap<>(TextUtils.STRING_NUMBER_ORDER));
+        }
         for (Map.Entry<ModName, ModuleExt> e : design.downTop.entrySet())
         {
             ModName modName = e.getKey();
@@ -146,11 +151,7 @@ public class GenFsmNew extends GenBase
                     assert !found;
                     found = true;
                     Map<String, ModName> parInsts = parModuleInstances.get(parModule);
-                    if (parInsts == null)
-                    {
-                        parInsts = new TreeMap<>(TextUtils.STRING_NUMBER_ORDER);
-                        parModuleInstances.put(parModule, parInsts);
-                    }
+                    assert parInsts != null;
                     parInsts.put(modName.toString(), modName);
                     modToParMod.put(modName, parModule);
                     Module<Path> genM = parModule.genModule();

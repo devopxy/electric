@@ -392,7 +392,7 @@ public class CompileVerilogStruct
             }
             for (WireExt wire : m.wires)
             {
-                if (wire.exported)
+                if (wire.isExport())
                 {
                     VExport vExport = new VExport(wire.getName().toString());
                     if (wire.isAssigned())

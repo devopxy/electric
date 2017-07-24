@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import java.util.Collections;
 import java.util.List;
 
@@ -33,7 +34,11 @@ public interface DesignHints
 
     String getGlobalClock();
 
-    List<String> getSpecialOutputs();
+    String[] getExportNames(ModName modName);
+
+    String[] getPortInstancesToSplit(ModName modName);
+
+    int[] getDriversToSplit(ModName modName);
 
     public static class Dummy implements DesignHints
     {
@@ -50,10 +55,21 @@ public interface DesignHints
         }
 
         @Override
-        public List<String> getSpecialOutputs()
+        public String[] getExportNames(ModName modName)
         {
-            return Collections.emptyList();
+            return null;
         }
 
+        @Override
+        public String[] getPortInstancesToSplit(ModName modName)
+        {
+            return null;
+        }
+
+        @Override
+        public int[] getDriversToSplit(ModName modName)
+        {
+            return null;
+        }
     }
 }

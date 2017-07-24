@@ -41,7 +41,6 @@ public class ModInstExt
     final ModuleExt parent;
     final ModuleExt proto;
     final Map<Name, PathExt.PortInst> portInsts = new HashMap<>();
-    boolean splitIt;
 
     ModInstExt(ModuleExt parent, ModInst b, Map<ModName, ModuleExt> downTop)
     {
@@ -87,7 +86,7 @@ public class ModInstExt
     {
         for (WireExt export : proto.wires)
         {
-            if (export.exported)
+            if (export.isExport())
             {
                 PathExt.PortInst pi = portInsts.get(export.b.name);
                 Util.check(pi != null && (pi.source != null || pi.driver != null));

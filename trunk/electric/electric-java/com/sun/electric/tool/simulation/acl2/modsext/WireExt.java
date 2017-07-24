@@ -30,11 +30,11 @@ import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import static com.sun.electric.util.acl2.ACL2.*;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -49,7 +49,7 @@ public class WireExt
 
     final ModuleExt parent;
     final PathExt.LocalWire path;
-    private final Bit[] bits;
+    final int index;
 
     public boolean used, exported;
     BigInteger assignedBits;
@@ -57,14 +57,20 @@ public class WireExt
     final SortedMap<Lhrange<PathExt>, WireDriver> drivers = new TreeMap<>(LHRANGE_COMPARATOR);
 
     // only for exports
-    List<Map<Svar<PathExt>, BigInteger>> fineDeps0;
-    List<Map<Svar<PathExt>, BigInteger>> fineDeps1;
-    boolean specialOutput;
+    private final BitSet fineBitStateDeps0 = new BitSet();
+    private final BitSet fineBitStateDeps1 = new BitSet();
+    private final List<Map<Svar<PathExt>, BigInteger>> fineBitDeps0 = new ArrayList<>();
+    private final List<Map<Svar<PathExt>, BigInteger>> fineBitDeps1 = new ArrayList<>();
+    final Map<Svar<PathExt>, BigInteger> crudePortDeps0 = new LinkedHashMap<>();
+    final Map<Svar<PathExt>, BigInteger> crudePortDeps1 = new LinkedHashMap<>();
+    boolean crudePortStateDep0;
+    boolean crudePortStateDep1;
 
-    WireExt(ModuleExt parent, Wire b)
+    WireExt(ModuleExt parent, Wire b, int index)
     {
         this.parent = parent;
         this.b = b;
+        this.index = index;
         if (!stringp(b.name.impl).bool())
         {
             Util.check(integerp(b.name.impl).bool() || Util.KEYWORD_SELF.equals(b.name.impl));
@@ -76,11 +82,6 @@ public class WireExt
 //            System.out.println("Wire " + this + " in " + parent);
 //        }
         path = new PathExt.LocalWire(this);
-        bits = new Bit[getWidth()];
-        for (int bit = 0; bit < bits.length; bit++)
-        {
-            bits[bit] = new Bit(null, bit);
-        }
     }
 
     public Name getName()
@@ -144,9 +145,9 @@ public class WireExt
         return b.toString();
     }
 
-    public Bit getBit(int bit)
+    public PathExt.Bit getBit(int bit)
     {
-        return bits[bit];
+        return path.getBit(bit);
     }
 
     public void markAssigned(BigInteger assignedBits)
@@ -170,6 +171,21 @@ public class WireExt
     public boolean isAssigned()
     {
         return assignedBits != null;
+    }
+
+    public boolean isExport()
+    {
+        return exported;
+    }
+
+    public boolean isInput()
+    {
+        return isExport() && !isAssigned();
+    }
+
+    public boolean isOutput()
+    {
+        return isExport() && isAssigned();
     }
 
     public BigInteger getAssignedBits()
@@ -259,120 +275,55 @@ public class WireExt
 //        }
     }
 
-    public List<Map<Svar<PathExt>, BigInteger>> getFineDeps(boolean clockHigh)
+    BitSet getFineBitStateDeps(boolean clockHigh)
     {
-//        assert exported && isAssigned();
-        return clockHigh ? fineDeps1 : fineDeps0;
+        return clockHigh ? fineBitStateDeps1 : fineBitStateDeps0;
     }
 
-    public String showFineDeps(int bit)
+    List<Map<Svar<PathExt>, BigInteger>> getFineBitDeps(boolean clockHigh)
     {
-        return showFineDeps(getFineDeps(false), getFineDeps(true), bit);
+        return clockHigh ? fineBitDeps1 : fineBitDeps0;
     }
 
-    public static String showFineDeps(
-        List<Map<Svar<PathExt>, BigInteger>> deps0,
-        List<Map<Svar<PathExt>, BigInteger>> deps1)
+    boolean getFinePortStateDeps(boolean clcokHigh)
     {
-        Map<Svar<PathExt>, BigInteger> dep0 = combineDeps(deps0);
-        Map<Svar<PathExt>, BigInteger> dep1 = combineDeps(deps1);
-        if (dep0.equals(dep1))
-        {
-            return showFineDeps(dep0);
-        } else
-        {
-            return "0=>" + showFineDeps(dep0) + " | 1=>" + showFineDeps(dep1);
-        }
+        return !getFineBitStateDeps(clcokHigh).isEmpty();
     }
 
-    private static Map<Svar<PathExt>, BigInteger> combineDeps(List<Map<Svar<PathExt>, BigInteger>> deps)
+    Map<Svar<PathExt>, BigInteger> getFinePortDeps(boolean clockHigh)
     {
-        Map<Svar<PathExt>, BigInteger> result = new LinkedHashMap<>();
-        for (Map<Svar<PathExt>, BigInteger> dep : deps)
-        {
-            for (Map.Entry<Svar<PathExt>, BigInteger> e : dep.entrySet())
-            {
-                Svar<PathExt> svar = e.getKey();
-                BigInteger mask = e.getValue();
-                if (mask.signum() > 0)
-                {
-                    BigInteger oldMask = result.get(svar);
-                    if (oldMask == null)
-                    {
-                        oldMask = BigInteger.ZERO;
-                    }
-                    result.put(svar, oldMask.or(mask));
-                }
-            }
-        }
-        return result;
+        return parent.sortDeps(ModuleExt.combineDeps(getFineBitDeps(clockHigh)));
     }
 
-    public static String showFineDeps(
-        List<Map<Svar<PathExt>, BigInteger>> deps0,
-        List<Map<Svar<PathExt>, BigInteger>> deps1,
-        int bit)
+    boolean getCrudePortStateDeps(boolean clockHigh)
     {
-        Map<Svar<PathExt>, BigInteger> dep0 = deps0.get(bit);
-        Map<Svar<PathExt>, BigInteger> dep1 = deps1.get(bit);
-        if (dep0.equals(dep1))
-        {
-            return showFineDeps(dep0);
-        } else
-        {
-            return "0=>" + showFineDeps(dep0) + " | 1=>" + showFineDeps(dep1);
-        }
+        return clockHigh ? crudePortStateDep1 : crudePortStateDep0;
     }
 
-    private static String showFineDeps(Map<Svar<PathExt>, BigInteger> dep)
+    Map<Svar<PathExt>, BigInteger> getCrudePortDeps(boolean clockHigh)
     {
-        String s = "";
-        for (Map.Entry<Svar<PathExt>, BigInteger> e : dep.entrySet())
-        {
-            Svar<PathExt> svar = e.getKey();
-            BigInteger mask = e.getValue();
-            if (!s.isEmpty())
-            {
-                s += ",";
-            }
-            s += svar.toString(mask);
-        }
-        return s;
+        return clockHigh ? crudePortDeps1 : crudePortDeps0;
     }
 
     void setFineDeps(boolean clockHigh, Map<Object, Set<Object>> closure)
     {
-        List<Map<Svar<PathExt>, BigInteger>> fineDeps = gatherFineDeps(closure);
         if (clockHigh)
         {
-            fineDeps1 = fineDeps;
+            fineBitDeps1.addAll(gatherFineBitDeps(fineBitStateDeps1, closure));
         } else
         {
-            fineDeps0 = fineDeps;
+            fineBitDeps0.addAll(gatherFineBitDeps(fineBitStateDeps0, closure));
         }
     }
 
-    List<Map<Svar<PathExt>, BigInteger>> gatherFineDeps(Map<Object, Set<Object>> graph)
+    public String showFinePortDeps(Map<Object, Set<Object>> graph0, Map<Object, Set<Object>> graph1)
     {
-        List<Map<Svar<PathExt>, BigInteger>> fineDeps = new ArrayList<>();
-        fineDeps.clear();
-        for (int i = 0; i < getWidth(); i++)
-        {
-            Bit wb = getBit(i);
-            Map<Svar<PathExt>, BigInteger> fineDep = new LinkedHashMap<>();
-            for (Object o : graph.get(wb))
-            {
-                Bit wb1 = (Bit)o;
-                BigInteger mask = fineDep.get(wb1.getWire().getVar(0));
-                if (mask == null)
-                {
-                    mask = BigInteger.ZERO;
-                }
-                fineDep.put(wb1.getWire().getVar(0), mask.setBit(wb1.bit));
-            }
-            fineDeps.add(fineDep);
-        }
-        return fineDeps;
+        return path.showFinePortDeps(graph0, graph1);
+    }
+
+    List<Map<Svar<PathExt>, BigInteger>> gatherFineBitDeps(BitSet stateDeps, Map<Object, Set<Object>> graph)
+    {
+        return path.gatherFineBitDeps(stateDeps, graph);
     }
 
     private static final Comparator<Lhrange> LHRANGE_COMPARATOR = new Comparator<Lhrange>()
@@ -383,61 +334,4 @@ public class WireExt
             return Integer.compare(o1.getRsh(), o2.getRsh());
         }
     };
-
-    public Bit newBit(PathExt.PortInst pi, int bit)
-    {
-        Util.check(pi.wire == WireExt.this);
-        return new Bit(pi, bit);
-    }
-
-    public class Bit
-    {
-        final PathExt.PortInst pi;
-        final int bit;
-
-        private Bit(PathExt.PortInst pi, int bit)
-        {
-            this.pi = pi;
-            this.bit = bit;
-        }
-
-        public WireExt getWire()
-        {
-            return WireExt.this;
-        }
-
-        @Override
-        public String toString()
-        {
-            String s = WireExt.this.toString(BigInteger.ONE.shiftLeft(bit));
-            if (pi != null)
-            {
-                s = pi.inst.getInstname() + "." + s;
-            }
-            return s;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (o instanceof Bit)
-            {
-                Bit that = (Bit)o;
-                return this.getWire().equals(that.getWire())
-                    && Objects.equals(this.pi, that.pi)
-                    && this.bit == that.bit;
-            }
-            return false;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            int hash = 3;
-            hash = 29 * hash + WireExt.this.hashCode();
-            hash = 29 * hash + Objects.hashCode(pi);
-            hash = 29 * hash + bit;
-            return hash;
-        }
-    }
 }
