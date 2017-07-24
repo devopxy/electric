@@ -63,7 +63,7 @@ public class DesignExt
         this(new Design<>(new Path.SvarBuilder(), impl), designHints);
     }
 
-    public <N extends SvarName> DesignExt(Design<N> b, DesignHints edsignHints)
+    public <N extends SvarName> DesignExt(Design<N> b, DesignHints designHints)
     {
         this.b = b;
         moddb = new ModDb(b.top, b.modalist);
@@ -91,11 +91,27 @@ public class DesignExt
         }
         Util.check(topDown.size() == b.modalist.size());
 
-        topDown.get(b.top).markTop();
+        topDown.get(b.top).markTop(designHints.getExportNames(b.top));
         Map<String, Integer> globalCounts = new TreeMap<>();
         for (ModuleExt m : topDown.values())
         {
             m.markDown(globalCounts);
+        }
+
+        for (Map.Entry<ModName, ModuleExt> e : downTop.entrySet())
+        {
+            ModName modName = e.getKey();
+            ModuleExt m = e.getValue();
+            String[] portInstancesToSplit = designHints.getPortInstancesToSplit(modName);
+            if (portInstancesToSplit != null)
+            {
+                m.markPortInstancesToSplit(portInstancesToSplit);
+            }
+            int[] driversToSplit = designHints.getDriversToSplit(modName);
+            if (driversToSplit != null)
+            {
+                m.markDriversToSplit(driversToSplit);
+            }
         }
 
         List<Map.Entry<String, Integer>> filteredGlobalCounts = new ArrayList<>();

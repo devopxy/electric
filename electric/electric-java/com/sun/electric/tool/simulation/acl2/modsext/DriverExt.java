@@ -32,8 +32,8 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -52,10 +52,10 @@ public class DriverExt
 
     Map<Svar<PathExt>, BigInteger> crudeDeps0;
     Map<Svar<PathExt>, BigInteger> crudeDeps1;
-    final List<Map<Svar<PathExt>, BigInteger>> fineDeps0 = new ArrayList<>();
-    final List<Map<Svar<PathExt>, BigInteger>> fineDeps1 = new ArrayList<>();
+    final List<Map<Svar<PathExt>, BigInteger>> fineBitLocDeps0 = new ArrayList<>();
+    final List<Map<Svar<PathExt>, BigInteger>> fineBitLocDeps1 = new ArrayList<>();
 
-    WireExt.Bit[] wireBits;
+    PathExt.Bit[] pathBits;
     boolean splitIt;
 
     DriverExt(ModuleExt parent, Driver<PathExt> b, String name)
@@ -80,38 +80,58 @@ public class DriverExt
         return b.strength;
     }
 
+    public int getWidth()
+    {
+        return pathBits.length;
+    }
+
+    public PathExt.Bit getBit(int bit)
+    {
+        return pathBits[bit];
+    }
+
     @Override
     public String toString()
     {
         assert getStrength() == 6;
-        return getSvex().toString();
+        return name != null ? name : getSvex().toString();
     }
 
     void setSource(Lhs<PathExt> lhs)
     {
-        assert wireBits == null;
-        wireBits = new WireExt.Bit[lhs.width()];
+        assert pathBits == null;
+        pathBits = new PathExt.Bit[lhs.width()];
         int lsh = 0;
         for (Lhrange<PathExt> range : lhs.ranges)
         {
             Svar<PathExt> svar = range.getVar();
             Util.check(svar.getDelay() == 0);
-            if (svar.getName() instanceof PathExt.LocalWire)
+            PathExt pathExt = svar.getName();
+            for (int bit = 0; bit < range.getWidth(); bit++)
             {
-                PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-                for (int i = 0; i < range.getWidth(); i++)
+                pathBits[lsh + bit] = pathExt.getBit(range.getRsh() + bit);
+                if (pathExt instanceof PathExt.PortInst)
                 {
-                    wireBits[lsh + i] = lw.wire.getBit(range.getRsh() + i);
-                }
-            } else
-            {
-                assert lhs.ranges.size() == 1 && range.getRsh() == 0;
-                PathExt.PortInst pi = (PathExt.PortInst)svar.getName();
-                for (int i = 0; i < range.getWidth(); i++)
-                {
-                    wireBits[i] = pi.wire.newBit(pi, i);
+                    Util.check(pathBits[lsh + bit] == ((PathExt.PortInst)pathExt).getParentBit(lsh + bit));
                 }
             }
+//            if (svar.getName() instanceof PathExt.LocalWire)
+//            {
+//                PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
+//                for (int i = 0; i < range.getWidth(); i++)
+//                {
+//                    pathBits[lsh + i] = lw.getBit(range.getRsh() + i);
+//                }
+//            } else
+//            {
+//                assert lhs.ranges.size() == 1 && range.getRsh() == 0;
+//                PathExt.PortInst pi = (PathExt.PortInst)svar.getName();
+//                for (int i = 0; i < range.getWidth(); i++)
+//                {
+//                    assert pi.getParentBit(i) == pi.getBit(i);
+//                    pathBits[i] = pi.getParentBit(i);
+//                }
+//            }
             lsh += range.getWidth();
         }
     }
@@ -146,9 +166,9 @@ public class DriverExt
         return clockHigh ? crudeDeps1 : crudeDeps0;
     }
 
-    List<Map<Svar<PathExt>, BigInteger>> getFineDeps(boolean clockHigh)
+    List<Map<Svar<PathExt>, BigInteger>> getFineBitLocDeps(boolean clockHigh)
     {
-        return clockHigh ? fineDeps1 : fineDeps0;
+        return clockHigh ? fineBitLocDeps1 : fineBitLocDeps0;
     }
 
     /**
@@ -174,7 +194,7 @@ public class DriverExt
             crudeDeps0 = varsWithMasks;
         }
         Map<Svar<PathExt>, BigInteger> crudeDepsCheck = new HashMap<>();
-        List<Map<Svar<PathExt>, BigInteger>> fineDeps = getFineDeps(clkVal);
+        List<Map<Svar<PathExt>, BigInteger>> fineDeps = getFineBitLocDeps(clkVal);
         fineDeps.clear();
         for (int bit = 0; bit < width; bit++)
         {
@@ -189,6 +209,17 @@ public class DriverExt
                 {
                     continue;
                 }
+                if (svar.getDelay() != 0)
+                {
+                    assert svar.getDelay() == 1;
+                    Map<Svar<PathExt>, BigInteger> stateVars = clkVal ? parent.stateVars1 : parent.stateVars0;
+                    BigInteger oldMask = stateVars.get(svar);
+                    if (oldMask == null)
+                    {
+                        oldMask = BigInteger.ZERO;
+                    }
+                    stateVars.put(svar, oldMask.or(mask));
+                }
                 BigInteger crudeMask = crudeDepsCheck.get(svar);
                 if (crudeMask == null)
                 {
@@ -200,27 +231,13 @@ public class DriverExt
         Util.check(varsWithMasks.equals(crudeDepsCheck));
     }
 
-    List<Map<Svar<PathExt>, BigInteger>> gatherFineDeps(Map<Object, Set<Object>> graph)
+    public String showFinePortDeps(Map<Object, Set<Object>> graph0, Map<Object, Set<Object>> graph1)
     {
-        List<Map<Svar<PathExt>, BigInteger>> fineDeps = new ArrayList<>();
-        fineDeps.clear();
-        for (int i = 0; i < wireBits.length; i++)
-        {
-            WireExt.Bit wb = wireBits[i];
-            Map<Svar<PathExt>, BigInteger> fineDep = new LinkedHashMap<>();
-            for (Object o : graph.get(wb))
-            {
-                WireExt.Bit wb1 = (WireExt.Bit)o;
-                BigInteger mask = fineDep.get(wb1.getWire().getVar(0));
-                if (mask == null)
-                {
-                    mask = BigInteger.ZERO;
-                }
-                fineDep.put(wb1.getWire().getVar(0), mask.setBit(wb1.bit));
-            }
-            fineDeps.add(fineDep);
-        }
-        return fineDeps;
+        return parent.showFinePortDeps(pathBits, graph0, graph1);
     }
 
+    List<Map<Svar<PathExt>, BigInteger>> gatherFineBitDeps(BitSet stateDeps, Map<Object, Set<Object>> graph)
+    {
+        return parent.gatherFineBitDeps(stateDeps, pathBits, graph);
+    }
 }

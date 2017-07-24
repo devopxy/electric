@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
 import com.sun.electric.tool.simulation.acl2.mods.Path;
 import java.util.Arrays;
@@ -49,9 +50,35 @@ public class TutorialHints implements DesignHints
     }
 
     @Override
-    public List<String> getSpecialOutputs()
+    public String[] getExportNames(ModName modName)
     {
-        return Collections.emptyList();
+        switch (modName.toString())
+        {
+            case "alu16":
+                return new String[]
+                {
+                    "out", "opcode", "abus", "bbus", "clk"
+                };
+            case "boothpipe":
+                return new String[]
+                {
+                    "o", "a", "b", "en", "clk"
+                };
+            default:
+                return null;
+        }
+    }
+
+    @Override
+    public String[] getPortInstancesToSplit(ModName modName)
+    {
+        return null;
+    }
+
+    @Override
+    public int[] getDriversToSplit(ModName modName)
+    {
+        return null;
     }
 
     private static final ParameterizedModule aluFlop = new ParameterizedModule("tutorial", "flop")

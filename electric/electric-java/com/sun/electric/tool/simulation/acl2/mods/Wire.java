@@ -164,6 +164,10 @@ public class Wire
 
     public String toString(BigInteger mask)
     {
+        if (revp)
+        {
+            throw new UnsupportedOperationException();
+        }
         String s = name.toString();
         if (mask == null)
         {
@@ -189,7 +193,7 @@ public class Wire
                     {
                         indices = "," + indices;
                     }
-                    indices = ":" + Integer.toString(indL) + indices;
+                    indices = ":" + Integer.toString(low_idx + indL) + indices;
                     break;
                 }
                 n = mask.not().getLowestSetBit();
@@ -210,8 +214,8 @@ public class Wire
                 {
                     indices = "," + indices;
                 }
-                indices = indL == ind - 1 ? Integer.toString(indL) + indices
-                    : Integer.toString(ind - 1) + ":" + Integer.toString(indL) + indices;
+                indices = indL == ind - 1 ? Integer.toString(low_idx + indL) + indices
+                    : Integer.toString(low_idx + ind - 1) + ":" + Integer.toString(low_idx + indL) + indices;
             }
             if (maskH.signum() == 0)
                 break;

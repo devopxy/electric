@@ -31,6 +31,10 @@ import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
+import java.util.BitSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  *
@@ -40,12 +44,19 @@ public abstract class PathExt implements SvarName
     final Path b;
 
     final ModuleExt parent;
-    public WireExt wire;
+    public final WireExt wire;
+    private final Bit[] bits;
 
-    PathExt(ModuleExt parent, Path b)
+    PathExt(ModuleExt parent, Path b, WireExt wire)
     {
         this.b = b;
         this.parent = parent;
+        this.wire = wire;
+        bits = new Bit[getWidth()];
+        for (int bit = 0; bit < bits.length; bit++)
+        {
+            bits[bit] = new Bit(bit);
+        }
     }
 
     @Override
@@ -54,42 +65,64 @@ public abstract class PathExt implements SvarName
         return b.getACL2Object();
     }
 
+    public String showFinePortDeps(Map<Object, Set<Object>> graph0, Map<Object, Set<Object>> graph1)
+    {
+        return parent.showFinePortDeps(bits, graph0, graph1);
+    }
+
+    List<Map<Svar<PathExt>, BigInteger>> gatherFineBitDeps(BitSet stateDeps, Map<Object, Set<Object>> graph)
+    {
+        return parent.gatherFineBitDeps(stateDeps, bits, graph);
+    }
+
     @Override
     public String toString()
     {
-        return toString(BigIntegerUtil.logheadMask(wire.getWidth()));
+        return toString(BigIntegerUtil.logheadMask(getWidth()));
     }
 
-    public int getWidth()
+    public final int getWidth()
     {
         return wire.getWidth();
+    }
+
+    public Svar<PathExt> getVar(int delay)
+    {
+        return parent.newVar(this, delay, false);
+    }
+
+    public Bit getBit(int bit)
+    {
+        return bits[bit];
     }
 
     public static class PortInst extends PathExt
     {
         public final ModInstExt inst;
-//        public final SvarImpl<PathExt> svar;
-        Lhs source;
+        public final LocalWire subpath;
+        private final Bit[] parentBits;
+        Lhs<PathExt> source;
         Object driver;
-        WireExt.Bit[] wireBits;
+        public boolean splitIt;
 
         PortInst(ModInstExt inst, Path.Scope path)
         {
-            super(inst.parent, path);
+            super(inst.parent, path, inst.proto.wiresIndex.get(((Path.Wire)path.subpath).name));
             this.inst = inst;
-            Path.Wire pathWire = (Path.Wire)path.subpath;
-            wire = inst.proto.wiresIndex.get(pathWire.name);
+            subpath = wire.path;
+            assert inst.proto == wire.parent;
+            parentBits = new Bit[getWidth()];
             wire.exported = true;
         }
 
-        WireExt.Bit getParentBit(int bit)
+        Bit getParentBit(int bit)
         {
-            return wireBits[bit];
+            return parentBits[bit];
         }
 
-        WireExt.Bit getProtoBit(int bit)
+        PathExt.Bit getProtoBit(int bit)
         {
-            return wire.getBit(bit);
+            return subpath.getBit(bit);
         }
 
         void setSource(Lhs<PathExt> source)
@@ -111,7 +144,10 @@ public abstract class PathExt implements SvarName
             Util.check(source == null);
             Util.check(this.driver == null);
             this.driver = driver;
-            wireBits = driver.wireBits.clone();
+            for (int bit = 0; bit < getWidth(); bit++)
+            {
+                parentBits[bit] = getBit(bit);
+            }
         }
 
         void setDriver(Lhs<PathExt> driver)
@@ -124,9 +160,7 @@ public abstract class PathExt implements SvarName
 
         private void setLhs(Lhs<PathExt> lhs)
         {
-            Util.check(wireBits == null);
             Util.check(lhs.width() == getWidth());
-            wireBits = new WireExt.Bit[getWidth()];
             int lsh = 0;
             for (Lhrange<PathExt> range : lhs.ranges)
             {
@@ -135,7 +169,8 @@ public abstract class PathExt implements SvarName
                 PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
                 for (int i = 0; i < range.getWidth(); i++)
                 {
-                    wireBits[lsh + i] = lw.wire.getBit(range.getRsh() + i);
+                    Util.check(parentBits[lsh + i] == null);
+                    parentBits[lsh + i] = lw.getBit(range.getRsh() + i);
                 }
                 lsh += range.getWidth();
             }
@@ -155,6 +190,17 @@ public abstract class PathExt implements SvarName
             return (Lhs<PathExt>)driver;
         }
 
+//        @Override
+//        public String showFinePortDeps(Map<Object, Set<Object>> graph0, Map<Object, Set<Object>> graph1)
+//        {
+//            return parent.showFineExportDeps(parentBits, graph0, graph1);
+//        }
+//
+//        @Override
+//        List<Map<Svar<PathExt>, BigInteger>> gatherFineBitDeps(BitSet stateDeps, Map<Object, Set<Object>> graph)
+//        {
+//            return parent.gatherFineBitDeps(stateDeps, parentBits, graph);
+//        }
         @Override
         public String toString(BigInteger mask)
         {
@@ -168,9 +214,8 @@ public abstract class PathExt implements SvarName
 
         LocalWire(WireExt wire)
         {
-            super(wire.parent, new Path.Wire(wire.getName()));
+            super(wire.parent, new Path.Wire(wire.getName()), wire);
             this.name = wire.getName();
-            this.wire = wire;
         }
 
         public void markUsed()
@@ -203,4 +248,45 @@ public abstract class PathExt implements SvarName
         }
     }
 
+    public class Bit
+    {
+        final int bit;
+
+        private Bit(int bit)
+        {
+            this.bit = bit;
+        }
+
+        public PathExt getPath()
+        {
+            return PathExt.this;
+        }
+
+        @Override
+        public String toString()
+        {
+            return PathExt.this.toString(BigInteger.ONE.shiftLeft(bit));
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (o instanceof Bit)
+            {
+                Bit that = (Bit)o;
+                return this.getPath().equals(that.getPath())
+                    && this.bit == that.bit;
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            int hash = 3;
+            hash = 29 * hash + getPath().hashCode();
+            hash = 29 * hash + bit;
+            return hash;
+        }
+    }
 }
