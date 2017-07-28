@@ -26,7 +26,9 @@ import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import java.util.Map;
 
@@ -40,7 +42,8 @@ public class ModInstExt
 
     final ModuleExt parent;
     final ModuleExt proto;
-    final Map<Name, PathExt.PortInst> portInsts = new HashMap<>();
+    final Map<Name, PathExt.PortInst> portInstsIndex = new HashMap<>();
+    List<PathExt.PortInst> portInsts;
 
     ModInstExt(ModuleExt parent, ModInst b, Map<ModName, ModuleExt> downTop)
     {
@@ -67,11 +70,11 @@ public class ModInstExt
 //        assert getInstname().getACL2Object().equals(car(name));
 //        WireExt wire = proto.wiresIndex.get(new Name(cdr(name)));
 //        PathExt.PortInst pi = portInsts.get(wire.getName());
-        PathExt.PortInst pi = portInsts.get(pathWire.name);
+        PathExt.PortInst pi = portInstsIndex.get(pathWire.name);
         if (pi == null)
         {
             pi = new PathExt.PortInst(this, path);
-            portInsts.put(pathWire.name, pi);
+            portInstsIndex.put(pathWire.name, pi);
         }
         return pi;
     }
@@ -84,13 +87,16 @@ public class ModInstExt
 
     void checkExports()
     {
+        assert portInsts == null;
+        portInsts = new ArrayList<>();
         for (WireExt export : proto.wires)
         {
             if (export.isExport())
             {
-                PathExt.PortInst pi = portInsts.get(export.b.name);
+                PathExt.PortInst pi = portInstsIndex.get(export.b.name);
                 Util.check(pi != null && (pi.source != null || pi.driver != null));
                 Util.check(pi.source == null || pi.driver == null);
+                portInsts.add(pi);
             }
         }
     }

@@ -90,16 +90,18 @@ public class ACL2Writer
 
     private void gatherAtoms(ACL2Object top)
     {
-        if (top instanceof ACL2Cons)
+        while (top instanceof ACL2Cons)
         {
             ACL2Cons cons = (ACL2Cons)top;
-            if (!seenCons.containsKey(cons))
+            if (seenCons.containsKey(cons))
             {
-                seenCons.put(cons, null);
-                gatherAtoms(cons.car);
-                gatherAtoms(cons.cdr);
+                return;
             }
-        } else if (top instanceof ACL2Symbol)
+            seenCons.put(cons, null);
+            gatherAtoms(cons.car);
+            top = cons.cdr;
+        }
+        if (top instanceof ACL2Symbol)
         {
             ACL2Symbol sym = (ACL2Symbol)top;
             if (!sym.equals(ACL2Symbol.NIL)
@@ -312,6 +314,50 @@ public class ACL2Writer
     }
 
     private int encodeConses(ACL2Object x) throws IOException
+    {
+        List<ACL2Cons> consStack = new ArrayList<>();
+        Integer idx = null;
+        while (x instanceof ACL2Cons)
+        {
+            ACL2Cons cons = (ACL2Cons)x;
+            idx = seenCons.get(cons);
+            if (idx != null)
+            {
+                break;
+            }
+            consStack.add(cons);
+            x = cons.cdr;
+        }
+        int endIdx;
+        if (x instanceof ACL2Cons)
+        {
+            endIdx = idx;
+        } else if (x instanceof ACL2Symbol)
+        {
+            endIdx = seenSym.get((ACL2Symbol)x);
+        } else if (x instanceof ACL2String)
+        {
+            endIdx = seenStr.get((ACL2String)x);
+        } else
+        {
+            endIdx = seenEql.get(x);
+        }
+        while (!consStack.isEmpty())
+        {
+            ACL2Cons cons = consStack.remove(consStack.size() - 1);
+            int carIndex = encodeConses(cons.car);
+            int cdrIndex = endIdx;
+            boolean normed = cons.isNormed();
+            int v2CarIndex = (carIndex << 1) | (normed ? 1 : 0);
+            endIdx = freeIndex++;
+            seenCons.put(cons, endIdx);
+            encodeNat(v2CarIndex);
+            encodeNat(cdrIndex);
+        }
+        return endIdx;
+    }
+
+    private int encodeConsesOld(ACL2Object x) throws IOException
     {
         if (x instanceof ACL2Cons)
         {

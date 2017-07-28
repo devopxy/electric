@@ -47,9 +47,12 @@ import com.sun.electric.util.acl2.ACL2Reader;
 import com.sun.electric.util.acl2.ACL2Writer;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.LineNumberReader;
 
 import java.io.PrintStream;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
@@ -64,7 +67,7 @@ import java.util.Set;
  */
 public class ACL2DesignJobs
 {
-    private static final int VERBOSE_DUMP = 0;
+    private static final int VERBOSE_DUMP = 1;
 
     public static <H extends DesignHints> void dump(Class<H> cls, File saoFile, String outFileName)
     {
@@ -114,6 +117,8 @@ public class ACL2DesignJobs
                         dumpModules(out, design, null, Collections.singleton(modName));
                     }
                     out.println("// design.top=" + design.getTop());
+                    out.println(design.moddb.modTotalWires(design.moddb.nMods() - 1) + " wires "
+                        + design.topDown.values().iterator().next().bitCount + " bits");
                     if (clockName != null)
                     {
                         out.println("// clock=" + clockName);
@@ -256,7 +261,7 @@ public class ACL2DesignJobs
                 {
                     out.println("  " + mi.getModname() + " " + mi.getInstname() + " (");
                     boolean hasExports = false;
-                    for (PathExt.PortInst piIn : mi.portInsts.values())
+                    for (PathExt.PortInst piIn : mi.portInsts)
                     {
                         if (!piIn.wire.isInput())
                         {
@@ -309,7 +314,7 @@ public class ACL2DesignJobs
                         }
                     }
                     out.println("   //");
-                    for (PathExt.PortInst piOut : mi.portInsts.values())
+                    for (PathExt.PortInst piOut : mi.portInsts)
                     {
                         if (!piOut.wire.isOutput())
                         {
@@ -1074,60 +1079,39 @@ public class ACL2DesignJobs
                 Design<Address> design = new Design<>(builder, sr.root);
                 ModDb db = new ModDb(design.top, design.modalist);
                 Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist);
+                ModDb.FlattenResult flattenResult = db.svexmodFlatten(db.modnameGetIndex(design.top), indexedMods);
                 ACL2Object indexedAlist = NIL;
                 for (Map.Entry<ModName, Module<Address>> e : indexedMods.entrySet())
                 {
                     indexedAlist = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), indexedAlist);
                 }
                 indexedAlist = Util.revList(indexedAlist);
-
+                ACL2Object aliasesAlist = flattenResult.aliasesToACL2Object();
+                ACL2Object assignsAlist = flattenResult.assignsToACL2Object();
+                ACL2Object results
+                    = cons(indexedAlist,
+                        cons(aliasesAlist,
+                            cons(assignsAlist, NIL)));
                 File outFile = new File(outFileName);
                 File outDir = outFile.getParentFile();
                 File saoIndexedFile = new File(outDir, designName + "-indexed.sao");
-                ACL2Writer.write(indexedAlist, saoIndexedFile);
+                ACL2Writer.write(results, saoIndexedFile);
+                List<String> lines = new ArrayList<>();
+                try (LineNumberReader in = new LineNumberReader(
+                    new InputStreamReader(ACL2DesignJobs.class.getResourceAsStream("design-indexed.dat"))))
+                {
+                    String line;
+                    while ((line = in.readLine()) != null)
+                    {
+                        lines.add(line);
+                    }
+                }
                 try (PrintStream out = new PrintStream(outFileName))
                 {
-                    out.println("(in-package \"SV\")");
-                    out.println("(include-book \"std/util/defconsts\" :dir :system)");
-                    out.println("(include-book \"std/util/defrule\" :dir :system)");
-                    out.println("(include-book \"centaur/sv/mods/moddb\" :dir :system)");
-                    out.println("(include-book \"centaur/misc/hons-extra\" :dir :system)");
-                    out.println();
-                    out.println("(defconsts (*" + designName + "* state)");
-                    out.println("  (serialize-read \"" + designName + ".sao\"))");
-                    out.println();
-                    out.println("(defconsts (*" + designName + "-indexed* state)");
-                    out.println("  (serialize-read \"" + designName + "-indexed.sao\"))");
-                    out.println();
-                    out.println("(define svex-moddb-indexed");
-                    out.println("  ((x design-p))");
-                    out.println("  :guard (modalist-addr-p (design->modalist x))");
-                    out.println("  :guard-hints ((\"goal\" :do-not-induct t");
-                    out.println("                 :in-theory (e/d () (create-moddb moddb->nmods))))");
-                    out.println("  (b* (((acl2::local-stobjs moddb)");
-                    out.println("        (mv indexed moddb))");
-                    out.println("       (moddb (moddb-clear moddb))");
-                    out.println("       ((design x) x)");
-                    out.println("       (modalist x.modalist)");
-                    out.println("       (topmod x.top)");
-                    out.println("       ((with-fast modalist))");
-                    out.println("       ((unless (modhier-loopfree-p topmod modalist))");
-                    out.println("        (mv");
-                    out.println("         (msg \"Module ~s0 has an instance loop!~%\" topmod)");
-                    out.println("         moddb))");
-                    out.println("       (moddb (module->db topmod modalist moddb))");
-                    out.println("       ((mv err indexed) (modalist-named->indexed modalist moddb :quiet t))");
-                    out.println("       ((when err)");
-                    out.println("        (mv (msg \"Error indexing wire names: ~@0~%\" err)");
-                    out.println("            moddb)))");
-                    out.println("    (mv indexed moddb)))");
-                    out.println();
-                    out.println("(rule (modalist-p *" + designName + "-indexed*))");
-                    out.println();
-                    out.println("(rule");
-                    out.println(" (equal");
-                    out.println("  (svex-moddb-indexed *" + designName + "*)");
-                    out.println("  *" + designName + "-indexed*))");
+                    for (String line : lines)
+                    {
+                        out.println(line.replace("$DESIGN$", designName));
+                    }
                 }
             } catch (IOException e)
             {

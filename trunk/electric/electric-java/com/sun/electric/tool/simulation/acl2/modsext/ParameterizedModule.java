@@ -97,11 +97,6 @@ public abstract class ParameterizedModule
         this.paramDelim = paramDelim;
     }
 
-    protected boolean hasState()
-    {
-        return false;
-    }
-
     /**
      * Check if modName is a name of a specialization of this parameterized module
      *
@@ -144,6 +139,16 @@ public abstract class ParameterizedModule
             params = params.substring(nextPrefix);
         }
         return parMap;
+    }
+
+    protected boolean exportsAreStrings()
+    {
+        return true;
+    }
+
+    protected boolean hasState()
+    {
+        return false;
     }
 
     /**

@@ -58,7 +58,7 @@ public class Driver<N extends SvarName>
         this.strength = strength;
     }
 
-    public ACL2Object getACl2Object()
+    public ACL2Object getACL2Object()
     {
         return cons(svex.getACL2Object(), ACL2Object.valueOf(strength));
     }

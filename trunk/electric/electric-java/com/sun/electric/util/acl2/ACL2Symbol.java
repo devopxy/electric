@@ -48,7 +48,7 @@ class ACL2Symbol extends ACL2Object
         readPkgImports();
     }
     static final Package COMMON_LISP = getPackage("COMMON-LISP");
-    static final Package KEYWORD = getPackage("KEWWORD");
+    static final Package KEYWORD = getPackage("KEYWORD");
     static final ACL2Symbol NIL = COMMON_LISP.getSymbol("NIL");
     static final ACL2Symbol T = COMMON_LISP.getSymbol("T");
 
@@ -173,7 +173,45 @@ class ACL2Symbol extends ACL2Object
     @Override
     public String rep()
     {
-        return pkg.name.s + "::" + nm.s;
+        StringBuilder sb = new StringBuilder();
+        if (pkg.equals(KEYWORD))
+        {
+            sb.append(':');
+        } else
+        {
+            sb.append(pkg.name.s).append("::");
+        }
+        if (isPrintable())
+        {
+            sb.append(nm.s);
+        } else
+        {
+            sb.append('|').append(nm.s).append('|');
+        }
+        return sb.toString();
+    }
+
+    private boolean isPrintable()
+    {
+        for (int i = 0; i < nm.s.length(); i++)
+        {
+            char c = nm.s.charAt(i);
+            switch (c)
+            {
+                case '(':
+                case ')':
+                case ':':
+                case '\'':
+                case '"':
+                    return false;
+                default:
+                    if (Character.isLowerCase(c) || i == 0 && Character.isDigit(c))
+                    {
+                        return false;
+                    }
+            }
+        }
+        return true;
     }
 
     @Override
