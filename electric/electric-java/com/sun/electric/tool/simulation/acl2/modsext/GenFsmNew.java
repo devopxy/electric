@@ -39,17 +39,19 @@ import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.util.TextUtils;
-import com.sun.electric.util.acl2.ACL2Object;
 import com.sun.electric.util.acl2.ACL2Reader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -190,6 +192,9 @@ public class GenFsmNew extends GenBase
             this.out = null;
         }
 
+        String clockName = designHints.getGlobalClock();
+        design.computeCombinationalInputs(clockName);
+
         for (Map.Entry<ParameterizedModule, Map<String, ModName>> e : parModuleInstances.entrySet())
         {
             ParameterizedModule parMod = e.getKey();
@@ -213,7 +218,7 @@ public class GenFsmNew extends GenBase
         {
             ModName modName = e.getKey();
             ModuleExt m = e.getValue();
-            if (modToParMod.containsKey(modName) || !m.hasState)
+            if (modToParMod.containsKey(modName) || !m.hasSvtvState)
             {
                 continue;
             }
@@ -228,19 +233,6 @@ public class GenFsmNew extends GenBase
                 this.out = null;
             }
         }
-
-        ModuleExt topModule = design.downTop.get(design.getTop());
-        String clockName = null;
-        for (String c : clockNames)
-        {
-            Name name = new Name(ACL2Object.valueOf(c));
-            if (topModule.wiresIndex.containsKey(name))
-            {
-                clockName = c;
-                break;
-            }
-        }
-        design.computeCombinationalInputs(clockName);
 
         for (Map.Entry<ParameterizedModule, Map<String, ModName>> e : parModuleInstances.entrySet())
         {
@@ -261,10 +253,8 @@ public class GenFsmNew extends GenBase
                 this.out = null;
             }
         }
-        for (Map.Entry<ModName, ModuleExt> e : design.downTop.entrySet())
+        for (ModName modName : design.downTop.keySet())
         {
-            ModName modName = e.getKey();
-            ModuleExt m = e.getValue();
             if (modToParMod.containsKey(modName))
             {
                 continue;
@@ -281,12 +271,44 @@ public class GenFsmNew extends GenBase
             }
         }
 
-//        File phase2File = new File(outDir, designName + "-phase2.lisp");
-//        try (PrintStream out = new PrintStream(phase2File))
-//        {
-//            this.out = out;
-//            printPhase2(design);
-//        }
+        for (Map.Entry<ParameterizedModule, Map<String, ModName>> e : parModuleInstances.entrySet())
+        {
+            ParameterizedModule parMod = e.getKey();
+            Map<String, ModName> specializations = e.getValue();
+            if (specializations.isEmpty() || !parMod.exportsAreStrings())
+            {
+                continue;
+            }
+
+            File locFile = new File(outDir, parMod.modName + "-svtv.lisp");
+            try (PrintStream out = new PrintStream(locFile))
+            {
+                this.out = out;
+                printSvtvs(design, parMod, specializations.values());
+            } finally
+            {
+                this.out = null;
+            }
+        }
+        for (Map.Entry<ModName, ModuleExt> e : design.downTop.entrySet())
+        {
+            ModName modName = e.getKey();
+            ModuleExt m = e.getValue();
+            if (modToParMod.containsKey(modName))
+            {
+                continue;
+            }
+
+            File statesFile = new File(outDir, modName + "-svtv.lisp");
+            try (PrintStream out = new PrintStream(statesFile))
+            {
+                this.out = out;
+                printSvtvs(design, null, Collections.singleton(modName));
+            } finally
+            {
+                this.out = null;
+            }
+        }
     }
 
     private void printReadSao()
@@ -356,14 +378,14 @@ public class GenFsmNew extends GenBase
         for (ModName modName : modNames)
         {
             ModuleExt m = design.downTop.get(modName);
-            if (!m.hasState)
+            if (!m.hasPhaseState)
             {
                 continue;
             }
             for (ModInstExt inst : m.insts)
             {
                 ModuleExt proto = inst.proto;
-                if (proto.hasState)
+                if (proto.hasPhaseState)
                 {
                     ParameterizedModule protoParMod = modToParMod.get(proto.modName);
                     String importStr = protoParMod != null ? protoParMod.modName : proto.modName.toString();
@@ -379,11 +401,16 @@ public class GenFsmNew extends GenBase
         for (ModName modName : modNames)
         {
             ModuleExt m = design.downTop.get(modName);
-            if (!m.hasState)
+            if (m.hasPhaseState)
             {
-                continue;
+                s();
+                s("; " + modName);
+                printPhaseState(modName, m);
+                if (m.hasCycleState)
+                {
+                    printCycleState(modName, m);
+                }
             }
-            printPhaseState(modName, m);
         }
     }
 
@@ -397,6 +424,40 @@ public class GenFsmNew extends GenBase
         {
             ModuleExt m = design.downTop.get(modName);
             printPhase2(modName, m);
+        }
+    }
+
+    private void printSvtvs(DesignExt design, ParameterizedModule parMod, Collection<ModName> modNames)
+    {
+        ModName modName0 = modNames.iterator().next();
+        ModuleExt m0 = design.downTop.get(modName0);
+        String parModName = parMod != null ? parMod.modName : modNames.iterator().next().toString();
+        s("(in-package \"SV\")");
+        s();
+//        s("(include-book \"centaur/misc/tshell\" :dir :system)");
+//        s("(include-book \"centaur/sv/svtv/process\" :dir :system)");
+        s("(include-book \"centaur/gl/gl\" :dir :system)");
+        s("(include-book \"centaur/gl/bfr-satlink\" :dir :system)");
+        s("(include-book \"centaur/sv/svtv/top\" :dir :system)");
+        s("(include-book \"" + designName + "-sao\")");
+        if (parMod != null ? parMod.hasState() : m0.hasSvtvState)
+        {
+            s("(include-book \"" + parModName + "-st\")");
+        }
+        s();
+        s("(local (include-book \"centaur/sv/svex/gl-rules\" :dir :system))");
+        s("(local (include-book \"centaur/bitops/top\" :dir :system))");
+        s();
+        s("(value-triple (acl2::tshell-ensure))");
+        s("(local (include-book \"centaur/aig/g-aig-eval\" :dir :system))");
+        s("(local (gl::def-gl-clause-processor boothpipe-glcp))");
+        s();
+        s("(local (gl::gl-satlink-mode))");
+
+        for (ModName modName : modNames)
+        {
+            ModuleExt m = design.downTop.get(modName);
+            printSvtv(design, modName, m);
         }
     }
 
@@ -463,18 +524,24 @@ public class GenFsmNew extends GenBase
     private void printPhaseState(ModName modName, ModuleExt m)
     {
         s();
-        s("; " + modName);
-        s();
         s("(defprod |" + modName + "-phase-st| (");
         b();
         b();
-        for (WireExt wire : m.stateWires)
+        for (WireExt wire : m.wires)
         {
-            s("(|" + wire + "| 4vec-" + wire.getWidth() + ")");
+            if (!m.stateWires.contains(wire))
+            {
+                continue;
+            }
+            Svar<PathExt> svar = wire.getVar(1);
+            if (m.stateVars0.containsKey(svar) || m.stateVars1.containsKey(svar))
+            {
+                s("(|" + wire + "| 4vec-" + wire.getWidth() + ")");
+            }
         }
         for (ModInstExt inst : m.insts)
         {
-            if (inst.proto.hasState)
+            if (inst.proto.hasPhaseState)
             {
                 s("(|" + inst.getInstname() + "| |" + inst.proto.modName + "-phase-st|)");
             }
@@ -484,6 +551,267 @@ public class GenFsmNew extends GenBase
         s(":layout :fulltree)");
         e();
         assert indent == 0;
+    }
+
+    private void printCycleState(ModName modName, ModuleExt m)
+    {
+        s();
+        s("(defprod |" + modName + "-cycle-st| (");
+        b();
+        b();
+        for (WireExt wire : m.wires)
+        {
+            if (!m.stateWires.contains(wire))
+            {
+                continue;
+            }
+            Svar<PathExt> svar = wire.getVar(1);
+            if (m.stateVars0.containsKey(svar))
+            {
+                s("(|" + wire + "| 4vec-" + wire.getWidth() + ")");
+            }
+        }
+        for (ModInstExt inst : m.insts)
+        {
+            if (inst.proto.hasCycleState)
+            {
+                s("(|" + inst.getInstname() + "| |" + inst.proto.modName + "-cycle-st|)");
+            }
+        }
+        out.print(")");
+        e();
+        s(":layout :fulltree)");
+        e();
+        assert indent == 0;
+    }
+
+    private void printSvtv(DesignExt design, ModName modName, ModuleExt m)
+    {
+        int modIdx = design.moddb.modnameGetIndex(modName);
+        s();
+        s("(defconst |*" + modName + "-design*|");
+        sb("(change-design *" + designName + "-sao* :top " + modName.toLispString() + "))");
+        e();
+        s();
+        s("(defsvtv |" + modName + "-phase|");
+        sb(":mod |*" + modName + "-design*|");
+        s(":inputs '(");
+        b();
+        for (WireExt wire : m.wires)
+        {
+            if (wire.isInput())
+            {
+                s("(" + wire.b.name.toLispString() + " |" + wire.b.name + "|)");
+            }
+        }
+        out.print(")");
+        e();
+        s(":outputs '(");
+        b();
+        for (WireExt wire : m.wires)
+        {
+            if (wire.isOutput())
+            {
+                s("(" + wire.b.name.toLispString() + " |" + wire.b.name + "|)");
+            }
+        }
+        out.print(")");
+        e();
+        s(":state-machine t)");
+        e();
+        s();
+        s("(rule");
+        sb("(equal");
+        sb("(strip-cars (svtv->outexprs (|" + modName + "-phase|))) '(");
+        b();
+        for (WireExt wire : m.wires)
+        {
+            if (wire.isOutput())
+            {
+                s("|" + wire.b.name + "|");
+            }
+        }
+        out.print("))");
+        e();
+        s(":enable ((|" + modName + "-phase|)))");
+        e();
+        e();
+        s();
+        Path[] svtvState = makeSvtvState(modName, design);
+        String[] svtvVars = new String[svtvState.length];
+        Svar.Builder svarBuilder = new Path.SvarBuilder();
+        for (int i = 0; i < svtvState.length; i++)
+        {
+            Path path = svtvState[i];
+            Svar<Path> svar = svarBuilder.newVar(path, 1, false);
+            svtvVars[i] = svar.makeACL2Object().rep();
+        }
+        s("(rule");
+        sb("(equal");
+        sb("(strip-cars (svtv->nextstate (|" + modName + "-phase|))) '(");
+        b();
+        for (int i = 0; i < svtvState.length; i++)
+        {
+            s(svtvVars[i]);
+        }
+        out.print("))");
+        e();
+        e();
+        s(":enable ((|" + modName + "-phase|)))");
+        e();
+        s();
+        s("(define |" + modName + "-truncate-in|");
+        sb("((in svex-env-p))");
+        s(":guard (equal (alist-keys in) '(");
+        b();
+        for (WireExt wire : m.wires)
+        {
+            if (wire.isInput())
+            {
+                s("|" + wire.b.name.toString() + "|");
+            }
+        }
+        out.print("))");
+        e();
+        s(":returns (new-in (and (svex-env-p new-in) (equal (alist-keys new-in) '(");
+        b();
+        for (WireExt wire : m.wires)
+        {
+            if (wire.isInput())
+            {
+                s("|" + wire.b.name.toString() + "|");
+            }
+        }
+        out.print("))))");
+        e();
+        s("(list");
+        b();
+        for (WireExt wire : m.wires)
+        {
+            if (wire.isInput())
+            {
+                s("(cons '|" + wire.b.name.toString() + "|"
+                    + " (4vec-concat " + wire.getWidth()
+                    + " (svex-env-lookup '|" + wire.b.name.toString() + "| in) 0))");
+            }
+        }
+        out.print("))");
+        e();
+        e();
+        if (m.hasPhaseState)
+        {
+            s();
+            s("(define |" + modName + "-truncate-st|");
+            sb("((st svex-env-p))");
+            s(":guard (equal (alist-keys st) '(svex-alist-keys (svtv->nextstate (|" + modName + "-phase|))))");
+            s(":returns");
+            s("(new-st (and (svex-env-p new-st)");
+            sb("(equal (alist-keys new-st) (svex-alist-keys (svtv->nextstate (|" + modName + "-phase|)))))");
+            s(":hints ((\"goal\" :in-theory (enable (|" + modName + "-phase|)))))");
+            e();
+            s("(let (");
+            b();
+            b();
+            for (int i = 0; i < svtvState.length; i++)
+            {
+                s("(key-" + i + " '" + svtvVars[i] + ")");
+            }
+            out.print(")");
+            e();
+            s("(list");
+            b();
+            for (int i = 0; i < svtvState.length; i++)
+            {
+                int width = design.moddb.pathToWireDecl(svtvState[i], modIdx).width;
+                s("(cons key-" + i + " (4vec-concat " + width + " (svex-env-lookup key-" + i + " st) 0))");
+            }
+            out.print(")))");
+            e();
+            e();
+            e();
+        }
+        s();
+        s("(local (gl::def-gl-rule |" + modName + "-truncate-vectors-lemma|");
+        sb(":hyp t");
+        s(":concl");
+        s("(b*");
+        sb("(");
+        sb("(in0 `(");
+        b();
+        for (WireExt wire : m.wires)
+        {
+            if (wire.isInput())
+            {
+                s("(|" + wire.b.name.toString() + "| . ,|" + wire.b.name.toString() + "|)");
+            }
+        }
+        out.print("))");
+        e();
+        s("(in0 (make-fast-alist in0))");
+        s("(ins0 (list in0))");
+        s("(st0 `(");
+        b();
+        for (int i = 0; i < svtvState.length; i++)
+        {
+            s("(" + svtvVars[i] + " . ,key-" + i + ")");
+        }
+        out.print("))");
+        e();
+        s("(st0 (make-fast-alist st0))");
+        s("(in1 `(");
+        b();
+        for (WireExt wire : m.wires)
+        {
+            if (wire.isInput())
+            {
+                s("(|" + wire.b.name.toString()
+                    + "| . ,(4vec-concat " + wire.getWidth()
+                    + " |" + wire.b.name.toString() + "| 0))");
+
+            }
+        }
+        out.print("))");
+        e();
+        s("(in1 (make-fast-alist in1))");
+        s("(ins1 (list in1))");
+        s("(st1 `(");
+        b();
+        for (int i = 0; i < svtvState.length; i++)
+        {
+            int width = design.moddb.pathToWireDecl(svtvState[i], modIdx).width;
+            s("(" + svtvVars[i] + " . ,(4vec-concat " + width
+                + " key-" + i + " 0))");
+        }
+        out.print("))");
+        e();
+        s("(st1 (make-fast-alist st1))");
+        s("(out-signals (list (svex-alist-keys (svtv->outexprs (|" + modName + "-phase|)))))");
+        s("(state-signals (list (svex-alist-keys (svtv->nextstate (|" + modName + "-phase|)))))");
+        s("((mv outs0 states0)");
+        sb("(svtv-fsm-run-outs-and-states");
+        sb("ins0 st0 (|" + modName + "-phase|)");
+        s(":out-signals out-signals :state-signals state-signals))");
+        e();
+        e();
+        s("((mv outs1 states1)");
+        sb("(svtv-fsm-run-outs-and-states");
+        sb("ins1 st1 (|" + modName + "-phase|)");
+        s(":out-signals out-signals :state-signals state-signals)))");
+        e();
+        e();
+        e();
+        s("(and (equal outs0 outs1) (equal states0 states1)))");
+        e();
+        s(":g-bindings nil");
+        s(":rule-classes ()");
+        s(":ctrex-transform (lambda (x) (ctrex-clean-envs '(");
+        sb("(ins0 . :fast-alist-list)");
+        s("(ins1 . :fast-alist-list)");
+        s("(st0 . :fast-alist)");
+        s("(st1 . :fast-alist))");
+        s("x))))");
+        e();
+        e();
     }
 
     private void printSvex(Svex<PathExt> top, int width)
@@ -565,6 +893,150 @@ public class GenFsmNew extends GenBase
                     printSvex(arg, multirefsNames, indent + 1);
                 }
                 out.print(')');
+            }
+        }
+    }
+
+    private Path[] makeSvtvState(ModName modName, DesignExt design)
+    {
+        List<Name> scopes = new ArrayList<>();
+        Set<Path> statePaths = new LinkedHashSet<>();
+        makeSvtvState(scopes, modName, Collections.emptyMap(), design, statePaths);
+        Path[] result = new Path[statePaths.size()];
+        int i = result.length;
+        for (Iterator<Path> it = statePaths.iterator(); it.hasNext();)
+        {
+            result[--i] = it.next();
+        }
+        assert i == 0;
+        return result;
+    }
+
+    private void makeSvtvStateBad(List<Name> scopes, ModName modName, Map<Name, Path[]> bind, DesignExt design, Set<Path> statePaths)
+    {
+        ModuleExt mod = design.downTop.get(modName);
+
+        for (int i = mod.insts.size() - 1; i >= 0; i--)
+        {
+            ModInstExt inst = mod.insts.get(i);
+            if (inst.proto.hasSvtvState)
+            {
+                Map<Name, Path[]> subBind = new HashMap<>();
+                for (PathExt.PortInst pi : inst.portInsts)
+                {
+                    Path[] bits = new Path[pi.getWidth()];
+                    for (int bit = 0; bit < bits.length; bit++)
+                    {
+                        Path path;
+                        PathExt.Bit pb = pi.getParentBit(bit);
+                        if (pb.getPath() instanceof PathExt.PortInst)
+                        {
+                            assert pb.getPath() == pi;
+                            scopes.add(inst.getInstname());
+                            path = Path.makePath(scopes, pi.wire.getName());
+                            scopes.remove(scopes.size() - 1);
+                        } else
+                        {
+                            PathExt.LocalWire lw = (PathExt.LocalWire)pb.getPath();
+                            Path[] paths = bind.get(lw.name);
+                            if (paths != null)
+                            {
+                                path = paths[pb.bit];
+                            } else
+                            {
+                                path = Path.makePath(scopes, lw.wire.getName());
+                            }
+                        }
+                        bits[bit] = path;
+                    }
+                    subBind.put(pi.wire.getName(), bits);
+                }
+                scopes.add(inst.getInstname());
+                makeSvtvState(scopes, inst.getModname(), subBind, design, statePaths);
+                scopes.remove(scopes.size() - 1);
+            }
+        }
+        //
+        WireExt[] wiresArr = mod.stateWires.toArray(new WireExt[mod.stateWires.size()]);
+        for (int i = wiresArr.length - 1; i >= 0; i--)
+        {
+            WireExt wire = wiresArr[i];
+            Name name = wire.getName();
+            Path[] paths = bind.get(name);
+            if (paths != null)
+            {
+                assert paths.length == wire.getWidth();
+                for (Path path : paths)
+                {
+                    statePaths.add(path);
+                }
+            } else
+            {
+                Path path = Path.makePath(scopes, wire.getName());
+                statePaths.add(path);
+            }
+        }
+    }
+
+    private void makeSvtvState(List<Name> scopes, ModName modName, Map<Name, Path[]> bind, DesignExt design, Set<Path> statePaths)
+    {
+        ModuleExt mod = design.downTop.get(modName);
+
+        //
+        for (WireExt wire : mod.stateWires)
+        {
+            Name name = wire.getName();
+            Path[] paths = bind.get(name);
+            if (paths != null)
+            {
+                assert paths.length == wire.getWidth();
+                for (Path path : paths)
+                {
+                    statePaths.add(path);
+                }
+            } else
+            {
+                Path path = Path.makePath(scopes, wire.getName());
+                statePaths.add(path);
+            }
+        }
+        for (ModInstExt inst : mod.insts)
+        {
+            if (inst.proto.hasSvtvState)
+            {
+                Map<Name, Path[]> subBind = new HashMap<>();
+                for (PathExt.PortInst pi : inst.portInsts)
+                {
+                    Path[] bits = new Path[pi.getWidth()];
+                    for (int bit = 0; bit < bits.length; bit++)
+                    {
+                        Path path;
+                        PathExt.Bit pb = pi.getParentBit(bit);
+                        if (pb.getPath() instanceof PathExt.PortInst)
+                        {
+                            assert pb.getPath() == pi;
+                            scopes.add(inst.getInstname());
+                            path = Path.makePath(scopes, pi.wire.getName());
+                            scopes.remove(scopes.size() - 1);
+                        } else
+                        {
+                            PathExt.LocalWire lw = (PathExt.LocalWire)pb.getPath();
+                            Path[] paths = bind.get(lw.name);
+                            if (paths != null)
+                            {
+                                path = paths[pb.bit];
+                            } else
+                            {
+                                path = Path.makePath(scopes, lw.wire.getName());
+                            }
+                        }
+                        bits[bit] = path;
+                    }
+                    subBind.put(pi.wire.getName(), bits);
+                }
+                scopes.add(inst.getInstname());
+                makeSvtvState(scopes, inst.getModname(), subBind, design, statePaths);
+                scopes.remove(scopes.size() - 1);
             }
         }
     }

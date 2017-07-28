@@ -137,8 +137,15 @@ public class Address implements SvarName
     }
 
     @Override
-    public String toString(BigInteger mask) {
+    public String toString(BigInteger mask)
+    {
         throw new UnsupportedOperationException();
+    }
+
+    public static boolean svarIdxaddrOkp(Svar<Address> svar, int bound)
+    {
+        Address addr = svar.getName();
+        return addr.index == INDEX_NIL || addr.index < bound;
     }
 
     public static class SvarBuilder extends SvarImpl.Builder<Address>

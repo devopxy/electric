@@ -76,10 +76,12 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
 
     final Map<Name, WireExt> wiresIndex = new HashMap<>();
     final Map<Name, ModInstExt> instsIndex = new HashMap<>();
+    long bitCount;
     int useCount;
     boolean isTop;
 
-    final boolean hasState;
+    final boolean hasSvtvState;
+    boolean hasPhaseState, hasCycleState;
     final Set<WireExt> stateWires = new LinkedHashSet<>();
     final Map<Svar<PathExt>, BigInteger> stateVars0 = new LinkedHashMap<>();
     final Map<Svar<PathExt>, BigInteger> stateVars1 = new LinkedHashMap<>();
@@ -95,19 +97,21 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             wires.add(w);
             WireExt old = wiresIndex.put(w.getName(), w);
             Util.check(old == null);
+            bitCount += w.getWidth();
         }
 
-        boolean hasState = false;
+        boolean hasSvtvState = false;
         for (ModInst modInst : b.insts)
         {
             ModInstExt mi = new ModInstExt(this, modInst, downTop);
             insts.add(mi);
             ModInstExt old = instsIndex.put(mi.getInstname(), mi);
             Util.check(old == null);
-            if (mi.proto.hasState)
+            if (mi.proto.hasSvtvState)
             {
-                hasState = true;
+                hasSvtvState = true;
             }
+            bitCount += mi.proto.bitCount;
         }
 
         Map<Svex<N>, Svex<PathExt>> svexCache = new HashMap<>();
@@ -148,7 +152,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 }
             }
         }
-        this.hasState = hasState || !stateWires.isEmpty();
+        this.hasSvtvState = hasSvtvState || !stateWires.isEmpty();
 
         for (Map.Entry<Lhs<N>, Lhs<N>> e : b.aliaspairs.entrySet())
         {
@@ -320,6 +324,22 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
 
     void checkExports()
     {
+        boolean prevIsExport = true;
+        for (WireExt wire : wires)
+        {
+            if (wire.isExport())
+            {
+                if (!prevIsExport)
+                {
+                    System.out.println("Module " + modName + " export " + wire + " is not at the beginning");
+                    prevIsExport = true;
+                }
+            } else
+            {
+                prevIsExport = false;
+            }
+
+        }
         for (ModInstExt inst : insts)
         {
             inst.checkExports();
@@ -331,6 +351,37 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         checkExports();
         computeDriverDeps(global, false);
         computeDriverDeps(global, true);
+        for (Map.Entry<Svar<PathExt>, BigInteger> e : stateVars0.entrySet())
+        {
+            Svar<PathExt> svar = e.getKey();
+            BigInteger mask0 = e.getValue();
+            Util.check(svar.getDelay() == 1);
+            PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
+            Util.check(stateWires.contains(lw.wire));
+            Util.check(mask0.equals(BigIntegerUtil.logheadMask(lw.getWidth())));
+        }
+        for (Map.Entry<Svar<PathExt>, BigInteger> e : stateVars1.entrySet())
+        {
+            Svar<PathExt> svar = e.getKey();
+            BigInteger mask1 = e.getValue();
+            Util.check(svar.getDelay() == 1);
+            PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
+            Util.check(stateWires.contains(lw.wire));
+            Util.check(mask1.equals(BigIntegerUtil.logheadMask(lw.getWidth())));
+        }
+        hasPhaseState = !stateVars0.isEmpty() || !stateVars1.isEmpty();
+        hasCycleState = !stateVars0.isEmpty();
+        for (ModInstExt inst : insts)
+        {
+            if (inst.proto.hasPhaseState)
+            {
+                hasPhaseState = true;
+            }
+            if (inst.proto.hasCycleState)
+            {
+                hasCycleState = true;
+            }
+        }
 
         Map<Object, Set<Object>> fineGraph0 = computeFineDepsGraph(false);
         Map<Object, Set<Object>> fineGraph1 = computeFineDepsGraph(true);
@@ -411,7 +462,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         }
         for (ModInstExt mi : insts)
         {
-            for (PathExt.PortInst piOut : mi.portInsts.values())
+            for (PathExt.PortInst piOut : mi.portInsts)
             {
                 if (piOut.wire.isAssigned())
                 {
@@ -487,7 +538,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             Svar<PathExt> svar = e.getKey();
             BigInteger mask = e.getValue();
             PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-            PathExt.PortInst piIn = mi.portInsts.get(lw.wire.getName());
+            PathExt.PortInst piIn = mi.portInstsIndex.get(lw.wire.getName());
             addPortInDeps(piIn, mask, deps);
         }
         graph.put(node, deps);
@@ -677,7 +728,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         }
         for (ModInstExt inst : insts)
         {
-            for (PathExt.PortInst pi : inst.portInsts.values())
+            for (PathExt.PortInst pi : inst.portInsts)
             {
                 if (pi.wire.isOutput())
                 {
@@ -697,7 +748,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                         {
                             PathExt.LocalWire lw = (PathExt.LocalWire)e1.getKey().getName();
                             BigInteger mask = e1.getValue();
-                            PathExt.PortInst piIn = inst.portInsts.get(lw.wire.getName());
+                            PathExt.PortInst piIn = inst.portInstsIndex.get(lw.wire.getName());
                             Util.check(piIn != null);
                             for (int bitIn = 0; bitIn < piIn.getWidth(); bitIn++)
                             {
@@ -798,7 +849,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
     {
         for (ModInstExt inst : insts)
         {
-            for (PathExt.PortInst piOut : inst.portInsts.values())
+            for (PathExt.PortInst piOut : inst.portInsts)
             {
                 if (piOut.wire.isOutput())
                 {
@@ -809,7 +860,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                         Svar<PathExt> svar = e.getKey();
                         BigInteger mask = e.getValue();
                         PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-                        PathExt.PortInst piIn = inst.portInsts.get(lw.wire.getName());
+                        PathExt.PortInst piIn = inst.portInstsIndex.get(lw.wire.getName());
                         for (int bit = 0; bit < piIn.getWidth(); bit++)
                         {
                             Set<Object> deps = transdep.get(piIn.getBit(bit));
@@ -918,7 +969,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             Name instName = new Name(ACL2Object.valueOf(instStr));
             Name portName = new Name(ACL2Object.valueOf(portStr));
             ModInstExt inst = instsIndex.get(instName);
-            PathExt.PortInst pi = inst.portInsts.get(portName);
+            PathExt.PortInst pi = inst.portInstsIndex.get(portName);
             pi.splitIt = true;
         }
     }
@@ -1091,9 +1142,6 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 {
                     gatherBitDep(dep, drv.getBit(bit));
                 }
-            } else if (o instanceof WireExt)
-            {
-                o = o;
             } else
             {
                 PathExt.Bit pb = (PathExt.Bit)o;

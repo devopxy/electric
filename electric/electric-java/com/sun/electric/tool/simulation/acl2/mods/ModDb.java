@@ -27,6 +27,8 @@ import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
+import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -51,6 +53,11 @@ public class ModDb
     public int nMods()
     {
         return mods.size();
+    }
+
+    public int modnameGetIndex(ModName modName)
+    {
+        return modnameIdxes.get(modName).index;
     }
 
     public ModName modidxGetName(int modidx)
@@ -437,6 +444,41 @@ public class ModDb
         }
     }
 
+    public class FlattenResult
+    {
+        public final Map<Lhs<IndexName>, Lhs<IndexName>> aliaspairs = new LinkedHashMap<>();
+        public final Map<Lhs<IndexName>, Driver<IndexName>> assigns = new LinkedHashMap<>();
+
+        public ACL2Object aliasesToACL2Object()
+        {
+            ACL2Object alist = NIL;
+            for (Map.Entry<Lhs<IndexName>, Lhs<IndexName>> e : aliaspairs.entrySet())
+            {
+                alist = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), alist);
+            }
+            return Util.revList(alist);
+        }
+
+        public ACL2Object assignsToACL2Object()
+        {
+            ACL2Object alist = NIL;
+            for (Map.Entry<Lhs<IndexName>, Driver<IndexName>> e : assigns.entrySet())
+            {
+                alist = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), alist);
+            }
+            return Util.revList(alist);
+        }
+    }
+
+    public FlattenResult svexmodFlatten(int topModidx, Map<ModName, Module<Address>> modalist)
+    {
+        ModScope modScope = new ModScope(mods.get(topModidx));
+        IndexName.SvarBuilder builder = new IndexName.SvarBuilder();
+        FlattenResult result = new FlattenResult();
+        modScope.svexmodFlatten(modalist, builder, result);
+        return result;
+    }
+
     public class ModScope
     {
         final ElabMod modIdx;
@@ -504,5 +546,123 @@ public class ModDb
             }
             return result;
         }
+
+        int addressToWireindex(Address addr)
+        {
+            ModScope scope1 = addr.scope == Address.SCOPE_ROOT ? top() : nth(addr.scope);
+            return scope1.pathToWireindex(addr.path);
+        }
+
+        Wire addressToWiredecl(Address addr)
+        {
+            ModScope scope1 = addr.scope == Address.SCOPE_ROOT ? top() : nth(addr.scope);
+            return scope1.pathToWiredecl(addr.path);
+        }
+
+        int pathToWireindex(Path path)
+        {
+            int localIdx = pathToWireIdx(path, modIdx.index);
+            return localIdx + wireOffset;
+        }
+
+        Wire pathToWiredecl(Path path)
+        {
+            return pathToWireDecl(path, modIdx.index);
+        }
+
+        public int localBound()
+        {
+            return modIdx.wireTable.length;
+        }
+
+        public int totalBound()
+        {
+            return modIdx.totalWires;
+        }
+
+        public Svar<IndexName> absindexed(Svar<Address> x, IndexName.SvarBuilder builder)
+        {
+            Address i = x.getName();
+            int index = i.index >= 0 ? wireOffset + i.index : addressToWireindex(i);
+            return builder.newVar(ACL2Object.valueOf(index), x.getDelay(), x.isNonblocking());
+        }
+
+        public Svex<IndexName> absindexed(Svex<Address> x, IndexName.SvarBuilder builder,
+            Map<Svex<Address>, Svex<IndexName>> svexCache)
+        {
+            Svex<IndexName> result = svexCache.get(x);
+            if (result == null)
+            {
+                if (x instanceof SvexVar)
+                {
+                    SvexVar<Address> xv = (SvexVar<Address>)x;
+                    Svar<IndexName> name = absindexed(xv.svar, builder);
+                    result = new SvexVar<>(name);
+                } else if (x instanceof SvexQuote)
+                {
+                    result = new SvexQuote<>(((SvexQuote<Address>)x).val);
+                } else
+                {
+                    SvexCall<Address> sc = (SvexCall<Address>)x;
+                    Svex<Address>[] args = sc.getArgs();
+                    Svex<IndexName>[] newArgs = Svex.newSvexArray(args.length);
+                    for (int i = 0; i < args.length; i++)
+                    {
+                        newArgs[i] = absindexed(args[i], builder, svexCache);
+                    }
+                    result = SvexCall.newCall(sc.fun, newArgs);
+                }
+                svexCache.put(x, result);
+            }
+            return result;
+        }
+
+        private Lhs<IndexName> absindexed(Lhs<Address> x, IndexName.SvarBuilder builder)
+        {
+            List<Lhrange<IndexName>> newRanges = new ArrayList<>();
+            for (Lhrange<Address> range : x.ranges)
+            {
+                Svar<Address> svar = range.getVar();
+                Lhatom<IndexName> newAtom;
+                if (svar != null)
+                {
+                    Svar<IndexName> newSvar = absindexed(svar, builder);
+                    newAtom = new Lhatom.Var<>(newSvar, range.getRsh());
+                } else
+                {
+                    newAtom = new Lhatom.Z<>();
+                }
+                Lhrange<IndexName> newRange = new Lhrange<>(range.getWidth(), newAtom);
+                newRanges.add(newRange);
+            }
+            return new Lhs<>(newRanges);
+        }
+
+        private void svexmodFlatten(Map<ModName, Module<Address>> modalist, IndexName.SvarBuilder builder,
+            FlattenResult result)
+        {
+            Map<Svex<Address>, Svex<IndexName>> svexCache = new HashMap<>();
+            Module<Address> m = (Module<Address>)modIdx.origMod;
+            for (Map.Entry<Lhs<Address>, Driver<Address>> e : m.assigns.entrySet())
+            {
+                Lhs<IndexName> newLhs = absindexed(e.getKey(), builder);
+                Driver<Address> driver = e.getValue();
+                Svex<IndexName> newSvex = absindexed(driver.svex, builder, svexCache);
+                Driver<IndexName> newDriver = new Driver<>(newSvex, driver.strength);
+                result.assigns.put(newLhs, newDriver);
+            }
+            for (Map.Entry<Lhs<Address>, Lhs<Address>> e : m.aliaspairs.entrySet())
+            {
+                Lhs<IndexName> newLhs = absindexed(e.getKey(), builder);
+                Lhs<IndexName> newRhs = absindexed(e.getValue(), builder);
+                result.aliaspairs.put(newLhs, newRhs);
+            }
+            for (int instidx = 0; instidx < m.insts.size(); instidx++)
+            {
+                ModScope instScope = pushFrame(instidx);
+                instScope.svexmodFlatten(modalist, builder, result);
+            }
+        }
+
     }
 }

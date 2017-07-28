@@ -113,6 +113,10 @@ public abstract class Path implements SvarName
         public Wire(Name name)
         {
             super(name.getACL2Object());
+            if (name == null)
+            {
+                throw new NullPointerException();
+            }
             this.name = name;
         }
 

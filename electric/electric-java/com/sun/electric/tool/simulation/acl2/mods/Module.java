@@ -115,7 +115,7 @@ public class Module<N extends SvarName>
         ACL2Object assignsList = NIL;
         for (Map.Entry<Lhs<N>, Driver<N>> e : assigns.entrySet())
         {
-            assignsList = cons(cons(e.getKey().getACL2Object(), e.getValue().getACl2Object()), assignsList);
+            assignsList = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), assignsList);
         }
         assignsList = Util.revList(assignsList);
         ACL2Object aliasesList = NIL;
