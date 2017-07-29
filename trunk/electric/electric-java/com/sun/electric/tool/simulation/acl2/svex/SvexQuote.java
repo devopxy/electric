@@ -21,8 +21,10 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex;
 
+import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -119,6 +121,18 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
         return val.equals(Vec4.Z);
     }
 
+    @Override
+    public Lhs<N> lhsBound(int w)
+    {
+        return new Lhs<>(Collections.emptyList());
+    }
+    
+    @Override
+    public Lhs<N> toLhs()
+    {
+        return new Lhs<>(Collections.emptyList());
+    }
+    
     @Override
     public boolean equals(Object o)
     {

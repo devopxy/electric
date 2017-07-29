@@ -155,4 +155,23 @@ public class Module<N extends SvarName>
         hash = 89 * hash + aliaspairs.hashCode();
         return hash;
     }
+
+    void vars(Collection<Svar<N>> vars)
+    {
+        for (Map.Entry<Lhs<N>, Driver<N>> e : assigns.entrySet())
+        {
+            Lhs<N> lhs = e.getKey();
+            Driver<N> driver = e.getValue();
+            lhs.vars(vars);
+            driver.vars(vars);
+        }
+        for (Map.Entry<Lhs<N>, Lhs<N>> e : aliaspairs.entrySet())
+        {
+            Lhs<N> lhs = e.getKey();
+            Lhs<N> rhs = e.getValue();
+            lhs.vars(vars);
+            rhs.vars(vars);
+        }
+    }
+
 }

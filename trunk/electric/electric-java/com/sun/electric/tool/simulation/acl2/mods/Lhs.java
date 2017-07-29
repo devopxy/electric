@@ -23,6 +23,8 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
+import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
@@ -30,6 +32,8 @@ import com.sun.electric.util.acl2.ACL2;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -137,6 +141,10 @@ public class Lhs<N extends SvarName>
 
     Lhs<N> norm()
     {
+        if (isNormp())
+        {
+            return this;
+        }
         List<Lhrange<N>> newRanges = new ArrayList<>();
         newRanges.addAll(ranges);
         for (int i = newRanges.size() - 1; i >= 0; i--)
@@ -162,12 +170,37 @@ public class Lhs<N extends SvarName>
         {
             newRanges.remove(0);
         }
-        return newRanges.equals(ranges) ? this : new Lhs<>(newRanges);
+        if (newRanges.equals(ranges))
+        {
+            isNormp();
+        }
+        assert !newRanges.equals(ranges);
+        Lhs<N> newLhs = new Lhs<>(newRanges);
+        assert newLhs.isNormp();
+        return newLhs;
     }
 
     public boolean isNormp()
     {
-        return norm().equals(this);
+        Svar<N> prevVar = null;
+        int prevBit = -1;
+        for (Lhrange<N> range : ranges)
+        {
+            Svar<N> svar = range.getVar();
+            if (svar == null)
+            {
+                if (prevVar == null && prevBit >= 0)
+                {
+                    return false;
+                }
+            } else if (svar.equals(prevVar) && range.getRsh() == prevBit)
+            {
+                return false;
+            }
+            prevVar = svar;
+            prevBit = range.getRsh() + range.getWidth();
+        }
+        return prevVar != null || prevBit == -1;
     }
 
     public Lhs<N> concat(int w, Lhs<N> y)
@@ -197,25 +230,104 @@ public class Lhs<N extends SvarName>
 
     public Lhs<N> rsh(int sh)
     {
-        List<Lhrange<N>> newRanges = new ArrayList<>();
-        newRanges.addAll(ranges);
+        List<Lhrange<N>> newRanges = new ArrayList<>(ranges);
         while (sh > 0 && !newRanges.isEmpty())
         {
-            Lhrange<N> range = ranges.get(0);
-            if (range.getWidth() < sh)
+            Lhrange<N> range = newRanges.get(0);
+            if (sh < range.getWidth())
             {
-                newRanges.remove(0);
-                sh -= range.getWidth();
-            } else
-            {
-                Svar<N> svar = range.getVar();
+                Lhatom<N> atom = range.getAtom();
+                Svar<N> svar = atom.getVar();
                 if (svar != null)
                 {
-                    newRanges.add(new Lhrange<>(sh, new Lhatom.Var<>(svar, range.getRsh() + sh)));
+                    atom = new Lhatom.Var<>(svar, range.getRsh() + sh);
                 }
+                newRanges.set(0, new Lhrange<>(range.getWidth() - sh, atom));
+                break;
             }
+            newRanges.remove(0);
+            sh -= range.getWidth();
         }
         return new Lhs<>(newRanges).norm();
+    }
+
+    void vars(Collection<Svar<N>> vars)
+    {
+        for (Lhrange<N> range : ranges)
+        {
+            range.getAtom().vars(vars);
+        }
+    }
+
+    public static <N extends SvarName> List<Svar<N>> lhslistVars(List<Lhs<N>> list)
+    {
+        List<Svar<N>> vars = new ArrayList<>();
+        for (Lhs<N> lhs : list)
+        {
+            lhs.vars(vars);
+        }
+        return vars;
+    }
+
+    Lhrange<N> first()
+    {
+        Lhs<N> norm = norm();
+        return norm.ranges.isEmpty() ? null : norm.ranges.get(0);
+    }
+
+    Lhs<N> rest()
+    {
+        Lhs<N> norm = norm();
+        if (norm.ranges.isEmpty())
+        {
+            return norm;
+        }
+        LinkedList<Lhrange<N>> newRanges = new LinkedList(norm.ranges);
+        newRanges.pollFirst();
+        return new Lhs<>(newRanges);
+    }
+
+    public static class Decomp<N extends SvarName>
+    {
+        public final Lhrange<N> first;
+        public final Lhs<N> rest;
+
+        private Decomp(Lhrange<N> first, Lhs<N> rest)
+        {
+            this.first = first;
+            this.rest = rest;
+        }
+    }
+
+    public Decomp<N> decomp()
+    {
+        Lhs<N> norm = norm();
+        if (norm.ranges.isEmpty())
+        {
+            return new Decomp<>(null, norm);
+        }
+        LinkedList<Lhrange<N>> newRanges = new LinkedList(norm.ranges);
+        Lhrange<N> first = newRanges.pollFirst();
+        Lhs<N> rest = new Lhs<>(newRanges);
+        return new Decomp(first, rest);
+    }
+
+    public Svex<N> toSvex()
+    {
+        Svex<N> svex = new SvexQuote<>(Vec4.Z);
+        for (int i = ranges.size() - 1; i >= 0; i--)
+        {
+            Lhrange<N> range = ranges.get(i);
+            svex = range.getAtom().toSvex().concat(range.getWidth(), svex);
+        }
+        return svex;
+    }
+
+    public static <N extends SvarName> Lhs<N> makeSimpleLhs(int width, int rsh, Svar<N> svar)
+    {
+        Lhatom<N> atom = new Lhatom.Var<>(svar, rsh);
+        Lhrange<N> range = new Lhrange<>(width, atom);
+        return new Lhs<>(Collections.singletonList(range));
     }
 
     @Override

@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
@@ -47,6 +48,74 @@ public class Vec4Rsh<N extends SvarName> extends SvexCall<N>
         super(FUNCTION, shift, x);
         this.shift = shift;
         this.x = x;
+    }
+
+    @Override
+    public boolean isLhsUnbounded()
+    {
+        return shift instanceof SvexQuote && ((SvexQuote<N>)shift).val.isIndex()
+            && x.isLhsUnbounded();
+    }
+
+    @Override
+    public boolean isLhs()
+    {
+        return shift instanceof SvexQuote && ((SvexQuote<N>)shift).val.isIndex() && x.isLhs();
+    }
+
+    @Override
+    public Lhs<N> lhsBound(int w)
+    {
+        Vec2 shVal = (Vec2)((SvexQuote<N>)shift).val;
+        int shv = shVal.getVal().intValueExact();
+        return x.lhsBound(w + shv).rsh(shv);
+    }
+
+    @Override
+    public Lhs<N> toLhs()
+    {
+        Vec2 shVal = (Vec2)((SvexQuote<N>)shift).val;
+        int shv = shVal.getVal().intValueExact();
+        return x.toLhs().rsh(shv);
+    }
+
+    @Override
+    public MatchRsh<N> matchRsh()
+    {
+        if (shift instanceof SvexQuote)
+        {
+            Vec4 sval = ((SvexQuote)shift).val;
+            if (sval.isVec2() && ((Vec2)sval).getVal().signum() >= 0)
+            {
+                return new MatchRsh<>(((Vec2)sval).getVal().intValueExact(), args[1]);
+            }
+        }
+        return super.matchRsh();
+    }
+
+    @Override
+    public Svex<N> lhsrewriteAux(int shift, int w)
+    {
+        if (this.shift instanceof SvexQuote)
+        {
+            Vec4 sval = ((SvexQuote)this.shift).val;
+            if (sval.isVec2())
+            {
+                int sv = ((Vec2)sval).getVal().intValueExact();
+                if (sv >= 0) {
+                    return x.lhsrewriteAux(shift + sv, w).rsh(sv);
+                }
+            }
+        }
+        return super.lhsrewriteAux(shift, w);
+    }
+
+    @Override
+    public Svex<N> lhsPreproc()
+    {
+        Svex<N> newShift = shift.lhsPreproc();
+        Svex<N> newX = x.lhsPreproc();
+        return new Vec4Rsh<>(newShift, newX);
     }
 
     public static class Function extends SvexFunction

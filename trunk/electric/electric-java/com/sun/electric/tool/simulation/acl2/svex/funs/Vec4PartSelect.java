@@ -26,6 +26,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
@@ -50,6 +51,23 @@ public class Vec4PartSelect<N extends SvarName> extends SvexCall<N>
         this.lsb = lsb;
         this.width = width;
         this.in = in;
+    }
+
+    @Override
+    public Svex<N> lhsPreproc()
+    {
+        if (lsb instanceof SvexQuote)
+        {
+            Vec4 lval = ((SvexQuote)lsb).val;
+            if (lval.isVec2()) {
+                int lv = ((Vec2)lval).getVal().intValueExact();
+                if (lv >= 0) {
+                    Svex<N> svexRsh = new Vec4Rsh<>(lsb, in.lhsPreproc());
+                    return new Vec4Concat<>(width, svexRsh, new SvexQuote<N>(Vec2.ZERO));
+                }
+            }
+        }
+        return super.lhsPreproc();
     }
 
     public static class Function extends SvexFunction

@@ -26,6 +26,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -90,4 +91,8 @@ public class Driver<N extends SvarName>
         return hash;
     }
 
+    void vars(Collection<Svar<N>> vars)
+    {
+        vars.addAll(svex.collectVars());
+    }
 }

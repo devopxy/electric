@@ -21,8 +21,12 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex;
 
+import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
+import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
+import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -115,6 +119,20 @@ public class SvexVar<N extends SvarName> extends Svex<N>
         return false;
     }
 
+    @Override
+    public Lhs<N> lhsBound(int w)
+    {
+        Lhatom.Var<N> atom = new Lhatom.Var<>(svar, 0);
+        Lhrange<N> range = new Lhrange<>(w, atom);
+        return new Lhs<>(Collections.singletonList(range));
+    }
+    
+    @Override
+    public Lhs<N> toLhs()
+    {
+        return new Lhs<>(Collections.emptyList());
+    }
+    
     @Override
     public boolean equals(Object o)
     {
