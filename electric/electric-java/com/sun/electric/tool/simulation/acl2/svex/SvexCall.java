@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex;
 
+import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Rsh;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4SignExt;
@@ -28,6 +29,7 @@ import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4ZeroExt;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -186,59 +188,30 @@ public class SvexCall<N extends SvarName> extends Svex<N>
     @Override
     public boolean isLhsUnbounded()
     {
-        if (fun == Vec4Concat.FUNCTION)
-        {
-            Vec4Concat<N> svex = (Vec4Concat<N>)this;
-            Svex<N> w = svex.width;
-            Svex<N> lo = svex.low;
-            Svex<N> hi = svex.high;
-            return w instanceof SvexQuote && ((SvexQuote<N>)w).val.isIndex() && lo.isLhsUnbounded() && hi.isLhsUnbounded();
-        } else if (fun == Vec4Rsh.FUNCTION)
-        {
-            Vec4Rsh<N> svex = (Vec4Rsh<N>)this;
-            Svex<N> sh = svex.shift;
-            Svex<N> x = svex.x;
-            return sh instanceof SvexQuote && ((SvexQuote<N>)sh).val.isIndex() && x.isLhsUnbounded();
-        }
         return false;
     }
 
     @Override
     public boolean isLhs()
     {
-        if (fun == Vec4Concat.FUNCTION)
-        {
-            Vec4Concat<N> svex = (Vec4Concat<N>)this;
-            Svex<N> w = svex.width;
-            Svex<N> lo = svex.low;
-            Svex<N> hi = svex.high;
-            return w instanceof SvexQuote && ((SvexQuote<N>)w).val.isIndex() && lo.isLhsUnbounded() && hi.isLhs();
-        } else if (fun == Vec4Rsh.FUNCTION)
-        {
-            Vec4Rsh<N> svex = (Vec4Rsh<N>)this;
-            Svex<N> sh = svex.shift;
-            Svex<N> x = svex.x;
-            return sh instanceof SvexQuote && ((SvexQuote<N>)sh).val.isIndex() && x.isLhs();
-        }
         return false;
+    }
+
+    @Override
+    public Lhs<N> lhsBound(int w)
+    {
+        return new Lhs<>(Collections.emptyList());
+    }
+
+    @Override
+    public Lhs<N> toLhs()
+    {
+        return new Lhs<>(Collections.emptyList());
     }
 
     @Override
     public MatchConcat<N> matchConcat()
     {
-        if (fun == Vec4Concat.FUNCTION)
-        {
-            Vec4Concat<N> svex = (Vec4Concat<N>)this;
-            Svex<N> width = svex.width;
-            if (width instanceof SvexQuote)
-            {
-                Vec4 wval = ((SvexQuote)width).val;
-                if (wval.isVec2() && ((Vec2)wval).getVal().signum() >= 0)
-                {
-                    return new MatchConcat<>(((Vec2)wval).getVal().intValueExact(), svex.low, svex.high);
-                }
-            }
-        }
         return null;
     }
 
@@ -264,18 +237,6 @@ public class SvexCall<N extends SvarName> extends Svex<N>
     @Override
     public MatchRsh<N> matchRsh()
     {
-        if (fun == Vec4Rsh.FUNCTION)
-        {
-            Svex<N> shift = args[0];
-            if (shift instanceof SvexQuote)
-            {
-                Vec4 sval = ((SvexQuote)shift).val;
-                if (sval.isVec2() && ((Vec2)sval).getVal().signum() >= 0)
-                {
-                    return new MatchRsh<>(((Vec2)sval).getVal().intValueExact(), args[1]);
-                }
-            }
-        }
         return null;
     }
 

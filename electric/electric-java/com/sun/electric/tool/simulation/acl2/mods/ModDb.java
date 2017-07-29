@@ -30,6 +30,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -130,7 +131,7 @@ public class ModDb
             int instIdx = elabMod.wireFindInst(wireidx);
             ElabModInst elabModInst = elabMod.modInstTable[instIdx];
             stack.add(elabModInst.instName);
-            instIdx -= elabModInst.wireOffrset;
+            wireidx -= elabModInst.wireOffset;
             elabMod = elabModInst.modidx;
         }
         return Path.makePath(stack, elabMod.wireTable[wireidx].name);
@@ -155,7 +156,7 @@ public class ModDb
             {
                 throw new RuntimeException("In module " + elabMod.modName + ": missing: " + pathScope.namespace);
             }
-            wireOffset += instidx.wireOffrset;
+            wireOffset += instidx.wireOffset;
             elabMod = instidx.modidx;
             path = pathScope.subpath;
         }
@@ -408,7 +409,7 @@ public class ModDb
             {
                 int guess = (maxInst - minInst) >> 1;
                 int pivot = minInst + guess;
-                int pivotOffset = modInstTable[pivot].wireOffrset;
+                int pivotOffset = modInstTable[pivot].wireOffset;
                 if (wire < pivotOffset)
                 {
                     maxInst = pivot;
@@ -422,6 +423,28 @@ public class ModDb
             }
             return minInst;
         }
+
+        void initializeAliases(int offset, IndexName.SvarBuilder builder, LhsArr aliases)
+        {
+            for (Wire wire : wireTable)
+            {
+                Svar<IndexName> svar = builder.newName(offset);
+                Lhatom<IndexName> atom = new Lhatom.Var<>(svar, 0);
+                Lhrange<IndexName> range = new Lhrange<>(wire.width, atom);
+                Lhs<IndexName> lhs = new Lhs<>(Collections.singletonList(range));
+                aliases.setAlias(offset, lhs);
+                offset++;
+            }
+        }
+
+        void initialAliases(int offset, IndexName.SvarBuilder builder, LhsArr aliases)
+        {
+            initializeAliases(offset, builder, aliases);
+            for (ElabModInst inst : modInstTable)
+            {
+                inst.modidx.initialAliases(offset + inst.wireOffset, builder, aliases);
+            }
+        }
     }
 
     public static class ElabModInst
@@ -429,7 +452,7 @@ public class ModDb
         final int instIndex;
         final Name instName;
         final ElabMod modidx;
-        final int wireOffrset;
+        final int wireOffset;
         final int instOffset;
         final int instMeas;
 
@@ -438,7 +461,7 @@ public class ModDb
             this.instIndex = instIndex;
             this.instName = instName;
             this.modidx = modidx;
-            this.wireOffrset = wireOffset;
+            this.wireOffset = wireOffset;
             this.instOffset = instOffset;
             instMeas = modidx.modMeas + 1;
         }
@@ -448,8 +471,10 @@ public class ModDb
     {
         public final Map<Lhs<IndexName>, Lhs<IndexName>> aliaspairs = new LinkedHashMap<>();
         public final Map<Lhs<IndexName>, Driver<IndexName>> assigns = new LinkedHashMap<>();
+        public final IndexName.SvarBuilder builder = new IndexName.SvarBuilder();
+        public LhsArr aliases;
 
-        public ACL2Object aliasesToACL2Object()
+        public ACL2Object aliaspairsToACL2Object()
         {
             ACL2Object alist = NIL;
             for (Map.Entry<Lhs<IndexName>, Lhs<IndexName>> e : aliaspairs.entrySet())
@@ -468,6 +493,11 @@ public class ModDb
             }
             return Util.revList(alist);
         }
+
+        public ACL2Object aliasesToACL2Object()
+        {
+            return aliases.collectAliasesAsACL2Objects();
+        }
     }
 
     public FlattenResult svexmodFlatten(int topModidx, Map<ModName, Module<Address>> modalist)
@@ -475,8 +505,18 @@ public class ModDb
         ModScope modScope = new ModScope(mods.get(topModidx));
         IndexName.SvarBuilder builder = new IndexName.SvarBuilder();
         FlattenResult result = new FlattenResult();
-        modScope.svexmodFlatten(modalist, builder, result);
+        modScope.svexmodFlatten(modalist, result);
+        result.aliases = initialAliases(topModidx, builder);
+        result.aliases.canonicalizeAliasPairs(result.aliaspairs);
         return result;
+    }
+
+    LhsArr initialAliases(int modidx, IndexName.SvarBuilder builder)
+    {
+        ElabMod modIdx = mods.get(modidx);
+        LhsArr aliases = new LhsArr(modIdx.totalWires);
+        modIdx.initialAliases(0, builder, aliases);
+        return aliases;
     }
 
     public class ModScope
@@ -522,7 +562,7 @@ public class ModDb
         {
             ElabModInst elabModInst = modIdx.modInstTable[instidx];
             return new ModScope(elabModInst.modidx,
-                elabModInst.wireOffrset + wireOffset,
+                elabModInst.wireOffset + wireOffset,
                 elabModInst.instOffset + instOffset,
                 this);
         }
@@ -638,9 +678,9 @@ public class ModDb
             return new Lhs<>(newRanges);
         }
 
-        private void svexmodFlatten(Map<ModName, Module<Address>> modalist, IndexName.SvarBuilder builder,
-            FlattenResult result)
+        private void svexmodFlatten(Map<ModName, Module<Address>> modalist, FlattenResult result)
         {
+            IndexName.SvarBuilder builder = result.builder;
             Map<Svex<Address>, Svex<IndexName>> svexCache = new HashMap<>();
             Module<Address> m = (Module<Address>)modIdx.origMod;
             for (Map.Entry<Lhs<Address>, Driver<Address>> e : m.assigns.entrySet())
@@ -660,7 +700,7 @@ public class ModDb
             for (int instidx = 0; instidx < m.insts.size(); instidx++)
             {
                 ModScope instScope = pushFrame(instidx);
-                instScope.svexmodFlatten(modalist, builder, result);
+                instScope.svexmodFlatten(modalist, result);
             }
         }
 

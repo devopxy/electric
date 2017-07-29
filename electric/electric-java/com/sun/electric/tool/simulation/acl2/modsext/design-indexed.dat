@@ -19,6 +19,7 @@
 (defconst *$DESIGN$-indexed*      (nth 0 *$DESIGN$-results*))
 (defconst *$DESIGN$-flat-aliases* (nth 1 *$DESIGN$-results*))
 (defconst *$DESIGN$-flat-assigns* (nth 2 *$DESIGN$-results*))
+(defconst *$DESIGN$-aliases-list* (nth 3 *$DESIGN$-results*))
 
 (define svex-design-flatten-modified ((x design-p)
                              &key
@@ -101,18 +102,20 @@
   ((x design-p))
   :guard (svarlist-addr-p (modalist-vars (design->modalist x)))
   (b* (((acl2::local-stobjs moddb aliases)
-        (mv indexed-modalist flat-aliases flat-assigns moddb aliases))
+        (mv indexed-modalist flat-aliases flat-assigns aliases-list moddb aliases))
        ((mv err indexed-modalist flat-aliases flat-assigns moddb aliases)
         (svex-design-flatten-modified x))
        ((when err) (raise "Error flattening design: ~@0" err)
-        (mv nil nil nil moddb aliases)))
-    (mv indexed-modalist flat-aliases flat-assigns moddb aliases)))
+        (mv nil nil nil nil moddb aliases))
+       (aliases-list (collect-aliases 0 aliases)))
+    (mv indexed-modalist flat-aliases flat-assigns aliases-list moddb aliases)))
 
 (rule
  (mv-let
-   (indexed-modalist flat-aliases flat-assigns)
+   (indexed-modalist flat-aliases flat-assigns aliases-list)
    (check-design-flatten *$DESIGN$*)
    (and
     (equal indexed-modalist *$DESIGN$-indexed*)
     (equal flat-aliases     *$DESIGN$-flat-aliases*)
-    (equal flat-assigns     *$DESIGN$-flat-assigns*))))
+    (equal flat-assigns     *$DESIGN$-flat-assigns*)
+    (equal aliases-list     *$DESIGN$-aliases-list*))))

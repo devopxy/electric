@@ -37,9 +37,11 @@ public class IndexName implements SvarName, Svar<IndexName>
 {
     private final ACL2Object impl;
 
+    public static ModDb curModDb = null;
+
     private IndexName(int index)
     {
-        if (index < Address.INDEX_NIL)
+        if (index < 0)
         {
             throw new IllegalArgumentException();
         }
@@ -55,7 +57,12 @@ public class IndexName implements SvarName, Svar<IndexName>
     @Override
     public String toString(BigInteger mask)
     {
-        return Integer.toString(impl.intValueExact());
+        String s = "{" + Integer.toString(impl.intValueExact()) + "#" + mask.toString(16) + "}";
+        if (curModDb != null)
+        {
+            s += curModDb.wireidxToPath(getIndex(), curModDb.nMods() - 1);
+        }
+        return s;
     }
 
     @Override
@@ -98,7 +105,6 @@ public class IndexName implements SvarName, Svar<IndexName>
 
     public static class SvarBuilder extends SvarImpl.Builder<IndexName>
     {
-        private final IndexName INDEX_NIL = new IndexName(Address.INDEX_NIL);
         private final List<IndexName> cache = new ArrayList<>();
 
         @Override
@@ -122,11 +128,7 @@ public class IndexName implements SvarName, Svar<IndexName>
         {
             if (index < 0)
             {
-                if (index != Address.INDEX_NIL)
-                {
-                    throw new IllegalArgumentException();
-                }
-                return INDEX_NIL;
+                throw new IllegalArgumentException();
             }
             while (index >= cache.size())
             {
@@ -135,5 +137,17 @@ public class IndexName implements SvarName, Svar<IndexName>
             return cache.get(index);
         }
 
+        Svar<IndexName> setIndex(Svar<IndexName> svar, int index)
+        {
+            if (index < 0)
+            {
+                throw new IllegalArgumentException();
+            }
+            if (svar.getDelay() == 0 && !svar.isNonblocking())
+            {
+                return newName(index);
+            }
+            return newVar(ACL2Object.valueOf(index), svar.getDelay(), svar.isNonblocking());
+        }
     }
 }

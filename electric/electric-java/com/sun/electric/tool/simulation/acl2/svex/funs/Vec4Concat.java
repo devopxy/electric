@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex.funs;
 
+import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
@@ -51,6 +52,85 @@ public class Vec4Concat<N extends SvarName> extends SvexCall<N>
         this.width = width;
         this.low = low;
         this.high = high;
+    }
+
+    @Override
+    public boolean isLhsUnbounded()
+    {
+        return width instanceof SvexQuote && ((SvexQuote<N>)width).val.isIndex()
+            && low.isLhsUnbounded() && high.isLhsUnbounded();
+    }
+
+    @Override
+    public boolean isLhs()
+    {
+        return width instanceof SvexQuote && ((SvexQuote<N>)width).val.isIndex()
+            && low.isLhsUnbounded() && high.isLhs();
+    }
+
+    @Override
+    public Lhs<N> lhsBound(int w)
+    {
+        Vec2 widVal = (Vec2)((SvexQuote<N>)width).val;
+        int wv = widVal.getVal().intValueExact();
+        return w <= wv ? low.lhsBound(w) : low.lhsBound(wv).concat(wv, high.lhsBound(w - wv));
+    }
+
+    @Override
+    public Lhs<N> toLhs()
+    {
+        Vec2 widVal = (Vec2)((SvexQuote<N>)width).val;
+        int wv = widVal.getVal().intValueExact();
+        return low.lhsBound(wv).concat(wv, high.toLhs());
+    }
+
+    @Override
+    public MatchConcat<N> matchConcat()
+    {
+        if (width instanceof SvexQuote)
+        {
+            Vec4 wval = ((SvexQuote)width).val;
+            if (wval.isVec2() && ((Vec2)wval).getVal().signum() >= 0)
+            {
+                return new MatchConcat<>(((Vec2)wval).getVal().intValueExact(), low, high);
+            }
+        }
+        return super.matchConcat();
+    }
+
+    @Override
+    public Svex<N> lhsrewriteAux(int shift, int w)
+    {
+        if (width instanceof SvexQuote)
+        {
+            Vec4 wval = ((SvexQuote)width).val;
+            if (wval.isVec2())
+            {
+                int wv = ((Vec2)wval).getVal().intValueExact();
+                if (wv >= 0) {
+                    if (wv <= shift)
+                    {
+                        return new SvexQuote<N>(Vec4.Z).concat(w, high.lhsrewriteAux(shift - wv, w));
+                    } else if (shift + w <= wv) {
+                        return low.lhsrewriteAux(shift, w);
+                    } else {
+                        Svex<N> newLow = low.lhsrewriteAux(shift, wv - shift);
+                        Svex<N> newHigh = high.lhsrewriteAux(0, shift + w - wv);
+                        return newLow.concat(wv, newHigh);
+                    }
+                }
+            }
+        }
+        return super.lhsrewriteAux(shift, w);
+    }
+
+    @Override
+    public Svex<N> lhsPreproc()
+    {
+        Svex<N> newWidth = width.lhsPreproc();
+        Svex<N> newLow = low.lhsPreproc();
+        Svex<N> newHigh = high.lhsPreproc();
+        return new Vec4Concat<>(newWidth, newLow, newHigh);
     }
 
     public static class Function extends SvexFunction

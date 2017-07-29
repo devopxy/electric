@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex;
 
+import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Rsh;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4SignExt;
@@ -290,18 +291,23 @@ public abstract class Svex<N extends SvarName>
 
     public abstract Svex<N> patch(Map<Svar<N>, Vec4> subst, Map<SvexCall<N>, SvexCall<N>> memoize);
 
-    /* rsh-concat.lisp */
+    /* lhs.lisp */
     public abstract boolean isLhsUnbounded();
 
     public abstract boolean isLhs();
+    
+    public abstract Lhs<N> lhsBound(int w);
+    
+    public abstract Lhs<N> toLhs();
 
+    /* rsh-concat.lisp */
     public static class MatchConcat<N extends SvarName>
     {
         final int width;
         final Svex<N> lsbs;
         final Svex<N> msbs;
 
-        MatchConcat(int width, Svex<N> lsbs, Svex<N> msbs)
+        public MatchConcat(int width, Svex<N> lsbs, Svex<N> msbs)
         {
             this.width = width;
             this.lsbs = lsbs;
@@ -320,7 +326,7 @@ public abstract class Svex<N extends SvarName>
         final Svex<N> lsbs;
         final boolean signExtend;
 
-        MatchExt(int width, Svex<N> lsbs, boolean signExtend)
+        public MatchExt(int width, Svex<N> lsbs, boolean signExtend)
         {
             this.width = width;
             this.lsbs = lsbs;
@@ -338,7 +344,7 @@ public abstract class Svex<N extends SvarName>
         final int width;
         final Svex<N> subexp;
 
-        MatchRsh(int width, Svex<N> subexp)
+        public MatchRsh(int width, Svex<N> subexp)
         {
             this.width = width;
             this.subexp = subexp;
@@ -521,6 +527,21 @@ public abstract class Svex<N extends SvarName>
         newArgs[0] = width;
         newArgs[1] = this;
         return SvexCall.newCall(Vec4ZeroExt.FUNCTION, newArgs);
+    }
+    
+    public Svex<N> lhsrewriteAux(int shift, int w)
+    {
+        return this;
+    }
+
+    public Svex<N> lhsPreproc()
+    {
+        return this;
+    }
+    
+    public Svex<N> lhsRewrite(int width)
+    {
+        return lhsPreproc().lhsrewriteAux(0, width);
     }
 
     /* rewrite.lisp */

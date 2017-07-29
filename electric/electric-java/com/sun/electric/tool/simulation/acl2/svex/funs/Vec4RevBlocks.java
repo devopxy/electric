@@ -26,9 +26,12 @@ import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -50,6 +53,41 @@ public class Vec4RevBlocks<N extends SvarName> extends SvexCall<N>
         this.width = width;
         this.bsz = bsz;
         this.x = x;
+    }
+
+    @Override
+    public Svex<N> lhsPreproc()
+    {
+        if (width instanceof SvexQuote && bsz instanceof SvexQuote)
+        {
+            Vec4 wval = ((SvexQuote)width).val;
+            Vec4 bval = ((SvexQuote)bsz).val;
+            if (wval.isVec2() && bval.isVec2()) {
+                int wv = ((Vec2)wval).getVal().intValueExact();
+                int bv = ((Vec2)wval).getVal().intValueExact();
+                if (wv >= 0 && bv > 0) {
+                    Svex<N> zero = new SvexQuote<>(Vec2.ZERO);
+                    List<Svex<N>> stackX = new ArrayList<>();
+                    Svex<N> x = this.x;
+                    int nbits = wv;
+                    while (nbits >= bv)
+                    {
+                        stackX.add(x);
+                        x = new Vec4Rsh<>(bsz, x);
+                        nbits -= bv;
+                    }
+                    Svex<N> rest = new Vec4Concat<>(new SvexQuote<>(new Vec2(nbits)), x, zero);
+                    while (!stackX.isEmpty()) {
+                        x = stackX.remove(stackX.size() - 1);
+                        nbits += bv;
+                        x = new Vec4Concat<>(bsz, x, zero);
+                        rest = new Vec4Concat<>(new SvexQuote<>(new Vec2(nbits)), rest, x);
+                    }
+                    return rest;
+                }
+            }
+        }
+        return super.lhsPreproc();
     }
 
     public static class Function extends SvexFunction

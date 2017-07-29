@@ -25,11 +25,13 @@ import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.simulation.acl2.mods.Address;
 import com.sun.electric.tool.simulation.acl2.mods.Design;
+import com.sun.electric.tool.simulation.acl2.mods.IndexName;
 import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModDb;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
+import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
@@ -1078,20 +1080,24 @@ public class ACL2DesignJobs
                 Address.SvarBuilder builder = new Address.SvarBuilder();
                 Design<Address> design = new Design<>(builder, sr.root);
                 ModDb db = new ModDb(design.top, design.modalist);
+                IndexName.curModDb = db;
                 Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist);
-                ModDb.FlattenResult flattenResult = db.svexmodFlatten(db.modnameGetIndex(design.top), indexedMods);
+                int topIdx = db.modnameGetIndex(design.top);
+                ModDb.FlattenResult flattenResult = db.svexmodFlatten(topIdx, indexedMods);
                 ACL2Object indexedAlist = NIL;
                 for (Map.Entry<ModName, Module<Address>> e : indexedMods.entrySet())
                 {
                     indexedAlist = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), indexedAlist);
                 }
                 indexedAlist = Util.revList(indexedAlist);
-                ACL2Object aliasesAlist = flattenResult.aliasesToACL2Object();
+                ACL2Object aliaspairsAlist = flattenResult.aliaspairsToACL2Object();
                 ACL2Object assignsAlist = flattenResult.assignsToACL2Object();
+                ACL2Object aliasesList = flattenResult.aliasesToACL2Object();
                 ACL2Object results
                     = cons(indexedAlist,
-                        cons(aliasesAlist,
-                            cons(assignsAlist, NIL)));
+                        cons(aliaspairsAlist,
+                            cons(assignsAlist,
+                                cons(aliasesList, NIL))));
                 File outFile = new File(outFileName);
                 File outDir = outFile.getParentFile();
                 File saoIndexedFile = new File(outDir, designName + "-indexed.sao");

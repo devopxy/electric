@@ -31,6 +31,7 @@ import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Rsh;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 
@@ -53,6 +54,8 @@ public abstract class Lhatom<N extends SvarName>
     public abstract Vec4 eval(Map<Svar<N>, Vec4> env);
 
     public abstract Svex<N> toSvex();
+
+    abstract void vars(Collection<Svar<N>> vars);
 
     @Override
     public String toString()
@@ -126,6 +129,11 @@ public abstract class Lhatom<N extends SvarName>
         public Svex<N> toSvex()
         {
             return new SvexQuote<>(Vec4.Z);
+        }
+
+        @Override
+        void vars(Collection<Svar<N>> vars)
+        {
         }
     }
 
@@ -210,6 +218,12 @@ public abstract class Lhatom<N extends SvarName>
         {
             Svex<N> svexVar = new SvexVar<>(name);
             return rsh != 0 ? svexVar.rsh(rsh) : svexVar;
+        }
+
+        @Override
+        void vars(Collection<Svar<N>> vars)
+        {
+            vars.add(name);
         }
     }
 }

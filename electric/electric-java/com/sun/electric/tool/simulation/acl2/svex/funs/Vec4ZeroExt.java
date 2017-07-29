@@ -51,6 +51,28 @@ public class Vec4ZeroExt<N extends SvarName> extends SvexCall<N>
         this.x = x;
     }
 
+    @Override
+    public MatchExt<N> matchExt()
+    {
+        if (width instanceof SvexQuote)
+        {
+            Vec4 wval = ((SvexQuote)width).val;
+            if (wval.isVec2() && ((Vec2)wval).getVal().signum() >= 0)
+            {
+                return new MatchExt<>(((Vec2)wval).getVal().intValueExact(), args[1], false);
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public Svex<N> lhsPreproc()
+    {
+        Svex<N> newWidth = width.lhsPreproc();
+        Svex<N> newX = x.lhsPreproc();
+        return new Vec4Concat<>(newWidth, newX, new SvexQuote<>(Vec2.ZERO));
+    }
+
     public static class Function extends SvexFunction
     {
         private Function()
