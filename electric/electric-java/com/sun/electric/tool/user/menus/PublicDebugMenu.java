@@ -216,6 +216,25 @@ public class PublicDebugMenu
                     ACL2DesignJobs.namedToIndexed(f, designName, outPath);
                 }
             },
+                new EMenuItem("Normalize assigns")
+            {
+                @Override
+                public void run()
+                {
+                    String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized SVEX design", false);
+                    if (saoPath == null)
+                        return;
+                    URL fileURL = TextUtils.makeURLToFile(saoPath);
+                    File f = TextUtils.getFile(fileURL);
+                    String designName = TextUtils.getFileNameWithoutExtension(saoPath);
+                    String defaultOutName = User.getWorkingDirectory()
+                        + File.separator + designName + "-svex-normalized-assigns.lisp";
+                    String outPath = OpenFile.chooseOutputFile(FileType.LISP, "LISP with indexed test", defaultOutName);
+                    if (outPath == null)
+                        return;
+                    ACL2DesignJobs.normalizeAssigns(f, designName, outPath);
+                }
+            },
                 new EMenuItem("Gen FSM for ALU")
             {
                 @Override

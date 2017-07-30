@@ -56,11 +56,13 @@ public class Vec4BitExtract<N extends SvarName> extends SvexCall<N>
         if (index instanceof SvexQuote)
         {
             Vec4 ival = ((SvexQuote)index).val;
-            if (ival.isVec2()) {
+            if (ival.isVec2())
+            {
                 int iv = ((Vec2)ival).getVal().intValueExact();
-                if (iv >= 0) {
+                if (iv >= 0)
+                {
                     Svex<N> svexRsh = new Vec4Rsh<>(index, x.lhsPreproc());
-                    return new Vec4Concat<>(new SvexQuote<>(Vec2.ONE), svexRsh, new SvexQuote<>(Vec2.ZERO));
+                    return new Vec4Concat<>(SvexQuote.valueOf(1), svexRsh, SvexQuote.valueOf(0));
                 }
             }
         }

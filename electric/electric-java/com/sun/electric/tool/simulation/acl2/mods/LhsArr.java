@@ -48,6 +48,11 @@ public class LhsArr
         }
     }
 
+    public int size()
+    {
+        return arr.size();
+    }
+
     public Lhs<IndexName> getLhs(int i)
     {
         return arr.get(i);
@@ -95,12 +100,12 @@ public class LhsArr
 
     public static boolean lhatomIsNormordered(int bound, int offset, Lhatom<IndexName> x)
     {
-        if (x instanceof Lhatom.Z)
+        Svar<IndexName> svar = x.getVar();
+        if (svar == null)
         {
             return true;
         }
-        Lhatom.Var<IndexName> av = (Lhatom.Var<IndexName>)x;
-        int idx = av.name.getName().getIndex();
+        int idx = svar.getName().getIndex();
         return idx < bound || idx == bound && x.getRsh() <= offset;
     }
 
@@ -349,25 +354,6 @@ public class LhsArr
             idx, first.getWidth(), first.getRsh());
         Lhs<IndexName> restX = aliasCanonicalizeReplaceTop(decomp.rest);
         return firstX.concat(first.getWidth(), restX);
-    }
-
-    private Lhs<IndexName> aliasNorm(Lhs<IndexName> x)
-    {
-        Lhs.Decomp<IndexName> decomp = x.decomp();
-        if (decomp.first == null)
-        {
-            return new Lhs<>(Collections.emptyList());
-        }
-        Lhrange<IndexName> first = decomp.first;
-        Svar<IndexName> svar = first.getVar();
-        if (svar == null)
-        {
-            return aliasNorm(decomp.rest).cons(first);
-        }
-        int idx = svar.getName().getIndex();
-        Lhs<IndexName> low = getAlias(idx).rsh(first.getRsh());
-        Lhs<IndexName> high = aliasNorm(decomp.rest);
-        return low.concat(first.getWidth(), high);
     }
 
     private void addPair(Lhs<IndexName> x, Lhs<IndexName> y)

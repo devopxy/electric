@@ -62,11 +62,13 @@ public class Vec4RevBlocks<N extends SvarName> extends SvexCall<N>
         {
             Vec4 wval = ((SvexQuote)width).val;
             Vec4 bval = ((SvexQuote)bsz).val;
-            if (wval.isVec2() && bval.isVec2()) {
+            if (wval.isVec2() && bval.isVec2())
+            {
                 int wv = ((Vec2)wval).getVal().intValueExact();
                 int bv = ((Vec2)wval).getVal().intValueExact();
-                if (wv >= 0 && bv > 0) {
-                    Svex<N> zero = new SvexQuote<>(Vec2.ZERO);
+                if (wv >= 0 && bv > 0)
+                {
+                    Svex<N> zero = SvexQuote.valueOf(0);
                     List<Svex<N>> stackX = new ArrayList<>();
                     Svex<N> x = this.x;
                     int nbits = wv;
@@ -76,12 +78,13 @@ public class Vec4RevBlocks<N extends SvarName> extends SvexCall<N>
                         x = new Vec4Rsh<>(bsz, x);
                         nbits -= bv;
                     }
-                    Svex<N> rest = new Vec4Concat<>(new SvexQuote<>(new Vec2(nbits)), x, zero);
-                    while (!stackX.isEmpty()) {
+                    Svex<N> rest = new Vec4Concat<>(SvexQuote.valueOf(nbits), x, zero);
+                    while (!stackX.isEmpty())
+                    {
                         x = stackX.remove(stackX.size() - 1);
                         nbits += bv;
                         x = new Vec4Concat<>(bsz, x, zero);
-                        rest = new Vec4Concat<>(new SvexQuote<>(new Vec2(nbits)), rest, x);
+                        rest = new Vec4Concat<>(SvexQuote.valueOf(nbits), rest, x);
                     }
                     return rest;
                 }

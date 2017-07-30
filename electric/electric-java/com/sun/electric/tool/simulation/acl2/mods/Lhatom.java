@@ -43,6 +43,35 @@ import java.util.Objects;
  */
 public abstract class Lhatom<N extends SvarName>
 {
+    private static final Lhatom<?> Z = new Z<>();
+
+    public static <N extends SvarName> Lhatom<N> valueOf(Svar<N> svar)
+    {
+        return valueOf(svar, 0);
+    }
+
+    public static <N extends SvarName> Lhatom<N> valueOf(Svar<N> svar, int rsh)
+    {
+        return new Var<>(svar, rsh);
+    }
+
+    public static <N extends SvarName> Lhatom<N> Z()
+    {
+        return (Lhatom<N>)Z;
+    }
+
+    public static <N extends SvarName> Lhatom<N> valueOf(Svar.Builder<N> builder, ACL2Object impl)
+    {
+        if (symbolp(impl).bool())
+        {
+            if (impl.equals(Util.KEYWORD_Z))
+            {
+                return new Lhatom.Z<>();
+            }
+        }
+        return new Lhatom.Var<>(builder, impl);
+    }
+
     public abstract ACL2Object getACL2Object();
 
     public abstract Svar<N> getVar();
@@ -81,20 +110,13 @@ public abstract class Lhatom<N extends SvarName>
         return Objects.hashCode(getVar()) * 13 + getRsh();
     }
 
-    public static <N extends SvarName> Lhatom<N> valueOf(Svar.Builder<N> builder, ACL2Object impl)
+    private static class Z<N extends SvarName> extends Lhatom<N>
     {
-        if (symbolp(impl).bool())
+        private Z()
         {
-            if (impl.equals(Util.KEYWORD_Z))
-            {
-                return new Lhatom.Z<>();
-            }
-        }
-        return new Lhatom.Var<>(builder, impl);
-    }
 
-    public static class Z<N extends SvarName> extends Lhatom<N>
-    {
+        }
+
         @Override
         public ACL2Object getACL2Object()
         {
@@ -116,7 +138,7 @@ public abstract class Lhatom<N extends SvarName>
         @Override
         public <N1 extends SvarName> Lhatom<N1> convertVars(Svar.Builder<N1> builder)
         {
-            return new Z<>();
+            return Z();
         }
 
         @Override
@@ -128,7 +150,7 @@ public abstract class Lhatom<N extends SvarName>
         @Override
         public Svex<N> toSvex()
         {
-            return new SvexQuote<>(Vec4.Z);
+            return SvexQuote.Z();
         }
 
         @Override
@@ -137,12 +159,12 @@ public abstract class Lhatom<N extends SvarName>
         }
     }
 
-    public static class Var<N extends SvarName> extends Lhatom<N>
+    private static class Var<N extends SvarName> extends Lhatom<N>
     {
-        public final Svar<N> name;
-        public final int rsh;
+        final Svar<N> name;
+        final int rsh;
 
-        Var(Svar.Builder<N> builder, ACL2Object impl)
+        private Var(Svar.Builder<N> builder, ACL2Object impl)
         {
             if (consp(impl).bool())
             {
@@ -163,7 +185,7 @@ public abstract class Lhatom<N extends SvarName>
             }
         }
 
-        public Var(Svar<N> name, int rsh)
+        private Var(Svar<N> name, int rsh)
         {
             if (name == null)
             {
@@ -202,7 +224,7 @@ public abstract class Lhatom<N extends SvarName>
         public <N1 extends SvarName> Lhatom<N1> convertVars(Svar.Builder<N1> builder)
         {
             Svar<N1> newName = builder.newVar(name);
-            return new Var<>(newName, rsh);
+            return valueOf(newName, rsh);
         }
 
         @Override
