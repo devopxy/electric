@@ -107,13 +107,17 @@ public class Vec4Concat<N extends SvarName> extends SvexCall<N>
             if (wval.isVec2())
             {
                 int wv = ((Vec2)wval).getVal().intValueExact();
-                if (wv >= 0) {
+                if (wv >= 0)
+                {
                     if (wv <= shift)
                     {
-                        return new SvexQuote<N>(Vec4.Z).concat(w, high.lhsrewriteAux(shift - wv, w));
-                    } else if (shift + w <= wv) {
+                        Svex<N> Z = SvexQuote.Z();
+                        return Z.concat(w, high.lhsrewriteAux(shift - wv, w));
+                    } else if (shift + w <= wv)
+                    {
                         return low.lhsrewriteAux(shift, w);
-                    } else {
+                    } else
+                    {
                         Svex<N> newLow = low.lhsrewriteAux(shift, wv - shift);
                         Svex<N> newHigh = high.lhsrewriteAux(0, shift + w - wv);
                         return newLow.concat(wv, newHigh);

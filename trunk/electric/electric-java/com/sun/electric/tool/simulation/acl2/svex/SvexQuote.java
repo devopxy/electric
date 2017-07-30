@@ -24,7 +24,11 @@ package com.sun.electric.tool.simulation.acl2.svex;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -36,11 +40,28 @@ import java.util.Set;
  */
 public class SvexQuote<N extends SvarName> extends Svex<N>
 {
-
     public final Vec4 val;
-    private final ACL2Object impl;
 
-    public SvexQuote(Vec4 val)
+    private final ACL2Object impl;
+    private static final int SMALL_CACHE_EXP_LIMIT = 10;
+    private static final List<SvexQuote<?>> smallCache = new ArrayList<>();
+    private static final Map<Vec4, SvexQuote<?>> largeCache = new HashMap<>();
+
+    private static final SvexQuote<?> X = new SvexQuote<>(Vec4.X);
+    private static final SvexQuote<?> Z = new SvexQuote<>(Vec4.Z);
+
+    static
+    {
+        for (int v = 0; v < (1 << SMALL_CACHE_EXP_LIMIT); v++)
+        {
+            SvexQuote<?> sq = new SvexQuote<>(new Vec2(v));
+            smallCache.add(sq);
+        }
+        largeCache.put(X.val, X);
+        largeCache.put(Z.val, Z);
+    }
+
+    private SvexQuote(Vec4 val)
     {
         if (val == null)
         {
@@ -56,6 +77,53 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
         }
     }
 
+    public static <N extends SvarName> Svex<N> valueOf(Vec4 val)
+    {
+        if (val.isVec2())
+        {
+            BigInteger bv = ((Vec2)val).getVal();
+            if (bv.signum() >= 0 && bv.bitLength() < SMALL_CACHE_EXP_LIMIT)
+            {
+                return (Svex<N>)smallCache.get(bv.intValueExact());
+            }
+        }
+        SvexQuote<?> sv = largeCache.get(val);
+        if (sv == null)
+        {
+            sv = new SvexQuote<>(val);
+            largeCache.put(val, sv);
+        }
+        return (Svex<N>)sv;
+    }
+
+    public static <N extends SvarName> Svex<N> valueOf(BigInteger val)
+    {
+        if (val.signum() >= 0 && val.bitLength() < SMALL_CACHE_EXP_LIMIT)
+        {
+            return (Svex<N>)smallCache.get(val.intValueExact());
+        }
+        return valueOf(new Vec2(val));
+    }
+
+    public static <N extends SvarName> Svex<N> valueOf(int val)
+    {
+        if (val >= 0 && val < (1 << SMALL_CACHE_EXP_LIMIT))
+        {
+            return (Svex<N>)smallCache.get(val);
+        }
+        return valueOf(BigInteger.valueOf(val));
+    }
+
+    public static <N extends SvarName> Svex<N> X()
+    {
+        return (Svex<N>)X;
+    }
+
+    public static <N extends SvarName> Svex<N> Z()
+    {
+        return (Svex<N>)Z;
+    }
+
     @Override
     public ACL2Object getACL2Object()
     {
@@ -68,7 +136,7 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
         Svex<N1> svex = cache.get(this);
         if (svex == null)
         {
-            svex = new SvexQuote<>(val);
+            svex = SvexQuote.valueOf(val);
             cache.put(this, svex);
         }
         return svex;
@@ -80,7 +148,7 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
         Svex<N1> svex = cache.get(this);
         if (svex == null)
         {
-            svex = new SvexQuote<>(val);
+            svex = SvexQuote.valueOf(val);
             cache.put(this, svex);
         }
         return svex;
@@ -126,13 +194,13 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
     {
         return new Lhs<>(Collections.emptyList());
     }
-    
+
     @Override
     public Lhs<N> toLhs()
     {
         return new Lhs<>(Collections.emptyList());
     }
-    
+
     @Override
     public boolean equals(Object o)
     {

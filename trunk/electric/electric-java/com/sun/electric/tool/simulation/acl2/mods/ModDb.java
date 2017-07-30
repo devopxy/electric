@@ -56,6 +56,11 @@ public class ModDb
         return mods.size();
     }
 
+    public ElabMod getMod(int modIdx)
+    {
+        return mods.get(modIdx);
+    }
+
     public int modnameGetIndex(ModName modName)
     {
         return modnameIdxes.get(modName).index;
@@ -273,7 +278,7 @@ public class ModDb
             if (svar != null)
             {
                 svar = svarNamedToIndexed(svar, modidx, builder);
-                Lhatom<Address> atom = new Lhatom.Var<>(svar, range.getRsh());
+                Lhatom<Address> atom = Lhatom.valueOf(svar, range.getRsh());
                 range = new Lhrange<>(range.getWidth(), atom);
             }
             newRanges.add(range);
@@ -429,7 +434,7 @@ public class ModDb
             for (Wire wire : wireTable)
             {
                 Svar<IndexName> svar = builder.newName(offset);
-                Lhatom<IndexName> atom = new Lhatom.Var<>(svar, 0);
+                Lhatom<IndexName> atom = Lhatom.valueOf(svar);
                 Lhrange<IndexName> range = new Lhrange<>(wire.width, atom);
                 Lhs<IndexName> lhs = new Lhs<>(Collections.singletonList(range));
                 aliases.setAlias(offset, lhs);
@@ -526,7 +531,7 @@ public class ModDb
         final int instOffset;
         final ModScope upper;
 
-        ModScope(ElabMod modIdx)
+        public ModScope(ElabMod modIdx)
         {
             this(modIdx, 0, 0, null);
         }
@@ -640,7 +645,7 @@ public class ModDb
                     result = new SvexVar<>(name);
                 } else if (x instanceof SvexQuote)
                 {
-                    result = new SvexQuote<>(((SvexQuote<Address>)x).val);
+                    result = SvexQuote.valueOf(((SvexQuote<Address>)x).val);
                 } else
                 {
                     SvexCall<Address> sc = (SvexCall<Address>)x;
@@ -667,10 +672,10 @@ public class ModDb
                 if (svar != null)
                 {
                     Svar<IndexName> newSvar = absindexed(svar, builder);
-                    newAtom = new Lhatom.Var<>(newSvar, range.getRsh());
+                    newAtom = Lhatom.valueOf(newSvar, range.getRsh());
                 } else
                 {
-                    newAtom = new Lhatom.Z<>();
+                    newAtom = Lhatom.Z();
                 }
                 Lhrange<IndexName> newRange = new Lhrange<>(range.getWidth(), newAtom);
                 newRanges.add(newRange);
@@ -704,5 +709,51 @@ public class ModDb
             }
         }
 
+        private Svar<Path> indexedToNamed(Svar<IndexName> var, Svar.Builder<Path> builder)
+        {
+            int idx = var.getName().getIndex();
+            Path name = wireidxToPath(idx, modIdx.index);
+            return builder.newVar(name, 0, false);
+        }
+
+        public Lhs<Path> indexedToNamed(Lhs<IndexName> lhs, Svar.Builder<Path> builder)
+        {
+            List<Lhrange<Path>> newRanges = new ArrayList<>();
+            for (Lhrange<IndexName> range : lhs.ranges)
+            {
+                Lhatom<Path> newAtom;
+                Svar<IndexName> svar = range.getVar();
+                if (svar == null)
+                {
+                    newAtom = Lhatom.Z();
+                } else
+                {
+                    newAtom = Lhatom.valueOf(indexedToNamed(svar, builder), range.getRsh());
+                }
+                newRanges.add(new Lhrange<>(range.getWidth(), newAtom));
+            }
+            return new Lhs<>(newRanges);
+        }
+
+        public List<Lhs<Path>> aliasesToNamed(LhsArr aliases, Svar.Builder<Path> builder)
+        {
+            List<Lhs<Path>> result = new ArrayList<>(aliases.size());
+            for (int i = 0; i < aliases.size(); i++)
+            {
+                result.add(indexedToNamed(aliases.getAlias(i), builder));
+            }
+            return result;
+        }
+
+        public ACL2Object aliasesToNamedACL2Object(LhsArr aliases, Svar.Builder<Path> builder)
+        {
+            List<Lhs<Path>> namedAliases = aliasesToNamed(aliases, builder);
+            ACL2Object result = NIL;
+            for (int i = namedAliases.size() - 1; i >= 0; i--)
+            {
+                result = cons(namedAliases.get(i).getACL2Object(), result);
+            }
+            return result;
+        }
     }
 }

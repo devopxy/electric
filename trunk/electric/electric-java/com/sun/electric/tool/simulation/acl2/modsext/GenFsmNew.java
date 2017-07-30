@@ -817,9 +817,9 @@ public class GenFsmNew extends GenBase
     private void printSvex(Svex<PathExt> top, int width)
     {
         top = SvexCall.newCall(Vec4Concat.FUNCTION,
-            new SvexQuote<>(new Vec2(width)),
+            SvexQuote.valueOf(width),
             top,
-            new SvexQuote<>(Vec2.ZERO));
+            SvexQuote.valueOf(0));
         Set<SvexCall<PathExt>> multirefs = top.multirefs();
         int indent = 2;
         Map<Svex<PathExt>, String> multirefNames = Collections.emptyMap();

@@ -495,7 +495,7 @@ public abstract class ParameterizedModule
 
     protected Svex<Path> q(Vec4 val)
     {
-        return new SvexQuote<>(val);
+        return SvexQuote.valueOf(val);
     }
 
     protected Svex<Path> v(String wireName)
@@ -726,7 +726,7 @@ public abstract class ParameterizedModule
             {
                 throw new IllegalArgumentException();
             }
-            return new Lhrange<>(width, new Lhatom.Var<>(svar, rightIndex));
+            return new Lhrange<>(width, Lhatom.valueOf(svar, rightIndex));
         }
 
         public Lhrange<Path> r(String wireName, int leftIndex, int rightIndex)
@@ -743,7 +743,7 @@ public abstract class ParameterizedModule
             {
                 throw new IllegalArgumentException();
             }
-            return new Lhrange<>(width, new Lhatom.Var<>(svar, rightIndex));
+            return new Lhrange<>(width, Lhatom.valueOf(svar, rightIndex));
         }
 
         public void conn(Lhrange<Path> lrange, Lhrange<Path>... ranges)
@@ -759,7 +759,7 @@ public abstract class ParameterizedModule
             Lhs<Path> rhs = new Lhs<>(Arrays.asList(ranges));
             Path lpath = Path.makePath(Arrays.asList(getName(instName)), getName(portName));
             Svar<Path> lvar = builder.newVar(lpath, 0, false);
-            Lhrange<Path> lrange = new Lhrange<>(rhs.width(), new Lhatom.Var<>(lvar, 0));
+            Lhrange<Path> lrange = new Lhrange<>(rhs.width(), Lhatom.valueOf(lvar));
             conn(lrange, ranges);
         }
 

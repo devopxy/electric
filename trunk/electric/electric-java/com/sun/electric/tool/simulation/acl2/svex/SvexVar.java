@@ -104,7 +104,7 @@ public class SvexVar<N extends SvarName> extends Svex<N>
     public Svex<N> patch(Map<Svar<N>, Vec4> subst, Map<SvexCall<N>, SvexCall<N>> memoize)
     {
         Vec4 val = subst.get(svar);
-        return val != null ? new SvexQuote(val) : this;
+        return val != null ? SvexQuote.valueOf(val) : this;
     }
 
     @Override
@@ -122,17 +122,17 @@ public class SvexVar<N extends SvarName> extends Svex<N>
     @Override
     public Lhs<N> lhsBound(int w)
     {
-        Lhatom.Var<N> atom = new Lhatom.Var<>(svar, 0);
+        Lhatom<N> atom = Lhatom.valueOf(svar);
         Lhrange<N> range = new Lhrange<>(w, atom);
         return new Lhs<>(Collections.singletonList(range));
     }
-    
+
     @Override
     public Lhs<N> toLhs()
     {
         return new Lhs<>(Collections.emptyList());
     }
-    
+
     @Override
     public boolean equals(Object o)
     {

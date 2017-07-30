@@ -70,7 +70,7 @@ public class Vec4ZeroExt<N extends SvarName> extends SvexCall<N>
     {
         Svex<N> newWidth = width.lhsPreproc();
         Svex<N> newX = x.lhsPreproc();
-        return new Vec4Concat<>(newWidth, newX, new SvexQuote<>(Vec2.ZERO));
+        return new Vec4Concat<>(newWidth, newX, SvexQuote.valueOf(0));
     }
 
     public static class Function extends SvexFunction

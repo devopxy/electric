@@ -59,11 +59,13 @@ public class Vec4PartSelect<N extends SvarName> extends SvexCall<N>
         if (lsb instanceof SvexQuote)
         {
             Vec4 lval = ((SvexQuote)lsb).val;
-            if (lval.isVec2()) {
+            if (lval.isVec2())
+            {
                 int lv = ((Vec2)lval).getVal().intValueExact();
-                if (lv >= 0) {
+                if (lv >= 0)
+                {
                     Svex<N> svexRsh = new Vec4Rsh<>(lsb, in.lhsPreproc());
-                    return new Vec4Concat<>(width, svexRsh, new SvexQuote<N>(Vec2.ZERO));
+                    return new Vec4Concat<>(width, svexRsh, SvexQuote.valueOf(0));
                 }
             }
         }

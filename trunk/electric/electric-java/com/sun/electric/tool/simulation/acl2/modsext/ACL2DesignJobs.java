@@ -1127,6 +1127,91 @@ public class ACL2DesignJobs
         }
     }
 
+    public static void normalizeAssigns(File saoFile, String designName, String outFileName)
+    {
+        new NormalizeAssignsJob(saoFile, designName, outFileName).startJob();
+
+    }
+
+    private static class NormalizeAssignsJob extends Job
+    {
+        private final File saoFile;
+        private final String designName;
+        private final String outFileName;
+
+        private NormalizeAssignsJob(File saoFile, String designName, String outFileName)
+        {
+            super("Named->Indexed", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
+            this.saoFile = saoFile;
+            this.designName = designName;
+            this.outFileName = outFileName;
+        }
+
+        @Override
+        public boolean doIt() throws JobException
+        {
+            try
+            {
+                ACL2Reader sr = new ACL2Reader(saoFile);
+                Address.SvarBuilder builder = new Address.SvarBuilder();
+                Design<Address> design = new Design<>(builder, sr.root);
+                ModDb db = new ModDb(design.top, design.modalist);
+                IndexName.curModDb = db;
+                Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist);
+                int topIdx = db.modnameGetIndex(design.top);
+                ModDb.ElabMod topElabMod = db.getMod(topIdx);
+                ModDb.ModScope topScope = db.new ModScope(topElabMod);
+                ModDb.FlattenResult flattenResult = db.svexmodFlatten(topIdx, indexedMods);
+                Path.SvarBuilder namedBuilder = new Path.SvarBuilder();
+                List<Lhs<Path>> namedAliases = topScope.aliasesToNamed(flattenResult.aliases, namedBuilder);
+                Compile<Path> compile = new Compile(namedAliases, flattenResult.assigns, namedBuilder);
+
+                ACL2Object indexedAssignsAlist = flattenResult.assignsToACL2Object();
+                ACL2Object indexedAliasesList = flattenResult.aliasesToACL2Object();
+                ACL2Object namedAliasesList = topScope.aliasesToNamedACL2Object(flattenResult.aliases, namedBuilder);
+                ACL2Object svexarrList = compile.svexarrAsACL2Object();
+                ACL2Object normAssigns = compile.normAssignsAsACL2Object();
+                ACL2Object netAssigns = compile.netAssignsAsACL2Object();
+                ACL2Object resAssigns = compile.resAssignsAsACL2Object();
+                ACL2Object resDelays = compile.resDelaysAsACL2Object();
+                ACL2Object results
+                    = cons(indexedAssignsAlist,
+                        cons(indexedAliasesList,
+                            cons(namedAliasesList,
+                                cons(svexarrList,
+                                    cons(normAssigns,
+                                        cons(netAssigns,
+                                            cons(resAssigns,
+                                                cons(resDelays, NIL))))))));
+                File outFile = new File(outFileName);
+                File outDir = outFile.getParentFile();
+                File saoIndexedFile = new File(outDir, designName + "-svex-normalize-assigns.sao");
+                ACL2Writer.write(results, saoIndexedFile);
+                List<String> lines = new ArrayList<>();
+                try (LineNumberReader in = new LineNumberReader(
+                    new InputStreamReader(ACL2DesignJobs.class.getResourceAsStream("svex-normalize-assigns.dat"))))
+                {
+                    String line;
+                    while ((line = in.readLine()) != null)
+                    {
+                        lines.add(line);
+                    }
+                }
+                try (PrintStream out = new PrintStream(outFileName))
+                {
+                    for (String line : lines)
+                    {
+                        out.println(line.replace("$DESIGN$", designName));
+                    }
+                }
+            } catch (IOException e)
+            {
+                return false;
+            }
+            return true;
+        }
+    }
+
     private static class Alu extends GenFsm
     {
         private static String[] inputs =

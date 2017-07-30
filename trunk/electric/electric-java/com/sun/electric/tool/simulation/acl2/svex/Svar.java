@@ -130,7 +130,7 @@ public interface Svar<N extends SvarName>
             {
                 throw new IllegalArgumentException();
             }
-            return newVar(svar.makeACL2Object(), svar.getDelay() + delay, svar.isNonblocking());
+            return newVar(svar.getACL2Name(), svar.getDelay() + delay, svar.isNonblocking());
         }
 
         default <N1 extends SvarName> List<Svar<N>> addDelay(List<Svar<N1>> svarlist, int delay)

@@ -222,7 +222,7 @@ public class Lhs<N extends SvarName>
         }
         if (ww < w)
         {
-            newRanges.add(new Lhrange<>(w - ww, new Lhatom.Z<>()));
+            newRanges.add(new Lhrange<>(w - ww, Lhatom.Z()));
         }
         newRanges.addAll(y.ranges);
         return new Lhs<>(newRanges).norm();
@@ -240,7 +240,7 @@ public class Lhs<N extends SvarName>
                 Svar<N> svar = atom.getVar();
                 if (svar != null)
                 {
-                    atom = new Lhatom.Var<>(svar, range.getRsh() + sh);
+                    atom = Lhatom.valueOf(svar, range.getRsh() + sh);
                 }
                 newRanges.set(0, new Lhrange<>(range.getWidth() - sh, atom));
                 break;
@@ -282,7 +282,7 @@ public class Lhs<N extends SvarName>
         {
             return norm;
         }
-        LinkedList<Lhrange<N>> newRanges = new LinkedList(norm.ranges);
+        LinkedList<Lhrange<N>> newRanges = new LinkedList<>(norm.ranges);
         newRanges.pollFirst();
         return new Lhs<>(newRanges);
     }
@@ -306,15 +306,15 @@ public class Lhs<N extends SvarName>
         {
             return new Decomp<>(null, norm);
         }
-        LinkedList<Lhrange<N>> newRanges = new LinkedList(norm.ranges);
+        LinkedList<Lhrange<N>> newRanges = new LinkedList<>(norm.ranges);
         Lhrange<N> first = newRanges.pollFirst();
         Lhs<N> rest = new Lhs<>(newRanges);
-        return new Decomp(first, rest);
+        return new Decomp<>(first, rest);
     }
 
     public Svex<N> toSvex()
     {
-        Svex<N> svex = new SvexQuote<>(Vec4.Z);
+        Svex<N> svex = SvexQuote.Z();
         for (int i = ranges.size() - 1; i >= 0; i--)
         {
             Lhrange<N> range = ranges.get(i);
@@ -325,7 +325,7 @@ public class Lhs<N extends SvarName>
 
     public static <N extends SvarName> Lhs<N> makeSimpleLhs(int width, int rsh, Svar<N> svar)
     {
-        Lhatom<N> atom = new Lhatom.Var<>(svar, rsh);
+        Lhatom<N> atom = Lhatom.valueOf(svar, rsh);
         Lhrange<N> range = new Lhrange<>(width, atom);
         return new Lhs<>(Collections.singletonList(range));
     }

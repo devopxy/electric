@@ -69,7 +69,7 @@ public abstract class Svex<N extends SvarName>
             {
                 if (NIL.equals(cdr(args)) && consp(car(args)).bool())
                 {
-                    svex = new SvexQuote<>(Vec4.valueOf(car(args)));
+                    svex = SvexQuote.valueOf(Vec4.valueOf(car(args)));
                 }
             } else
             {
@@ -99,7 +99,7 @@ public abstract class Svex<N extends SvarName>
             svex = new SvexVar<>(sb.fromACL2(rep));
         } else if (integerp(rep).bool())
         {
-            svex = new SvexQuote<>(new Vec2(rep));
+            svex = SvexQuote.valueOf(rep.bigIntegerValueExact());
         }
         if (svex != null)
         {
@@ -153,7 +153,18 @@ public abstract class Svex<N extends SvarName>
         return result;
     }
 
-    protected abstract void collectVars(Set<Svar<N>> result, Set<SvexCall<N>> vusited);
+    public static <N extends SvarName> Set<Svar<N>> collectVars(Collection<Svex<N>> exprs)
+    {
+        Set<Svar<N>> result = new LinkedHashSet<>();
+        Set<SvexCall<N>> visited = new HashSet<>();
+        for (Svex<N> svex : exprs)
+        {
+            svex.collectVars(result, visited);
+        }
+        return result;
+    }
+
+    protected abstract void collectVars(Set<Svar<N>> result, Set<SvexCall<N>> visited);
 
     public abstract <R, D> R accept(Visitor<N, R, D> visitor, D data);
 
@@ -295,9 +306,9 @@ public abstract class Svex<N extends SvarName>
     public abstract boolean isLhsUnbounded();
 
     public abstract boolean isLhs();
-    
+
     public abstract Lhs<N> lhsBound(int w);
-    
+
     public abstract Lhs<N> toLhs();
 
     /* rsh-concat.lisp */
@@ -368,13 +379,13 @@ public abstract class Svex<N extends SvarName>
         }
         if (this instanceof SvexQuote)
         {
-            return new SvexQuote<>(Vec4Rsh.FUNCTION.apply(new Vec2(sh),
+            return SvexQuote.valueOf(Vec4Rsh.FUNCTION.apply(new Vec2(sh),
                 ((SvexQuote<N>)this).val));
         }
         MatchRsh<N> matchRsh = matchRsh();
         if (matchRsh != null)
         {
-            Svex<N> shift = new SvexQuote<>(new Vec2(matchRsh.width + sh));
+            Svex<N> shift = SvexQuote.valueOf(matchRsh.width + sh);
             Svex<N>[] newArgs = Svex.newSvexArray(2);
             newArgs[0] = shift;
             newArgs[1] = matchRsh.subexp;
@@ -383,18 +394,19 @@ public abstract class Svex<N extends SvarName>
         MatchConcat<N> matchConcat = matchConcat();
         if (matchConcat != null && sh >= matchConcat.width)
         {
-            Svex<N> shift = new SvexQuote<>(new Vec2(sh - matchRsh.width));
-            Svex<N>[] newArgs = Svex.newSvexArray(2);
-            newArgs[0] = shift;
-            newArgs[1] = matchRsh.subexp;
-            return SvexCall.newCall(Vec4Rsh.FUNCTION, newArgs);
+            return matchConcat.msbs.rsh(sh - matchConcat.width);
+//            Svex<N> shift = SvexQuote.valueOf(sh - matchConcat.width);
+//            Svex<N>[] newArgs = Svex.newSvexArray(2);
+//            newArgs[0] = shift;
+//            newArgs[1] = matchConcat.msbs;
+//            return SvexCall.newCall(Vec4Rsh.FUNCTION, newArgs);
         }
         MatchExt<N> matchExt = matchExt();
         if (matchExt != null && sh >= matchExt.width && !matchExt.signExtend)
         {
-            return new SvexQuote<>(Vec2.ZERO);
+            return SvexQuote.valueOf(0);
         }
-        Svex<N> shift = new SvexQuote<>(new Vec2(sh));
+        Svex<N> shift = SvexQuote.valueOf(sh);
         Svex<N>[] newArgs = Svex.newSvexArray(2);
         newArgs[0] = shift;
         newArgs[1] = this;
@@ -413,10 +425,10 @@ public abstract class Svex<N extends SvarName>
         }
         if (this instanceof SvexQuote && y instanceof SvexQuote)
         {
-            Vec4 val = Vec4Rsh.FUNCTION.apply(new Vec2(w),
+            Vec4 val = Vec4Concat.FUNCTION.apply(new Vec2(w),
                 ((SvexQuote<N>)this).val,
                 ((SvexQuote<N>)y).val);
-            return new SvexQuote<>(val);
+            return SvexQuote.valueOf(val);
         }
         MatchConcat<N> matchConcat = matchConcat();
         if (matchConcat != null && w <= matchConcat.width)
@@ -430,7 +442,7 @@ public abstract class Svex<N extends SvarName>
         }
         if (!(this instanceof SvexQuote))
         {
-            Svex<N> width = new SvexQuote<>(new Vec2(w));
+            Svex<N> width = SvexQuote.valueOf(w);
             Svex<N>[] newArgs = Svex.newSvexArray(3);
             newArgs[0] = width;
             newArgs[1] = this;
@@ -443,10 +455,10 @@ public abstract class Svex<N extends SvarName>
             Vec4 lsbVal = Vec4Concat.FUNCTION.apply(new Vec2(w),
                 ((SvexQuote<N>)this).val,
                 ((SvexQuote<N>)matchConcatY.lsbs).val);
-            Svex<N> newLsb = new SvexQuote<>(lsbVal);
+            Svex<N> newLsb = SvexQuote.valueOf(lsbVal);
             return newLsb.concat(w + matchConcatY.width, matchConcatY.msbs);
         }
-        Svex<N> width = new SvexQuote<>(new Vec2(w));
+        Svex<N> width = SvexQuote.valueOf(w);
         Svex<N>[] newArgs = Svex.newSvexArray(3);
         newArgs[0] = width;
         newArgs[1] = this;
@@ -460,7 +472,7 @@ public abstract class Svex<N extends SvarName>
         {
             if (w == 0)
             {
-                return new SvexQuote<>(Vec2.ZERO);
+                return SvexQuote.valueOf(0);
             }
             throw new IllegalArgumentException();
         }
@@ -468,7 +480,7 @@ public abstract class Svex<N extends SvarName>
         {
             Vec4 val = Vec4ZeroExt.FUNCTION.apply(new Vec2(w),
                 ((SvexQuote<N>)this).val);
-            return new SvexQuote<>(val);
+            return SvexQuote.valueOf(val);
         }
         MatchConcat<N> matchConcat = matchConcat();
         if (matchConcat != null && w <= matchConcat.width)
@@ -480,7 +492,7 @@ public abstract class Svex<N extends SvarName>
         {
             return matchExt.lsbs.zerox(w);
         }
-        Svex<N> width = new SvexQuote<>(new Vec2(w));
+        Svex<N> width = SvexQuote.valueOf(w);
         Svex<N>[] newArgs = Svex.newSvexArray(2);
         newArgs[0] = width;
         newArgs[1] = this;
@@ -493,7 +505,7 @@ public abstract class Svex<N extends SvarName>
         {
             if (w == 0)
             {
-                return new SvexQuote<>(Vec4.X);
+                return SvexQuote.X();
             }
             throw new IllegalArgumentException();
         }
@@ -501,7 +513,7 @@ public abstract class Svex<N extends SvarName>
         {
             Vec4 val = Vec4SignExt.FUNCTION.apply(new Vec2(w),
                 ((SvexQuote<N>)this).val);
-            return new SvexQuote<>(val);
+            return SvexQuote.valueOf(val);
         }
         MatchConcat<N> matchConcat = matchConcat();
         if (matchConcat != null && w <= matchConcat.width)
@@ -522,13 +534,13 @@ public abstract class Svex<N extends SvarName>
                 return matchExt.lsbs.zerox(matchExt.width);
             }
         }
-        Svex<N> width = new SvexQuote<>(new Vec2(w));
+        Svex<N> width = SvexQuote.valueOf(w);
         Svex<N>[] newArgs = Svex.newSvexArray(2);
         newArgs[0] = width;
         newArgs[1] = this;
-        return SvexCall.newCall(Vec4ZeroExt.FUNCTION, newArgs);
+        return SvexCall.newCall(Vec4SignExt.FUNCTION, newArgs);
     }
-    
+
     public Svex<N> lhsrewriteAux(int shift, int w)
     {
         return this;
@@ -538,7 +550,7 @@ public abstract class Svex<N extends SvarName>
     {
         return this;
     }
-    
+
     public Svex<N> lhsRewrite(int width)
     {
         return lhsPreproc().lhsrewriteAux(0, width);

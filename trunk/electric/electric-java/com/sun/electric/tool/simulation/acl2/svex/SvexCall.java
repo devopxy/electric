@@ -22,8 +22,6 @@
 package com.sun.electric.tool.simulation.acl2.svex;
 
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
-import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
-import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Rsh;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4SignExt;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4ZeroExt;
 import static com.sun.electric.util.acl2.ACL2.*;
@@ -39,7 +37,7 @@ import java.util.Set;
  *
  * @param <N> Type of name of Svex variables
  */
-public class SvexCall<N extends SvarName> extends Svex<N>
+public abstract class SvexCall<N extends SvarName> extends Svex<N>
 {
     public final SvexFunction fun;
     protected final Svex<N>[] args;
@@ -48,7 +46,8 @@ public class SvexCall<N extends SvarName> extends Svex<N>
     @SafeVarargs
     public static <N extends SvarName> SvexCall<N> newCall(SvexFunction fun, Svex<N>... args)
     {
-        return new SvexCall<>(fun, args);
+        return fun.build(args);
+//        return new SvexCall<>(fun, args);
     }
 
     @SafeVarargs
@@ -261,7 +260,7 @@ public class SvexCall<N extends SvarName> extends Svex<N>
     {
         if (o instanceof SvexCall)
         {
-            SvexCall<N> that = (SvexCall<N>)o;
+            SvexCall<?> that = (SvexCall<?>)o;
             if (!this.fun.equals(that.fun))
             {
                 return false;

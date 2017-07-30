@@ -90,21 +90,16 @@ public class Lhrange<N extends SvarName>
     public Svex<N> toSvex()
     {
         Svex<N>[] args = Svex.newSvexArray(3);
-        args[0] = new SvexQuote<>(new Vec2(w));
+        args[0] = SvexQuote.valueOf(w);
         args[1] = atom.toSvex();
-        args[2] = new SvexQuote<>(Vec4.Z);
+        args[2] = SvexQuote.Z();
         return Vec4Concat.FUNCTION.build(args);
     }
 
     public Lhatom<N> nextbit()
     {
-        if (atom instanceof Lhatom.Var)
-        {
-            return new Lhatom.Var<>(atom.getVar(), w + atom.getRsh());
-        } else
-        {
-            return atom;
-        }
+        Svar<N> svar = atom.getVar();
+        return svar != null ? Lhatom.valueOf(svar, w + atom.getRsh()) : atom;
     }
 
     public boolean combinable(Lhatom<N> y)
