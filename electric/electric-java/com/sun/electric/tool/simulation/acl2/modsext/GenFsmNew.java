@@ -23,11 +23,13 @@ package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
+import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.Path;
+import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
@@ -163,6 +165,17 @@ public class GenFsmNew extends GenBase
                     } else if (!genM.equals(m.b))
                     {
                         System.out.println("Module mismatch " + modName);
+                    } else
+                    {
+                        Util.check(genM.getACL2Object().equals(m.b.getACL2Object()));
+                        Util.check(parModule.getNumInsts() == m.elabMod.modNInsts());
+                        Util.check(parModule.getNumWires() == m.elabMod.modNWires());
+                        Util.check(parModule.getNumAssigns() == m.elabMod.modNAssigns());
+                        Util.check(parModule.getNumBits() == m.elabMod.modNBits());
+                        Util.check(parModule.getTotalInsts() == m.elabMod.modTotalInsts());
+                        Util.check(parModule.getTotalWires() == m.elabMod.modTotalWires());
+                        Util.check(parModule.getTotalAssigns() == m.elabMod.modTotalAssigns());
+                        Util.check(parModule.getTotalBits() == m.elabMod.modTotalBits());
                     }
                 }
             }
@@ -587,7 +600,7 @@ public class GenFsmNew extends GenBase
 
     private void printSvtv(DesignExt design, ModName modName, ModuleExt m)
     {
-        int modIdx = design.moddb.modnameGetIndex(modName);
+        ElabMod modIdx = design.moddb.modnameGetIndex(modName);
         s();
         s("(defconst |*" + modName + "-design*|");
         sb("(change-design *" + designName + "-sao* :top " + modName.toLispString() + "))");
@@ -722,7 +735,7 @@ public class GenFsmNew extends GenBase
             b();
             for (int i = 0; i < svtvState.length; i++)
             {
-                int width = design.moddb.pathToWireDecl(svtvState[i], modIdx).width;
+                int width = modIdx.pathToWireDecl(svtvState[i]).width;
                 s("(cons key-" + i + " (4vec-concat " + width + " (svex-env-lookup key-" + i + " st) 0))");
             }
             out.print(")))");
@@ -778,7 +791,7 @@ public class GenFsmNew extends GenBase
         b();
         for (int i = 0; i < svtvState.length; i++)
         {
-            int width = design.moddb.pathToWireDecl(svtvState[i], modIdx).width;
+            int width = modIdx.pathToWireDecl(svtvState[i]).width;
             s("(" + svtvVars[i] + " . ,(4vec-concat " + width
                 + " key-" + i + " 0))");
         }
@@ -933,7 +946,7 @@ public class GenFsmNew extends GenBase
                         {
                             assert pb.getPath() == pi;
                             scopes.add(inst.getInstname());
-                            path = Path.makePath(scopes, pi.wire.getName());
+                            path = Path.makePath(scopes, pi.getProtoName());
                             scopes.remove(scopes.size() - 1);
                         } else
                         {
@@ -949,7 +962,7 @@ public class GenFsmNew extends GenBase
                         }
                         bits[bit] = path;
                     }
-                    subBind.put(pi.wire.getName(), bits);
+                    subBind.put(pi.getProtoName(), bits);
                 }
                 scopes.add(inst.getInstname());
                 makeSvtvState(scopes, inst.getModname(), subBind, design, statePaths);
@@ -1016,7 +1029,7 @@ public class GenFsmNew extends GenBase
                         {
                             assert pb.getPath() == pi;
                             scopes.add(inst.getInstname());
-                            path = Path.makePath(scopes, pi.wire.getName());
+                            path = Path.makePath(scopes, pi.getProtoName());
                             scopes.remove(scopes.size() - 1);
                         } else
                         {
@@ -1032,7 +1045,7 @@ public class GenFsmNew extends GenBase
                         }
                         bits[bit] = path;
                     }
-                    subBind.put(pi.wire.getName(), bits);
+                    subBind.put(pi.getProtoName(), bits);
                 }
                 scopes.add(inst.getInstname());
                 makeSvtvState(scopes, inst.getModname(), subBind, design, statePaths);

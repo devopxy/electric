@@ -81,8 +81,16 @@ public abstract class ParameterizedModule
      * These variables are not theread-safe.
      */
     private ModName curModName;
-    private Builder curBuilder;
     private String curInstName;
+
+    private Map<String, String> params;
+    private final Map<String, Name> names = new HashMap<>();
+    private final Svar.Builder<Path> builder = new Path.SvarBuilder();
+
+    private final List<Wire> wires = new ArrayList<>();
+    private final List<ModInst> insts = new ArrayList<>();
+    private final Map<Lhs<Path>, Driver<Path>> assigns = new LinkedHashMap<>();
+    private final Map<Lhs<Path>, Lhs<Path>> aliaspairs = new LinkedHashMap<>();
 
     public ParameterizedModule(String libName, String modName)
     {
@@ -161,33 +169,30 @@ public abstract class ParameterizedModule
      */
     public boolean setCurBuilder(ModName modName)
     {
-        Map<String, String> params = matchModName(modName);
-        curInstName = null;
-        if (params == null)
+        clear();
+        params = matchModName(modName);
+        if (params != null)
         {
-            curModName = null;
-            curBuilder = null;
-            return false;
+            curModName = modName;
+            return true;
         }
-        curModName = modName;
-        curBuilder = new Builder(params);
-        return true;
+        curModName = null;
+        return false;
+    }
+
+    protected void clear()
+    {
+        names.clear();
+        wires.clear();
+        insts.clear();
+        assigns.clear();
+        aliaspairs.clear();
+        curInstName = null;
     }
 
     public String getModNameStr()
     {
         return modName;
-    }
-
-    /**
-     * Return a string value of parameter of current ModName.
-     *
-     * @param paramName name of a parameter
-     * @return Stringvalue of a parameter or null if parameter is absent.
-     */
-    protected String getParam(String paramName)
-    {
-        return curBuilder.getParam(paramName);
     }
 
     /**
@@ -200,7 +205,29 @@ public abstract class ParameterizedModule
      */
     protected int getIntParam(String paramName)
     {
-        return curBuilder.getIntParam(paramName);
+        return Integer.parseInt(getParam(paramName));
+    }
+
+    /**
+     * Return a string value of parameter of current ModName.
+     *
+     * @param paramName name of a parameter
+     * @return Stringvalue of a parameter or null if parameter is absent.
+     */
+    protected String getParam(String paramName)
+    {
+        return params.get(paramName);
+    }
+
+    private Name getName(String nameStr)
+    {
+        Name name = names.get(nameStr);
+        if (name == null)
+        {
+            name = new Name(honscopy(ACL2Object.valueOf(nameStr)));
+            names.put(nameStr, name);
+        }
+        return name;
     }
 
     /**
@@ -211,7 +238,7 @@ public abstract class ParameterizedModule
      */
     protected void wire(String wireName, int width)
     {
-        curBuilder.wire(wireName, width);
+        wire(getName(wireName), width);
     }
 
     /**
@@ -222,7 +249,7 @@ public abstract class ParameterizedModule
      */
     protected void wire(Name name, int width)
     {
-        curBuilder.wire(name, width);
+        wires.add(new Wire(name, width));
     }
 
     /**
@@ -289,8 +316,13 @@ public abstract class ParameterizedModule
      */
     protected void instance(String instName, ModName modName)
     {
-        curBuilder.instance(modName, instName);
+        insts.add(new ModInst(getName(instName), modName));
         curInstName = instName;
+    }
+
+    public void instance(ModName modName, String instName)
+    {
+
     }
 
     /**
@@ -314,9 +346,9 @@ public abstract class ParameterizedModule
      * @param lsb least significant bit
      * @return Lhrange
      */
-    protected Lhrange<Path> r(Name wireName, int msb, int lsb)
+    protected Lhrange<Path> r(String wireName, int msb, int lsb)
     {
-        return curBuilder.r(wireName, msb, lsb);
+        return r(getName(wireName), msb, lsb);
     }
 
     /**
@@ -328,9 +360,10 @@ public abstract class ParameterizedModule
      * @param lsb least significant bit
      * @return Lhrange
      */
-    protected Lhrange<Path> r(String wireName, int msb, int lsb)
+    protected Lhrange<Path> r(Name wireName, int msb, int lsb)
     {
-        return curBuilder.r(wireName, msb, lsb);
+        Path path = Path.simplePath(wireName);
+        return r(path, msb, lsb);
     }
 
     /**
@@ -345,7 +378,19 @@ public abstract class ParameterizedModule
      */
     protected Lhrange<Path> r(String instName, String portName, int msb, int lsb)
     {
-        return curBuilder.r(instName, portName, msb, lsb);
+        Path path = Path.makePath(Arrays.asList(getName(instName)), getName(portName));
+        return r(path, msb, lsb);
+    }
+
+    private Lhrange<Path> r(Path path, int msb, int lsb)
+    {
+        Svar<Path> svar = builder.newVar(path, 0, false);
+        int width = msb - lsb + 1;
+        if (width <= 0)
+        {
+            throw new IllegalArgumentException();
+        }
+        return new Lhrange<>(width, Lhatom.valueOf(svar, lsb));
     }
 
     protected Svex<Path> unfloat(Svex<Path> x)
@@ -505,9 +550,9 @@ public abstract class ParameterizedModule
 
     protected Svex<Path> v(String wireName, int delay)
     {
-        Name name = curBuilder.getName(wireName);
+        Name name = getName(wireName);
         Path path = Path.simplePath(name);
-        Svar<Path> svar = curBuilder.builder.newVar(path, delay, false);
+        Svar<Path> svar = builder.newVar(path, delay, false);
         return new SvexVar<>(svar);
     }
 
@@ -550,24 +595,25 @@ public abstract class ParameterizedModule
      */
     protected void assign(Lhrange<Path> range, Svex<Path> svex)
     {
-        curBuilder.assign(range, svex);
+        assign(new Lhs<>(Arrays.asList(range)), svex);
     }
 
     /**
      * Generate an assignment of an svex expression to a Lhrange for current modName
      *
-     * @param range1 upper Lhrange
-     * @param range2 lower Lhrange
+     * @param upperRange lower Lhrange
+     * @param lowerRange upper Lhrange
      * @param svex SVEX expression
      */
-    protected void assign(Lhrange<Path> range1, Lhrange<Path> range2, Svex<Path> svex)
+    protected void assign(Lhrange<Path> upperRange, Lhrange<Path> lowerRange, Svex<Path> svex)
     {
-        curBuilder.assign(new Lhs<>(Arrays.asList(range1, range2)), svex);
+        assign(new Lhs<>(Arrays.asList(lowerRange, upperRange)), svex);
     }
 
-    public void conn(Lhrange<Path> lrange, Lhrange<Path>... ranges)
+    private void assign(Lhs<Path> lhs, Svex<Path> svex)
     {
-        curBuilder.conn(lrange, ranges);
+        Driver<Path> driver = new Driver<>(svex);
+        assigns.put(lhs, driver);
     }
 
     /**
@@ -579,7 +625,7 @@ public abstract class ParameterizedModule
      */
     protected void conn(String portName, Lhrange<Path>... ranges)
     {
-        curBuilder.conn(curInstName, portName, ranges);
+        conn(curInstName, portName, ranges);
     }
 
     /**
@@ -595,14 +641,70 @@ public abstract class ParameterizedModule
         conn(portName, r(wireName, width - 1, 0));
     }
 
+    private void conn(String instName, String portName, Lhrange<Path>... ranges)
+    {
+        int width = 0;
+        for (Lhrange<Path> range : ranges)
+        {
+            width += range.getWidth();
+        }
+        Lhrange<Path> lrange = r(instName, portName, width - 1, 0);
+        conn(lrange, ranges);
+    }
+
+    protected void conn(Lhrange<Path> lrange, Lhrange<Path>... ranges)
+    {
+        Lhs<Path> lhs = new Lhs<>(Arrays.asList(lrange));
+        Lhs<Path> rhs = new Lhs<>(Arrays.asList(ranges));
+        Util.check(lhs.width() == rhs.width());
+        aliaspairs.put(lhs, rhs);
+    }
+
     protected Module<Path> getModule()
     {
-        return curBuilder.getModule();
+        return new Module<>(wires, insts, assigns, aliaspairs);
     }
 
     protected Module<Path> genModule()
     {
         return null;
+    }
+
+    protected int getNumInsts()
+    {
+        return 0;
+    }
+
+    protected abstract int getNumWires();
+
+    protected int getNumAssigns()
+    {
+        return 1;
+    }
+
+    protected int getNumBits()
+    {
+        return getNumWires();
+    }
+
+    protected int getTotalInsts()
+    {
+        return getNumInsts();
+    }
+
+    protected int getTotalWires()
+    {
+        return getNumWires();
+    }
+
+    protected int getTotalAssigns()
+    {
+        return getNumAssigns();
+    }
+
+    protected int getTotalBits()
+    {
+        return getTotalWires();
     }
 
     @Override
@@ -628,175 +730,5 @@ public abstract class ParameterizedModule
     public String toString()
     {
         return libName.isEmpty() ? modName : libName + "." + modName;
-    }
-
-    public Builder newBuilder(Map<String, String> params)
-    {
-        return new Builder(params);
-    }
-
-    public class Builder
-    {
-        private final Map<String, String> params;
-        private final Map<String, Name> names = new HashMap<>();
-        private final Svar.Builder<Path> builder = new Path.SvarBuilder();
-        private final List<Wire> wires = new ArrayList<>();
-        private final List<ModInst> insts = new ArrayList<>();
-        private final Map<Lhs<Path>, Driver<Path>> assigns = new LinkedHashMap<>();
-        private final Map<Lhs<Path>, Lhs<Path>> aliaspairs = new LinkedHashMap<>();
-
-        private Builder(Map<String, String> params)
-        {
-            this.params = params;
-        }
-
-        public String getParam(String paramName)
-        {
-            return params.get(paramName);
-        }
-
-        public int getIntParam(String paramName)
-        {
-            return Integer.parseInt(getParam(paramName));
-        }
-
-        private Name getName(String nameStr)
-        {
-            Name name = names.get(nameStr);
-            if (name == null)
-            {
-                name = new Name(honscopy(ACL2Object.valueOf(nameStr)));
-                names.put(nameStr, name);
-            }
-            return name;
-        }
-
-        public void wire(Name name, int width)
-        {
-            wires.add(new Wire(name, width));
-        }
-
-        public void wire(String wireName, int width)
-        {
-            wire(getName(wireName), width);
-        }
-
-        public void input(String wireName, int width)
-        {
-            wire(wireName, width);
-        }
-
-        public void global(String wireName, int width)
-        {
-            wire(wireName, width);
-        }
-
-        public void unused(String wireName, int width)
-        {
-            wire(wireName, width);
-        }
-
-        public void unusedGlobal(String wireName, int width)
-        {
-            wire(wireName, width);
-        }
-
-        public void output(String wireName, int width)
-        {
-            wire(wireName, width);
-        }
-
-        public void instance(ModName modName, String instName)
-        {
-            insts.add(new ModInst(getName(instName), modName));
-
-        }
-
-        public void instance(String modName, String instName)
-        {
-            instance(ModName.valueOf(ACL2Object.valueOf(modName)), instName);
-        }
-
-        public Lhrange<Path> r(Name wireName, int leftIndex, int rightIndex)
-        {
-            Path rpath = Path.simplePath(wireName);
-            Svar<Path> svar = builder.newVar(rpath, 0, false);
-            int width = leftIndex - rightIndex + 1;
-            if (width <= 0)
-            {
-                throw new IllegalArgumentException();
-            }
-            return new Lhrange<>(width, Lhatom.valueOf(svar, rightIndex));
-        }
-
-        public Lhrange<Path> r(String wireName, int leftIndex, int rightIndex)
-        {
-            return r(getName(wireName), leftIndex, rightIndex);
-        }
-
-        public Lhrange<Path> r(String instName, String portName, int leftIndex, int rightIndex)
-        {
-            Path rpath = Path.makePath(Arrays.asList(getName(instName)), getName(portName));
-            Svar<Path> svar = builder.newVar(rpath, 0, false);
-            int width = leftIndex - rightIndex + 1;
-            if (width <= 0)
-            {
-                throw new IllegalArgumentException();
-            }
-            return new Lhrange<>(width, Lhatom.valueOf(svar, rightIndex));
-        }
-
-        public void conn(Lhrange<Path> lrange, Lhrange<Path>... ranges)
-        {
-            Lhs<Path> lhs = new Lhs<>(Arrays.asList(lrange));
-            Lhs<Path> rhs = new Lhs<>(Arrays.asList(ranges));
-            Util.check(lhs.width() == rhs.width());
-            aliaspairs.put(lhs, rhs);
-        }
-
-        public void conn(String instName, String portName, Lhrange<Path>... ranges)
-        {
-            Lhs<Path> rhs = new Lhs<>(Arrays.asList(ranges));
-            Path lpath = Path.makePath(Arrays.asList(getName(instName)), getName(portName));
-            Svar<Path> lvar = builder.newVar(lpath, 0, false);
-            Lhrange<Path> lrange = new Lhrange<>(rhs.width(), Lhatom.valueOf(lvar));
-            conn(lrange, ranges);
-        }
-
-        public void conn(String instName, String portName, String wireName, int width)
-        {
-            conn(instName, portName, r(wireName, width - 1, 0));
-        }
-
-        public void assign(Lhrange<Path> wire, Svex<Path> svex)
-        {
-            assign(new Lhs<>(Arrays.asList(wire)), svex);
-        }
-
-        public void assign(Lhs<Path> lhs, Svex<Path> svex)
-        {
-            Driver<Path> driver = new Driver<>(svex);
-            assigns.put(lhs, driver);
-        }
-
-        public List<Wire> getWires()
-        {
-            return wires;
-        }
-
-        public List<ModInst> getInsts()
-        {
-            return insts;
-        }
-
-        public Map<Lhs<Path>, Lhs<Path>> getAliaspairs()
-        {
-            return aliaspairs;
-        }
-
-        protected Module<Path> getModule()
-        {
-            return new Module<>(wires, insts, assigns, aliaspairs);
-        }
     }
 }

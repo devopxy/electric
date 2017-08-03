@@ -29,10 +29,8 @@ import com.sun.electric.tool.simulation.acl2.mods.Wiretype;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import static com.sun.electric.util.acl2.ACL2.*;
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,20 +49,10 @@ public class WireExt
     final PathExt.LocalWire path;
     final int index;
 
-    public boolean used, exported;
+    public boolean used;
+    public ModExport exported;
     BigInteger assignedBits;
-    String global;
     final SortedMap<Lhrange<PathExt>, WireDriver> drivers = new TreeMap<>(LHRANGE_COMPARATOR);
-
-    // only for exports
-    private final BitSet fineBitStateDeps0 = new BitSet();
-    private final BitSet fineBitStateDeps1 = new BitSet();
-    private final List<Map<Svar<PathExt>, BigInteger>> fineBitDeps0 = new ArrayList<>();
-    private final List<Map<Svar<PathExt>, BigInteger>> fineBitDeps1 = new ArrayList<>();
-    final Map<Svar<PathExt>, BigInteger> crudePortDeps0 = new LinkedHashMap<>();
-    final Map<Svar<PathExt>, BigInteger> crudePortDeps1 = new LinkedHashMap<>();
-    boolean crudePortStateDep0;
-    boolean crudePortStateDep1;
 
     WireExt(ModuleExt parent, Wire b, int index)
     {
@@ -175,6 +163,11 @@ public class WireExt
 
     public boolean isExport()
     {
+        return exported != null;
+    }
+
+    public ModExport getExport()
+    {
         return exported;
     }
 
@@ -191,22 +184,6 @@ public class WireExt
     public BigInteger getAssignedBits()
     {
         return assignedBits != null ? assignedBits : BigInteger.ZERO;
-    }
-
-    public void markGlobal(String name)
-    {
-        if (global == null)
-        {
-            global = name;
-        } else if (!global.equals(name))
-        {
-            global = "";
-        }
-    }
-
-    public boolean isGlobal()
-    {
-        return global != null && !global.isEmpty();
     }
 
     /**
@@ -273,47 +250,6 @@ public class WireExt
 //            default:
 //                throw new IllegalArgumentException();
 //        }
-    }
-
-    BitSet getFineBitStateDeps(boolean clockHigh)
-    {
-        return clockHigh ? fineBitStateDeps1 : fineBitStateDeps0;
-    }
-
-    List<Map<Svar<PathExt>, BigInteger>> getFineBitDeps(boolean clockHigh)
-    {
-        return clockHigh ? fineBitDeps1 : fineBitDeps0;
-    }
-
-    boolean getFinePortStateDeps(boolean clcokHigh)
-    {
-        return !getFineBitStateDeps(clcokHigh).isEmpty();
-    }
-
-    Map<Svar<PathExt>, BigInteger> getFinePortDeps(boolean clockHigh)
-    {
-        return parent.sortDeps(ModuleExt.combineDeps(getFineBitDeps(clockHigh)));
-    }
-
-    boolean getCrudePortStateDeps(boolean clockHigh)
-    {
-        return clockHigh ? crudePortStateDep1 : crudePortStateDep0;
-    }
-
-    Map<Svar<PathExt>, BigInteger> getCrudePortDeps(boolean clockHigh)
-    {
-        return clockHigh ? crudePortDeps1 : crudePortDeps0;
-    }
-
-    void setFineDeps(boolean clockHigh, Map<Object, Set<Object>> closure)
-    {
-        if (clockHigh)
-        {
-            fineBitDeps1.addAll(gatherFineBitDeps(fineBitStateDeps1, closure));
-        } else
-        {
-            fineBitDeps0.addAll(gatherFineBitDeps(fineBitStateDeps0, closure));
-        }
     }
 
     public String showFinePortDeps(Map<Object, Set<Object>> graph0, Map<Object, Set<Object>> graph1)

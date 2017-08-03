@@ -104,6 +104,19 @@ public class TutorialHints implements DesignHints
 
             return getModule();
         }
+
+        @Override
+        protected int getNumWires()
+        {
+            return 3;
+        }
+
+        @Override
+        protected int getNumBits()
+        {
+            int width = getIntParam("width");
+            return 2 * width + 1;
+        }
     };
 
     private static final ParameterizedModule boothFlop = new ParameterizedModule("tutorial", "boothflop")
@@ -128,6 +141,19 @@ public class TutorialHints implements DesignHints
                     v("q", 1)));
 
             return getModule();
+        }
+
+        @Override
+        protected int getNumWires()
+        {
+            return 3;
+        }
+
+        @Override
+        protected int getNumBits()
+        {
+            int width = getIntParam("width");
+            return 2 * width + 1;
         }
     };
 }

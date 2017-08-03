@@ -73,7 +73,9 @@ public class ModInstExt
         PathExt.PortInst pi = portInstsIndex.get(pathWire.name);
         if (pi == null)
         {
-            pi = new PathExt.PortInst(this, path);
+            WireExt protoWire = proto.wiresIndex.get(pathWire.name);
+            ModExport export = proto.makeExport(protoWire);
+            pi = new PathExt.PortInst(this, path, export);
             portInstsIndex.put(pathWire.name, pi);
         }
         return pi;
