@@ -44,14 +44,16 @@ public abstract class PathExt implements SvarName
     final Path b;
 
     final ModuleExt parent;
-    public final WireExt wire;
+//    public final WireExt wire;
+    final int width;
     private final Bit[] bits;
 
     PathExt(ModuleExt parent, Path b, WireExt wire)
     {
         this.b = b;
         this.parent = parent;
-        this.wire = wire;
+//        this.wire = wire;
+        width = wire.getWidth();
         bits = new Bit[getWidth()];
         for (int bit = 0; bit < bits.length; bit++)
         {
@@ -81,9 +83,11 @@ public abstract class PathExt implements SvarName
         return toString(BigIntegerUtil.logheadMask(getWidth()));
     }
 
+    public abstract WireExt getWire();
+
     public final int getWidth()
     {
-        return wire.getWidth();
+        return width;
     }
 
     public Svar<PathExt> getVar(int delay)
@@ -98,6 +102,8 @@ public abstract class PathExt implements SvarName
 
     public static class PortInst extends PathExt
     {
+        public final ModExport proto;
+        public final WireExt wire;
         public final ModInstExt inst;
         public final LocalWire subpath;
         private final Bit[] parentBits;
@@ -105,14 +111,36 @@ public abstract class PathExt implements SvarName
         Object driver;
         public boolean splitIt;
 
-        PortInst(ModInstExt inst, Path.Scope path)
+        PortInst(ModInstExt inst, Path.Scope path, ModExport export)
         {
-            super(inst.parent, path, inst.proto.wiresIndex.get(((Path.Wire)path.subpath).name));
+            super(inst.parent, path, export.wire);
+            this.proto = export;
+            wire = export.wire;
             this.inst = inst;
             subpath = wire.path;
             assert inst.proto == wire.parent;
             parentBits = new Bit[getWidth()];
-            wire.exported = true;
+        }
+
+        @Override
+        public WireExt getWire()
+        {
+            return wire;
+        }
+
+        public boolean isInput()
+        {
+            return proto.isInput();
+        }
+
+        public boolean isOutput()
+        {
+            return proto.isOutput();
+        }
+
+        public Name getProtoName()
+        {
+            return wire.getName();
         }
 
         Bit getParentBit(int bit)
@@ -210,12 +238,20 @@ public abstract class PathExt implements SvarName
 
     public static class LocalWire extends PathExt
     {
+        public final WireExt wire;
         public final Name name;
 
         LocalWire(WireExt wire)
         {
             super(wire.parent, new Path.Wire(wire.getName()), wire);
+            this.wire = wire;
             this.name = wire.getName();
+        }
+
+        @Override
+        public WireExt getWire()
+        {
+            return wire;
         }
 
         public void markUsed()

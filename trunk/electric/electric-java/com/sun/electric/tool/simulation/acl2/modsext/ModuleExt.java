@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.simulation.acl2.mods.Driver;
+import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
 import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModInst;
@@ -76,7 +77,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
 
     final Map<Name, WireExt> wiresIndex = new HashMap<>();
     final Map<Name, ModInstExt> instsIndex = new HashMap<>();
-    long bitCount;
+    final ElabMod elabMod;
+    final List<ModExport> exports = new ArrayList();
     int useCount;
     boolean isTop;
 
@@ -86,10 +88,11 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
     final Map<Svar<PathExt>, BigInteger> stateVars0 = new LinkedHashMap<>();
     final Map<Svar<PathExt>, BigInteger> stateVars1 = new LinkedHashMap<>();
 
-    <N extends SvarName> ModuleExt(ModName modName, Module<N> b, Map<ModName, ModuleExt> downTop)
+    <N extends SvarName> ModuleExt(DesignExt design, ModName modName, Module<N> b)
     {
         this.modName = modName;
         this.b = b;
+        elabMod = design.moddb.modnameGetIndex(modName);
 
         for (Wire wire : b.wires)
         {
@@ -97,13 +100,12 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             wires.add(w);
             WireExt old = wiresIndex.put(w.getName(), w);
             Util.check(old == null);
-            bitCount += w.getWidth();
         }
 
         boolean hasSvtvState = false;
         for (ModInst modInst : b.insts)
         {
-            ModInstExt mi = new ModInstExt(this, modInst, downTop);
+            ModInstExt mi = new ModInstExt(this, modInst, design.downTop);
             insts.add(mi);
             ModInstExt old = instsIndex.put(mi.getInstname(), mi);
             Util.check(old == null);
@@ -111,7 +113,6 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             {
                 hasSvtvState = true;
             }
-            bitCount += mi.proto.bitCount;
         }
 
         Map<Svex<N>, Svex<PathExt>> svexCache = new HashMap<>();
@@ -169,24 +170,24 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             if (lhsVar.getName() instanceof PathExt.PortInst)
             {
                 PathExt.PortInst pi = (PathExt.PortInst)lhsVar.getName();
-                Util.check(lhsRange.getWidth() == pi.wire.getWidth());
+                Util.check(lhsRange.getWidth() == pi.getWidth());
                 int lsh = 0;
                 for (Lhrange<PathExt> rhsRange : rhs.ranges)
                 {
                     Svar<PathExt> rhsVar = rhsRange.getVar();
                     Util.check(rhsVar.getName() instanceof PathExt.LocalWire);
                     PathExt.LocalWire lw = (PathExt.LocalWire)rhsVar.getName();
-                    if (pi.wire.isAssigned())
+                    if (pi.isOutput())
                     {
                         lw.wire.addDriver(rhsRange, lsh, pi);
                     }
                     lsh += rhsRange.getWidth();
                 }
-                if (pi.wire.isAssigned())
+                if (pi.isOutput())
                 {
                     pi.setSource(rhs);
                     BigInteger assignedBits = pi.wire.getAssignedBits();
-                    Util.check(assignedBits.equals(BigIntegerUtil.logheadMask(pi.wire.getWidth())));
+                    Util.check(assignedBits.equals(BigIntegerUtil.logheadMask(pi.getWidth())));
                     markAssigned(rhs, assignedBits);
                 } else
                 {
@@ -244,8 +245,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                     Util.check(lhs.ranges.size() == 1);
                     Util.check(lr.getRsh() == 0);
                     PathExt.PortInst pi = (PathExt.PortInst)name.getName();
-                    Util.check(assignedBitsRange.signum() >= 0 && assignedBitsRange.bitLength() <= pi.wire.getWidth());
-                    Util.check(!pi.wire.isAssigned());
+                    Util.check(assignedBitsRange.signum() >= 0 && assignedBitsRange.bitLength() <= pi.getWidth());
+                    Util.check(pi.isInput());
 //                    Util.check(assignedBitsRange.and(pi.wire.getAssignedBits()).signum() == 0);
                 }
             }
@@ -253,29 +254,29 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         }
     }
 
-    void markTop(String[] exports)
+    void markTop(String[] exportNames)
     {
         isTop = true;
         useCount = 1;
         List<String> exportList = null;
-        if (exports != null)
+        if (exportNames != null)
         {
-            exportList = Arrays.asList(exports);
+            exportList = Arrays.asList(exportNames);
         }
         int numExported = 0;
         for (WireExt w : wires)
         {
             if (exportList == null || exportList.indexOf(w.getName().toString()) >= 0)
             {
-                w.exported = true;
+                ModExport export = makeExport(w);
                 numExported++;
                 if (w.getWidth() == 1 && w.getLowIdx() == 0)
                 {
-                    w.global = w.getName().toString();
+                    export.global = w.getName().toString();
                 }
             }
         }
-        Util.check(numExported == (exports != null ? exports.length : wires.size()));
+        Util.check(numExported == (exportNames != null ? exportNames.length : wires.size()));
     }
 
     void markDown(Map<String, Integer> globalCounts)
@@ -297,7 +298,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 if (svar.getName() instanceof PathExt.LocalWire)
                 {
                     WireExt w = ((PathExt.LocalWire)svar.getName()).wire;
-                    if (w.isGlobal()
+                    ModExport export = w.getExport();
+                    if (export != null && export.isGlobal()
                         && lhs.ranges.size() == 1
                         && lhs.ranges.get(0).getWidth() == 1
                         && lhs.ranges.get(0).getVar() != null
@@ -306,20 +308,37 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                         Svar<PathExt> svar1 = lhs.ranges.get(0).getVar();
                         if (svar1.getName() instanceof PathExt.PortInst)
                         {
-                            ((PathExt.PortInst)svar1.getName()).wire.markGlobal(w.global);
+                            ((PathExt.PortInst)svar1.getName()).proto.markGlobal(export.global);
                         }
                     }
                 }
             }
         }
-        for (WireExt w : wires)
+        for (ModExport export : exports)
         {
-            if (w.isGlobal())
+            if (export.isGlobal())
             {
-                Integer count = globalCounts.get(w.global);
-                globalCounts.put(w.global, count == null ? 1 : count + 1);
+                Integer count = globalCounts.get(export.global);
+                globalCounts.put(export.global, count == null ? 1 : count + 1);
             }
         }
+    }
+
+    ModExport makeExport(WireExt wire)
+    {
+        assert wire.parent == this && wires.get(wire.index) == wire;
+        while (exports.size() <= wire.index)
+        {
+            exports.add(null);
+        }
+        ModExport export = exports.get(wire.index);
+        if (export == null)
+        {
+            export = new ModExport(wire);
+            wire.exported = export;
+            exports.set(wire.index, export);
+        }
+        return export;
     }
 
     void checkExports()
@@ -332,13 +351,17 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 if (!prevIsExport)
                 {
                     System.out.println("Module " + modName + " export " + wire + " is not at the beginning");
+                    Util.check(false);
                     prevIsExport = true;
                 }
             } else
             {
                 prevIsExport = false;
             }
-
+        }
+        for (ModExport export : exports)
+        {
+            Util.check(export != null);
         }
         for (ModInstExt inst : insts)
         {
@@ -395,9 +418,9 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
 //        showGraph(fineGraph1);
 //        System.out.println("=== " + modName + " fineClosure1");
 //        showGraph(fineClosure1);
-        for (WireExt out : wires)
+        for (ModExport out : exports)
         {
-            if (!out.isInput())
+            if (out.isOutput())
             {
                 out.setFineDeps(false, fineClosure0);
                 out.setFineDeps(true, fineClosure1);
@@ -412,12 +435,12 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         Map<Object, Set<Object>> crudeGraph1 = computeDepsGraph(true);
         Map<Object, Set<Object>> crudeClosure0 = closure(crudeGraph0);
         Map<Object, Set<Object>> crudeClosure1 = closure(crudeGraph1);
-        for (WireExt out : wires)
+        for (ModExport out : exports)
         {
-            if (!out.isInput())
+            if (out.isOutput())
             {
-                out.crudePortStateDep0 = gatherDep(out.crudePortDeps0, out, crudeClosure0);
-                out.crudePortStateDep1 = gatherDep(out.crudePortDeps1, out, crudeClosure1);
+                out.crudePortStateDep0 = gatherDep(out.crudePortDeps0, out.wire, crudeClosure0);
+                out.crudePortStateDep1 = gatherDep(out.crudePortDeps1, out.wire, crudeClosure1);
             }
         }
     }
@@ -437,11 +460,11 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
     private Map<Svar<PathExt>, Vec4> makePatchEnv(String global, Vec4 globalVal)
     {
         Map<Svar<PathExt>, Vec4> env = new HashMap<>();
-        for (WireExt w : wires)
+        for (ModExport export : exports)
         {
-            if (w.isGlobal() && w.global.equals(global))
+            if (export.isGlobal() && export.global.equals(global))
             {
-                env.put(w.getVar(0), globalVal);
+                env.put(export.wire.getVar(0), globalVal);
             }
         }
         return env;
@@ -464,13 +487,13 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         {
             for (PathExt.PortInst piOut : mi.portInsts)
             {
-                if (piOut.wire.isAssigned())
+                if (piOut.isOutput())
                 {
                     if (piOut.splitIt)
                     {
-                        BitSet fineBitStateDeps = piOut.wire.getFineBitStateDeps(clockHigh);
-                        List<Map<Svar<PathExt>, BigInteger>> fineBitDeps = piOut.wire.getFineBitDeps(clockHigh);
-                        for (int bit = 0; bit < piOut.wire.getWidth(); bit++)
+                        BitSet fineBitStateDeps = piOut.proto.getFineBitStateDeps(clockHigh);
+                        List<Map<Svar<PathExt>, BigInteger>> fineBitDeps = piOut.proto.getFineBitDeps(clockHigh);
+                        for (int bit = 0; bit < piOut.getWidth(); bit++)
                         {
                             PathExt.Bit pb = piOut.getBit(bit);
                             boolean fineBitStateDep = fineBitStateDeps.get(bit);
@@ -492,8 +515,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
 //                            addPortInDeps(piIn, mask, deps);
 //                        }
 //                        graph.put(piOut, deps);
-                        boolean finePortStateDeps = piOut.wire.getCrudePortStateDeps(clockHigh);
-                        Map<Svar<PathExt>, BigInteger> finePortDeps = piOut.wire.getCrudePortDeps(clockHigh);
+                        boolean finePortStateDeps = piOut.proto.getCrudePortStateDeps(clockHigh);
+                        Map<Svar<PathExt>, BigInteger> finePortDeps = piOut.proto.getCrudePortDeps(clockHigh);
                         putPortInsDeps(piOut, mi, finePortStateDeps, finePortDeps, graph);
                     }
                 }
@@ -613,7 +636,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 }
                 if (wd.pi != null)
                 {
-                    assert wd.pi.wire.isOutput();
+                    assert wd.pi.isOutput();
                     if (wd.pi.splitIt)
                     {
                         for (int i = 0; i < lhr.getWidth(); i++)
@@ -730,12 +753,12 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         {
             for (PathExt.PortInst pi : inst.portInsts)
             {
-                if (pi.wire.isOutput())
+                if (pi.isOutput())
                 {
                     assert pi.source.width() == pi.getWidth();
                     assert pi.driver == null;
-                    BitSet fineBitStateTransDeps = pi.wire.getFineBitStateDeps(clockHigh);
-                    List<Map<Svar<PathExt>, BigInteger>> fineBitTransDeps = pi.wire.getFineBitDeps(clockHigh);
+                    BitSet fineBitStateTransDeps = pi.proto.getFineBitStateDeps(clockHigh);
+                    List<Map<Svar<PathExt>, BigInteger>> fineBitTransDeps = pi.proto.getFineBitDeps(clockHigh);
                     for (int bitOut = 0; bitOut < pi.getWidth(); bitOut++)
                     {
                         Set<Object> dep = new LinkedHashSet<>();
@@ -765,7 +788,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
 
                 } else
                 {
-                    assert pi.wire.isInput();
+                    assert pi.isInput();
                     assert pi.source == null;
                     if (pi.driver instanceof DriverExt)
                     {
@@ -851,10 +874,10 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         {
             for (PathExt.PortInst piOut : inst.portInsts)
             {
-                if (piOut.wire.isOutput())
+                if (piOut.isOutput())
                 {
                     Set<Object> inputDeps = new HashSet<>();
-                    Map<Svar<PathExt>, BigInteger> crudePortDeps = piOut.wire.getCrudePortDeps(clockHigh);
+                    Map<Svar<PathExt>, BigInteger> crudePortDeps = piOut.proto.getCrudePortDeps(clockHigh);
                     for (Map.Entry<Svar<PathExt>, BigInteger> e : crudePortDeps.entrySet())
                     {
                         Svar<PathExt> svar = e.getKey();
@@ -1376,7 +1399,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 {
                     return res;
                 }
-                return Integer.compare(pi1.wire.index, pi2.wire.index);
+                return Integer.compare(pi1.proto.index, pi2.proto.index);
             }
         }
     }

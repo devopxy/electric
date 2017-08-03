@@ -25,6 +25,7 @@ import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
 import com.sun.electric.tool.simulation.acl2.mods.Address;
 import com.sun.electric.tool.simulation.acl2.mods.Design;
+import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
 import com.sun.electric.tool.simulation.acl2.mods.IndexName;
 import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
@@ -118,9 +119,9 @@ public class ACL2DesignJobs
                         }
                         dumpModules(out, design, null, Collections.singleton(modName));
                     }
+                    ElabMod topMod = design.moddb.topMod();
                     out.println("// design.top=" + design.getTop());
-                    out.println(design.moddb.modTotalWires(design.moddb.nMods() - 1) + " wires "
-                        + design.topDown.values().iterator().next().bitCount + " bits");
+                    out.println(topMod.modTotalWires() + " wires " + topMod.modTotalBits() + " bits");
                     if (clockName != null)
                     {
                         out.println("// clock=" + clockName);
@@ -177,7 +178,8 @@ public class ACL2DesignJobs
                         Util.check(w.getAssignedBits().signum() == 0);
                         out.print(w.used ? "  input  " : "  unused ");
                     }
-                    out.print(w.isGlobal() ? "! " : w.isExport() ? "* " : "  ");
+                    ModExport export = w.getExport();
+                    out.print(export == null ? "  " : export.isGlobal() ? "! " : "* ");
                     out.print(w + " //");
 
                     for (Map.Entry<Lhrange<PathExt>, WireExt.WireDriver> e1 : w.drivers.entrySet())
@@ -265,7 +267,7 @@ public class ACL2DesignJobs
                     boolean hasExports = false;
                     for (PathExt.PortInst piIn : mi.portInsts)
                     {
-                        if (!piIn.wire.isInput())
+                        if (!piIn.isInput())
                         {
                             continue;
                         }
@@ -277,7 +279,7 @@ public class ACL2DesignJobs
                             out.print("    ");
                             hasExports = true;
                         }
-                        out.println("." + piIn.wire.getName() + "(" + piIn.driver + ")");
+                        out.println("." + piIn.getProtoName() + "(" + piIn.driver + ")");
                         if (VERBOSE_DUMP >= 1)
                         {
                             out.println("    // fine  depends  on " + piIn.showFinePortDeps(fineGraph0, fineGraph1));
@@ -293,7 +295,7 @@ public class ACL2DesignJobs
                             List<Map<Svar<PathExt>, BigInteger>> fineDeps1 = piIn.gatherFineBitDeps(fineStateLocDeps1, fineGraph1);
                             List<Map<Svar<PathExt>, BigInteger>> closureDeps0 = piIn.gatherFineBitDeps(fineStateTransDeps0, fineClosure0);
                             List<Map<Svar<PathExt>, BigInteger>> closureDeps1 = piIn.gatherFineBitDeps(fineStateTransDeps1, fineClosure1);
-                            for (int bit = 0; bit < piIn.wire.getWidth(); bit++)
+                            for (int bit = 0; bit < piIn.getWidth(); bit++)
                             {
                                 PathExt.Bit pb = piIn.getBit(bit);
                                 out.println("    // fine  " + pb + " depends  on "
@@ -303,7 +305,7 @@ public class ACL2DesignJobs
 //                                    out.println("    // crude " + pb + " depends  on " + showCrude(crudeGraph0.get(pb), crudeGraph1.get(pb)));
 //                                }
                             }
-                            for (int bit = 0; bit < piIn.wire.getWidth(); bit++)
+                            for (int bit = 0; bit < piIn.getWidth(); bit++)
                             {
                                 PathExt.Bit pb = piIn.getBit(bit);
                                 out.println("    // fine  " + pb + " depends* on "
@@ -318,7 +320,7 @@ public class ACL2DesignJobs
                     out.println("   //");
                     for (PathExt.PortInst piOut : mi.portInsts)
                     {
-                        if (!piOut.wire.isOutput())
+                        if (!piOut.isOutput())
                         {
                             continue;
                         }
@@ -330,7 +332,7 @@ public class ACL2DesignJobs
                             out.print("    ");
                             hasExports = true;
                         }
-                        out.println("." + piOut.wire.getName() + "(" + piOut.source + ")");
+                        out.println("." + piOut.getProtoName() + "(" + piOut.source + ")");
                         if (piOut.splitIt)
                         {
                             out.println("    // SPLIT");
@@ -357,7 +359,7 @@ public class ACL2DesignJobs
                             List<Map<Svar<PathExt>, BigInteger>> fineDeps1 = piOut.gatherFineBitDeps(fineStateLocDeps1, fineGraph1);
                             List<Map<Svar<PathExt>, BigInteger>> closureDeps0 = piOut.gatherFineBitDeps(fineStateTransDeps0, fineClosure0);
                             List<Map<Svar<PathExt>, BigInteger>> closureDeps1 = piOut.gatherFineBitDeps(fineStateTransDeps1, fineClosure1);
-                            for (int bit = 0; bit < piOut.wire.getWidth(); bit++)
+                            for (int bit = 0; bit < piOut.getWidth(); bit++)
                             {
                                 PathExt.Bit pb = piOut.getBit(bit);
                                 out.println("    // fine  " + pb + " depends  on "
@@ -369,7 +371,7 @@ public class ACL2DesignJobs
 //                                    out.println("    // crude " + pb + " depends  on " + showCrude(crudeGraph0.get(pb), crudeGraph1.get(pb)));
                                 }
                             }
-                            for (int bit = 0; bit < piOut.wire.getWidth(); bit++)
+                            for (int bit = 0; bit < piOut.getWidth(); bit++)
                             {
                                 PathExt.Bit pb = piOut.getBit(bit);
                                 out.println("    // fine  " + pb + " depends* on "
@@ -886,7 +888,7 @@ public class ACL2DesignJobs
                     if (sv.svar.getName() instanceof PathExt.PortInst)
                     {
                         PathExt.PortInst pi = (PathExt.PortInst)sv.svar.getName();
-                        out.print("'(" + pi.inst.getInstname().toLispString() + " . " + pi.wire.getName().toLispString() + ")");
+                        out.print("'(" + pi.inst.getInstname().toLispString() + " . " + pi.getProtoName().toLispString() + ")");
                     } else
                     {
                         PathExt.LocalWire lw = (PathExt.LocalWire)sv.svar.getName();
@@ -1082,8 +1084,8 @@ public class ACL2DesignJobs
                 ModDb db = new ModDb(design.top, design.modalist);
                 IndexName.curModDb = db;
                 Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist);
-                int topIdx = db.modnameGetIndex(design.top);
-                ModDb.FlattenResult flattenResult = db.svexmodFlatten(topIdx, indexedMods);
+                ElabMod topIdx = db.modnameGetIndex(design.top);
+                ModDb.FlattenResult flattenResult = topIdx.svexmodFlatten(indexedMods);
                 ACL2Object indexedAlist = NIL;
                 for (Map.Entry<ModName, Module<Address>> e : indexedMods.entrySet())
                 {
@@ -1158,10 +1160,9 @@ public class ACL2DesignJobs
                 ModDb db = new ModDb(design.top, design.modalist);
                 IndexName.curModDb = db;
                 Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist);
-                int topIdx = db.modnameGetIndex(design.top);
-                ModDb.ElabMod topElabMod = db.getMod(topIdx);
-                ModDb.ModScope topScope = db.new ModScope(topElabMod);
-                ModDb.FlattenResult flattenResult = db.svexmodFlatten(topIdx, indexedMods);
+                ElabMod topElabMod = db.modnameGetIndex(design.top);
+                ElabMod.ModScope topScope = new ElabMod.ModScope(topElabMod);
+                ModDb.FlattenResult flattenResult = topElabMod.svexmodFlatten(indexedMods);
                 Path.SvarBuilder namedBuilder = new Path.SvarBuilder();
                 List<Lhs<Path>> namedAliases = topScope.aliasesToNamed(flattenResult.aliases, namedBuilder);
                 Compile<Path> compile = new Compile(namedAliases, flattenResult.assigns, namedBuilder);

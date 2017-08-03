@@ -60,7 +60,7 @@ public class IndexName implements SvarName, Svar<IndexName>
         String s = "{" + Integer.toString(impl.intValueExact()) + "#" + mask.toString(16) + "}";
         if (curModDb != null)
         {
-            s += curModDb.wireidxToPath(getIndex(), curModDb.nMods() - 1);
+            s += curModDb.topMod().wireidxToPath(getIndex());
         }
         return s;
     }

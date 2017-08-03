@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.simulation.acl2.mods.Design;
+import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
 import com.sun.electric.tool.simulation.acl2.mods.ModDb;
 import com.sun.electric.tool.simulation.acl2.mods.ModInst;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
@@ -78,8 +79,8 @@ public class DesignExt
         int modidx = 0;
         for (Iterator<ModName> it = downTop.keySet().iterator(); it.hasNext(); modidx++)
         {
-
-            Util.check(moddb.modidxGetName(modidx).equals(it.next()));
+            ElabMod elabMod = moddb.getMod(modidx);
+            Util.check(elabMod.modidxGetName().equals(it.next()));
         }
         assert modidx == moddb.nMods();
 
@@ -161,7 +162,7 @@ public class DesignExt
         {
             addToDownTop(modInst.modname);
         }
-        ModuleExt m = new ModuleExt(mn, module, downTop);
+        ModuleExt m = new ModuleExt(this, mn, module);
         ModuleExt old = downTop.put(mn, m);
         Util.check(old == null);
     }
