@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
 import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
@@ -32,6 +33,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,18 +49,23 @@ public abstract class PathExt implements SvarName
 //    public final WireExt wire;
     final int width;
     private final Bit[] bits;
+    final Bit[] parentBits;
+    Lhs<PathExt> namedLhs;
 
-    PathExt(ModuleExt parent, Path b, WireExt wire)
+    PathExt(ModuleExt parent, Path b, int width)
     {
         this.b = b;
         this.parent = parent;
 //        this.wire = wire;
-        width = wire.getWidth();
-        bits = new Bit[getWidth()];
-        for (int bit = 0; bit < bits.length; bit++)
+        this.width = width;
+        bits = new Bit[width];
+        parentBits = new Bit[width];
+        for (int bit = 0; bit < width; bit++)
         {
-            bits[bit] = new Bit(bit);
+            parentBits[bit] = bits[bit] = new Bit(bit);
         }
+        Lhrange<PathExt> range = new Lhrange<>(width, Lhatom.valueOf(parent.newVar(this, 0, false)));
+        namedLhs = new Lhs<>(Collections.singletonList(range));
     }
 
     @Override
@@ -85,6 +92,8 @@ public abstract class PathExt implements SvarName
 
     public abstract WireExt getWire();
 
+    abstract int getIndexInParent();
+
     public final int getWidth()
     {
         return width;
@@ -100,32 +109,39 @@ public abstract class PathExt implements SvarName
         return bits[bit];
     }
 
+    Bit getParentBit(int bit)
+    {
+        return parentBits[bit];
+    }
+
     public static class PortInst extends PathExt
     {
         public final ModExport proto;
         public final WireExt wire;
         public final ModInstExt inst;
-        public final LocalWire subpath;
-        private final Bit[] parentBits;
         Lhs<PathExt> source;
         Object driver;
         public boolean splitIt;
 
         PortInst(ModInstExt inst, Path.Scope path, ModExport export)
         {
-            super(inst.parent, path, export.wire);
+            super(inst.parent, path, export.wire.getWidth());
             this.proto = export;
             wire = export.wire;
             this.inst = inst;
-            subpath = wire.path;
             assert inst.proto == wire.parent;
-            parentBits = new Bit[getWidth()];
         }
 
         @Override
         public WireExt getWire()
         {
             return wire;
+        }
+
+        @Override
+        int getIndexInParent()
+        {
+            return inst.elabModInst.wireOffset + proto.index;
         }
 
         public boolean isInput()
@@ -143,14 +159,9 @@ public abstract class PathExt implements SvarName
             return wire.getName();
         }
 
-        Bit getParentBit(int bit)
-        {
-            return parentBits[bit];
-        }
-
         PathExt.Bit getProtoBit(int bit)
         {
-            return subpath.getBit(bit);
+            return wire.getBit(bit);
         }
 
         void setSource(Lhs<PathExt> source)
@@ -159,12 +170,6 @@ public abstract class PathExt implements SvarName
             Util.check(this.source == null);
             this.source = source;
             setLhs(source);
-//            assert source.width() == wire.getWidth();
-//            for (Lhrange<PathExt> lhr : source.ranges)
-//            {
-//                Svar<PathExt> svar = lhr.getVar();
-//                assert svar.getDelay() == 0;
-//            }
         }
 
         void setDriver(DriverExt driver)
@@ -174,7 +179,7 @@ public abstract class PathExt implements SvarName
             this.driver = driver;
             for (int bit = 0; bit < getWidth(); bit++)
             {
-                parentBits[bit] = getBit(bit);
+                assert parentBits[bit] == getBit(bit);
             }
         }
 
@@ -194,15 +199,15 @@ public abstract class PathExt implements SvarName
             {
                 Svar<PathExt> svar = range.getVar();
                 Util.check(svar.getDelay() == 0);
-                PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
+                WireExt lw = (WireExt)svar.getName();
                 for (int i = 0; i < range.getWidth(); i++)
                 {
-                    Util.check(parentBits[lsh + i] == null);
                     parentBits[lsh + i] = lw.getBit(range.getRsh() + i);
                 }
                 lsh += range.getWidth();
             }
             assert lsh == getWidth();
+            namedLhs = lhs;
         }
 
         DriverExt getDriverExt()
@@ -233,54 +238,6 @@ public abstract class PathExt implements SvarName
         public String toString(BigInteger mask)
         {
             return inst.getInstname() + "." + wire.toString(mask);
-        }
-    }
-
-    public static class LocalWire extends PathExt
-    {
-        public final WireExt wire;
-        public final Name name;
-
-        LocalWire(WireExt wire)
-        {
-            super(wire.parent, new Path.Wire(wire.getName()), wire);
-            this.wire = wire;
-            this.name = wire.getName();
-        }
-
-        @Override
-        public WireExt getWire()
-        {
-            return wire;
-        }
-
-        public void markUsed()
-        {
-            wire.used = true;
-        }
-
-        @Override
-        public String toString(BigInteger mask)
-        {
-            return wire.toString(mask);
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (o instanceof LocalWire)
-            {
-                LocalWire that = (LocalWire)o;
-                return this.name.equals(that.name)
-                    && this.parent == that.parent;
-            }
-            return false;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return name.hashCode();
         }
     }
 

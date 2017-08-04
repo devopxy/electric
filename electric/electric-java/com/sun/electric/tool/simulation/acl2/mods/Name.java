@@ -34,7 +34,7 @@ public class Name
 
     public Name(ACL2Object impl)
     {
-        this.impl = impl;
+        this.impl = honscopy(impl);
         if (stringp(impl).bool())
         {
         } else if (integerp(impl).bool())

@@ -21,10 +21,15 @@
  */
 package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.Address;
 import com.sun.electric.tool.simulation.acl2.mods.Driver;
 import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
+import com.sun.electric.tool.simulation.acl2.mods.IndexName;
+import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
 import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
+import com.sun.electric.tool.simulation.acl2.mods.LhsArr;
+import com.sun.electric.tool.simulation.acl2.mods.ModDb;
 import com.sun.electric.tool.simulation.acl2.mods.ModInst;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
@@ -35,9 +40,10 @@ import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
-import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
+import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
+import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import static com.sun.electric.util.acl2.ACL2.*;
@@ -54,6 +60,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -68,8 +75,9 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
     // State marker in dependency graphs
     static final String STATE = "STATE";
 
+    public final DesignExt design;
     public final ModName modName;
-    public final Module<? extends SvarName> b;
+    public final Module<Address> b;
     public final List<WireExt> wires = new ArrayList<>();
     public final List<ModInstExt> insts = new ArrayList<>();
     public final Map<Lhs<PathExt>, DriverExt> assigns = new LinkedHashMap<>();
@@ -88,10 +96,11 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
     final Map<Svar<PathExt>, BigInteger> stateVars0 = new LinkedHashMap<>();
     final Map<Svar<PathExt>, BigInteger> stateVars1 = new LinkedHashMap<>();
 
-    <N extends SvarName> ModuleExt(DesignExt design, ModName modName, Module<N> b)
+    ModuleExt(DesignExt design, ModName modName)
     {
+        this.design = design;
         this.modName = modName;
-        this.b = b;
+        b = design.b.modalist.get(modName);
         elabMod = design.moddb.modnameGetIndex(modName);
 
         for (Wire wire : b.wires)
@@ -105,7 +114,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         boolean hasSvtvState = false;
         for (ModInst modInst : b.insts)
         {
-            ModInstExt mi = new ModInstExt(this, modInst, design.downTop);
+            ModInstExt mi = new ModInstExt(this, modInst, insts.size(), design.downTop);
             insts.add(mi);
             ModInstExt old = instsIndex.put(mi.getInstname(), mi);
             Util.check(old == null);
@@ -115,9 +124,9 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             }
         }
 
-        Map<Svex<N>, Svex<PathExt>> svexCache = new HashMap<>();
+        Map<Svex<Address>, Svex<PathExt>> svexCache = new HashMap<>();
         int driverCount = 0;
-        for (Map.Entry<Lhs<N>, Driver<N>> e : b.assigns.entrySet())
+        for (Map.Entry<Lhs<Address>, Driver<Address>> e : b.assigns.entrySet())
         {
             Lhs<PathExt> lhs = e.getKey().convertVars(this);
             Driver<PathExt> driver = e.getValue().convertVars(this, svexCache);
@@ -129,9 +138,9 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             for (Lhrange<PathExt> lhr : lhs.ranges)
             {
                 Svar<PathExt> svar = lhr.getVar();
-                if (svar.getName() instanceof PathExt.LocalWire)
+                if (svar.getName() instanceof WireExt)
                 {
-                    ((PathExt.LocalWire)svar.getName()).wire.addDriver(lhr, lsh, drv);
+                    ((WireExt)svar.getName()).addDriver(lhr, lsh, drv);
                 } else
                 {
                     assert lhs.ranges.size() == 1 && lhr.getRsh() == 0 && lsh == 0;
@@ -148,14 +157,14 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 if (svar.getDelay() != 0)
                 {
                     Util.check(svar.getDelay() == 1);
-                    PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-                    stateWires.add(lw.wire);
+                    WireExt lw = (WireExt)svar.getName();
+                    stateWires.add(lw);
                 }
             }
         }
         this.hasSvtvState = hasSvtvState || !stateWires.isEmpty();
 
-        for (Map.Entry<Lhs<N>, Lhs<N>> e : b.aliaspairs.entrySet())
+        for (Map.Entry<Lhs<Address>, Lhs<Address>> e : b.aliaspairs.entrySet())
         {
             Lhs<PathExt> lhs = e.getKey().convertVars(this);
             Lhs<PathExt> rhs = e.getValue().convertVars(this);
@@ -175,11 +184,11 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 for (Lhrange<PathExt> rhsRange : rhs.ranges)
                 {
                     Svar<PathExt> rhsVar = rhsRange.getVar();
-                    Util.check(rhsVar.getName() instanceof PathExt.LocalWire);
-                    PathExt.LocalWire lw = (PathExt.LocalWire)rhsVar.getName();
+                    Util.check(rhsVar.getName() instanceof WireExt);
+                    WireExt lw = (WireExt)rhsVar.getName();
                     if (pi.isOutput())
                     {
-                        lw.wire.addDriver(rhsRange, lsh, pi);
+                        lw.addDriver(rhsRange, lsh, pi);
                     }
                     lsh += rhsRange.getWidth();
                 }
@@ -200,24 +209,32 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                         Svar<PathExt> name = lr.getVar();
                         if (name != null)
                         {
-                            Util.check(name.getName() instanceof PathExt.LocalWire);
-                            ((PathExt.LocalWire)name.getName()).markUsed();
+                            Util.check(name.getName() instanceof WireExt);
+                            ((WireExt)name.getName()).markUsed();
                         }
                     }
                 }
             } else
             {
-                PathExt.LocalWire lw = (PathExt.LocalWire)lhsVar.getName();
-                if (stringp(lw.name.getACL2Object()).bool())
+                WireExt lw = (WireExt)lhsVar.getName();
+                if (stringp(lw.getName().getACL2Object()).bool())
                 {
                     Util.check(rhs.ranges.size() == 1);
                     PathExt.PortInst rhsPi = (PathExt.PortInst)rhs.ranges.get(0).getVar().getName();
                     Util.check(rhsPi.inst.getModname().isCoretype);
                     rhsPi.setDriver(lhs);
 //                    System.out.println("lw string " + lw + " in " + modName);
-                } else if (integerp(lw.name.getACL2Object()).bool())
+                } else if (integerp(lw.getName().getACL2Object()).bool())
                 {
                     Util.check(modName.isCoretype);
+                    Util.check(rhs.ranges.size() == 1);
+                    Lhrange<PathExt> rhsRange = rhs.ranges.get(0);
+                    WireExt rhsLw = (WireExt)rhsRange.getVar().getName();
+                    WireExt selfWire = rhsLw;
+                    assert selfWire != null;
+                    assert selfWire.index < lw.index;
+                    assert lhsRange.getRsh() == 0;
+                    lw.addDriver(lhsRange, rhsRange.getRsh(), selfWire);
                 } else
                 {
                     Util.check(false);
@@ -236,10 +253,10 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 BigInteger assignedBitsRange = BigIntegerUtil.loghead(lr.getWidth(), assignedBits);
                 int rsh = lr.getRsh();
                 assignedBitsRange = assignedBitsRange.shiftLeft(rsh);
-                if (name.getName() instanceof PathExt.LocalWire)
+                if (name.getName() instanceof WireExt)
                 {
-                    PathExt.LocalWire lw = (PathExt.LocalWire)name.getName();
-                    lw.wire.markAssigned(assignedBitsRange);
+                    WireExt lw = (WireExt)name.getName();
+                    lw.markAssigned(assignedBitsRange);
                 } else
                 {
                     Util.check(lhs.ranges.size() == 1);
@@ -295,9 +312,9 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 && rhs.ranges.get(0).getRsh() == 0)
             {
                 Svar<PathExt> svar = rhs.ranges.get(0).getVar();
-                if (svar.getName() instanceof PathExt.LocalWire)
+                if (svar.getName() instanceof WireExt)
                 {
-                    WireExt w = ((PathExt.LocalWire)svar.getName()).wire;
+                    WireExt w = ((WireExt)svar.getName());
                     ModExport export = w.getExport();
                     if (export != null && export.isGlobal()
                         && lhs.ranges.size() == 1
@@ -369,9 +386,193 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         }
     }
 
+    public Svar<IndexName> absindexed(Svar<PathExt> x, IndexName.SvarBuilder builder)
+    {
+        PathExt i = x.getName();
+        int index = i.getIndexInParent();
+        return builder.newVar(ACL2Object.valueOf(index), x.getDelay(), x.isNonblocking());
+    }
+
+    public Svex<IndexName> absindexed(Svex<PathExt> x, IndexName.SvarBuilder builder,
+        Map<Svex<PathExt>, Svex<IndexName>> svexCache)
+    {
+        Svex<IndexName> result = svexCache.get(x);
+        if (result == null)
+        {
+            if (x instanceof SvexVar)
+            {
+                SvexVar<PathExt> xv = (SvexVar<PathExt>)x;
+                Svar<IndexName> name = absindexed(xv.svar, builder);
+                result = new SvexVar<>(name);
+            } else if (x instanceof SvexQuote)
+            {
+                result = SvexQuote.valueOf(((SvexQuote<PathExt>)x).val);
+            } else
+            {
+                SvexCall<PathExt> sc = (SvexCall<PathExt>)x;
+                Svex<PathExt>[] args = sc.getArgs();
+                Svex<IndexName>[] newArgs = Svex.newSvexArray(args.length);
+                for (int i = 0; i < args.length; i++)
+                {
+                    newArgs[i] = absindexed(args[i], builder, svexCache);
+                }
+                result = SvexCall.newCall(sc.fun, newArgs);
+            }
+            svexCache.put(x, result);
+        }
+        return result;
+    }
+
+    private Lhs<IndexName> absindexed(Lhs<PathExt> x, IndexName.SvarBuilder builder)
+    {
+        List<Lhrange<IndexName>> newRanges = new ArrayList<>();
+        for (Lhrange<PathExt> range : x.ranges)
+        {
+            Svar<PathExt> svar = range.getVar();
+            Lhatom<IndexName> newAtom;
+            if (svar != null)
+            {
+                Svar<IndexName> newSvar = absindexed(svar, builder);
+                newAtom = Lhatom.valueOf(newSvar, range.getRsh());
+            } else
+            {
+                newAtom = Lhatom.Z();
+            }
+            Lhrange<IndexName> newRange = new Lhrange<>(range.getWidth(), newAtom);
+            newRanges.add(newRange);
+        }
+        return new Lhs<>(newRanges);
+    }
+
+    private PathExt findPathExtByIndex(int i)
+    {
+        if (i < wires.size())
+        {
+            return wires.get(i);
+        }
+        int instIndex = elabMod.wireFindInst(i);
+        ModInstExt inst = insts.get(instIndex);
+        return inst.portInsts.get(i - elabMod.getInst(instIndex).wireOffset);
+    }
+
+    private Svar<PathExt> indexedToNamedExt(Svar<IndexName> var)
+    {
+        int idx = var.getName().getIndex();
+        PathExt name = findPathExtByIndex(idx);
+        return newVar(name, 0, false);
+    }
+
+    public Lhs<PathExt> indexedToNamedExt(Lhs<IndexName> lhs)
+    {
+        List<Lhrange<PathExt>> newRanges = new ArrayList<>();
+        for (Lhrange<IndexName> range : lhs.ranges)
+        {
+            Lhatom<PathExt> newAtom;
+            Svar<IndexName> svar = range.getVar();
+            if (svar == null)
+            {
+                newAtom = Lhatom.Z();
+            } else
+            {
+                newAtom = Lhatom.valueOf(indexedToNamedExt(svar), range.getRsh());
+            }
+            newRanges.add(new Lhrange<>(range.getWidth(), newAtom));
+        }
+        return new Lhs<>(newRanges);
+    }
+
+    void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, IndexName.SvarBuilder builder)
+    {
+        int offset = arr.size();
+        for (WireExt wire : wires)
+        {
+            arr.add(flattenLhs(wire.namedLhs, offset, portMap, builder));
+        }
+        for (ModInstExt inst : insts)
+        {
+            List<Lhs<IndexName>> newPortMap = new LinkedList<>();
+            for (PathExt.PortInst pi : inst.portInsts)
+            {
+                if (false && pi.driver instanceof DriverExt)
+                {
+                    newPortMap.add(null);
+                } else
+                {
+                    Lhs<IndexName> newLhs = flattenLhs(pi.namedLhs, offset, portMap, builder);
+                    newPortMap.add(newLhs);
+                }
+            }
+            inst.proto.makeAliases(newPortMap, arr, builder);
+        }
+    }
+
+    private Lhs<IndexName> flattenLhs(Lhs<PathExt> lhs, int offset, List<Lhs<IndexName>> portMap, IndexName.SvarBuilder builder)
+    {
+        List<Lhrange<IndexName>> newRanges = new LinkedList<>();
+        for (Lhrange<PathExt> range : lhs.ranges)
+        {
+            int wid = range.getWidth();
+            int rsh = range.getRsh();
+            Svar<PathExt> svar = range.getVar();
+            assert svar.getDelay() == 0 && !svar.isNonblocking();
+            int index = svar.getName().getIndexInParent();
+            Lhs<IndexName> portLhs = index < portMap.size() ? portMap.get(index) : null;
+            if (portLhs != null)
+            {
+                for (Lhrange<IndexName> portRange : portLhs.ranges)
+                {
+                    assert wid > 0;
+                    int portWid = portRange.getWidth();
+                    if (portWid > rsh)
+                    {
+                        Svar<IndexName> portSvar = portRange.getVar();
+                        int w = Math.min(portWid - rsh, wid);
+                        Lhrange<IndexName> newRange = rsh == 0 && w == portWid
+                            ? portRange
+                            : new Lhrange<>(w, Lhatom.valueOf(portSvar, portRange.getRsh() + rsh));
+                        newRanges.add(newRange);
+                        wid -= w;
+                        rsh = 0;
+                        if (wid <= 0)
+                        {
+                            break;
+                        }
+                    } else
+                    {
+                        rsh -= portWid;
+                    }
+                }
+                assert rsh == 0 && wid == 0;
+            } else
+            {
+                Svar<IndexName> newSvar = builder.newName(offset + index);
+                newRanges.add(new Lhrange<>(wid, Lhatom.valueOf(newSvar, rsh)));
+            }
+        }
+        return new Lhs<>(newRanges).norm();
+    }
+
+    void testAliases()
+    {
+        IndexName.curElabMod = elabMod;
+        ModDb.FlattenResult flattenResult = elabMod.svexmodFlatten(design.b.modalist);
+        IndexName.SvarBuilder builder = flattenResult.builder;
+        List<Lhs<IndexName>> arr = new ArrayList<>();
+        makeAliases(Collections.emptyList(), arr, builder);
+        Util.check(flattenResult.aliases.size() == arr.size());
+        for (int i = 0; i < arr.size(); i++)
+        {
+            Lhs<IndexName> flatLhs = flattenResult.aliases.getAlias(i);
+            Lhs<IndexName> hierLhs = arr.get(i);
+            Util.check(flatLhs.equals(hierLhs));
+            Util.check(flatLhs.getACL2Object().equals(hierLhs.getACL2Object()));
+        }
+    }
+
     void computeCombinationalInputs(String global)
     {
         checkExports();
+        testAliases();
         computeDriverDeps(global, false);
         computeDriverDeps(global, true);
         for (Map.Entry<Svar<PathExt>, BigInteger> e : stateVars0.entrySet())
@@ -379,8 +580,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             Svar<PathExt> svar = e.getKey();
             BigInteger mask0 = e.getValue();
             Util.check(svar.getDelay() == 1);
-            PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-            Util.check(stateWires.contains(lw.wire));
+            WireExt lw = (WireExt)svar.getName();
+            Util.check(stateWires.contains(lw));
             Util.check(mask0.equals(BigIntegerUtil.logheadMask(lw.getWidth())));
         }
         for (Map.Entry<Svar<PathExt>, BigInteger> e : stateVars1.entrySet())
@@ -388,8 +589,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             Svar<PathExt> svar = e.getKey();
             BigInteger mask1 = e.getValue();
             Util.check(svar.getDelay() == 1);
-            PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-            Util.check(stateWires.contains(lw.wire));
+            WireExt lw = (WireExt)svar.getName();
+            Util.check(stateWires.contains(lw));
             Util.check(mask1.equals(BigIntegerUtil.logheadMask(lw.getWidth())));
         }
         hasPhaseState = !stateVars0.isEmpty() || !stateVars1.isEmpty();
@@ -560,8 +761,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         {
             Svar<PathExt> svar = e.getKey();
             BigInteger mask = e.getValue();
-            PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-            PathExt.PortInst piIn = mi.portInstsIndex.get(lw.wire.getName());
+            WireExt lw = (WireExt)svar.getName();
+            PathExt.PortInst piIn = mi.portInstsIndex.get(lw.getName());
             addPortInDeps(piIn, mask, deps);
         }
         graph.put(node, deps);
@@ -611,8 +812,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             deps.add(STATE);
             return;
         }
-        PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-        if (lw.wire.isInput())
+        WireExt lw = (WireExt)svar.getName();
+        if (lw.isInput())
         {
             for (int bit = 0; bit < lw.getWidth(); bit++)
             {
@@ -623,7 +824,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             }
             return;
         }
-        for (Map.Entry<Lhrange<PathExt>, WireExt.WireDriver> e : lw.wire.drivers.entrySet())
+        for (Map.Entry<Lhrange<PathExt>, WireExt.WireDriver> e : lw.drivers.entrySet())
         {
             Lhrange<PathExt> lhr = e.getKey();
             WireExt.WireDriver wd = e.getValue();
@@ -651,6 +852,19 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                         deps.add(wd.pi);
                     }
                 }
+                if (wd.inp != null)
+                {
+                    assert wd.inp.getExport().isInput();
+                    for (int i = 0; i < lhr.getWidth(); i++)
+                    {
+                        if (mask1.testBit(i))
+                        {
+                            deps.add(wd.inp.getBit(wd.lsh + i));
+                        }
+                    }
+
+                }
+
             }
         }
     }
@@ -677,67 +891,21 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         Map<Object, Set<Object>> graph = new LinkedHashMap<>();
         for (WireExt w : wires)
         {
-            /*
-            if (w.isAssigned())
+            if (!w.isInput())
             {
                 for (Map.Entry<Lhrange<PathExt>, WireExt.WireDriver> e : w.drivers.entrySet())
                 {
-                    Lhrange lhr = e.getKey();
+                    Lhrange<PathExt> range = e.getKey();
                     WireExt.WireDriver wd = e.getValue();
-                    int rsh = lhr.getRsh();
-                    if (wd.driver != null)
+                    if (wd.inp != null)
                     {
-                        assert wd.pi == null;
-                        for (int i = 0; i < lhr.getWidth(); i++)
+                        assert wd.inp.getExport().isInput();
+                        for (int bit = 0; bit < range.getWidth(); bit++)
                         {
-                            PathExt.Bit pb = w.getBit(rsh + i);
-                            assert pb == wd.driver.getBit(wd.lsh + i);
-                            Set<Object> dep = new LinkedHashSet<>();
-                            dep.add(wd.driver.getBit(wd.lsh + i));
-//                            addDriverFineDeps(wd.driver, wd.lsh + i, dep);
-                            graph.put(pb, dep);
-                        }
-                    } else
-                    {
-                        PathExt.PortInst piOut = wd.pi;
-                        assert piOut != null;
-//                        ModInstExt inst = piOut.inst;
-//                        BitSet fineBitStateTransDeps = piOut.wire.getFineBitStateDeps(clockHigh);
-//                        List<Map<Svar<PathExt>, BigInteger>> fineBitTransDeps = piOut.wire.getFineBitDeps(clockHigh);
-                        for (int i = 0; i < lhr.getWidth(); i++)
-                        {
-                            PathExt.Bit wb = w.getBit(rsh + i);
-                            assert wb == piOut.getParentBit(wd.lsh + i);
-                            graph.put(wb, Collections.singleton(piOut.getBit(wd.lsh + i)));
-//                            Set<Object> dep = new LinkedHashSet<>();
-//                            if (fineBitStateTransDeps.get(i))
-//                            {
-//                                dep.add(STATE);
-//                            }
-//                            Map<Svar<PathExt>, BigInteger> fineBitDep = fineBitTransDeps.get(wd.lsh + i);
-//                            for (Map.Entry<Svar<PathExt>, BigInteger> e1 : fineBitDep.entrySet())
-//                            {
-//                                PathExt.LocalWire lw = (PathExt.LocalWire)e1.getKey().getName();
-//                                BigInteger mask = e1.getValue();
-//                                PathExt.PortInst piIn = inst.portInsts.get(lw.wire.getName());
-//                                Util.check(piIn != null);
-//                                for (int bit = 0; bit < piIn.getWidth(); bit++)
-//                                {
-//                                    if (mask.testBit(bit))
-//                                    {
-//                                        assert piIn.getParentBit(bit) != null;
-//                                        dep.add(piIn.getParentBit(bit));
-//                                    }
-//                                }
-//                            }
-//                            graph.put(wb, dep);
+                            graph.put(w.getBit(range.getRsh() + bit), Collections.singleton(wd.inp.getBit(wd.lsh + bit)));
                         }
                     }
                 }
-            }
-             */
-            if (!w.isInput())
-            {
                 BigInteger assignedBits = w.getAssignedBits();
                 for (int bit = 0; bit < w.getWidth(); bit++)
                 {
@@ -769,9 +937,9 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                         Map<Svar<PathExt>, BigInteger> fineBitDep = fineBitTransDeps.get(bitOut);
                         for (Map.Entry<Svar<PathExt>, BigInteger> e1 : fineBitDep.entrySet())
                         {
-                            PathExt.LocalWire lw = (PathExt.LocalWire)e1.getKey().getName();
+                            WireExt lw = (WireExt)e1.getKey().getName();
                             BigInteger mask = e1.getValue();
-                            PathExt.PortInst piIn = inst.portInstsIndex.get(lw.wire.getName());
+                            PathExt.PortInst piIn = inst.portInstsIndex.get(lw.getName());
                             Util.check(piIn != null);
                             for (int bitIn = 0; bitIn < piIn.getWidth(); bitIn++)
                             {
@@ -838,33 +1006,6 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 graph.put(drv.getBit(bitDrv), dep);
             }
         }
-        /*
-        for (Map.Entry<Lhs<PathExt>, DriverExt> e : assigns.entrySet())
-        {
-            Lhs<PathExt> lhs = e.getKey();
-            DriverExt drv = e.getValue();
-            if (lhs.ranges.size() != 1)
-            {
-                continue;
-            }
-            Lhrange<PathExt> lhr = lhs.ranges.get(0);
-            Svar<PathExt> svar = lhr.getVar();
-            if (!(svar.getName() instanceof PathExt.PortInst))
-            {
-                continue;
-            }
-            assert lhr.getRsh() == 0;
-            PathExt.PortInst pi = (PathExt.PortInst)svar.getName();
-            for (int bit = 0; bit < lhr.getWidth(); bit++)
-            {
-                PathExt.Bit wb = drv.getBit(bit);
-                assert wb == pi.getParentBit(bit);
-                Set<Object> dep = new LinkedHashSet<>();
-                addDriverFineDeps(drv, clockHigh, bit, dep);
-                graph.put(wb, dep);
-            }
-        }
-         */
         return graph;
     }
 
@@ -882,8 +1023,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                     {
                         Svar<PathExt> svar = e.getKey();
                         BigInteger mask = e.getValue();
-                        PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-                        PathExt.PortInst piIn = inst.portInstsIndex.get(lw.wire.getName());
+                        WireExt lw = (WireExt)svar.getName();
+                        PathExt.PortInst piIn = inst.portInstsIndex.get(lw.getName());
                         for (int bit = 0; bit < piIn.getWidth(); bit++)
                         {
                             Set<Object> deps = transdep.get(piIn.getBit(bit));
@@ -1332,8 +1473,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         if (path instanceof Path.Wire)
         {
             Path.Wire pathWire = (Path.Wire)path;
-            WireExt wire = wiresIndex.get(pathWire.name);
-            return wire.path;
+            return wiresIndex.get(pathWire.name);
         } else
         {
             Path.Scope pathScope = (Path.Scope)path;
@@ -1372,20 +1512,20 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             return 1;
         PathExt p1 = o1.getName();
         PathExt p2 = o2.getName();
-        if (p1 instanceof PathExt.LocalWire)
+        if (p1 instanceof WireExt)
         {
-            if (p2 instanceof PathExt.LocalWire)
+            if (p2 instanceof WireExt)
             {
-                PathExt.LocalWire lw1 = (PathExt.LocalWire)p1;
-                PathExt.LocalWire lw2 = (PathExt.LocalWire)p2;
-                return Integer.compare(lw1.wire.index, lw2.wire.index);
+                WireExt lw1 = (WireExt)p1;
+                WireExt lw2 = (WireExt)p2;
+                return Integer.compare(lw1.index, lw2.index);
             } else
             {
                 return -1;
             }
         } else
         {
-            if (p2 instanceof PathExt.LocalWire)
+            if (p2 instanceof WireExt)
             {
                 return 1;
             } else

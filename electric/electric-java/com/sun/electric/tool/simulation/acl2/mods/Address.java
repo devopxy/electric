@@ -27,7 +27,6 @@ import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -158,14 +157,21 @@ public class Address implements SvarName
 
         public Svar<Address> makeSimpleSvar(Name name)
         {
-            Path path = Path.simplePath(name);
-            return newVar(new Address(path, Address.INDEX_NIL, 0), 0, false);
+            return makeSimpleSvar(name, 0);
+        }
+
+        public Svar<Address> makeSimpleSvar(Name name, int delay)
+        {
+//            Path path = Path.simplePath(name);
+            ACL2Object addressImpl = name.getACL2Object();
+            return newVar(addressImpl, delay, false);
         }
 
         public Svar<Address> makeScopedSvar(Name scope, Name name)
         {
-            Path path = Path.makePath(Arrays.asList(scope), name);
-            return newVar(new Address(path, Address.INDEX_NIL, 0), 0, false);
+//            Path path = Path.makePath(Arrays.asList(scope), name);
+            ACL2Object addressImpl = hons(scope.getACL2Object(), name.getACL2Object());
+            return newVar(addressImpl, 0, false);
         }
     }
 }

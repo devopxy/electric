@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.Address;
 import com.sun.electric.tool.simulation.acl2.mods.Driver;
 import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
 import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
@@ -85,12 +86,12 @@ public abstract class ParameterizedModule
 
     private Map<String, String> params;
     private final Map<String, Name> names = new HashMap<>();
-    private final Svar.Builder<Path> builder = new Path.SvarBuilder();
+    private final Address.SvarBuilder builder = new Address.SvarBuilder();
 
     private final List<Wire> wires = new ArrayList<>();
     private final List<ModInst> insts = new ArrayList<>();
-    private final Map<Lhs<Path>, Driver<Path>> assigns = new LinkedHashMap<>();
-    private final Map<Lhs<Path>, Lhs<Path>> aliaspairs = new LinkedHashMap<>();
+    private final Map<Lhs<Address>, Driver<Address>> assigns = new LinkedHashMap<>();
+    private final Map<Lhs<Address>, Lhs<Address>> aliaspairs = new LinkedHashMap<>();
 
     public ParameterizedModule(String libName, String modName)
     {
@@ -346,7 +347,7 @@ public abstract class ParameterizedModule
      * @param lsb least significant bit
      * @return Lhrange
      */
-    protected Lhrange<Path> r(String wireName, int msb, int lsb)
+    protected Lhrange<Address> r(String wireName, int msb, int lsb)
     {
         return r(getName(wireName), msb, lsb);
     }
@@ -360,10 +361,10 @@ public abstract class ParameterizedModule
      * @param lsb least significant bit
      * @return Lhrange
      */
-    protected Lhrange<Path> r(Name wireName, int msb, int lsb)
+    protected Lhrange<Address> r(Name wireName, int msb, int lsb)
     {
-        Path path = Path.simplePath(wireName);
-        return r(path, msb, lsb);
+        Svar<Address> svar = builder.makeSimpleSvar(wireName);
+        return r(svar, msb, lsb);
     }
 
     /**
@@ -376,15 +377,14 @@ public abstract class ParameterizedModule
      * @param lsb least significant bit
      * @return Lhrange
      */
-    protected Lhrange<Path> r(String instName, String portName, int msb, int lsb)
+    protected Lhrange<Address> r(String instName, String portName, int msb, int lsb)
     {
-        Path path = Path.makePath(Arrays.asList(getName(instName)), getName(portName));
-        return r(path, msb, lsb);
+        Svar<Address> svar = builder.makeScopedSvar(getName(instName), getName(portName));
+        return r(svar, msb, lsb);
     }
 
-    private Lhrange<Path> r(Path path, int msb, int lsb)
+    private Lhrange<Address> r(Svar<Address> svar, int msb, int lsb)
     {
-        Svar<Path> svar = builder.newVar(path, 0, false);
         int width = msb - lsb + 1;
         if (width <= 0)
         {
@@ -393,170 +393,169 @@ public abstract class ParameterizedModule
         return new Lhrange<>(width, Lhatom.valueOf(svar, lsb));
     }
 
-    protected Svex<Path> unfloat(Svex<Path> x)
+    protected Svex<Address> unfloat(Svex<Address> x)
     {
         return SvexCall.newCall(Vec3Fix.FUNCTION, x);
     }
 
-    protected Svex<Path> uor(Svex<Path> x)
+    protected Svex<Address> uor(Svex<Address> x)
     {
         return SvexCall.newCall(Vec4ReductionOr.FUNCTION, x);
     }
 
-    protected Svex<Path> ite(Svex<Path> test, Svex<Path> th, Svex<Path> el)
+    protected Svex<Address> ite(Svex<Address> test, Svex<Address> th, Svex<Address> el)
     {
         return SvexCall.newCall(Vec4Ite.FUNCTION, test, th, el);
     }
 
-    protected Svex<Path> iteStmt(Svex<Path> test, Svex<Path> th, Svex<Path> el)
+    protected Svex<Address> iteStmt(Svex<Address> test, Svex<Address> th, Svex<Address> el)
     {
         return SvexCall.newCall(Vec4IteStmt.FUNCTION, test, th, el);
     }
 
-    protected Svex<Path> bitnot(Svex<Path> x)
+    protected Svex<Address> bitnot(Svex<Address> x)
     {
         return SvexCall.newCall(Vec4Bitnot.FUNCTION, x);
     }
 
-    protected Svex<Path> bitnotE(int width, Svex<Path> x)
+    protected Svex<Address> bitnotE(int width, Svex<Address> x)
     {
         return zext(q(width), bitnot(x));
     }
 
-    protected Svex<Path> bitnotE(Svex<Path> x)
+    protected Svex<Address> bitnotE(Svex<Address> x)
     {
         return bitnotE(1, x);
     }
 
-    protected Svex<Path> bitand(Svex<Path> x, Svex<Path> y)
+    protected Svex<Address> bitand(Svex<Address> x, Svex<Address> y)
     {
         return SvexCall.newCall(Vec4Bitand.FUNCTION, x, y);
     }
 
-    protected Svex<Path> bitandE(int width, Svex<Path>... x)
+    protected Svex<Address> bitandE(int width, Svex<Address>... x)
     {
-        Svex<Path> result = null;
-        for (Svex<Path> xi : x)
+        Svex<Address> result = null;
+        for (Svex<Address> xi : x)
         {
             result = result != null ? zext(q(width), bitand(result, xi)) : xi;
         }
         return result;
     }
 
-    protected Svex<Path> bitandE(Svex<Path>... x)
+    protected Svex<Address> bitandE(Svex<Address>... x)
     {
         return bitandE(1, x);
     }
 
-    protected Svex<Path> bitor(Svex<Path> x, Svex<Path> y)
+    protected Svex<Address> bitor(Svex<Address> x, Svex<Address> y)
     {
         return SvexCall.newCall(Vec4Bitor.FUNCTION, x, y);
     }
 
-    protected Svex<Path> bitorE(int width, Svex<Path>... x)
+    protected Svex<Address> bitorE(int width, Svex<Address>... x)
     {
-        Svex<Path> result = null;
-        for (Svex<Path> xi : x)
+        Svex<Address> result = null;
+        for (Svex<Address> xi : x)
         {
             result = result != null ? zext(q(width), bitor(result, xi)) : xi;
         }
         return result;
     }
 
-    protected Svex<Path> bitorE(Svex<Path>... x)
+    protected Svex<Address> bitorE(Svex<Address>... x)
     {
         return bitorE(1, x);
     }
 
-    protected Svex<Path> bitxor(Svex<Path> x, Svex<Path> y)
+    protected Svex<Address> bitxor(Svex<Address> x, Svex<Address> y)
     {
         return SvexCall.newCall(Vec4Bitxor.FUNCTION, x, y);
     }
 
-    protected Svex<Path> bitxorE(int width, Svex<Path>... x)
+    protected Svex<Address> bitxorE(int width, Svex<Address>... x)
     {
-        Svex<Path> result = null;
-        for (Svex<Path> xi : x)
+        Svex<Address> result = null;
+        for (Svex<Address> xi : x)
         {
             result = result != null ? zext(q(width), bitxor(result, xi)) : xi;
         }
         return result;
     }
 
-    protected Svex<Path> bitxorE(int width, List<Svex<Path>> x)
+    protected Svex<Address> bitxorE(int width, List<Svex<Address>> x)
     {
         return bitxorE(width, x.toArray(Svex.newSvexArray(x.size())));
     }
 
-    protected Svex<Path> bitxorE(Svex<Path>... x)
+    protected Svex<Address> bitxorE(Svex<Address>... x)
     {
         return bitxorE(1, x);
     }
 
-    protected Svex<Path> plus(Svex<Path> x, Svex<Path> y)
+    protected Svex<Address> plus(Svex<Address> x, Svex<Address> y)
     {
         return SvexCall.newCall(Vec4Plus.FUNCTION, x, y);
     }
 
-    protected Svex<Path> eq(Svex<Path> x, Svex<Path> y)
+    protected Svex<Address> eq(Svex<Address> x, Svex<Address> y)
     {
         return SvexCall.newCall(Vec4Equality.FUNCTION, x, y);
     }
 
-    protected Svex<Path> concat(Svex<Path> n, Svex<Path> lower, Svex<Path> upper)
+    protected Svex<Address> concat(Svex<Address> n, Svex<Address> lower, Svex<Address> upper)
     {
         return SvexCall.newCall(Vec4Concat.FUNCTION, n, lower, upper);
     }
 
-    protected Svex<Path> bitExtract(Svex<Path> index, Svex<Path> x)
+    protected Svex<Address> bitExtract(Svex<Address> index, Svex<Address> x)
     {
         return SvexCall.newCall(Vec4BitExtract.FUNCTION, index, x);
     }
 
-    protected Svex<Path> partSelect(Svex<Path> lsb, Svex<Path> width, Svex<Path> x)
+    protected Svex<Address> partSelect(Svex<Address> lsb, Svex<Address> width, Svex<Address> x)
     {
         return SvexCall.newCall(Vec4PartSelect.FUNCTION, lsb, width, x);
     }
 
-    protected Svex<Path> rsh(Svex<Path> n, Svex<Path> x)
+    protected Svex<Address> rsh(Svex<Address> n, Svex<Address> x)
     {
         return SvexCall.newCall(Vec4Rsh.FUNCTION, n, x);
     }
 
-    protected Svex<Path> zext(Svex<Path> n, Svex<Path> x)
+    protected Svex<Address> zext(Svex<Address> n, Svex<Address> x)
     {
         return SvexCall.newCall(Vec4ZeroExt.FUNCTION, n, x);
     }
 
-    protected Svex<Path> q(int val)
+    protected Svex<Address> q(int val)
     {
         return q(new Vec2(val));
     }
 
-    protected Svex<Path> q(int upper, int lower)
+    protected Svex<Address> q(int upper, int lower)
     {
         return q(Vec4.valueOf(BigInteger.valueOf(upper), BigInteger.valueOf(lower)));
     }
 
-    protected Svex<Path> q(Vec4 val)
+    protected Svex<Address> q(Vec4 val)
     {
         return SvexQuote.valueOf(val);
     }
 
-    protected Svex<Path> v(String wireName)
+    protected Svex<Address> v(String wireName)
     {
         return v(wireName, 0);
     }
 
-    protected Svex<Path> v(String wireName, int delay)
+    protected Svex<Address> v(String wireName, int delay)
     {
         Name name = getName(wireName);
-        Path path = Path.simplePath(name);
-        Svar<Path> svar = builder.newVar(path, delay, false);
+        Svar<Address> svar = builder.makeSimpleSvar(name, delay);
         return new SvexVar<>(svar);
     }
 
-    protected Svex<Path> vE(String wireName)
+    protected Svex<Address> vE(String wireName)
     {
         return zext(q(1), v(wireName, 0));
     }
@@ -568,7 +567,7 @@ public abstract class ParameterizedModule
      * @param width width of a local wire
      * @param svex SVEX expression
      */
-    protected void assign(String wireName, int width, Svex<Path> svex)
+    protected void assign(String wireName, int width, Svex<Address> svex)
     {
         assign(r(wireName, width - 1, 0), svex);
     }
@@ -581,7 +580,7 @@ public abstract class ParameterizedModule
      * @param width width of a local wire
      * @param svex SVEX expression
      */
-    protected void assign(String instName, String portName, int width, Svex<Path> svex)
+    protected void assign(String instName, String portName, int width, Svex<Address> svex)
     {
 
         assign(r(instName, portName, width - 1, 0), svex);
@@ -593,7 +592,7 @@ public abstract class ParameterizedModule
      * @param range Lhrange
      * @param svex SVEX expression
      */
-    protected void assign(Lhrange<Path> range, Svex<Path> svex)
+    protected void assign(Lhrange<Address> range, Svex<Address> svex)
     {
         assign(new Lhs<>(Arrays.asList(range)), svex);
     }
@@ -605,14 +604,14 @@ public abstract class ParameterizedModule
      * @param lowerRange upper Lhrange
      * @param svex SVEX expression
      */
-    protected void assign(Lhrange<Path> upperRange, Lhrange<Path> lowerRange, Svex<Path> svex)
+    protected void assign(Lhrange<Address> upperRange, Lhrange<Address> lowerRange, Svex<Address> svex)
     {
         assign(new Lhs<>(Arrays.asList(lowerRange, upperRange)), svex);
     }
 
-    private void assign(Lhs<Path> lhs, Svex<Path> svex)
+    private void assign(Lhs<Address> lhs, Svex<Address> svex)
     {
-        Driver<Path> driver = new Driver<>(svex);
+        Driver<Address> driver = new Driver<>(svex);
         assigns.put(lhs, driver);
     }
 
@@ -623,7 +622,7 @@ public abstract class ParameterizedModule
      * @param portName name of port
      * @param ranges list of Lhranges
      */
-    protected void conn(String portName, Lhrange<Path>... ranges)
+    protected void conn(String portName, Lhrange<Address>... ranges)
     {
         conn(curInstName, portName, ranges);
     }
@@ -641,31 +640,31 @@ public abstract class ParameterizedModule
         conn(portName, r(wireName, width - 1, 0));
     }
 
-    private void conn(String instName, String portName, Lhrange<Path>... ranges)
+    private void conn(String instName, String portName, Lhrange<Address>... ranges)
     {
         int width = 0;
-        for (Lhrange<Path> range : ranges)
+        for (Lhrange<Address> range : ranges)
         {
             width += range.getWidth();
         }
-        Lhrange<Path> lrange = r(instName, portName, width - 1, 0);
+        Lhrange<Address> lrange = r(instName, portName, width - 1, 0);
         conn(lrange, ranges);
     }
 
-    protected void conn(Lhrange<Path> lrange, Lhrange<Path>... ranges)
+    protected void conn(Lhrange<Address> lrange, Lhrange<Address>... ranges)
     {
-        Lhs<Path> lhs = new Lhs<>(Arrays.asList(lrange));
-        Lhs<Path> rhs = new Lhs<>(Arrays.asList(ranges));
+        Lhs<Address> lhs = new Lhs<>(Arrays.asList(lrange));
+        Lhs<Address> rhs = new Lhs<>(Arrays.asList(ranges));
         Util.check(lhs.width() == rhs.width());
         aliaspairs.put(lhs, rhs);
     }
 
-    protected Module<Path> getModule()
+    protected Module<Address> getModule()
     {
         return new Module<>(wires, insts, assigns, aliaspairs);
     }
 
-    protected Module<Path> genModule()
+    protected Module<Address> genModule()
     {
         return null;
     }
@@ -704,7 +703,7 @@ public abstract class ParameterizedModule
 
     protected int getTotalBits()
     {
-        return getTotalWires();
+        return getNumBits();
     }
 
     @Override

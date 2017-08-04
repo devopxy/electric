@@ -440,7 +440,7 @@ public class CompileVerilogStruct
                 int i = 0;
                 for (Map.Entry<Svar<PathExt>, BigInteger> e2 : inputs.entrySet())
                 {
-                    PathExt.LocalWire lw = (PathExt.LocalWire) e2.getKey().getName();
+                    WireExt lw = (WireExt) e2.getKey().getName();
                     BigInteger mask = e2.getValue();
                     assignInputs[i++] = lw.toString(mask);
                 }

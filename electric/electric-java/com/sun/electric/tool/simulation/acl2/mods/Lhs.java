@@ -139,7 +139,7 @@ public class Lhs<N extends SvarName>
         return new Lhs<>(newRanges);
     }
 
-    Lhs<N> norm()
+    public Lhs<N> norm()
     {
         if (isNormp())
         {

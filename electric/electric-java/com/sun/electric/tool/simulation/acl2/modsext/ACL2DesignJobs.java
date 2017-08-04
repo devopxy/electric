@@ -199,8 +199,16 @@ public class ACL2DesignJobs
                         {
                             out.print(wd.pi.toString(BigIntegerUtil.logheadMask(lhr.getWidth()).shiftLeft(wd.lsh)));
                         }
+                        if (wd.inp != null)
+                        {
+                            out.print(wd.inp.toString(BigIntegerUtil.logheadMask(lhr.getWidth()).shiftLeft(wd.lsh)));
+                        }
                     }
                     out.println();
+//                    if (w.path.indexedLhs.ranges.size() > 1)
+//                    {
+//                        out.println("   // aliases-lhs " + w.path.namedLhs);
+//                    }
                     if (!w.isInput())
                     {
                         if (w.isOutput())
@@ -891,8 +899,8 @@ public class ACL2DesignJobs
                         out.print("'(" + pi.inst.getInstname().toLispString() + " . " + pi.getProtoName().toLispString() + ")");
                     } else
                     {
-                        PathExt.LocalWire lw = (PathExt.LocalWire)sv.svar.getName();
-                        out.print(lw.wire.getName().toLispString());
+                        WireExt lw = (WireExt)sv.svar.getName();
+                        out.print(lw.getName().toLispString());
                         if (sv.svar.getDelay() != 0)
                         {
                             out.print(" :delay " + sv.svar.getDelay());
@@ -1013,7 +1021,7 @@ public class ACL2DesignJobs
                             out.println();
                             for (Svar<PathExt> var : vars)
                             {
-                                PathExt.LocalWire lw = (PathExt.LocalWire)var.getName();
+                                WireExt lw = (WireExt)var.getName();
                                 Svex<PathExt> svex = new SvexVar<>(var);
                                 BigInteger mask = masks.get(svex);
                                 if (mask == null)
@@ -1021,7 +1029,7 @@ public class ACL2DesignJobs
                                     mask = BigInteger.ZERO;
                                 }
                                 out.print("        (");
-                                String rep = lw.name.getACL2Object().rep();
+                                String rep = lw.getName().getACL2Object().rep();
                                 if (var.getDelay() == 0)
                                 {
                                     out.print(rep);
@@ -1082,7 +1090,7 @@ public class ACL2DesignJobs
                 Address.SvarBuilder builder = new Address.SvarBuilder();
                 Design<Address> design = new Design<>(builder, sr.root);
                 ModDb db = new ModDb(design.top, design.modalist);
-                IndexName.curModDb = db;
+                IndexName.curElabMod = db.topMod();
                 Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist);
                 ElabMod topIdx = db.modnameGetIndex(design.top);
                 ModDb.FlattenResult flattenResult = topIdx.svexmodFlatten(indexedMods);
@@ -1158,7 +1166,7 @@ public class ACL2DesignJobs
                 Address.SvarBuilder builder = new Address.SvarBuilder();
                 Design<Address> design = new Design<>(builder, sr.root);
                 ModDb db = new ModDb(design.top, design.modalist);
-                IndexName.curModDb = db;
+                IndexName.curElabMod = db.topMod();
                 Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist);
                 ElabMod topElabMod = db.modnameGetIndex(design.top);
                 ElabMod.ModScope topScope = new ElabMod.ModScope(topElabMod);

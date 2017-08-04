@@ -66,7 +66,7 @@ public class DriverExt
         Util.check(b.strength == 6);
         for (Svar<PathExt> svar : b.svex.collectVars())
         {
-            Util.check(svar.getName() instanceof PathExt.LocalWire);
+            Util.check(svar.getName() instanceof WireExt);
         }
     }
 
@@ -157,7 +157,7 @@ public class DriverExt
     {
         for (Svar<PathExt> svar : collectVars())
         {
-            ((PathExt.LocalWire)svar.getName()).markUsed();
+            ((WireExt)svar.getName()).markUsed();
         }
     }
 
