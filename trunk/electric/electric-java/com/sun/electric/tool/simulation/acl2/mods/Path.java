@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import static com.sun.electric.util.acl2.ACL2.*;
@@ -41,7 +42,7 @@ public abstract class Path implements SvarName
 
     Path(ACL2Object impl)
     {
-        this.impl = impl;
+        this.impl = honscopy(impl);
     }
 
     @Override
@@ -216,6 +217,18 @@ public abstract class Path implements SvarName
         public Path newName(ACL2Object nameImpl)
         {
             return Path.fromACL2(nameImpl);
+        }
+
+        public Svar<Path> makeSimpleSvar(Name name)
+        {
+            ACL2Object pathImpl = name.getACL2Object();
+            return newVar(pathImpl, 0, false);
+        }
+
+        public Svar<Path> makeScopedSvar(Name scope, Name name)
+        {
+            ACL2Object pathImpl = hons(scope.getACL2Object(), name.getACL2Object());
+            return newVar(pathImpl, 0, false);
         }
     }
 }

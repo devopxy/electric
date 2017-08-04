@@ -21,11 +21,10 @@
  */
 package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.Address;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
-import com.sun.electric.tool.simulation.acl2.mods.Path;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -90,7 +89,7 @@ public class TutorialHints implements DesignHints
         }
 
         @Override
-        protected Module<Path> genModule()
+        protected Module<Address> genModule()
         {
             int width = getIntParam("width");
             output("q", width);
@@ -128,7 +127,7 @@ public class TutorialHints implements DesignHints
         }
 
         @Override
-        protected Module<Path> genModule()
+        protected Module<Address> genModule()
         {
             int width = getIntParam("width");
             output("q", width);

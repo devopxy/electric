@@ -84,7 +84,7 @@ public class ElabMod
             {
                 throw new IllegalArgumentException();
             }
-            ElabModInst elabModInst = new ElabModInst(i, modInst.instname, modidx, wireOfs, instOfs, assignOfs);
+            ElabModInst elabModInst = new ElabModInst(i, modInst.instname, modidx, wireOfs, instOfs, assignOfs, bitOfs);
             modInstTable[i] = elabModInst;
             ElabModInst old = modInstNameIdxes.put(modInst.instname, elabModInst);
             assert old == null;
@@ -172,7 +172,12 @@ public class ElabMod
         return totalBits;
     }
 
-    int wireFindInst(int wire)
+    public ElabModInst getInst(int instIndex)
+    {
+        return modInstTable[instIndex];
+    }
+
+    public int wireFindInst(int wire)
     {
         if (wire < wireTable.length || wire >= totalWires)
         {
@@ -235,9 +240,9 @@ public class ElabMod
         }
         List<Name> stack = new LinkedList<>();
         ElabMod elabMod = this;
-        while (wireidx >= wireTable.length)
+        while (wireidx >= elabMod.wireTable.length)
         {
-            int instIdx = wireFindInst(wireidx);
+            int instIdx = elabMod.wireFindInst(wireidx);
             ElabModInst elabModInst = elabMod.modInstTable[instIdx];
             stack.add(elabModInst.instName);
             wireidx -= elabModInst.wireOffset;
@@ -421,8 +426,8 @@ public class ElabMod
     public ModDb.FlattenResult svexmodFlatten(Map<ModName, Module<Address>> modalist)
     {
         ElabMod.ModScope modScope = new ElabMod.ModScope(this);
-        IndexName.SvarBuilder builder = new IndexName.SvarBuilder();
         ModDb.FlattenResult result = new ModDb.FlattenResult();
+        IndexName.SvarBuilder builder = result.builder;
         modScope.svexmodFlatten(modalist, result);
         result.aliases = initialAliases(builder);
         result.aliases.canonicalizeAliasPairs(result.aliaspairs);
@@ -441,12 +446,13 @@ public class ElabMod
         final int instIndex;
         final Name instName;
         final ElabMod modidx;
-        final int wireOffset;
+        public final int wireOffset;
         final int instOffset;
         final int assignOffset;
+        final int bitOffset;
         final int instMeas;
 
-        ElabModInst(int instIndex, Name instName, ElabMod modidx, int wireOffset, int instOffset, int assignOffset)
+        ElabModInst(int instIndex, Name instName, ElabMod modidx, int wireOffset, int instOffset, int assignOffset, int bitOffset)
         {
             this.instIndex = instIndex;
             this.instName = instName;
@@ -454,6 +460,7 @@ public class ElabMod
             this.wireOffset = wireOffset;
             this.instOffset = instOffset;
             this.assignOffset = assignOffset;
+            this.bitOffset = bitOffset;
             instMeas = modidx.modMeas + 1;
         }
     }
@@ -464,20 +471,27 @@ public class ElabMod
         final int wireOffset;
         final int instOffset;
         final int assignOffset;
+        final int bitOffset;
         final ModScope upper;
 
         public ModScope(ElabMod modIdx)
         {
-            this(modIdx, 0, 0, 0, null);
+            this(modIdx, 0, 0, 0, 0, null);
         }
 
-        private ModScope(ElabMod modIdx, int wireOffset, int instOffset, int assignOffset, ModScope upper)
+        private ModScope(ElabMod modIdx, int wireOffset, int instOffset, int assignOffset, int bitOffset, ModScope upper)
         {
             this.modIdx = modIdx;
             this.wireOffset = wireOffset;
             this.instOffset = instOffset;
             this.assignOffset = assignOffset;
+            this.bitOffset = bitOffset;
             this.upper = upper;
+        }
+
+        public ElabMod getMod()
+        {
+            return modIdx;
         }
 
         boolean okp()
@@ -506,6 +520,7 @@ public class ElabMod
                 elabModInst.wireOffset + wireOffset,
                 elabModInst.instOffset + instOffset,
                 elabModInst.assignOffset + assignOffset,
+                elabModInst.bitOffset + bitOffset,
                 this);
         }
 

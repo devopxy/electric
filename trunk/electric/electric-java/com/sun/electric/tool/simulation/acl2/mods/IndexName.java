@@ -37,7 +37,7 @@ public class IndexName implements SvarName, Svar<IndexName>
 {
     private final ACL2Object impl;
 
-    public static ModDb curModDb = null;
+    public static ElabMod curElabMod = null;
 
     private IndexName(int index)
     {
@@ -58,9 +58,9 @@ public class IndexName implements SvarName, Svar<IndexName>
     public String toString(BigInteger mask)
     {
         String s = "{" + Integer.toString(impl.intValueExact()) + "#" + mask.toString(16) + "}";
-        if (curModDb != null)
+        if (curElabMod != null)
         {
-            s += curModDb.topMod().wireidxToPath(getIndex());
+            s += curElabMod.wireidxToPath(getIndex());
         }
         return s;
     }

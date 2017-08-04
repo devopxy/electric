@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
 import com.sun.electric.tool.simulation.acl2.mods.ModInst;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
@@ -43,14 +44,16 @@ public class ModInstExt
     final ModuleExt parent;
     final ModuleExt proto;
     final Map<Name, PathExt.PortInst> portInstsIndex = new HashMap<>();
+    final ElabMod.ElabModInst elabModInst;
     List<PathExt.PortInst> portInsts;
 
-    ModInstExt(ModuleExt parent, ModInst b, Map<ModName, ModuleExt> downTop)
+    ModInstExt(ModuleExt parent, ModInst b, int instIndex, Map<ModName, ModuleExt> downTop)
     {
         this.b = b;
         this.parent = parent;
         proto = downTop.get(b.modname);
         Util.check(proto != null);
+        elabModInst = parent.elabMod.getInst(instIndex);
     }
 
     public Name getInstname()

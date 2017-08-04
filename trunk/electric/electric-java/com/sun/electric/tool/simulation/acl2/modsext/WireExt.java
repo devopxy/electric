@@ -21,19 +21,19 @@
  */
 package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
 import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
+import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
+import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
 import com.sun.electric.tool.simulation.acl2.mods.Wiretype;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import static com.sun.electric.util.acl2.ACL2.*;
 import java.math.BigInteger;
-import java.util.BitSet;
+import java.util.Collections;
 import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -41,12 +41,10 @@ import java.util.TreeMap;
  * Wire info as stored in an svex module.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____WIRE>.
  */
-public class WireExt
+public class WireExt extends PathExt
 {
     public final Wire b;
 
-    final ModuleExt parent;
-    final PathExt.LocalWire path;
     final int index;
 
     public boolean used;
@@ -56,7 +54,7 @@ public class WireExt
 
     WireExt(ModuleExt parent, Wire b, int index)
     {
-        this.parent = parent;
+        super(parent, new Path.Wire(b.name), b.width);
         this.b = b;
         this.index = index;
         if (!stringp(b.name.impl).bool())
@@ -69,17 +67,11 @@ public class WireExt
 //        if (b.low_idx != 0) {
 //            System.out.println("Wire " + this + " in " + parent);
 //        }
-        path = new PathExt.LocalWire(this);
     }
 
     public Name getName()
     {
         return b.name;
-    }
-
-    public int getWidth()
-    {
-        return b.width;
     }
 
     public int getLowIdx()
@@ -112,11 +104,29 @@ public class WireExt
         return b.getSecondIndex();
     }
 
+    @Override
+    public WireExt getWire()
+    {
+        return this;
+    }
+
+    @Override
+    int getIndexInParent()
+    {
+        return index;
+    }
+
+    public void markUsed()
+    {
+        used = true;
+    }
+
     public String toString(int width, int rsh)
     {
         return b.toString(width, rsh);
     }
 
+    @Override
     public String toString(BigInteger mask)
     {
         return b.toString(mask);
@@ -128,14 +138,27 @@ public class WireExt
     }
 
     @Override
+    public boolean equals(Object o)
+    {
+        if (o instanceof WireExt)
+        {
+            WireExt that = (WireExt)o;
+            return this.getName().equals(that.getName())
+                && this.parent == that.parent;
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getName().hashCode();
+    }
+
+    @Override
     public String toString()
     {
         return b.toString();
-    }
-
-    public PathExt.Bit getBit(int bit)
-    {
-        return path.getBit(bit);
     }
 
     public void markAssigned(BigInteger assignedBits)
@@ -187,6 +210,42 @@ public class WireExt
     }
 
     /**
+     * @param lr Lhrange from left-hand side. Must be this wire without delay
+     * @param lsh offset in driver bits
+     * @param driver either DriverExt or PathExt.PortInst
+     */
+    public void addDriver(Lhrange<PathExt> lr, int lsh, Object driver)
+    {
+        Svar<PathExt> svar = lr.getVar();
+        assert svar.getDelay() == 0;
+        WireExt lw = (WireExt)svar.getName();
+        Util.check(lw == this);
+        WireDriver wd;
+        if (driver instanceof DriverExt)
+        {
+            wd = new WireDriver(lsh, (DriverExt)driver);
+        } else if (driver instanceof PathExt.PortInst)
+        {
+            wd = new WireDriver(lsh, (PathExt.PortInst)driver);
+        } else if (driver instanceof WireExt)
+        {
+            WireExt inp = (WireExt)driver;
+            wd = new WireDriver(lsh, inp);
+            for (int bit = 0; bit < lr.getWidth(); bit++)
+            {
+                lw.parentBits[lr.getRsh() + bit] = inp.getBit(bit);
+            }
+            Lhrange<PathExt> range = new Lhrange<>(width, Lhatom.valueOf(inp.getVar(0), lsh));
+            namedLhs = new Lhs<>(Collections.singletonList(range));
+        } else
+        {
+            throw new UnsupportedOperationException();
+        }
+        WireDriver old = drivers.put(lr, wd);
+        Util.check(old == null);
+    }
+
+    /**
      * WireDriver is used together with Lhrange.
      * It says that Lhrange.width bits are driven either by
      * assignement driver[width+:lsh] or by port inst pi[width+:lsh] (without delay).
@@ -196,78 +255,33 @@ public class WireExt
         public final int lsh;
         public final DriverExt driver;
         public final PathExt.PortInst pi;
+        public final WireExt inp;
 
         WireDriver(int lsh, DriverExt driver)
         {
             this.lsh = lsh;
             this.driver = driver;
-            this.pi = null;
+            pi = null;
+            inp = null;
         }
 
         WireDriver(int lsh, PathExt.PortInst pi)
         {
             this.lsh = lsh;
-            this.driver = null;
+            driver = null;
             this.pi = pi;
+            inp = null;
+        }
+
+        WireDriver(int lsh, WireExt inp)
+        {
+            this.lsh = lsh;
+            driver = null;
+            pi = null;
+            this.inp = inp;
         }
     }
 
-    /**
-     * @param lr Lhrange from left-hand side. Must be this wire without delay
-     * @param lsh offset in driver bits
-     * @param driver either DriverExt or PathExt.PortInst
-     */
-    public void addDriver(Lhrange<PathExt> lr, int lsh, Object driver)
-    {
-        Svar<PathExt> svar = lr.getVar();
-        assert svar.getDelay() == 0;
-        PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-        Util.check(lw.wire == this);
-        WireDriver wd;
-        if (driver instanceof DriverExt)
-        {
-            wd = new WireDriver(lsh, (DriverExt)driver);
-        } else if (driver instanceof PathExt.PortInst)
-        {
-            wd = new WireDriver(lsh, (PathExt.PortInst)driver);
-        } else
-        {
-            throw new UnsupportedOperationException();
-        }
-        WireDriver old = drivers.put(lr, wd);
-        Util.check(old == null);
-    }
-
-    public Svar<PathExt> getVar(int delay)
-    {
-        return parent.newVar(path, delay, false);
-//        switch (delay)
-//        {
-//            case 0:
-//                return curVar;
-//            case 1:
-//                return prevVar;
-//            default:
-//                throw new IllegalArgumentException();
-//        }
-    }
-
-    public String showFinePortDeps(Map<Object, Set<Object>> graph0, Map<Object, Set<Object>> graph1)
-    {
-        return path.showFinePortDeps(graph0, graph1);
-    }
-
-    List<Map<Svar<PathExt>, BigInteger>> gatherFineBitDeps(BitSet stateDeps, Map<Object, Set<Object>> graph)
-    {
-        return path.gatherFineBitDeps(stateDeps, graph);
-    }
-
-    private static final Comparator<Lhrange> LHRANGE_COMPARATOR = new Comparator<Lhrange>()
-    {
-        @Override
-        public int compare(Lhrange o1, Lhrange o2)
-        {
-            return Integer.compare(o1.getRsh(), o2.getRsh());
-        }
-    };
+    private static final Comparator<Lhrange> LHRANGE_COMPARATOR
+        = (Lhrange o1, Lhrange o2) -> Integer.compare(o1.getRsh(), o2.getRsh());
 }

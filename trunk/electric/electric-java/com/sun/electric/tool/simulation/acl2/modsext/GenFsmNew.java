@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
+import com.sun.electric.tool.simulation.acl2.mods.Address;
 import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
@@ -158,7 +159,7 @@ public class GenFsmNew extends GenBase
                     assert parInsts != null;
                     parInsts.put(modName.toString(), modName);
                     modToParMod.put(modName, parModule);
-                    Module<Path> genM = parModule.genModule();
+                    Module<Address> genM = parModule.genModule();
                     if (genM == null)
                     {
                         System.out.println("Module specalizition is unfamiliar " + modName);
@@ -167,7 +168,6 @@ public class GenFsmNew extends GenBase
                         System.out.println("Module mismatch " + modName);
                     } else
                     {
-                        Util.check(genM.getACL2Object().equals(m.b.getACL2Object()));
                         Util.check(parModule.getNumInsts() == m.elabMod.modNInsts());
                         Util.check(parModule.getNumWires() == m.elabMod.modNWires());
                         Util.check(parModule.getNumAssigns() == m.elabMod.modNAssigns());
@@ -175,7 +175,8 @@ public class GenFsmNew extends GenBase
                         Util.check(parModule.getTotalInsts() == m.elabMod.modTotalInsts());
                         Util.check(parModule.getTotalWires() == m.elabMod.modTotalWires());
                         Util.check(parModule.getTotalAssigns() == m.elabMod.modTotalAssigns());
-                        Util.check(parModule.getTotalBits() == m.elabMod.modTotalBits());
+                        if (parModule.getTotalBits() != m.elabMod.modTotalBits())
+                            Util.check(parModule.getTotalBits() == m.elabMod.modTotalBits());
                     }
                 }
             }
@@ -490,8 +491,8 @@ public class GenFsmNew extends GenBase
             Set<Svar<PathExt>> svars = drv.collectVars();
             for (Svar<PathExt> svar : svars)
             {
-                PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-                s("(|" + svar + "| 4vec-" + lw.wire.getWidth() + "-p)");
+                WireExt lw = (WireExt)svar.getName();
+                s("(|" + svar + "| 4vec-" + lw.getWidth() + "-p)");
             }
             out.print(")");
             e();
@@ -500,16 +501,16 @@ public class GenFsmNew extends GenBase
             b();
             for (Svar<PathExt> svar : svars)
             {
-                PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
+                WireExt lw = (WireExt)svar.getName();
                 String s = "(cons ";
                 if (svar.getDelay() == 0)
                 {
-                    s += "\"" + lw.name + "\"";
+                    s += "\"" + lw.getName() + "\"";
                 } else
                 {
-                    s += "'(:var " + "\"" + lw.name + "\" . " + svar.getDelay() + ")";
+                    s += "'(:var " + "\"" + lw.getName() + "\" . " + svar.getDelay() + ")";
                 }
-                s += " (4vec-" + lw.wire.getWidth() + "-fix |" + svar + "|))";
+                s += " (4vec-" + lw.getWidth() + "-fix |" + svar + "|))";
                 s(s);
             }
             out.print(")))");
@@ -950,14 +951,14 @@ public class GenFsmNew extends GenBase
                             scopes.remove(scopes.size() - 1);
                         } else
                         {
-                            PathExt.LocalWire lw = (PathExt.LocalWire)pb.getPath();
-                            Path[] paths = bind.get(lw.name);
+                            WireExt lw = (WireExt)pb.getPath();
+                            Path[] paths = bind.get(lw.getName());
                             if (paths != null)
                             {
                                 path = paths[pb.bit];
                             } else
                             {
-                                path = Path.makePath(scopes, lw.wire.getName());
+                                path = Path.makePath(scopes, lw.getName());
                             }
                         }
                         bits[bit] = path;
@@ -1033,14 +1034,14 @@ public class GenFsmNew extends GenBase
                             scopes.remove(scopes.size() - 1);
                         } else
                         {
-                            PathExt.LocalWire lw = (PathExt.LocalWire)pb.getPath();
-                            Path[] paths = bind.get(lw.name);
+                            WireExt lw = (WireExt)pb.getPath();
+                            Path[] paths = bind.get(lw.getName());
                             if (paths != null)
                             {
                                 path = paths[pb.bit];
                             } else
                             {
-                                path = Path.makePath(scopes, lw.wire.getName());
+                                path = Path.makePath(scopes, lw.getName());
                             }
                         }
                         bits[bit] = path;

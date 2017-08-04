@@ -99,8 +99,8 @@ public abstract class GenFsm extends GenBase
     private void genCurrentState(Name instname, int ffWidth, Lhrange<PathExt> lr, int rsh)
     {
         Svar<PathExt> svar = lr.getVar();
-        PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-        WireExt w = lw.wire;
+        WireExt lw = (WireExt)svar.getName();
+        WireExt w = lw;
         if (lr.getWidth() != w.getWidth())
         {
             throw new UnsupportedOperationException();
@@ -148,8 +148,8 @@ public abstract class GenFsm extends GenBase
             }
         } else if (sv instanceof SvexVar)
         {
-            PathExt.LocalWire lw = (PathExt.LocalWire)((SvexVar<PathExt>)sv).svar.getName();
-            WireExt w = lw.wire;
+            WireExt lw = (WireExt)((SvexVar<PathExt>)sv).svar.getName();
+            WireExt w = lw;
             String s = w.getName().impl.stringValueExact();
             s("(" + s + "-ext st in)");
         } else if (sv instanceof SvexCall)
@@ -370,13 +370,13 @@ public abstract class GenFsm extends GenBase
         for (int i = r.ranges.size() - 1; i >= 0; i--)
         {
             Lhrange<PathExt> lr = r.ranges.get(r.ranges.size() - 1 - i);
-            PathExt.LocalWire lw = (PathExt.LocalWire)lr.getVar().getName();
-            String atomStr = "(" + lw.wire.toString() + "-ext st in)";
+            WireExt lw = (WireExt)lr.getVar().getName();
+            String atomStr = "(" + lw.toString() + "-ext st in)";
             if (lr.getRsh() != 0)
             {
                 atomStr = "(logtail " + lr.getRsh() + " " + atomStr + ")";
             }
-            if (i == 0 && lr.getWidth() != lw.wire.getWidth() - lr.getRsh())
+            if (i == 0 && lr.getWidth() != lw.getWidth() - lr.getRsh())
             {
                 atomStr = "(loghead " + lr.getWidth() + " " + atomStr + ")";
             }
@@ -478,8 +478,8 @@ public abstract class GenFsm extends GenBase
                         Svar<PathExt> svar = lr1.getVar();
                         assert svar.getDelay() == 0;
                         assert !svar.isNonblocking();
-                        PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-                        knownWires.add(lw.wire);
+                        WireExt lw = (WireExt)svar.getName();
+                        knownWires.add(lw);
                         genCurrentState(inst.getInstname(), ffWidth, lr1, rsh);
                         rsh += lr1.getWidth();
                     }
@@ -497,32 +497,32 @@ public abstract class GenFsm extends GenBase
             {
                 Lhrange<PathExt> lr = l.ranges.get(i);
                 Svar<PathExt> svar = lr.getVar();
-                PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
+                WireExt lw = (WireExt)svar.getName();
 //                if (svar.inst != null)
 //                {
 //                    System.out.println("Inst " + svar);
 //                    continue;
 //                }
-                Map<Lhs<PathExt>, DriverExt> drv = wireDrivers.get(lw.wire);
+                Map<Lhs<PathExt>, DriverExt> drv = wireDrivers.get(lw);
                 if (drv == null)
                 {
                     drv = new LinkedHashMap<>();
-                    wireDrivers.put(lw.wire, drv);
+                    wireDrivers.put(lw, drv);
                 }
                 drv.put(l, d);
-                Set<WireExt> dep = wireDependencies.get(lw.wire);
+                Set<WireExt> dep = wireDependencies.get(lw);
                 if (dep == null)
                 {
                     dep = new LinkedHashSet<>();
-                    wireDependencies.put(lw.wire, dep);
+                    wireDependencies.put(lw, dep);
                 } else
                 {
-                    System.out.println("Twice " + lw.wire);
+                    System.out.println("Twice " + lw);
                 }
                 Set<Svar<PathExt>> deps = d.collectVars();
                 for (Svar<PathExt> sv : deps)
                 {
-                    dep.add(lw.wire);
+                    dep.add(lw);
                 }
             }
         }
@@ -549,8 +549,8 @@ public abstract class GenFsm extends GenBase
                         Svar<PathExt> svar = lr1.getVar();
                         assert svar.getDelay() == 0;
                         assert !svar.isNonblocking();
-                        PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-                        topSort(lw.wire);
+                        WireExt lw = (WireExt)svar.getName();
+                        topSort(lw);
                     }
                 }
             }

@@ -21,15 +21,14 @@
  */
 package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.Address;
 import com.sun.electric.tool.simulation.acl2.mods.Design;
 import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
 import com.sun.electric.tool.simulation.acl2.mods.ModDb;
 import com.sun.electric.tool.simulation.acl2.mods.ModInst;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
-import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
-import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.util.TextUtils;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
@@ -48,7 +47,7 @@ import java.util.TreeMap;
  */
 public class DesignExt
 {
-    public final Design<? extends SvarName> b;
+    public final Design<Address> b;
     public final ModDb moddb;
 
     public final Map<ModName, ModuleExt> downTop = new LinkedHashMap<>();
@@ -61,10 +60,10 @@ public class DesignExt
 
     public DesignExt(ACL2Object impl, DesignHints designHints)
     {
-        this(new Design<>(new Path.SvarBuilder(), impl), designHints);
+        this(new Design<>(new Address.SvarBuilder(), impl), designHints);
     }
 
-    public <N extends SvarName> DesignExt(Design<N> b, DesignHints designHints)
+    public DesignExt(Design<Address> b, DesignHints designHints)
     {
         this.b = b;
         moddb = new ModDb(b.top, b.modalist);
@@ -157,12 +156,12 @@ public class DesignExt
         {
             return;
         }
-        Module<? extends SvarName> module = b.modalist.get(mn);
+        Module<Address> module = b.modalist.get(mn);
         for (ModInst modInst : module.insts)
         {
             addToDownTop(modInst.modname);
         }
-        ModuleExt m = new ModuleExt(this, mn, module);
+        ModuleExt m = new ModuleExt(this, mn);
         ModuleExt old = downTop.put(mn, m);
         Util.check(old == null);
     }
