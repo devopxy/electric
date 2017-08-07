@@ -28,7 +28,6 @@ import com.sun.electric.tool.simulation.acl2.mods.IndexName;
 import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
 import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
-import com.sun.electric.tool.simulation.acl2.mods.LhsArr;
 import com.sun.electric.tool.simulation.acl2.mods.ModDb;
 import com.sun.electric.tool.simulation.acl2.mods.ModInst;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
@@ -46,6 +45,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Res;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
@@ -481,31 +481,6 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         return new Lhs<>(newRanges);
     }
 
-    void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, IndexName.SvarBuilder builder)
-    {
-        int offset = arr.size();
-        for (WireExt wire : wires)
-        {
-            arr.add(flattenLhs(wire.namedLhs, offset, portMap, builder));
-        }
-        for (ModInstExt inst : insts)
-        {
-            List<Lhs<IndexName>> newPortMap = new LinkedList<>();
-            for (PathExt.PortInst pi : inst.portInsts)
-            {
-                if (false && pi.driver instanceof DriverExt)
-                {
-                    newPortMap.add(null);
-                } else
-                {
-                    Lhs<IndexName> newLhs = flattenLhs(pi.namedLhs, offset, portMap, builder);
-                    newPortMap.add(newLhs);
-                }
-            }
-            inst.proto.makeAliases(newPortMap, arr, builder);
-        }
-    }
-
     private Lhs<IndexName> flattenLhs(Lhs<PathExt> lhs, int offset, List<Lhs<IndexName>> portMap, IndexName.SvarBuilder builder)
     {
         List<Lhrange<IndexName>> newRanges = new LinkedList<>();
@@ -552,13 +527,29 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         return new Lhs<>(newRanges).norm();
     }
 
-    void testAliases()
+    private void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, IndexName.SvarBuilder builder)
     {
-        IndexName.curElabMod = elabMod;
-        ModDb.FlattenResult flattenResult = elabMod.svexmodFlatten(design.b.modalist);
-        IndexName.SvarBuilder builder = flattenResult.builder;
+        int wireOffset = arr.size();
+        for (WireExt wire : wires)
+        {
+            arr.add(flattenLhs(wire.namedLhs, wireOffset, portMap, builder));
+        }
+        for (ModInstExt inst : insts)
+        {
+            List<Lhs<IndexName>> newPortMap = new LinkedList<>();
+            for (PathExt.PortInst pi : inst.portInsts)
+            {
+                Lhs<IndexName> newLhs = flattenLhs(pi.namedLhs, wireOffset, portMap, builder);
+                newPortMap.add(newLhs);
+            }
+            inst.proto.makeAliases(newPortMap, arr, builder);
+        }
+    }
+
+    private void testAliases(ModDb.FlattenResult flattenResult)
+    {
         List<Lhs<IndexName>> arr = new ArrayList<>();
-        makeAliases(Collections.emptyList(), arr, builder);
+        makeAliases(Collections.emptyList(), arr, flattenResult.builder);
         Util.check(flattenResult.aliases.size() == arr.size());
         for (int i = 0; i < arr.size(); i++)
         {
@@ -569,10 +560,171 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         }
     }
 
+    private void makeNormAssigns(int wireOffset, int assignOffset, List<Lhs<IndexName>> portMap,
+        Map<Lhs<IndexName>, Driver<IndexName>> normAssigns, IndexName.SvarBuilder builder)
+    {
+        int assignI = 0;
+        for (Map.Entry<Lhs<PathExt>, DriverExt> e : assigns.entrySet())
+        {
+            Lhs<PathExt> lhs = e.getKey();
+            DriverExt drv = e.getValue();
+            Lhs<IndexName> newLhs = flattenLhs(lhs, wireOffset, portMap, builder);
+            List<Svar<PathExt>> drvVars = drv.collectVars();
+            Lhs<IndexName>[] args = Lhs.newLhsArray(drvVars.size());
+            for (int i = 0; i < drvVars.size(); i++)
+            {
+                Svar<PathExt> svar = drvVars.get(i);
+                PathExt pathExt = svar.getName();
+                args[i] = flattenLhs(pathExt.namedLhs, wireOffset, portMap, builder);
+            }
+            SymbolicDriver<IndexName> sDrv = new SymbolicDriver<>(drv, assignOffset + assignI, args, 0, drv.getWidth(), 0);
+            Driver<IndexName> newDrv = sDrv.makeWideDriver(builder);
+            normAssigns.put(newLhs, newDrv);
+            assignI++;
+        }
+        for (ModInstExt inst : insts)
+        {
+            List<Lhs<IndexName>> newPortMap = new LinkedList<>();
+            for (PathExt.PortInst pi : inst.portInsts)
+            {
+                Lhs<IndexName> newLhs = flattenLhs(pi.namedLhs, wireOffset, portMap, builder);
+                newPortMap.add(newLhs);
+            }
+            inst.proto.makeNormAssigns(wireOffset + inst.elabModInst.wireOffset,
+                assignOffset + inst.elabModInst.assignOffset,
+                newPortMap, normAssigns, builder);
+        }
+    }
+
+    private void testNormAssigns(Compile<IndexName> compile, IndexName.SvarBuilder builder)
+    {
+        Map<Lhs<IndexName>, Driver<IndexName>> normAssigns = new LinkedHashMap<>();
+        makeNormAssigns(0, 0, Collections.emptyList(), normAssigns, builder);
+        Util.check(normAssigns.size() == compile.normAssigns.size());
+        for (Iterator<Map.Entry<Lhs<IndexName>, Driver<IndexName>>> iter1 = normAssigns.entrySet().iterator(),
+            iter2 = compile.normAssigns.entrySet().iterator(); iter1.hasNext() || iter2.hasNext();)
+        {
+            Map.Entry<Lhs<IndexName>, Driver<IndexName>> e1 = iter1.next();
+            Map.Entry<Lhs<IndexName>, Driver<IndexName>> e2 = iter2.next();
+            Util.check(e1.getKey().getACL2Object().equals(e2.getKey().getACL2Object()));
+            Util.check(e1.getValue().getACL2Object().equals(e2.getValue().getACL2Object()));
+        }
+    }
+
+    private void assignsToNetassigns(int wireOffset, int assignOffset, List<Lhs<IndexName>> portMap,
+        Map<Svar<IndexName>, List<SymbolicDriver<IndexName>>> symNetassignsRev, IndexName.SvarBuilder builder)
+    {
+        for (int i = insts.size() - 1; i >= 0; i--)
+        {
+            ModInstExt inst = insts.get(i);
+
+            List<Lhs<IndexName>> newPortMap = new LinkedList<>();
+            for (PathExt.PortInst pi : inst.portInsts)
+            {
+                Lhs<IndexName> newLhs = flattenLhs(pi.namedLhs, wireOffset, portMap, builder);
+                newPortMap.add(newLhs);
+            }
+            inst.proto.assignsToNetassigns(wireOffset + inst.elabModInst.wireOffset,
+                assignOffset + inst.elabModInst.assignOffset,
+                newPortMap,
+                symNetassignsRev, builder);
+        }
+        List<Map.Entry<Lhs<PathExt>, DriverExt>> localAssignsEntries = new ArrayList<>(assigns.entrySet());
+        for (int assignI = localAssignsEntries.size() - 1; assignI >= 0; assignI--)
+        {
+            Map.Entry<Lhs<PathExt>, DriverExt> e = localAssignsEntries.get(assignI);
+            Lhs<PathExt> oldLhs = e.getKey();
+            DriverExt oldDrv = e.getValue();
+            Lhs<IndexName> lhs = flattenLhs(oldLhs, wireOffset, portMap, builder);
+            List<Svar<PathExt>> drvVars = oldDrv.collectVars();
+            Lhs<IndexName>[] args = Lhs.newLhsArray(drvVars.size());
+            for (int j = 0; j < drvVars.size(); j++)
+            {
+                Svar<PathExt> svar = drvVars.get(j);
+                PathExt pathExt = svar.getName();
+                args[j] = flattenLhs(pathExt.namedLhs, wireOffset, portMap, builder);
+            }
+            assert lhs.isNormp();
+            int offset = lhs.width();
+            for (int j = lhs.ranges.size() - 1; j >= 0; j--)
+            {
+                Lhrange<IndexName> range = lhs.ranges.get(j);
+                offset -= range.getWidth();
+                Svar<IndexName> svar = range.getVar();
+                if (svar != null)
+                {
+                    SymbolicDriver<IndexName> sDrv = new SymbolicDriver<>(oldDrv, assignOffset + assignI,
+                        args, range.getRsh(), range.getWidth(), offset);
+                    List<SymbolicDriver<IndexName>> sDrivers = symNetassignsRev.get(svar);
+                    if (sDrivers == null)
+                    {
+                        sDrivers = new LinkedList<>();
+                        symNetassignsRev.put(svar, sDrivers);
+                    }
+                    sDrivers.add(sDrv);
+                }
+            }
+        }
+    }
+
+    private void testAssignsToNetassigns(Compile<IndexName> compile, IndexName.SvarBuilder builder)
+    {
+        Map<Svar<IndexName>, List<SymbolicDriver<IndexName>>> symNetassignsRev = new LinkedHashMap<>();
+        assignsToNetassigns(0, 0, Collections.emptyList(), symNetassignsRev, builder);
+
+        List<Map.Entry<Svar<IndexName>, List<SymbolicDriver<IndexName>>>> symNetassignsEntries
+            = new ArrayList<>(symNetassignsRev.entrySet());
+        assert symNetassignsEntries.size() == compile.netAssigns.size();
+        assert symNetassignsEntries.size() == compile.resAssigns.size();
+        int i = symNetassignsEntries.size();
+        Iterator<Map.Entry<Svar<IndexName>, Svex<IndexName>>> iter = compile.resAssigns.entrySet().iterator();
+        for (Map.Entry<Svar<IndexName>, List<Driver<IndexName>>> e1 : compile.netAssigns.entrySet())
+        {
+            Svar<IndexName> svar = e1.getKey();
+            Map.Entry<Svar<IndexName>, List<SymbolicDriver<IndexName>>> e2 = symNetassignsEntries.get(--i);
+            Util.check(e2.getKey().equals(svar));
+            List<Driver<IndexName>> l1 = e1.getValue();
+            List<SymbolicDriver<IndexName>> l2 = e2.getValue();
+            Map.Entry<Svar<IndexName>, Svex<IndexName>> e3 = iter.next();
+            Util.check(e3.getKey().equals(svar));
+            assert l1.size() == l2.size();
+            assert !l1.isEmpty();
+            Svex<IndexName> svexRes = null;
+            for (int j = l1.size() - 1; j >= 0; j--)
+            {
+                Driver<IndexName> d1 = l1.get(j);
+                SymbolicDriver<IndexName> d2 = l2.get(j);
+                Driver<IndexName> newDrv = d2.makeDriver(builder);
+                Util.check(d1.equals(newDrv));
+                Util.check(newDrv.strength == Driver.DEFAULT_STRENGTH);
+                if (svexRes == null)
+                {
+                    svexRes = newDrv.svex;
+                } else
+                {
+                    svexRes = SvexCall.newCall(Vec4Res.FUNCTION, newDrv.svex, svexRes);
+                }
+            }
+            Util.check(svexRes.equals(e3.getValue()));
+        }
+    }
+
+    void testAliasesAndCompile()
+    {
+        IndexName.curElabMod = elabMod;
+        ModDb.FlattenResult flattenResult = elabMod.svexmodFlatten(design.b.modalist);
+        IndexName.SvarBuilder builder = flattenResult.builder;
+        Compile<IndexName> compile = new Compile(flattenResult.aliases.getArr(), flattenResult.assigns, builder);
+
+        testAliases(flattenResult);
+        testNormAssigns(compile, builder);
+        testAssignsToNetassigns(compile, builder);
+    }
+
     void computeCombinationalInputs(String global)
     {
         checkExports();
-        testAliases();
+        testAliasesAndCompile();
         computeDriverDeps(global, false);
         computeDriverDeps(global, true);
         for (Map.Entry<Svar<PathExt>, BigInteger> e : stateVars0.entrySet())

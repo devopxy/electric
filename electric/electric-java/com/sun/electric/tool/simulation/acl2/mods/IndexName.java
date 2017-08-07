@@ -55,9 +55,20 @@ public class IndexName implements SvarName, Svar<IndexName>
     }
 
     @Override
+    public String toString()
+    {
+        return toString(null);
+    }
+
+    @Override
     public String toString(BigInteger mask)
     {
-        String s = "{" + Integer.toString(impl.intValueExact()) + "#" + mask.toString(16) + "}";
+        String s = "{" + Integer.toString(impl.intValueExact());
+        if (mask != null)
+        {
+            s += "#" + mask.toString(16);
+        }
+        s += "}";
         if (curElabMod != null)
         {
             s += curElabMod.wireidxToPath(getIndex());

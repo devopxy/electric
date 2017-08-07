@@ -358,4 +358,10 @@ public class Lhs<N extends SvarName>
         }
         return s;
     }
+
+    @SuppressWarnings("unchecked")
+    public static <N extends SvarName> Lhs<N>[] newLhsArray(int length)
+    {
+        return new Lhs[length];
+    }
 }

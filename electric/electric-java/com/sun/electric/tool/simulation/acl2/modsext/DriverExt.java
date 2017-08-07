@@ -64,7 +64,7 @@ public class DriverExt
         this.b = b;
         this.name = name;
         Util.check(b.strength == 6);
-        for (Svar<PathExt> svar : b.svex.collectVars())
+        for (Svar<PathExt> svar : b.vars)
         {
             Util.check(svar.getName() instanceof WireExt);
         }
@@ -115,42 +115,13 @@ public class DriverExt
                     Util.check(pathBits[lsh + bit] == ((PathExt.PortInst)pathExt).getParentBit(lsh + bit));
                 }
             }
-//            if (svar.getName() instanceof PathExt.LocalWire)
-//            {
-//                PathExt.LocalWire lw = (PathExt.LocalWire)svar.getName();
-//                for (int i = 0; i < range.getWidth(); i++)
-//                {
-//                    pathBits[lsh + i] = lw.getBit(range.getRsh() + i);
-//                }
-//            } else
-//            {
-//                assert lhs.ranges.size() == 1 && range.getRsh() == 0;
-//                PathExt.PortInst pi = (PathExt.PortInst)svar.getName();
-//                for (int i = 0; i < range.getWidth(); i++)
-//                {
-//                    assert pi.getParentBit(i) == pi.getBit(i);
-//                    pathBits[i] = pi.getParentBit(i);
-//                }
-//            }
             lsh += range.getWidth();
         }
     }
 
-//    void setSource(Lhrange<PathExt> range)
-//    {
-//        assert wireBits == null;
-//        wireBits = new WireExt.Bit[range.getWidth()];
-//        Svar<PathExt> svar = range.getVar();
-//        Util.check(svar.getDelay() == 0);
-//        PathExt.PortInst pi = (PathExt.PortInst)svar.getName();
-//        for (int i = 0; i < range.getWidth(); i++)
-//        {
-//            wireBits[i] = pi.wire.newBit(pi, i);
-//        }
-//    }
-    public final Set<Svar<PathExt>> collectVars()
+    public final List<Svar<PathExt>> collectVars()
     {
-        return getSvex().collectVars();
+        return b.vars;
     }
 
     void markUsed()

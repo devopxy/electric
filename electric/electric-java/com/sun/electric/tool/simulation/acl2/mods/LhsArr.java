@@ -68,9 +68,9 @@ public class LhsArr
         arr.set(i, x);
     }
 
-    public void initialAliases(int modidx, ModDb moddb)
+    public List<Lhs<IndexName>> getArr()
     {
-
+        return arr;
     }
 
     public List<Svar<IndexName>> aliasesVars()

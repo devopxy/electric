@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -42,10 +43,13 @@ public class Driver<N extends SvarName>
     public final Svex<N> svex;
     public final int strength;
 
+    public final List<Svar<N>> vars;
+
     Driver(Svar.Builder<N> builder, Map<ACL2Object, Svex<N>> svexCache, ACL2Object impl)
     {
         svex = Svex.valueOf(builder, car(impl), svexCache);
         strength = cdr(impl).intValueExact();
+        vars = svex.collectVars();
     }
 
     public Driver(Svex<N> svex)
@@ -57,6 +61,7 @@ public class Driver<N extends SvarName>
     {
         this.svex = svex;
         this.strength = strength;
+        vars = svex.collectVars();
     }
 
     public ACL2Object getACL2Object()
@@ -93,6 +98,6 @@ public class Driver<N extends SvarName>
 
     void vars(Collection<Svar<N>> vars)
     {
-        vars.addAll(svex.collectVars());
+        vars.addAll(this.vars);
     }
 }

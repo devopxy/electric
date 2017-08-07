@@ -330,7 +330,7 @@ public class ElabMod
             return svar;
         }
         Address newAddr = new Address(addr.getPath(), idx, addr.getScope());
-        return builder.newVar(newAddr, svar.getDelay(), svar.isNonblocking());
+        return builder.newVar(newAddr.getACL2Object(), svar.getDelay(), svar.isNonblocking());
     }
 
     private Svex<Address> svexNamedToIndex(Svex<Address> x, Address.SvarBuilder builder, Map<Svex<Address>, Svex<Address>> svexCache)
@@ -448,7 +448,7 @@ public class ElabMod
         final ElabMod modidx;
         public final int wireOffset;
         final int instOffset;
-        final int assignOffset;
+        public final int assignOffset;
         final int bitOffset;
         final int instMeas;
 
@@ -661,14 +661,22 @@ public class ElabMod
             }
         }
 
-        private Svar<Path> indexedToNamed(Svar<IndexName> var, Svar.Builder<Path> builder)
+        private Svar<Path> indexedToPath(Svar<IndexName> var, Svar.Builder<Path> builder)
         {
             int idx = var.getName().getIndex();
             Path name = modIdx.wireidxToPath(idx);
             return builder.newVar(name, 0, false);
         }
 
-        public Lhs<Path> indexedToNamed(Lhs<IndexName> lhs, Svar.Builder<Path> builder)
+        private Svar<Address> indexedToAddress(Svar<IndexName> var, Svar.Builder<Address> builder)
+        {
+            int idx = var.getName().getIndex();
+            Path path = modIdx.wireidxToPath(idx);
+            Address address = new Address(path);
+            return builder.newVar(address, 0, false);
+        }
+
+        public Lhs<Path> indexedToPath(Lhs<IndexName> lhs, Svar.Builder<Path> builder)
         {
             List<Lhrange<Path>> newRanges = new ArrayList<>();
             for (Lhrange<IndexName> range : lhs.ranges)
@@ -680,26 +688,55 @@ public class ElabMod
                     newAtom = Lhatom.Z();
                 } else
                 {
-                    newAtom = Lhatom.valueOf(indexedToNamed(svar, builder), range.getRsh());
+                    newAtom = Lhatom.valueOf(indexedToPath(svar, builder), range.getRsh());
                 }
                 newRanges.add(new Lhrange<>(range.getWidth(), newAtom));
             }
             return new Lhs<>(newRanges);
         }
 
-        public List<Lhs<Path>> aliasesToNamed(LhsArr aliases, Svar.Builder<Path> builder)
+        public Lhs<Address> indexedToAddress(Lhs<IndexName> lhs, Svar.Builder<Address> builder)
+        {
+            List<Lhrange<Address>> newRanges = new ArrayList<>();
+            for (Lhrange<IndexName> range : lhs.ranges)
+            {
+                Lhatom<Address> newAtom;
+                Svar<IndexName> svar = range.getVar();
+                if (svar == null)
+                {
+                    newAtom = Lhatom.Z();
+                } else
+                {
+                    newAtom = Lhatom.valueOf(indexedToAddress(svar, builder), range.getRsh());
+                }
+                newRanges.add(new Lhrange<>(range.getWidth(), newAtom));
+            }
+            return new Lhs<>(newRanges);
+        }
+
+        public List<Lhs<Path>> aliasesToPath(LhsArr aliases, Svar.Builder<Path> builder)
         {
             List<Lhs<Path>> result = new ArrayList<>(aliases.size());
             for (int i = 0; i < aliases.size(); i++)
             {
-                result.add(indexedToNamed(aliases.getAlias(i), builder));
+                result.add(ModScope.this.indexedToPath(aliases.getAlias(i), builder));
+            }
+            return result;
+        }
+
+        public List<Lhs<Address>> aliasesToAddress(LhsArr aliases, Svar.Builder<Address> builder)
+        {
+            List<Lhs<Address>> result = new ArrayList<>(aliases.size());
+            for (int i = 0; i < aliases.size(); i++)
+            {
+                result.add(indexedToAddress(aliases.getAlias(i), builder));
             }
             return result;
         }
 
         public ACL2Object aliasesToNamedACL2Object(LhsArr aliases, Svar.Builder<Path> builder)
         {
-            List<Lhs<Path>> namedAliases = aliasesToNamed(aliases, builder);
+            List<Lhs<Path>> namedAliases = aliasesToPath(aliases, builder);
             ACL2Object result = NIL;
             for (int i = namedAliases.size() - 1; i >= 0; i--)
             {

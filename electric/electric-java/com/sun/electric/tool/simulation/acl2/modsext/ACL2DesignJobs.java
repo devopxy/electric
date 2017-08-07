@@ -1006,7 +1006,7 @@ public class ACL2DesignJobs
                             Lhs<PathExt> l = e1.getKey();
                             DriverExt d = e1.getValue();
 
-                            Set<Svar<PathExt>> vars = d.collectVars();
+                            List<Svar<PathExt>> vars = d.collectVars();
                             Map<Svex<PathExt>, BigInteger> masks = d.getSvex().maskAlist(BigIntegerUtil.MINUS_ONE);
                             out.print("      (;");
                             assert !l.ranges.isEmpty();
@@ -1061,24 +1061,21 @@ public class ACL2DesignJobs
         }
     }
 
-    public static void namedToIndexed(File saoFile, String designName, String outFileName)
+    public static void namedToIndexed(File saoFile, String designName)
     {
-        new NamedToIndexedJob(saoFile, designName, outFileName).startJob();
-
+        new NamedToIndexedJob(saoFile, designName).startJob();
     }
 
     private static class NamedToIndexedJob extends Job
     {
         private final File saoFile;
         private final String designName;
-        private final String outFileName;
 
-        private NamedToIndexedJob(File saoFile, String designName, String outFileName)
+        private NamedToIndexedJob(File saoFile, String designName)
         {
             super("Named->Indexed", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
             this.saoFile = saoFile;
             this.designName = designName;
-            this.outFileName = outFileName;
         }
 
         @Override
@@ -1091,7 +1088,7 @@ public class ACL2DesignJobs
                 Design<Address> design = new Design<>(builder, sr.root);
                 ModDb db = new ModDb(design.top, design.modalist);
                 IndexName.curElabMod = db.topMod();
-                Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist);
+                Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist, builder);
                 ElabMod topIdx = db.modnameGetIndex(design.top);
                 ModDb.FlattenResult flattenResult = topIdx.svexmodFlatten(indexedMods);
                 ACL2Object indexedAlist = NIL;
@@ -1108,8 +1105,7 @@ public class ACL2DesignJobs
                         cons(aliaspairsAlist,
                             cons(assignsAlist,
                                 cons(aliasesList, NIL))));
-                File outFile = new File(outFileName);
-                File outDir = outFile.getParentFile();
+                File outDir = saoFile.getParentFile();
                 File saoIndexedFile = new File(outDir, designName + "-indexed.sao");
                 ACL2Writer.write(results, saoIndexedFile);
                 List<String> lines = new ArrayList<>();
@@ -1122,7 +1118,8 @@ public class ACL2DesignJobs
                         lines.add(line);
                     }
                 }
-                try (PrintStream out = new PrintStream(outFileName))
+                File outFile = new File(outDir, designName + "-indexed.lisp");
+                try (PrintStream out = new PrintStream(outFile))
                 {
                     for (String line : lines)
                     {
@@ -1137,24 +1134,23 @@ public class ACL2DesignJobs
         }
     }
 
-    public static void normalizeAssigns(File saoFile, String designName, String outFileName)
+    public static void normalizeAssigns(File saoFile, String designName, boolean isIndexed)
     {
-        new NormalizeAssignsJob(saoFile, designName, outFileName).startJob();
-
+        new NormalizeAssignsJob(saoFile, designName, isIndexed).startJob();
     }
 
     private static class NormalizeAssignsJob extends Job
     {
         private final File saoFile;
         private final String designName;
-        private final String outFileName;
+        private final boolean isIndexed;
 
-        private NormalizeAssignsJob(File saoFile, String designName, String outFileName)
+        private NormalizeAssignsJob(File saoFile, String designName, boolean isIndexed)
         {
             super("Named->Indexed", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
             this.saoFile = saoFile;
             this.designName = designName;
-            this.outFileName = outFileName;
+            this.isIndexed = isIndexed;
         }
 
         @Override
@@ -1167,22 +1163,37 @@ public class ACL2DesignJobs
                 Design<Address> design = new Design<>(builder, sr.root);
                 ModDb db = new ModDb(design.top, design.modalist);
                 IndexName.curElabMod = db.topMod();
-                Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist);
+                Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist, builder);
                 ElabMod topElabMod = db.modnameGetIndex(design.top);
                 ElabMod.ModScope topScope = new ElabMod.ModScope(topElabMod);
                 ModDb.FlattenResult flattenResult = topElabMod.svexmodFlatten(indexedMods);
-                Path.SvarBuilder namedBuilder = new Path.SvarBuilder();
-                List<Lhs<Path>> namedAliases = topScope.aliasesToNamed(flattenResult.aliases, namedBuilder);
-                Compile<Path> compile = new Compile(namedAliases, flattenResult.assigns, namedBuilder);
-
                 ACL2Object indexedAssignsAlist = flattenResult.assignsToACL2Object();
                 ACL2Object indexedAliasesList = flattenResult.aliasesToACL2Object();
-                ACL2Object namedAliasesList = topScope.aliasesToNamedACL2Object(flattenResult.aliases, namedBuilder);
-                ACL2Object svexarrList = compile.svexarrAsACL2Object();
-                ACL2Object normAssigns = compile.normAssignsAsACL2Object();
-                ACL2Object netAssigns = compile.netAssignsAsACL2Object();
-                ACL2Object resAssigns = compile.resAssignsAsACL2Object();
-                ACL2Object resDelays = compile.resDelaysAsACL2Object();
+                ACL2Object namedAliasesList = indexedAliasesList;
+                ACL2Object svexarrList, normAssigns, netAssigns, resAssigns, resDelays;
+                if (isIndexed)
+                {
+                    Compile<IndexName> compile = new Compile(flattenResult.aliases.getArr(),
+                        flattenResult.assigns, flattenResult.builder);
+                    svexarrList = compile.svexarrAsACL2Object();
+                    normAssigns = compile.normAssignsAsACL2Object();
+                    netAssigns = compile.netAssignsAsACL2Object();
+                    resAssigns = compile.resAssignsAsACL2Object();
+                    resDelays = compile.resDelaysAsACL2Object();
+                } else
+                {
+                    Path.SvarBuilder namedBuilder = new Path.SvarBuilder();
+                    List<Lhs<Path>> namedAliases = topScope.aliasesToPath(flattenResult.aliases, namedBuilder);
+                    Compile<Path> compile = new Compile(namedAliases, flattenResult.assigns, namedBuilder);
+
+                    namedAliasesList = topScope.aliasesToNamedACL2Object(flattenResult.aliases, namedBuilder);
+
+                    svexarrList = compile.svexarrAsACL2Object();
+                    normAssigns = compile.normAssignsAsACL2Object();
+                    netAssigns = compile.netAssignsAsACL2Object();
+                    resAssigns = compile.resAssignsAsACL2Object();
+                    resDelays = compile.resDelaysAsACL2Object();
+                }
                 ACL2Object results
                     = cons(indexedAssignsAlist,
                         cons(indexedAliasesList,
@@ -1192,8 +1203,8 @@ public class ACL2DesignJobs
                                         cons(netAssigns,
                                             cons(resAssigns,
                                                 cons(resDelays, NIL))))))));
-                File outFile = new File(outFileName);
-                File outDir = outFile.getParentFile();
+
+                File outDir = saoFile.getParentFile();
                 File saoIndexedFile = new File(outDir, designName + "-svex-normalize-assigns.sao");
                 ACL2Writer.write(results, saoIndexedFile);
                 List<String> lines = new ArrayList<>();
@@ -1206,11 +1217,16 @@ public class ACL2DesignJobs
                         lines.add(line);
                     }
                 }
-                try (PrintStream out = new PrintStream(outFileName))
+
+                File outFile = new File(outDir, designName + "-svex-normalized-assigns.lisp");
+                try (PrintStream out = new PrintStream(outFile))
                 {
+                    String indexedStr = isIndexed ? "t" : "nil";
                     for (String line : lines)
                     {
-                        out.println(line.replace("$DESIGN$", designName));
+                        out.println(line
+                            .replace("$DESIGN$", designName)
+                            .replace("$INDEXED$", indexedStr));
                     }
                 }
             } catch (IOException e)

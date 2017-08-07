@@ -155,7 +155,7 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
     }
 
     @Override
-    protected void collectVars(Set<Svar<N>> result, Set<SvexCall<N>> visited)
+    protected void collectVarsRev(Set<Svar<N>> result, Set<SvexCall<N>> visited)
     {
     }
 

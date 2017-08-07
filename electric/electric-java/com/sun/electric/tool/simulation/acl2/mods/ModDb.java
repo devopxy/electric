@@ -64,9 +64,8 @@ public class ModDb
         return modnameIdxes.get(modName);
     }
 
-    public Map<ModName, Module<Address>> modalistNamedToIndex(Map<ModName, Module<Address>> modalist)
+    public Map<ModName, Module<Address>> modalistNamedToIndex(Map<ModName, Module<Address>> modalist, Address.SvarBuilder builder)
     {
-        Address.SvarBuilder builder = new Address.SvarBuilder();
         Map<ModName, Module<Address>> result = new LinkedHashMap<>();
         for (Map.Entry<ModName, Module<Address>> e : modalist.entrySet())
         {

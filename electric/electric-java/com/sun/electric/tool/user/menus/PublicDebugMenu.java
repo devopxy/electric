@@ -42,6 +42,7 @@ import com.sun.electric.tool.routing.seaOfGates.SeaOfGatesHandlers;
 import com.sun.electric.tool.simulation.acl2.modsext.ACL2DesignJobs;
 import com.sun.electric.tool.simulation.acl2.modsext.DesignHints;
 import com.sun.electric.tool.simulation.acl2.modsext.GenFsmNew;
+import com.sun.electric.tool.simulation.acl2.modsext.TraceSvtvJobs;
 import com.sun.electric.tool.simulation.acl2.modsext.TutorialHints;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.tool.user.UserInterfaceMain;
@@ -159,6 +160,33 @@ public class PublicDebugMenu
                     ACL2DesignJobs.dump(TutorialHints.class, f, outPath);
                 }
             },
+                new EMenuItem("Make Trace Svtv script for Tutorial")
+            {
+                @Override
+                public void run()
+                {
+                    String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized SVEX design", false);
+                    if (saoPath == null)
+                        return;
+                    URL fileURL = TextUtils.makeURLToFile(saoPath);
+                    File f = TextUtils.getFile(fileURL);
+                    String designName = TextUtils.getFileNameWithoutExtension(saoPath);
+                    TraceSvtvJobs.makeTraceSvtv(TutorialHints.class, f, designName);
+                }
+            },
+                new EMenuItem("Read Trace Svtv for Tutorial")
+            {
+                @Override
+                public void run()
+                {
+                    String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized SVEX design", false);
+                    if (saoPath == null)
+                        return;
+                    URL fileURL = TextUtils.makeURLToFile(saoPath);
+                    File f = TextUtils.getFile(fileURL);
+                    TraceSvtvJobs.readTraceSvtv(TutorialHints.class, f);
+                }
+            },
                 new EMenuItem("Dedup SVEX design")
             {
                 @Override
@@ -208,15 +236,10 @@ public class PublicDebugMenu
                     URL fileURL = TextUtils.makeURLToFile(saoPath);
                     File f = TextUtils.getFile(fileURL);
                     String designName = TextUtils.getFileNameWithoutExtension(saoPath);
-                    String defaultOutName = User.getWorkingDirectory()
-                        + File.separator + designName + "-indexed.lisp";
-                    String outPath = OpenFile.chooseOutputFile(FileType.LISP, "LISP with indexed test", defaultOutName);
-                    if (outPath == null)
-                        return;
-                    ACL2DesignJobs.namedToIndexed(f, designName, outPath);
+                    ACL2DesignJobs.namedToIndexed(f, designName);
                 }
             },
-                new EMenuItem("Normalize assigns")
+                new EMenuItem("Normalize named assigns")
             {
                 @Override
                 public void run()
@@ -227,12 +250,21 @@ public class PublicDebugMenu
                     URL fileURL = TextUtils.makeURLToFile(saoPath);
                     File f = TextUtils.getFile(fileURL);
                     String designName = TextUtils.getFileNameWithoutExtension(saoPath);
-                    String defaultOutName = User.getWorkingDirectory()
-                        + File.separator + designName + "-svex-normalized-assigns.lisp";
-                    String outPath = OpenFile.chooseOutputFile(FileType.LISP, "LISP with indexed test", defaultOutName);
-                    if (outPath == null)
+                    ACL2DesignJobs.normalizeAssigns(f, designName, false);
+                }
+            },
+                new EMenuItem("Normalize indexed assigns")
+            {
+                @Override
+                public void run()
+                {
+                    String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized SVEX design", false);
+                    if (saoPath == null)
                         return;
-                    ACL2DesignJobs.normalizeAssigns(f, designName, outPath);
+                    URL fileURL = TextUtils.makeURLToFile(saoPath);
+                    File f = TextUtils.getFile(fileURL);
+                    String designName = TextUtils.getFileNameWithoutExtension(saoPath);
+                    ACL2DesignJobs.normalizeAssigns(f, designName, true);
                 }
             },
                 new EMenuItem("Gen FSM for ALU")

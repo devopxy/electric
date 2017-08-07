@@ -48,7 +48,7 @@ public class SvexVar<N extends SvarName> extends Svex<N>
             throw new NullPointerException();
         }
         this.svar = svar;
-        impl = honscopy(svar.makeACL2Object());
+        impl = honscopy(svar.getACL2Object());
     }
 
     @Override
@@ -83,7 +83,7 @@ public class SvexVar<N extends SvarName> extends Svex<N>
     }
 
     @Override
-    protected void collectVars(Set<Svar<N>> result, Set<SvexCall<N>> visited)
+    protected void collectVarsRev(Set<Svar<N>> result, Set<SvexCall<N>> visited)
     {
         result.add(svar);
     }

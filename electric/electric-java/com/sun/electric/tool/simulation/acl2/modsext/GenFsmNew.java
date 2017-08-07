@@ -468,6 +468,20 @@ public class GenFsmNew extends GenBase
         s();
         s("(local (gl::gl-satlink-mode))");
 
+        s();
+        s("(define check-design-flatten-and-normalize");
+        s("  ((x design-p))");
+        s("  :guard (svarlist-addr-p (modalist-vars (design->modalist x)))");
+        s("  :returns (mv (flat-assigns svex-alist-p)");
+        s("               (flat-delays svar-map-p))");
+        s("  (b* (((acl2::local-stobjs moddb aliases)");
+        s("        (mv flat-aliases flat-assigns moddb aliases))");
+        s("       ((mv err flat-assigns flat-delays moddb aliases)");
+        s("        (svex-design-flatten-and-normalize x))");
+        s("       ((when err) (raise \"Error flattening design: ~@0\" err)");
+        s("        (mv nil nil moddb aliases)))");
+        s("    (mv flat-assigns flat-delays moddb aliases)))");
+
         for (ModName modName : modNames)
         {
             ModuleExt m = design.downTop.get(modName);
@@ -488,7 +502,7 @@ public class GenFsmNew extends GenBase
             s("(define |" + modName + "-" + lhs + "-loc| (");
             b();
             b();
-            Set<Svar<PathExt>> svars = drv.collectVars();
+            List<Svar<PathExt>> svars = drv.collectVars();
             for (Svar<PathExt> svar : svars)
             {
                 WireExt lw = (WireExt)svar.getName();
@@ -650,7 +664,37 @@ public class GenFsmNew extends GenBase
         s(":enable ((|" + modName + "-phase|)))");
         e();
         e();
-        s();
+        for (int clk = 0; clk <= 1; clk++)
+        {
+            s();
+            s("(rule");
+            s(" (b* ((pre-simplify t)");
+            s("      (verbosep t)");
+            s("      (clk " + clk + ")");
+            s("      (clk-update (list (cons \"" + designHints.getGlobalClock() + "\" clk)))");
+            s("      (clk-update (make-fast-alist clk-update))");
+            s("      ((mv flat-assigns flat-delays)");
+            s("       (check-design-flatten-and-normalize |*" + modName + "-design*|))");
+            s("      (flat-assigns-clk (svex-alist-compose flat-assigns clk-update))");
+            s();
+            s("      ((mv updates ?next-states)");
+            s("       (svex-compose-assigns/delays flat-assigns flat-delays");
+            s("                                    :rewrite pre-simplify))");
+            s("      ((mv updates-clk ?next-states-clk)");
+            s("       (svex-compose-assigns/delays flat-assigns-clk flat-delays");
+            s("                                    :rewrite pre-simplify))");
+            s("      (rewritten-updates (svex-alist-rewrite-fixpoint");
+            s("                          (svex-alist-compose updates clk-update)");
+            s("                          :verbosep verbosep");
+            s("                          :count 2))");
+            s("      (rewritten-updates-clk (svex-alist-rewrite-fixpoint");
+            s("                              updates-clk");
+            s("                              :verbosep verbosep");
+            s("                              :count 2))");
+            s("      (- (fast-alist-free clk-update)))");
+            s("   (set-equiv rewritten-updates rewritten-updates-clk)))");
+        }
+        /*
         Path[] svtvState = makeSvtvState(modName, design);
         String[] svtvVars = new String[svtvState.length];
         Svar.Builder svarBuilder = new Path.SvarBuilder();
@@ -826,6 +870,7 @@ public class GenFsmNew extends GenBase
         s("x))))");
         e();
         e();
+         */
     }
 
     private void printSvex(Svex<PathExt> top, int width)

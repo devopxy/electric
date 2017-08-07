@@ -71,24 +71,7 @@ public class Compile<N extends SvarName>
         normAssigns = assignsSubst(assigns, memoize, builder);
         netAssigns = assignsToNetassigns(normAssigns);
         resAssigns = netassignsResolves(netAssigns);
-        resDelays = collectDelays(Svex.collectVars(resAssigns.values()), builder);
-    }
-
-    public static <N extends SvarName> Map<Svar<N>, Svar<N>> collectDelays(Collection<Svar<N>> svarsRev, Svar.Builder<N> builder)
-    {
-        Map<Svar<N>, Svar<N>> result = new LinkedHashMap<>();
-        List<Svar<N>> svarsList = new ArrayList<>(svarsRev);
-        for (int i = svarsList.size() - 1; i >= 0; i--)
-        {
-            Svar<N> svar = svarsList.get(i);
-            while (svar.getDelay() > 0)
-            {
-                Svar<N> sv = builder.newVar(svar.getName(), svar.getDelay() - 1, false);
-                result.put(svar, sv);
-                svar = sv;
-            }
-        }
-        return result;
+        resDelays = collectDelays(Svex.collectVarsRev(resAssigns.values()), builder);
     }
 
     Lhs<N> aliasNorm(Lhs<IndexName> x)
@@ -224,6 +207,23 @@ public class Compile<N extends SvarName>
         return resolves;
     }
 
+    public static <N extends SvarName> Map<Svar<N>, Svar<N>> collectDelays(Collection<Svar<N>> svarsRev, Svar.Builder<N> builder)
+    {
+        Map<Svar<N>, Svar<N>> result = new LinkedHashMap<>();
+        List<Svar<N>> svarsList = new ArrayList<>(svarsRev);
+        for (int i = svarsList.size() - 1; i >= 0; i--)
+        {
+            Svar<N> svar = svarsList.get(i);
+            while (svar.getDelay() > 0)
+            {
+                Svar<N> sv = builder.newVar(svar.getName(), svar.getDelay() - 1, false);
+                result.put(svar, sv);
+                svar = sv;
+            }
+        }
+        return result;
+    }
+
     public ACL2Object svexarrAsACL2Object()
     {
         ACL2Object result = NIL;
@@ -259,7 +259,7 @@ public class Compile<N extends SvarName>
                 Driver<N> drv = drivers.get(i);
                 acl2Drivers = cons(drv.getACL2Object(), acl2Drivers);
             }
-            result = cons(cons(svar.makeACL2Object(), acl2Drivers), result);
+            result = cons(cons(svar.getACL2Object(), acl2Drivers), result);
         }
         return Util.revList(result);
     }
@@ -271,7 +271,7 @@ public class Compile<N extends SvarName>
         {
             Svar<N> svar = e.getKey();
             Svex<N> svex = e.getValue();
-            result = cons(cons(svar.makeACL2Object(), svex.getACL2Object()), result);
+            result = cons(cons(svar.getACL2Object(), svex.getACL2Object()), result);
         }
         return Util.revList(result);
     }
@@ -283,7 +283,7 @@ public class Compile<N extends SvarName>
         {
             Svar<N> svarDelayed = e.getKey();
             Svar<N> svar = e.getValue();
-            result = cons(cons(svarDelayed.makeACL2Object(), svar.makeACL2Object()), result);
+            result = cons(cons(svarDelayed.getACL2Object(), svar.getACL2Object()), result);
         }
         return Util.revList(result);
     }

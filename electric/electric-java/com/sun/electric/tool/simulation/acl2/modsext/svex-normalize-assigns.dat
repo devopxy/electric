@@ -153,7 +153,7 @@
   (b* (((acl2::local-stobjs moddb aliases)
         (mv index-assigns indexed-aliases-list named-aliases-list svexarr-list norm-assigns net-assigns flat-aliases flat-assigns moddb aliases))
        ((mv err indexed-assigns indexed-aliases-list svexarr-list norm-assigns net-assigns flat-assigns flat-delays moddb aliases)
-        (svex-design-flatten-and-normalize-modified x))
+        (svex-design-flatten-and-normalize-modified x :indexedp $INDEXED$))
        ((when err) (raise "Error flattening design: ~@0" err)
         (mv nil nil nil nil nil nil nil nil moddb aliases))
        (named-aliases-list (collect-aliases 0 aliases)))
