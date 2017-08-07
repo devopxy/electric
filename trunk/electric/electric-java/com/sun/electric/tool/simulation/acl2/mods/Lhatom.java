@@ -202,7 +202,7 @@ public abstract class Lhatom<N extends SvarName>
         @Override
         public ACL2Object getACL2Object()
         {
-            ACL2Object nameRep = name.makeACL2Object();
+            ACL2Object nameRep = name.getACL2Object();
             return rsh == 0 && !Util.KEYWORD_Z.equals(nameRep)
                 ? nameRep
                 : cons(nameRep, ACL2Object.valueOf(rsh));

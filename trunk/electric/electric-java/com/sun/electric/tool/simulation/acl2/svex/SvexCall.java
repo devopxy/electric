@@ -123,13 +123,13 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
     }
 
     @Override
-    protected void collectVars(Set<Svar<N>> result, Set<SvexCall<N>> visited)
+    protected void collectVarsRev(Set<Svar<N>> result, Set<SvexCall<N>> visited)
     {
         if (visited.add(this))
         {
             for (Svex<N> arg : args)
             {
-                arg.collectVars(result, visited);
+                arg.collectVarsRev(result, visited);
             }
         }
     }
@@ -261,6 +261,10 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
         if (o instanceof SvexCall)
         {
             SvexCall<?> that = (SvexCall<?>)o;
+            if (this.impl.equals(that.impl))
+            {
+                return true;
+            }
             if (!this.fun.equals(that.fun))
             {
                 return false;

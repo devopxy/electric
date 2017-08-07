@@ -55,7 +55,7 @@ public interface Svar<N extends SvarName>
         return toString(BigIntegerUtil.logheadMask(width).shiftLeft(rsh));
     }
 
-    public default ACL2Object makeACL2Object()
+    public default ACL2Object getACL2Object()
     {
         ACL2Object name = getACL2Name();
         int delay = getDelay();
@@ -66,6 +66,12 @@ public interface Svar<N extends SvarName>
             return name;
         }
         return cons(KEYWORD_VAR, cons(name, ACL2Object.valueOf(nonblocking ? -delay - 1 : delay)));
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <N extends SvarName> Svar<N>[] newSvarArray(int length)
+    {
+        return new Svar[length];
     }
 
     public static interface Builder<N extends SvarName>

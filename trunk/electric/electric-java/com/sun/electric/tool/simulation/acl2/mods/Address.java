@@ -48,7 +48,7 @@ public class Address implements SvarName
 
     Address(ACL2Object impl)
     {
-        this.impl = impl;
+        this.impl = honscopy(impl);
         if (consp(impl).bool() && KEYWORD_ADDRESS.equals(car(impl)))
         {
             List<ACL2Object> list = Util.getList(impl, true);
@@ -76,6 +76,11 @@ public class Address implements SvarName
             index = INDEX_NIL;
             scope = 0;
         }
+    }
+
+    Address(Path path)
+    {
+        this(path, INDEX_NIL, 0);
     }
 
     Address(Path path, int index, int scope)
@@ -139,6 +144,42 @@ public class Address implements SvarName
     public String toString(BigInteger mask)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o instanceof Address)
+        {
+            Address that = (Address) o;
+            if (this.impl.equals(that.impl)) {
+                return true;
+            }
+            return this.path.equals(that.path)
+                && this.index == that.index
+                && this.scope == that.scope;
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return impl.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        String s = path.toString();
+        if (scope == SCOPE_ROOT)
+        {
+            s = "/" + s;
+        } else if (scope > 0) {
+            for (int i = 0; i < scope; i++)
+            {
+                s = "../" + s;
+            }
+        }
+        return s;
     }
 
     public static boolean svarIdxaddrOkp(Svar<Address> svar, int bound)

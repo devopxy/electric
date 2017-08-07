@@ -519,7 +519,7 @@ public abstract class GenFsm extends GenBase
                 {
                     System.out.println("Twice " + lw);
                 }
-                Set<Svar<PathExt>> deps = d.collectVars();
+                List<Svar<PathExt>> deps = d.collectVars();
                 for (Svar<PathExt> sv : deps)
                 {
                     dep.add(lw);

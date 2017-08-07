@@ -30,6 +30,7 @@ import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -145,26 +146,39 @@ public abstract class Svex<N extends SvarName>
 
     public abstract <N1 extends SvarName> Svex<N1> addDelay(int delay, Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache);
 
-    public Set<Svar<N>> collectVars()
+    public List<Svar<N>> collectVars()
+    {
+        Set<Svar<N>> varsRev = collectVarsRev();
+        Svar<N>[] varsArr = Svar.newSvarArray(varsRev.size());
+        int i = varsArr.length;
+        for (Svar<N> svar : varsRev)
+        {
+            varsArr[--i] = svar;
+        }
+        assert i == 0;
+        return Arrays.asList(varsArr);
+    }
+
+    public Set<Svar<N>> collectVarsRev()
     {
         Set<Svar<N>> result = new LinkedHashSet<>();
         Set<SvexCall<N>> visited = new HashSet<>();
-        collectVars(result, visited);
+        Svex.this.collectVarsRev(result, visited);
         return result;
     }
 
-    public static <N extends SvarName> Set<Svar<N>> collectVars(Collection<Svex<N>> exprs)
+    public static <N extends SvarName> Set<Svar<N>> collectVarsRev(Collection<Svex<N>> exprs)
     {
         Set<Svar<N>> result = new LinkedHashSet<>();
         Set<SvexCall<N>> visited = new HashSet<>();
         for (Svex<N> svex : exprs)
         {
-            svex.collectVars(result, visited);
+            svex.collectVarsRev(result, visited);
         }
         return result;
     }
 
-    protected abstract void collectVars(Set<Svar<N>> result, Set<SvexCall<N>> visited);
+    protected abstract void collectVarsRev(Set<Svar<N>> result, Set<SvexCall<N>> visited);
 
     public abstract <R, D> R accept(Visitor<N, R, D> visitor, D data);
 
@@ -273,7 +287,7 @@ public abstract class Svex<N extends SvarName>
 
     public Map<Svar<N>, BigInteger> collectVarsWithMasks(BigInteger mask, boolean omitNulls)
     {
-        Set<Svar<N>> vars = collectVars();
+        List<Svar<N>> vars = collectVars();
         Map<Svex<N>, BigInteger> maskAl = maskAlist(mask);
         Map<Svar<N>, BigInteger> result = new LinkedHashMap<>();
         for (Svar<N> var : vars)
