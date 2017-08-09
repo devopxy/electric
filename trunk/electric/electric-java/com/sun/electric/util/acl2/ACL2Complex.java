@@ -21,7 +21,6 @@
  */
 package com.sun.electric.util.acl2;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -30,34 +29,32 @@ import java.util.Map;
  */
 class ACL2Complex extends ACL2Object
 {
+    final Complex v;
+//    final Rational re;
+//    final Rational im;
 
-    final Rational re;
-    final Rational im;
-    private static Map<ACL2Complex, ACL2Complex> allNormed = new HashMap<>();
-
-    ACL2Complex(Rational re, Rational im)
+    ACL2Complex(Complex v)
     {
-        this(false, re, im);
+        this(null, v);
     }
 
-    private ACL2Complex(boolean normed, Rational re, Rational im)
+    private ACL2Complex(HonsManager hm, Complex v)
     {
-        super(normed);
-        if (im.signum() == 0)
+        super(hm);
+        if (v.isRational())
         {
             throw new IllegalArgumentException();
         }
-        this.re = re;
-        this.im = im;
+        this.v = v;
     }
 
-    static ACL2Complex intern(Rational re, Rational im)
+    static ACL2Complex intern(Complex v, HonsManager hm)
     {
-        ACL2Complex v = new ACL2Complex(true, re, im);
+        Map<Complex, ACL2Complex> allNormed = hm.complexes;
         ACL2Complex result = allNormed.get(v);
         if (result == null)
         {
-            result = v;
+            result = new ACL2Complex(hm, v);
             allNormed.put(v, result);
         }
         return result;
@@ -72,14 +69,13 @@ class ACL2Complex extends ACL2Object
     @Override
     ACL2Object unaryMinus()
     {
-        return new ACL2Complex(re.negate(), im.negate());
+        return new ACL2Complex(v.negate());
     }
 
     @Override
     ACL2Object unarySlash()
     {
-        Rational sqrInv = re.mul(re).add(im.mul(im)).inverse();
-        return new ACL2Complex(re.mul(sqrInv), im.negate().mul(sqrInv));
+        return new ACL2Complex(v.inverse());
     }
 
     @Override
@@ -91,19 +87,19 @@ class ACL2Complex extends ACL2Object
     @Override
     ACL2Object binaryPlus(ACL2Integer y)
     {
-        return new ACL2Complex(re.add(y.v), im);
+        return new ACL2Complex(v.add(y.v));
     }
 
     @Override
     ACL2Object binaryPlus(ACL2Rational y)
     {
-        return new ACL2Complex(re.add(y.r), im);
+        return new ACL2Complex(v.add(y.v));
     }
 
     @Override
     ACL2Object binaryPlus(ACL2Complex y)
     {
-        return valueOf(re.add(y.re), im.add(y.im));
+        return valueOf(v.add(y.v));
     }
 
     @Override
@@ -115,28 +111,25 @@ class ACL2Complex extends ACL2Object
     @Override
     ACL2Object binaryStar(ACL2Integer y)
     {
-        return new ACL2Complex(re.mul(y.v), im.mul(y.v));
+        return new ACL2Complex(v.mul(y.v));
     }
 
     @Override
     ACL2Object binaryStar(ACL2Rational y)
     {
-        return new ACL2Complex(re.mul(y.r), im.mul(y.r));
+        return new ACL2Complex(v.mul(y.v));
     }
 
     @Override
     ACL2Object binaryStar(ACL2Complex y)
     {
-        Rational zre = re.mul(y.re).add(im.mul(y.im).negate());
-        Rational zim = re.mul(y.im).add(im.mul(y.re));
-        return valueOf(zre, zim);
+        return valueOf(v.mul(y.v));
     }
 
     @Override
     int signum()
     {
-        int rsig = re.signum();
-        return rsig != 0 ? rsig : im.signum();
+        return v.signum();
     }
 
     @Override
@@ -148,48 +141,42 @@ class ACL2Complex extends ACL2Object
     @Override
     int compareTo(ACL2Integer y)
     {
-        int resig = re.compareTo(y.v);
-        return resig != 0 ? resig : im.signum();
+        return v.compareTo(y.v);
     }
 
     @Override
     int compareTo(ACL2Rational y)
     {
-        int resig = re.compareTo(y.r);
-        return resig != 0 ? resig : im.signum();
+        return v.compareTo(y.v);
     }
 
     @Override
     int compareTo(ACL2Complex y)
     {
-        int resig = re.compareTo(y.re);
-        return resig != 0 ? resig : im.compareTo(y.im);
+        return v.compareTo(y.v);
     }
 
     @Override
     public String rep()
     {
-        return "#c(" + re.toString() + "," + im + ")";
+        return v.toString();
     }
 
     @Override
-    ACL2Object internImpl()
+    ACL2Object internImpl(HonsManager hm)
     {
-        return intern(re, im);
+        return intern(v, hm);
     }
 
     @Override
     boolean equalsImpl(ACL2Object that)
     {
-        return re.equals(((ACL2Complex)that).re) && im.equals(((ACL2Complex)that).im);
+        return v.equals(((ACL2Complex)that).v);
     }
 
     @Override
     public int hashCode()
     {
-        int hash = 3;
-        hash = 59 * hash + re.hashCode();
-        hash = 59 * hash + im.hashCode();
-        return hash;
+        return v.hashCode();
     }
 }

@@ -81,6 +81,7 @@ public class TraceSvtvJobs
         {
             try
             {
+                ACL2Object.initHonsMananger(designName);
                 DesignHints designHints = cls.newInstance();
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 DesignExt design = new DesignExt(sr.root, designHints);
@@ -130,6 +131,9 @@ public class TraceSvtvJobs
             } catch (InstantiationException | IllegalAccessException | IOException e)
             {
                 return false;
+            } finally
+            {
+                ACL2Object.closeHonsManager();
             }
             return true;
         }
@@ -163,6 +167,7 @@ public class TraceSvtvJobs
             svexCache = new HashMap<>();
             try
             {
+                ACL2Object.initHonsMananger(saoFile.getName());
                 DesignHints designHints = cls.newInstance();
                 ACL2Reader sr = new ACL2Reader(saoFile);
 
@@ -321,6 +326,10 @@ public class TraceSvtvJobs
             } catch (InstantiationException | IllegalAccessException | IOException e)
             {
                 return false;
+            } finally
+            {
+                IndexName.curElabMod = null;
+                ACL2Object.closeHonsManager();
             }
             return true;
         }

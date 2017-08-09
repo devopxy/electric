@@ -41,7 +41,7 @@ class ACL2Character extends ACL2Object
 
     private ACL2Character(char c)
     {
-        super(true);
+        super(HonsManager.DUMMY);
         this.c = c;
     }
 

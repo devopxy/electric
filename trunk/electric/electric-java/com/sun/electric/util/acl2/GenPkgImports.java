@@ -197,10 +197,14 @@ public class GenPkgImports
     {
         try
         {
+            ACL2Object.initHonsMananger("PkgImports");
             ACL2Reader sr = new ACL2Reader(f);
             new GenPkgImports(sr.root);
         } catch (IOException e)
         {
+        } finally
+        {
+            ACL2Object.closeHonsManager();
         }
     }
 }

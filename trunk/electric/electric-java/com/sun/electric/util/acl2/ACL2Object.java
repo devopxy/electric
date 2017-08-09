@@ -36,12 +36,9 @@ import java.math.BigInteger;
  */
 public abstract class ACL2Object
 {
+    final HonsManager normed;
 
-    private static long nextId = 0;
-    private long id = -1;
-    boolean normed;
-
-    ACL2Object(boolean normed)
+    ACL2Object(HonsManager normed)
     {
         this.normed = normed;
     }
@@ -66,9 +63,9 @@ public abstract class ACL2Object
         return r.isInteger() ? new ACL2Integer(r.n) : new ACL2Rational(r);
     }
 
-    static ACL2Object valueOf(Rational re, Rational im)
+    static ACL2Object valueOf(Complex c)
     {
-        return im.signum() == 0 ? valueOf(re) : new ACL2Complex(re, im);
+        return c.isRational() ? valueOf(c.re) : new ACL2Complex(c);
     }
 
     public static ACL2Object valueOf(String s)
@@ -121,9 +118,19 @@ public abstract class ACL2Object
         return false;
     }
 
+    static ACL2Integer zero()
+    {
+        HonsManager hm = HonsManager.current.get();
+        if (hm == null)
+        {
+            hm = HonsManager.DUMMY;
+        }
+        return hm.ZERO;
+    }
+
     ACL2Object fix()
     {
-        return isACL2Number() ? this : ACL2Integer.ZERO;
+        return isACL2Number() ? this : zero();
     }
 
     Rational ratfix()
@@ -133,12 +140,12 @@ public abstract class ACL2Object
 
     ACL2Object unaryMinus()
     {
-        return ACL2Integer.ZERO;
+        return zero();
     }
 
     ACL2Object unarySlash()
     {
-        return ACL2Integer.ZERO;
+        return zero();
     }
 
     ACL2Object binaryPlus(ACL2Object y)
@@ -206,30 +213,30 @@ public abstract class ACL2Object
         return -y.signum();
     }
 
-    public abstract String rep();
-
-    public long id()
+    static ACL2String emptyStr()
     {
-        if (id >= 0)
+        HonsManager hm = HonsManager.current.get();
+        if (hm == null)
         {
-            return id;
-        } else
-        {
-            return id = nextId++;
+            hm = HonsManager.DUMMY;
         }
+        return hm.EMPTY_STR;
     }
+
+    public abstract String rep();
 
     public boolean isNormed()
     {
-        return normed;
+        return normed != null;
     }
 
     public ACL2Object intern()
     {
-        return normed ? this : internImpl();
+        HonsManager hm = HonsManager.current.get();
+        return normed == hm ? this : internImpl(hm);
     }
 
-    ACL2Object internImpl()
+    ACL2Object internImpl(HonsManager hm)
     {
         return this;
     }
@@ -237,10 +244,18 @@ public abstract class ACL2Object
     @Override
     public boolean equals(Object o)
     {
-        if (o.getClass() == getClass())
+        if (o == this)
+        {
+            return true;
+        }
+        if (o != null && o.getClass() == getClass())
         {
             ACL2Object that = (ACL2Object)o;
-            return this.normed && that.normed ? this == that : equalsImpl(that);
+            if (this.normed != null && that.normed == this.normed)
+            {
+                return false;
+            }
+            return equalsImpl(that);
         }
         return false;
     }
@@ -253,6 +268,16 @@ public abstract class ACL2Object
     @Override
     public String toString()
     {
-        return id() + ":" + rep();
+        return rep();
+    }
+
+    public static void initHonsMananger(String name)
+    {
+        HonsManager.init(name);
+    }
+
+    public static void closeHonsManager()
+    {
+        HonsManager.close();
     }
 }

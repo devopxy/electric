@@ -21,7 +21,6 @@
  */
 package com.sun.electric.util.acl2;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -30,31 +29,31 @@ import java.util.Map;
  */
 class ACL2Rational extends ACL2Object
 {
-    final Rational r;
-    private static final Map<Rational, ACL2Rational> allNormed = new HashMap<>();
+    final Rational v;
 
-    ACL2Rational(Rational r)
+    ACL2Rational(Rational v)
     {
-        this(false, r);
+        this(null, v);
     }
 
-    private ACL2Rational(boolean normed, Rational r)
+    private ACL2Rational(HonsManager hm, Rational v)
     {
-        super(normed);
-        if (r.isInteger())
+        super(hm);
+        if (v.isInteger())
         {
             throw new IllegalArgumentException();
         }
-        this.r = r;
+        this.v = v;
     }
 
-    static ACL2Rational intern(Rational r)
+    static ACL2Rational intern(Rational v, HonsManager hm)
     {
-        ACL2Rational result = allNormed.get(r);
+        Map<Rational, ACL2Rational> allNormed = hm.rationals;
+        ACL2Rational result = allNormed.get(v);
         if (result == null)
         {
-            result = new ACL2Rational(true, r);
-            allNormed.put(r, result);
+            result = new ACL2Rational(hm, v);
+            allNormed.put(v, result);
         }
         return result;
     }
@@ -68,19 +67,19 @@ class ACL2Rational extends ACL2Object
     @Override
     Rational ratfix()
     {
-        return r;
+        return v;
     }
 
     @Override
     ACL2Object unaryMinus()
     {
-        return valueOf(r.negate());
+        return valueOf(v.negate());
     }
 
     @Override
     ACL2Object unarySlash()
     {
-        return valueOf(r.inverse());
+        return valueOf(v.inverse());
     }
 
     @Override
@@ -92,13 +91,13 @@ class ACL2Rational extends ACL2Object
     @Override
     ACL2Object binaryPlus(ACL2Integer y)
     {
-        return new ACL2Rational(r.add(y.v));
+        return new ACL2Rational(v.add(y.v));
     }
 
     @Override
     ACL2Object binaryPlus(ACL2Rational y)
     {
-        return valueOf(r.add(y.r));
+        return valueOf(v.add(y.v));
     }
 
     @Override
@@ -116,13 +115,13 @@ class ACL2Rational extends ACL2Object
     @Override
     ACL2Object binaryStar(ACL2Integer y)
     {
-        return valueOf(r.mul(y.v));
+        return valueOf(v.mul(y.v));
     }
 
     @Override
     ACL2Object binaryStar(ACL2Rational y)
     {
-        return valueOf(r.mul(y.r));
+        return valueOf(v.mul(y.v));
     }
 
     @Override
@@ -134,7 +133,7 @@ class ACL2Rational extends ACL2Object
     @Override
     int signum()
     {
-        return r.signum();
+        return v.signum();
     }
 
     @Override
@@ -146,13 +145,13 @@ class ACL2Rational extends ACL2Object
     @Override
     int compareTo(ACL2Integer y)
     {
-        return r.compareTo(y.v);
+        return v.compareTo(y.v);
     }
 
     @Override
     int compareTo(ACL2Rational y)
     {
-        return r.compareTo(y.r);
+        return v.compareTo(y.v);
     }
 
     @Override
@@ -164,24 +163,24 @@ class ACL2Rational extends ACL2Object
     @Override
     public String rep()
     {
-        return r.toString();
+        return v.toString();
     }
 
     @Override
-    ACL2Object internImpl()
+    ACL2Object internImpl(HonsManager hm)
     {
-        return intern(r);
+        return intern(v, hm);
     }
 
     @Override
-    boolean equalsImpl(ACL2Object o)
+    boolean equalsImpl(ACL2Object that)
     {
-        return r.equals(((ACL2Rational)o).r);
+        return v.equals(((ACL2Rational)that).v);
     }
 
     @Override
     public int hashCode()
     {
-        return r.hashCode();
+        return v.hashCode();
     }
 }

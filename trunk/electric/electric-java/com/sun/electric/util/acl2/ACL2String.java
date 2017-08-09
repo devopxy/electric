@@ -21,7 +21,6 @@
  */
 package com.sun.electric.util.acl2;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -33,17 +32,14 @@ class ACL2String extends ACL2Object
 
     final String s;
 
-    private static final Map<String, ACL2String> allNormed = new HashMap<>();
-    static final ACL2String EMPTY = intern("");
-
     ACL2String(String s)
     {
-        this(false, s);
+        this(null, s);
     }
 
-    private ACL2String(boolean normed, String s)
+    private ACL2String(HonsManager hm, String s)
     {
-        super(normed);
+        super(hm);
         for (int i = 0; i < s.length(); i++)
         {
             if (s.charAt(i) >= 0x100)
@@ -54,12 +50,13 @@ class ACL2String extends ACL2Object
         this.s = s;
     }
 
-    static ACL2String intern(String s)
+    static ACL2String intern(String s, HonsManager hm)
     {
+        Map<String, ACL2String> allNormed = hm.strings;
         ACL2String result = allNormed.get(s);
         if (result == null)
         {
-            result = new ACL2String(true, s);
+            result = new ACL2String(hm, s);
             allNormed.put(s, result);
         }
         return result;
@@ -78,9 +75,9 @@ class ACL2String extends ACL2Object
     }
 
     @Override
-    ACL2Object internImpl()
+    ACL2Object internImpl(HonsManager hm)
     {
-        return intern(s);
+        return intern(s, hm);
     }
 
     @Override

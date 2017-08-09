@@ -49,6 +49,7 @@ import com.sun.electric.tool.user.UserInterfaceMain;
 import com.sun.electric.tool.user.dialogs.OpenFile;
 import static com.sun.electric.tool.user.menus.FileMenu.importLibraryCommand;
 import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.acl2.ACL2Object;
 import com.sun.electric.util.acl2.ACL2Reader;
 import com.sun.electric.util.acl2.GenPkgImports;
 import java.io.File;
@@ -104,10 +105,14 @@ public class PublicDebugMenu
                     String saoName = TextUtils.getFileNameWithoutPath(saoPath);
                     try
                     {
+                        ACL2Object.initHonsMananger(saoName);
                         System.out.println(saoName + " contains " + new ACL2Reader(f).getStats());
                     } catch (IOException e)
                     {
                         System.out.println(e);
+                    } finally
+                    {
+                        ACL2Object.closeHonsManager();
                     }
                 }
             },

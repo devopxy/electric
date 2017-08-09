@@ -96,6 +96,7 @@ public class ACL2DesignJobs
         {
             try
             {
+                ACL2Object.initHonsMananger(saoFile.getName());
                 DesignHints designHints = cls.newInstance();
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 DesignExt design = new DesignExt(sr.root, designHints);
@@ -130,6 +131,9 @@ public class ACL2DesignJobs
             } catch (InstantiationException | IllegalAccessException | IOException e)
             {
                 return false;
+            } finally
+            {
+                ACL2Object.closeHonsManager();
             }
             return true;
         }
@@ -523,12 +527,16 @@ public class ACL2DesignJobs
         {
             try
             {
+                ACL2Object.initHonsMananger(outFileName);
                 GenFsm gen = cls.newInstance();
                 gen.gen(saoFile, outFileName);
             } catch (InstantiationException | IllegalAccessException | IOException e)
             {
                 System.out.println(e.getMessage());
                 return false;
+            } finally
+            {
+                ACL2Object.closeHonsManager();
             }
             return true;
         }
@@ -558,6 +566,7 @@ public class ACL2DesignJobs
         {
             try
             {
+                ACL2Object.initHonsMananger(saoFile.getName());
                 DesignHints designHints = cls.newInstance();
                 GenFsmNew gen = new GenFsmNew(designHints);
                 gen.scanLib(saoFile);
@@ -566,6 +575,9 @@ public class ACL2DesignJobs
             {
                 System.out.println(e.getMessage());
                 return false;
+            } finally
+            {
+                ACL2Object.closeHonsManager();
             }
             return true;
         }
@@ -594,6 +606,7 @@ public class ACL2DesignJobs
         {
             try
             {
+                ACL2Object.initHonsMananger("Compare Svex Libs");
                 DesignHints designHints = cls.newInstance();
                 GenFsmNew gen = new GenFsmNew(designHints);
                 Map<ModName, Module<Address>> modMap = new HashMap<>();
@@ -629,6 +642,9 @@ public class ACL2DesignJobs
             {
                 System.out.println(e.getMessage());
                 return false;
+            } finally
+            {
+                ACL2Object.closeHonsManager();
             }
             return true;
         }
@@ -659,6 +675,7 @@ public class ACL2DesignJobs
         {
             try
             {
+                ACL2Object.initHonsMananger(designName);
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 DesignExt design = new DesignExt(sr.root);
                 Map<Svex<PathExt>, String> svexLabels = new LinkedHashMap<>();
@@ -841,6 +858,9 @@ public class ACL2DesignJobs
             } catch (IOException e)
             {
                 return false;
+            } finally
+            {
+                ACL2Object.closeHonsManager();
             }
             return true;
         }
@@ -955,6 +975,7 @@ public class ACL2DesignJobs
         {
             try
             {
+                ACL2Object.initHonsMananger(designName);
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 DesignExt design = new DesignExt(sr.root);
                 try (PrintStream out = new PrintStream(outFileName))
@@ -1056,6 +1077,9 @@ public class ACL2DesignJobs
             } catch (IOException e)
             {
                 return false;
+            } finally
+            {
+                ACL2Object.closeHonsManager();
             }
             return true;
         }
@@ -1083,6 +1107,7 @@ public class ACL2DesignJobs
         {
             try
             {
+                ACL2Object.initHonsMananger(designName);
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 Address.SvarBuilder builder = new Address.SvarBuilder();
                 Design<Address> design = new Design<>(builder, sr.root);
@@ -1129,6 +1154,10 @@ public class ACL2DesignJobs
             } catch (IOException e)
             {
                 return false;
+            } finally
+            {
+                IndexName.curElabMod = null;
+                ACL2Object.closeHonsManager();
             }
             return true;
         }
@@ -1158,6 +1187,7 @@ public class ACL2DesignJobs
         {
             try
             {
+                ACL2Object.initHonsMananger(designName);
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 Address.SvarBuilder builder = new Address.SvarBuilder();
                 Design<Address> design = new Design<>(builder, sr.root);
@@ -1232,6 +1262,10 @@ public class ACL2DesignJobs
             } catch (IOException e)
             {
                 return false;
+            } finally
+            {
+                IndexName.curElabMod = null;
+                ACL2Object.closeHonsManager();
             }
             return true;
         }

@@ -21,7 +21,6 @@
  */
 package com.sun.electric.util.acl2;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -41,35 +40,32 @@ class ACL2Cons extends ACL2Object
      * The right son.
      */
     final ACL2Object cdr;
-    private int hashCode;
-    private static final Map<ACL2Cons, ACL2Cons> allNormed = new HashMap<>();
+    private final int hashCode;
 
     ACL2Cons(ACL2Object car, ACL2Object cdr)
     {
-        this(false, car, cdr);
+        this(null, car, cdr);
     }
 
-    private ACL2Cons(boolean norm, ACL2Object car, ACL2Object cdr)
+    private ACL2Cons(HonsManager hm, ACL2Object car, ACL2Object cdr)
     {
-        super(norm);
-        if (car == null || cdr == null)
-        {
-            throw new NullPointerException();
-        }
+        super(hm);
         this.car = car;
         this.cdr = cdr;
+        hashCode = hashCode(car, cdr);
     }
 
-    static ACL2Cons intern(ACL2Object car, ACL2Object cdr)
+    static ACL2Cons intern(ACL2Object car, ACL2Object cdr, HonsManager hm)
     {
         car = car.intern();
         cdr = cdr.intern();
-        ACL2Cons v = new ACL2Cons(false, car, cdr);
-        ACL2Cons result = allNormed.get(v);
+        Key key = new Key(car, cdr);
+        Map<Key, ACL2Cons> allNormed = hm.conses;
+        ACL2Cons result = allNormed.get(key);
         if (result == null)
         {
-            result = new ACL2Cons(true, car, cdr);
-            allNormed.put(v, result);
+            result = new ACL2Cons(hm, car, cdr);
+            allNormed.put(key, result);
         }
         return result;
     }
@@ -90,7 +86,7 @@ class ACL2Cons extends ACL2Object
     @Override
     public String toString()
     {
-        return id() + "!" + len();
+        return "cons" + len();
     }
 
     @Override
@@ -100,31 +96,76 @@ class ACL2Cons extends ACL2Object
     }
 
     @Override
-    ACL2Object internImpl()
+    ACL2Object internImpl(HonsManager hm)
     {
-        return intern(car, cdr);
+        return intern(car, cdr, hm);
     }
 
     @Override
     boolean equalsImpl(ACL2Object o)
     {
-        ACL2Cons that = (ACL2Cons)o;
-        return this.hashCode() == that.hashCode()
-            && this.car.equals(that.car)
-            && this.cdr.equals(that.cdr);
+        ACL2Cons x = this;
+        ACL2Cons y = (ACL2Cons)o;
+        while (x.hashCode == y.hashCode && x.car.equals(y.car))
+        {
+            if (x.cdr == y.cdr)
+            {
+                return true;
+            }
+            if (x.cdr.normed != null && x.cdr.normed == y.cdr.normed)
+            {
+                return false;
+            }
+            if (!(x.cdr instanceof ACL2Cons) || !(y.cdr instanceof ACL2Object))
+            {
+                return x.cdr.equals(y.cdr);
+            }
+            x = (ACL2Cons)x.cdr;
+            y = (ACL2Cons)y.cdr;
+        }
+        return false;
     }
 
     @Override
     public int hashCode()
     {
-        int hash = hashCode;
-        if (hash == 0)
-        {
-            hash = 7;
-            hash = 29 * hash + car.hashCode();
-            hash = 29 * hash + cdr.hashCode();
-            hashCode = hash;
-        }
+        return hashCode;
+    }
+
+    static int hashCode(ACL2Object car, ACL2Object cdr)
+    {
+        int hash = 7;
+        hash = 29 * hash + car.hashCode();
+        hash = 29 * hash + cdr.hashCode();
         return hash;
+    }
+
+    static class Key
+    {
+        final ACL2Object car;
+        final ACL2Object cdr;
+
+        Key(ACL2Object car, ACL2Object cdr)
+        {
+            this.car = car;
+            this.cdr = cdr;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (o instanceof Key)
+            {
+                Key that = (Key)o;
+                return this.car.equals(that.car) && this.cdr.equals(that.cdr);
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return ACL2Cons.hashCode(car, cdr);
+        }
     }
 }

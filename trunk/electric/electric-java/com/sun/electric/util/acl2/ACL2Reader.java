@@ -103,6 +103,7 @@ public class ACL2Reader
 
     public ACL2Reader(File f) throws IOException
     {
+        HonsManager hm = HonsManager.current.get();
         try (DataInputStream in = new DataInputStream(new FileInputStream(f)))
         {
             magic = in.readInt();
@@ -117,7 +118,7 @@ public class ACL2Reader
             for (int i = 0; i < nNat; i++)
             {
                 BigInteger n = readInt(in);
-                allObjs.add(ACL2Integer.intern(n));
+                allObjs.add(ACL2Integer.intern(n, hm));
             }
             int ratsLen = readInt(in).intValueExact();
             int nNegInt = 0;
@@ -133,11 +134,11 @@ public class ACL2Reader
                 }
                 if (denom.equals(BigInteger.ONE))
                 {
-                    allObjs.add(ACL2Integer.intern(num));
+                    allObjs.add(ACL2Integer.intern(num, hm));
                     nNegInt++;
                 } else
                 {
-                    allObjs.add(ACL2Rational.intern(Rational.valueOf(num, denom)));
+                    allObjs.add(ACL2Rational.intern(Rational.valueOf(num, denom), hm));
                 }
             }
             nInt = nNat + nNegInt;
@@ -153,6 +154,7 @@ public class ACL2Reader
                 {
                     numR = numR.negate();
                 }
+                Rational re = Rational.valueOf(numR, denomR);
                 BigInteger signI = readInt(in);
                 check(signI.equals(BigInteger.ZERO) || signI.equals(BigInteger.ONE));
                 BigInteger numI = readInt(in);
@@ -161,7 +163,8 @@ public class ACL2Reader
                 {
                     numI = numI.negate();
                 }
-                allObjs.add(ACL2Complex.intern(Rational.valueOf(numR, denomR), Rational.valueOf(numI, denomI)));
+                Rational im = Rational.valueOf(numI, denomI);
+                allObjs.add(ACL2Complex.intern(new Complex(re, im), hm));
             }
             nChar = readInt(in).intValueExact();
             for (int i = 0; i < nChar; i++)
@@ -188,7 +191,7 @@ public class ACL2Reader
                 {
 //                    System.out.println("String " + s + " is not normed");
                 }
-                allObjs.add(normed ? ACL2String.intern(s) : new ACL2String(s));
+                allObjs.add(normed ? ACL2String.intern(s, hm) : new ACL2String(s));
             }
             nNormStr = nNormStrings;
             nPkg = readInt(in).intValueExact();
@@ -223,7 +226,7 @@ public class ACL2Reader
                 {
                     nNormConses++;
                 }
-                allObjs.add(normed ? ACL2Cons.intern(carObj, cdrObj) : new ACL2Cons(carObj, cdrObj));
+                allObjs.add(normed ? ACL2Cons.intern(carObj, cdrObj, hm) : new ACL2Cons(carObj, cdrObj));
             }
             nNormCons = nNormConses;
             if (magic >= MAGIC_V3)
