@@ -38,10 +38,10 @@ import java.util.Set;
 class ACL2Symbol extends ACL2Object
 {
 
-    final ACL2String nm;
+    final String nm;
     final Package pkg;
 
-    private static Map<String, Package> knownPackages = new HashMap<>();
+    private static final Map<String, Package> knownPackages = new HashMap<>();
 
     static
     {
@@ -158,7 +158,7 @@ class ACL2Symbol extends ACL2Object
 
     private ACL2Symbol(Package pkg, String nm)
     {
-        super(true);
+        super(HonsManager.DUMMY);
         for (int i = 0; i < nm.length(); i++)
         {
             if (nm.charAt(i) >= 0x100)
@@ -167,7 +167,7 @@ class ACL2Symbol extends ACL2Object
             }
         }
         this.pkg = pkg;
-        this.nm = ACL2String.intern(nm);
+        this.nm = nm;
     }
 
     @Override
@@ -179,23 +179,23 @@ class ACL2Symbol extends ACL2Object
             sb.append(':');
         } else
         {
-            sb.append(pkg.name.s).append("::");
+            sb.append(pkg.name).append("::");
         }
         if (isPrintable())
         {
-            sb.append(nm.s);
+            sb.append(nm);
         } else
         {
-            sb.append('|').append(nm.s).append('|');
+            sb.append('|').append(nm).append('|');
         }
         return sb.toString();
     }
 
     private boolean isPrintable()
     {
-        for (int i = 0; i < nm.s.length(); i++)
+        for (int i = 0; i < nm.length(); i++)
         {
-            char c = nm.s.charAt(i);
+            char c = nm.charAt(i);
             switch (c)
             {
                 case '(':
@@ -225,7 +225,7 @@ class ACL2Symbol extends ACL2Object
 
     static class Package
     {
-        final ACL2String name;
+        final String name;
         private final Map<String, ACL2Symbol> imports = new HashMap<>();
         private final Map<String, ACL2Symbol> symbols = new HashMap<>();
 
@@ -242,15 +242,15 @@ class ACL2Symbol extends ACL2Object
                     throw new IllegalArgumentException();
                 }
             }
-            this.name = ACL2String.intern(name);
+            this.name = name;
             for (ACL2Symbol impSym : importsSyms)
             {
-                ACL2Symbol old = imports.put(impSym.nm.s, impSym);
+                ACL2Symbol old = imports.put(impSym.nm, impSym);
                 assert old == null;
             }
         }
 
-        ACL2Symbol getSymbol(String symName)
+        synchronized ACL2Symbol getSymbol(String symName)
         {
             ACL2Symbol sym = imports.get(symName);
             if (sym != null)
@@ -276,11 +276,11 @@ class ACL2Symbol extends ACL2Object
         @Override
         public String toString()
         {
-            return name.s;
+            return name;
         }
     }
 
-    static Package getPackage(String pkgName)
+    static synchronized Package getPackage(String pkgName)
     {
         Package pkg = knownPackages.get(pkgName);
         if (pkg == null)

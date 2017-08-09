@@ -115,13 +115,14 @@ public class ACL2ObjectTest
      * Test of valueOf method, of class ACL2Object.
      */
     @Test
-    public void testValueOf_Rational_Rational()
+    public void testValueOf_Complex()
     {
         System.out.println("valueOf");
         Rational re = new Rational(BigInteger.valueOf(3), BigInteger.valueOf(2));
         Rational im = new Rational(BigInteger.ZERO, BigInteger.ONE);
+        Complex c = new Complex(re, im);
         ACL2Object expResult = new ACL2Rational(new Rational(BigInteger.valueOf(3), BigInteger.valueOf(2)));
-        ACL2Object result = ACL2Object.valueOf(re, im);
+        ACL2Object result = ACL2Object.valueOf(c);
         assertEquals(expResult, result);
     }
 
@@ -318,11 +319,15 @@ public class ACL2ObjectTest
     public void testBinaryPlus_ACL2Complex()
     {
         System.out.println("binaryPlus");
-        ACL2Complex y = new ACL2Complex(new Rational(BigInteger.valueOf(-1), BigInteger.valueOf(5)),
-            new Rational(BigInteger.valueOf(5), BigInteger.valueOf(3)));
+        ACL2Complex y = new ACL2Complex(
+            new Complex(
+                new Rational(BigInteger.valueOf(-1), BigInteger.valueOf(5)),
+                new Rational(BigInteger.valueOf(5), BigInteger.valueOf(3))));
         ACL2Object instance = new ACL2Rational(new Rational(BigInteger.valueOf(1), BigInteger.valueOf(5)));
-        ACL2Object expResult = new ACL2Complex(new Rational(BigInteger.ZERO, BigInteger.ONE),
-            new Rational(BigInteger.valueOf(5), BigInteger.valueOf(3)));
+        ACL2Object expResult = new ACL2Complex(
+            new Complex(
+                new Rational(BigInteger.ZERO, BigInteger.ONE),
+                new Rational(BigInteger.valueOf(5), BigInteger.valueOf(3))));
         ACL2Object result = instance.binaryPlus(y);
         assertEquals(expResult, result);
     }
@@ -376,10 +381,14 @@ public class ACL2ObjectTest
     public void testBinaryStar_ACL2Complex()
     {
         System.out.println("binaryStar");
-        ACL2Complex y = new ACL2Complex(new Rational(BigInteger.ZERO, BigInteger.ONE),
-            new Rational(BigInteger.ONE, BigInteger.ONE));
-        ACL2Object instance = new ACL2Complex(new Rational(BigInteger.ZERO, BigInteger.ONE),
-            new Rational(BigInteger.valueOf(-5), BigInteger.ONE));;
+        ACL2Complex y = new ACL2Complex(
+            new Complex(
+                new Rational(BigInteger.ZERO, BigInteger.ONE),
+                new Rational(BigInteger.ONE, BigInteger.ONE)));
+        ACL2Object instance = new ACL2Complex(
+            new Complex(
+                new Rational(BigInteger.ZERO, BigInteger.ONE),
+                new Rational(BigInteger.valueOf(-5), BigInteger.ONE)));
         ACL2Object expResult = new ACL2Integer(BigInteger.valueOf(5));
         ACL2Object result = instance.binaryStar(y);
         assertEquals(expResult, result);
@@ -392,8 +401,10 @@ public class ACL2ObjectTest
     public void testSignum()
     {
         System.out.println("signum");
-        ACL2Object instance = new ACL2Complex(new Rational(BigInteger.ZERO, BigInteger.ONE),
-            new Rational(BigInteger.ONE, BigInteger.ONE));
+        ACL2Object instance = new ACL2Complex(
+            new Complex(
+                new Rational(BigInteger.ZERO, BigInteger.ONE),
+                new Rational(BigInteger.ONE, BigInteger.ONE)));
         int expResult = 1;
         int result = instance.signum();
         assertEquals(expResult, result);
@@ -448,8 +459,10 @@ public class ACL2ObjectTest
     public void testCompareTo_ACL2Complex()
     {
         System.out.println("compareTo");
-        ACL2Complex y = new ACL2Complex(new Rational(BigInteger.ZERO, BigInteger.ONE),
-            new Rational(BigInteger.ONE, BigInteger.ONE));
+        ACL2Complex y = new ACL2Complex(
+            new Complex(
+                new Rational(BigInteger.ZERO, BigInteger.ONE),
+                new Rational(BigInteger.ONE, BigInteger.ONE)));
         ACL2Object instance = new ACL2Integer(BigInteger.valueOf(-1));
         int expResult = -1;
         int result = instance.compareTo(y);

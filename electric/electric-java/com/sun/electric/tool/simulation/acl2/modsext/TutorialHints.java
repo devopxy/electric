@@ -80,7 +80,7 @@ public class TutorialHints implements DesignHints
         return null;
     }
 
-    private static final ParameterizedModule aluFlop = new ParameterizedModule("tutorial", "flop")
+    private final ParameterizedModule aluFlop = new ParameterizedModule("tutorial", "flop")
     {
         @Override
         protected boolean hasState()
@@ -118,7 +118,7 @@ public class TutorialHints implements DesignHints
         }
     };
 
-    private static final ParameterizedModule boothFlop = new ParameterizedModule("tutorial", "boothflop")
+    private final ParameterizedModule boothFlop = new ParameterizedModule("tutorial", "boothflop")
     {
         @Override
         protected boolean hasState()

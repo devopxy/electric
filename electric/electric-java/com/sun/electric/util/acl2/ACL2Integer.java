@@ -22,7 +22,6 @@
 package com.sun.electric.util.acl2;
 
 import java.math.BigInteger;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -32,26 +31,25 @@ class ACL2Integer extends ACL2Object
 {
 
     final BigInteger v;
-    private static Map<BigInteger, ACL2Integer> allNormed = new HashMap<>();
-    static final ACL2Integer ZERO = intern(BigInteger.ZERO);
 
     ACL2Integer(BigInteger v)
     {
-        this(false, v);
+        this(null, v);
     }
 
-    private ACL2Integer(boolean normed, BigInteger v)
+    private ACL2Integer(HonsManager hm, BigInteger v)
     {
-        super(normed);
+        super(hm);
         this.v = v;
     }
 
-    static ACL2Integer intern(BigInteger v)
+    static ACL2Integer intern(BigInteger v, HonsManager hm)
     {
+        Map<BigInteger, ACL2Integer> allNormed = hm.integers;
         ACL2Integer result = allNormed.get(v);
         if (result == null)
         {
-            result = new ACL2Integer(true, v);
+            result = new ACL2Integer(hm, v);
             allNormed.put(v, result);
         }
         return result;
@@ -194,9 +192,9 @@ class ACL2Integer extends ACL2Object
     }
 
     @Override
-    ACL2Object internImpl()
+    ACL2Object internImpl(HonsManager hm)
     {
-        return intern(v);
+        return intern(v, hm);
     }
 
     @Override

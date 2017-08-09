@@ -719,6 +719,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         testAliases(flattenResult);
         testNormAssigns(compile, builder);
         testAssignsToNetassigns(compile, builder);
+        IndexName.curElabMod = null;
     }
 
     void computeCombinationalInputs(String global)

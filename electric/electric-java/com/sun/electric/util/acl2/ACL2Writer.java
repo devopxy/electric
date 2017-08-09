@@ -53,7 +53,7 @@ public class ACL2Writer
     private final List<ACL2Character> chars = new ArrayList<>();
     private final List<ACL2String> strings = new ArrayList<>();
 
-    private final Map<ACL2String, List<ACL2Symbol>> symbols = new LinkedHashMap<>();
+    private final Map<String, List<ACL2Symbol>> symbols = new LinkedHashMap<>();
 
     private int freeIndex;
 
@@ -252,8 +252,8 @@ public class ACL2Writer
         encodeNat(complexes.size());
         for (ACL2Complex x : complexes)
         {
-            encodeRat(x.re);
-            encodeRat(x.im);
+            encodeRat(x.v.re);
+            encodeRat(x.v.im);
         }
     }
 
@@ -266,17 +266,21 @@ public class ACL2Writer
         }
     }
 
-    private void encodeStr(ACL2String x) throws IOException
+    private void encodeStr(boolean normed, String s) throws IOException
     {
-        int len = x.s.length();
-        boolean normed = x.isNormed();
+        int len = s.length();
         int header = (len << 1) | (normed ? 1 : 0);
         encodeNat(header);
         for (int i = 0; i < len; i++)
         {
-            out.writeByte(x.s.charAt(i));
+            out.writeByte(s.charAt(i));
         }
 
+    }
+
+    private void encodeStr(ACL2String x) throws IOException
+    {
+        encodeStr(x.isNormed(), x.s);
     }
 
     private void encodeStrs() throws IOException
@@ -291,14 +295,14 @@ public class ACL2Writer
     private void encodePackages() throws IOException
     {
         encodeNat(symbols.size());
-        for (Map.Entry<ACL2String, List<ACL2Symbol>> e : symbols.entrySet())
+        for (Map.Entry<String, List<ACL2Symbol>> e : symbols.entrySet())
         {
-            encodeStr(e.getKey());
+            encodeStr(true, e.getKey());
             List<ACL2Symbol> syms = e.getValue();
             encodeNat(syms.size());
             for (ACL2Symbol sym : syms)
             {
-                encodeStr(sym.nm);
+                encodeStr(true, sym.nm);
             }
         }
     }

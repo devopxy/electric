@@ -42,6 +42,7 @@ import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
 import com.sun.electric.tool.user.User;
 import com.sun.electric.util.TextUtils;
+import com.sun.electric.util.acl2.ACL2Object;
 import com.sun.electric.util.acl2.ACL2Reader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -1119,6 +1120,7 @@ public class GenFsmNew extends GenBase
         {
             try
             {
+                ACL2Object.initHonsMananger(designName);
                 DesignHints designHints = cls.newInstance();
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 DesignExt design = new DesignExt(sr.root, designHints);
@@ -1129,6 +1131,9 @@ public class GenFsmNew extends GenBase
             {
                 System.out.println(e.getMessage());
                 return false;
+            } finally
+            {
+                ACL2Object.closeHonsManager();
             }
             return true;
         }

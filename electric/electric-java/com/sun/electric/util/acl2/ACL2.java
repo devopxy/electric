@@ -107,12 +107,12 @@ public class ACL2
         {
             return new ACL2Integer(BigInteger.valueOf(((ACL2Character)x).c));
         }
-        return ACL2Integer.ZERO;
+        return ACL2Object.zero();
     }
 
     public static ACL2Object complex(ACL2Object x, ACL2Object y)
     {
-        return new ACL2Complex(x.ratfix(), y.ratfix());
+        return ACL2Object.valueOf(new Complex(x.ratfix(), y.ratfix()));
     }
 
     public static ACL2Object complex_rationalp(ACL2Object x)
@@ -164,7 +164,7 @@ public class ACL2
 
     public static ACL2Object denominator(ACL2Object x)
     {
-        return new ACL2Integer(x instanceof ACL2Rational ? ((ACL2Rational)x).r.d : BigInteger.ONE);
+        return new ACL2Integer(x instanceof ACL2Rational ? ((ACL2Rational)x).v.d : BigInteger.ONE);
     }
 
     public static ACL2Object equal(ACL2Object x, ACL2Object y)
@@ -181,9 +181,9 @@ public class ACL2
     {
         if (x instanceof ACL2Complex)
         {
-            return ACL2Object.valueOf(((ACL2Complex)x).im);
+            return ACL2Object.valueOf(((ACL2Complex)x).v.im);
         }
-        return ACL2Integer.ZERO;
+        return ACL2Integer.zero();
     }
 
     public static ACL2Object integerp(ACL2Object x)
@@ -208,9 +208,9 @@ public class ACL2
         }
         if (x instanceof ACL2Rational)
         {
-            return new ACL2Integer(((ACL2Rational)x).r.n);
+            return new ACL2Integer(((ACL2Rational)x).v.n);
         }
-        return ACL2Integer.ZERO;
+        return ACL2Integer.zero();
     }
 
     public static ACL2Object rationalp(ACL2Object x)
@@ -222,7 +222,7 @@ public class ACL2
     {
         if (x instanceof ACL2Complex)
         {
-            return ACL2Object.valueOf(((ACL2Complex)x).re);
+            return ACL2Object.valueOf(((ACL2Complex)x).v.re);
         }
         return x.fix();
     }
@@ -236,18 +236,20 @@ public class ACL2
     {
         if (x instanceof ACL2Symbol)
         {
-            return ((ACL2Symbol)x).nm;
+            ACL2Symbol sym = (ACL2Symbol)x;
+            return ACL2String.intern(sym.nm, HonsManager.current.get());
         }
-        return ACL2String.EMPTY;
+        return ACL2Object.emptyStr();
     }
 
     public static ACL2Object symbol_package_name(ACL2Object x)
     {
         if (x instanceof ACL2Symbol)
         {
-            return ((ACL2Symbol)x).pkg.name;
+            ACL2Symbol sym = (ACL2Symbol)x;
+            return ACL2String.intern(sym.pkg.name, HonsManager.current.get());
         }
-        return ACL2String.EMPTY;
+        return ACL2Object.emptyStr();
     }
 
     public static ACL2Object symbolp(ACL2Object x)
@@ -288,6 +290,6 @@ public class ACL2
 
     public static ACL2Object hons(ACL2Object x, ACL2Object y)
     {
-        return ACL2Cons.intern(x, y);
+        return ACL2Cons.intern(x, y, HonsManager.current.get());
     }
 }
