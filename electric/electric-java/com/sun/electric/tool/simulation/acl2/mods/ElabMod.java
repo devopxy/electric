@@ -405,7 +405,8 @@ public class ElabMod
     {
         for (Wire wire : wireTable)
         {
-            Svar<IndexName> svar = builder.newName(offset);
+            IndexName name = builder.newName(offset);
+            Svar<IndexName> svar = builder.newVar(name);
             Lhatom<IndexName> atom = Lhatom.valueOf(svar);
             Lhrange<IndexName> range = new Lhrange<>(wire.width, atom);
             Lhs<IndexName> lhs = new Lhs<>(Collections.singletonList(range));

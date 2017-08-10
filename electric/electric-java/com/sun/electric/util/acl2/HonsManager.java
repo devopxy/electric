@@ -41,7 +41,7 @@ class HonsManager
     final ACL2String EMPTY_STR = ACL2String.intern("", this);
 
     static ThreadLocal<HonsManager> current = new ThreadLocal<>();
-    static final HonsManager DUMMY = new HonsManager("dummy");
+    static final HonsManager GLOBAL = new HonsManager("global");
 
     private HonsManager(String name)
     {

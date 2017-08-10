@@ -158,7 +158,7 @@ class ACL2Symbol extends ACL2Object
 
     private ACL2Symbol(Package pkg, String nm)
     {
-        super(HonsManager.DUMMY);
+        super(hashCodeOf(pkg.name, nm), HonsManager.GLOBAL);
         for (int i = 0; i < nm.length(); i++)
         {
             if (nm.charAt(i) >= 0x100)
@@ -212,15 +212,6 @@ class ACL2Symbol extends ACL2Object
             }
         }
         return true;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        int hash = 3;
-        hash = 97 * hash + nm.hashCode();
-        hash = 97 * hash + pkg.hashCode();
-        return hash;
     }
 
     static class Package

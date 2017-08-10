@@ -2,7 +2,7 @@
  *
  * Electric(tm) VLSI Design System
  *
- * File: ACL2Character.java
+ * File: ACL2Backed.java
  *
  * Copyright (c) 2017, Static Free Software. All rights reserved.
  *
@@ -21,37 +21,20 @@
  */
 package com.sun.electric.util.acl2;
 
+import java.util.Map;
+
 /**
- * ACL2 character.
- * This is an atom. Its value is 8-bit ASCII character.
+ * Java classes marked by this interface has an ACL2Object tree representation.
+ * The hashValue of Java objects implementing this ACL2Backed must be equal to
+ * hashValue of its ACL2Object representation.
  */
-class ACL2Character extends ACL2Object
+public interface ACL2Backed
 {
-    final char c;
-    private static final ACL2Character[] allNormed = new ACL2Character[256];
-
-    static
-    {
-        for (char c = 0; c < allNormed.length; c++)
-        {
-            allNormed[c] = new ACL2Character(c);
-        }
-    }
-
-    private ACL2Character(char c)
-    {
-        super(hashCodeOf(c), HonsManager.GLOBAL);
-        this.c = c;
-    }
-
-    static ACL2Character intern(char c)
-    {
-        return allNormed[c];
-    }
-
-    @Override
-    public String rep()
-    {
-        return "#\\" + c;
-    }
+    /**
+     * Get ACL2Object tree representation of this Java object
+     *
+     * @param cache a cache of already computed representations
+     * @return ACL2Object tree representation
+     */
+    ACL2Object getACL2Object(Map<ACL2Backed, ACL2Object> cache);
 }

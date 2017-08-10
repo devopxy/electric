@@ -36,11 +36,16 @@ import java.math.BigInteger;
  */
 public abstract class ACL2Object
 {
-    final HonsManager normed;
+    private static final int HASH_CODE_NIL = hashCodeOf("COMMON-LISP", "NIL");
+    private static final int HASH_CODE_T = hashCodeOf("COMMON-LISP", "T");
 
-    ACL2Object(HonsManager normed)
+    final int hashCode;
+    final HonsManager honsOwner;
+
+    ACL2Object(int hashCode, HonsManager honsOwner)
     {
-        this.normed = normed;
+        this.hashCode = hashCode;
+        this.honsOwner = honsOwner;
     }
 
     public static ACL2Object valueOf(BigInteger v)
@@ -48,14 +53,42 @@ public abstract class ACL2Object
         return new ACL2Integer(v);
     }
 
+    public static int hashCodeOf(BigInteger v)
+    {
+        return v.hashCode();
+    }
+
     public static ACL2Object valueOf(long v)
     {
         return new ACL2Integer(BigInteger.valueOf(v));
     }
 
+    public static int hashCodeOf(long v)
+    {
+        if (v > Integer.MAX_VALUE)
+        {
+            int hi = (int)(v >> Integer.SIZE);
+            int lo = (int)v;
+            return 31 * hi + lo;
+        } else if (v < Integer.MIN_VALUE)
+        {
+            int hi = (int)((-v) >> Integer.SIZE);
+            int lo = (int)(-v);
+            return -(31 * hi + lo);
+        } else
+        {
+            return (int)v;
+        }
+    }
+
     public static ACL2Object valueOf(int v)
     {
         return new ACL2Integer(BigInteger.valueOf(v));
+    }
+
+    public static int hashCodeOf(int v)
+    {
+        return v;
     }
 
     static ACL2Object valueOf(Rational r)
@@ -73,14 +106,50 @@ public abstract class ACL2Object
         return new ACL2String(s);
     }
 
+    public static int hashCodeOf(String s)
+    {
+        return s.hashCode();
+    }
+
+    public static ACL2Object valueOf(char c)
+    {
+        return ACL2Character.intern(c);
+    }
+
+    public static int hashCodeOf(char c)
+    {
+        return Character.hashCode(c);
+    }
+
     public static ACL2Object valueOf(String pk, String nm)
     {
         return ACL2Symbol.getPackage(pk).getSymbol(nm);
     }
 
+    public static int hashCodeOf(String pk, String nm)
+    {
+        int hash = 3;
+        hash = 97 * hash + nm.hashCode();
+        hash = 97 * hash + pk.hashCode();
+        return hash;
+    }
+
     public static ACL2Object valueOf(boolean v)
     {
         return v ? ACL2Symbol.T : ACL2Symbol.NIL;
+    }
+
+    public static int hashCodeOf(boolean v)
+    {
+        return v ? HASH_CODE_T : HASH_CODE_NIL;
+    }
+
+    public static int hashCodeOfCons(int hashCar, int hashCdr)
+    {
+        int hash = 7;
+        hash = 29 * hash + hashCar;
+        hash = 29 * hash + hashCdr;
+        return hash;
     }
 
     public boolean bool()
@@ -121,10 +190,10 @@ public abstract class ACL2Object
     static ACL2Integer zero()
     {
         HonsManager hm = HonsManager.current.get();
-        if (hm == null)
-        {
-            hm = HonsManager.DUMMY;
-        }
+//        if (hm == null)
+//        {
+//            hm = HonsManager.GLOBAL;
+//        }
         return hm.ZERO;
     }
 
@@ -216,10 +285,10 @@ public abstract class ACL2Object
     static ACL2String emptyStr()
     {
         HonsManager hm = HonsManager.current.get();
-        if (hm == null)
-        {
-            hm = HonsManager.DUMMY;
-        }
+//        if (hm == null)
+//        {
+//            hm = HonsManager.GLOBAL;
+//        }
         return hm.EMPTY_STR;
     }
 
@@ -227,13 +296,7 @@ public abstract class ACL2Object
 
     public boolean isNormed()
     {
-        return normed != null;
-    }
-
-    public ACL2Object intern()
-    {
-        HonsManager hm = HonsManager.current.get();
-        return normed == hm ? this : internImpl(hm);
+        return honsOwner != null;
     }
 
     ACL2Object internImpl(HonsManager hm)
@@ -242,27 +305,9 @@ public abstract class ACL2Object
     }
 
     @Override
-    public boolean equals(Object o)
+    public int hashCode()
     {
-        if (o == this)
-        {
-            return true;
-        }
-        if (o != null && o.getClass() == getClass())
-        {
-            ACL2Object that = (ACL2Object)o;
-            if (this.normed != null && that.normed == this.normed)
-            {
-                return false;
-            }
-            return equalsImpl(that);
-        }
-        return false;
-    }
-
-    boolean equalsImpl(ACL2Object that)
-    {
-        throw new AssertionError(); // should not be called
+        return hashCode;
     }
 
     @Override

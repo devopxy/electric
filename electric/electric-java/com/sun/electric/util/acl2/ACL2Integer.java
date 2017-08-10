@@ -39,7 +39,7 @@ class ACL2Integer extends ACL2Object
 
     private ACL2Integer(HonsManager hm, BigInteger v)
     {
-        super(hm);
+        super(hashCodeOf(v), hm);
         this.v = v;
     }
 
@@ -198,14 +198,20 @@ class ACL2Integer extends ACL2Object
     }
 
     @Override
-    boolean equalsImpl(ACL2Object o)
+    public boolean equals(Object o)
     {
-        return v.equals(((ACL2Integer)o).v);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return v.hashCode();
+        if (o == this)
+        {
+            return true;
+        }
+        if (o instanceof ACL2Integer)
+        {
+            ACL2Integer that = (ACL2Integer)o;
+            if (this.hashCode == that.hashCode && (this.honsOwner == null || this.honsOwner != that.honsOwner))
+            {
+                return this.v.equals(that.v);
+            }
+        }
+        return false;
     }
 }

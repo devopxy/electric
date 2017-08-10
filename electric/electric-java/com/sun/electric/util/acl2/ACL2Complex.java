@@ -30,8 +30,6 @@ import java.util.Map;
 class ACL2Complex extends ACL2Object
 {
     final Complex v;
-//    final Rational re;
-//    final Rational im;
 
     ACL2Complex(Complex v)
     {
@@ -40,7 +38,7 @@ class ACL2Complex extends ACL2Object
 
     private ACL2Complex(HonsManager hm, Complex v)
     {
-        super(hm);
+        super(v.hashCode(), hm);
         if (v.isRational())
         {
             throw new IllegalArgumentException();
@@ -169,14 +167,20 @@ class ACL2Complex extends ACL2Object
     }
 
     @Override
-    boolean equalsImpl(ACL2Object that)
+    public boolean equals(Object o)
     {
-        return v.equals(((ACL2Complex)that).v);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return v.hashCode();
+        if (o == this)
+        {
+            return true;
+        }
+        if (o instanceof ACL2Complex)
+        {
+            ACL2Complex that = (ACL2Complex)o;
+            if (this.hashCode == that.hashCode && (this.honsOwner == null || this.honsOwner != that.honsOwner))
+            {
+                return this.v.equals(that.v);
+            }
+        }
+        return false;
     }
 }

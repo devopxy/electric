@@ -42,11 +42,13 @@ public class ACL2ObjectTest
     @BeforeClass
     public static void setUpClass()
     {
+        ACL2Object.initHonsMananger("ACL2ObjectTest");
     }
 
     @AfterClass
     public static void tearDownClass()
     {
+        ACL2Object.closeHonsManager();
     }
 
     @Before
