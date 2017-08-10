@@ -285,7 +285,12 @@ public class ACL2
 
     public static ACL2Object honscopy(ACL2Object x)
     {
-        return x.intern();
+        if (x instanceof ACL2Symbol || x instanceof ACL2Character)
+        {
+            return x;
+        }
+        HonsManager hm = HonsManager.current.get();
+        return x.honsOwner == hm ? x : x.internImpl(hm);
     }
 
     public static ACL2Object hons(ACL2Object x, ACL2Object y)

@@ -40,7 +40,6 @@ class ACL2Cons extends ACL2Object
      * The right son.
      */
     final ACL2Object cdr;
-    private final int hashCode;
 
     ACL2Cons(ACL2Object car, ACL2Object cdr)
     {
@@ -49,16 +48,22 @@ class ACL2Cons extends ACL2Object
 
     private ACL2Cons(HonsManager hm, ACL2Object car, ACL2Object cdr)
     {
-        super(hm);
+        super(hashCodeOfCons(car.hashCode, cdr.hashCode), hm);
         this.car = car;
         this.cdr = cdr;
-        hashCode = hashCode(car, cdr);
     }
 
     static ACL2Cons intern(ACL2Object car, ACL2Object cdr, HonsManager hm)
     {
-        car = car.intern();
-        cdr = cdr.intern();
+//        if (x.honsOwner == HonsManager.STATIC)
+//        {
+//            return x;
+//        }
+//        HonsManager hm = HonsManager.current.get();
+        //       return x.honsOwner == hm ? x : x.internImpl(hm);
+
+        car = car.honsOwner == hm ? car : car.internImpl(hm);
+        cdr = cdr.honsOwner == hm ? cdr : cdr.internImpl(hm);
         Key key = new Key(car, cdr);
         Map<Key, ACL2Cons> allNormed = hm.conses;
         ACL2Cons result = allNormed.get(key);
@@ -102,42 +107,35 @@ class ACL2Cons extends ACL2Object
     }
 
     @Override
-    boolean equalsImpl(ACL2Object o)
+    public boolean equals(Object o)
     {
-        ACL2Cons x = this;
-        ACL2Cons y = (ACL2Cons)o;
-        while (x.hashCode == y.hashCode && x.car.equals(y.car))
+        if (o == this)
         {
-            if (x.cdr == y.cdr)
+            return true;
+        }
+        if (o instanceof ACL2Cons)
+        {
+            ACL2Cons x = this;
+            ACL2Cons y = (ACL2Cons)o;
+            while (x.hashCode == y.hashCode && x.car.equals(y.car))
             {
-                return true;
+                if (x.cdr == y.cdr)
+                {
+                    return true;
+                }
+                if (x.cdr.honsOwner != null && x.cdr.honsOwner == y.cdr.honsOwner)
+                {
+                    break;
+                }
+                if (!(x.cdr instanceof ACL2Cons) || !(y.cdr instanceof ACL2Cons))
+                {
+                    return x.cdr.equals(y.cdr);
+                }
+                x = (ACL2Cons)x.cdr;
+                y = (ACL2Cons)y.cdr;
             }
-            if (x.cdr.normed != null && x.cdr.normed == y.cdr.normed)
-            {
-                return false;
-            }
-            if (!(x.cdr instanceof ACL2Cons) || !(y.cdr instanceof ACL2Object))
-            {
-                return x.cdr.equals(y.cdr);
-            }
-            x = (ACL2Cons)x.cdr;
-            y = (ACL2Cons)y.cdr;
         }
         return false;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return hashCode;
-    }
-
-    static int hashCode(ACL2Object car, ACL2Object cdr)
-    {
-        int hash = 7;
-        hash = 29 * hash + car.hashCode();
-        hash = 29 * hash + cdr.hashCode();
-        return hash;
     }
 
     static class Key
@@ -149,6 +147,12 @@ class ACL2Cons extends ACL2Object
         {
             this.car = car;
             this.cdr = cdr;
+            assert car.honsOwner != null && cdr.honsOwner != null;
+            assert car.honsOwner == cdr.honsOwner
+                || car instanceof ACL2Symbol
+                || car instanceof ACL2Character
+                || cdr instanceof ACL2Symbol
+                || cdr instanceof ACL2Character;
         }
 
         @Override
@@ -157,7 +161,17 @@ class ACL2Cons extends ACL2Object
             if (o instanceof Key)
             {
                 Key that = (Key)o;
-                return this.car.equals(that.car) && this.cdr.equals(that.cdr);
+                assert this.car.honsOwner == that.car.honsOwner
+                    || this.car instanceof ACL2Symbol
+                    || this.car instanceof ACL2Character
+                    || that.car instanceof ACL2Symbol
+                    || that.car instanceof ACL2Character;
+                assert this.cdr.honsOwner == that.cdr.honsOwner
+                    || this.cdr instanceof ACL2Symbol
+                    || this.cdr instanceof ACL2Character
+                    || that.cdr instanceof ACL2Symbol
+                    || that.cdr instanceof ACL2Character;
+                return this.car == that.car && this.cdr == that.cdr;
             }
             return false;
         }
@@ -165,7 +179,7 @@ class ACL2Cons extends ACL2Object
         @Override
         public int hashCode()
         {
-            return ACL2Cons.hashCode(car, cdr);
+            return hashCodeOfCons(car.hashCode, cdr.hashCode);
         }
     }
 }

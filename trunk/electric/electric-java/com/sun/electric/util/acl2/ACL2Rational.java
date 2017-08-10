@@ -38,7 +38,7 @@ class ACL2Rational extends ACL2Object
 
     private ACL2Rational(HonsManager hm, Rational v)
     {
-        super(hm);
+        super(v.hashCode(), hm);
         if (v.isInteger())
         {
             throw new IllegalArgumentException();
@@ -173,14 +173,20 @@ class ACL2Rational extends ACL2Object
     }
 
     @Override
-    boolean equalsImpl(ACL2Object that)
+    public boolean equals(Object o)
     {
-        return v.equals(((ACL2Rational)that).v);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return v.hashCode();
+        if (o == this)
+        {
+            return true;
+        }
+        if (o instanceof ACL2Rational)
+        {
+            ACL2Rational that = (ACL2Rational)o;
+            if (this.hashCode == that.hashCode && (this.honsOwner == null || this.honsOwner != that.honsOwner))
+            {
+                return this.v.equals(that.v);
+            }
+        }
+        return false;
     }
 }

@@ -33,7 +33,7 @@ import java.util.List;
 /**
  *
  */
-public class IndexName implements SvarName, Svar<IndexName>
+public class IndexName implements SvarName
 {
     private final ACL2Object impl;
 
@@ -76,12 +76,6 @@ public class IndexName implements SvarName, Svar<IndexName>
         return s;
     }
 
-    @Override
-    public IndexName getName()
-    {
-        return this;
-    }
-
     public Name asName()
     {
         return new Name(impl);
@@ -101,33 +95,10 @@ public class IndexName implements SvarName, Svar<IndexName>
     {
         return impl.intValueExact();
     }
-
-    @Override
-    public int getDelay()
-    {
-        return 0;
-    }
-
-    @Override
-    public boolean isNonblocking()
-    {
-        return false;
-    }
-
+    
     public static class SvarBuilder extends SvarImpl.Builder<IndexName>
     {
         private final List<IndexName> cache = new ArrayList<>();
-
-        @Override
-        public Svar<IndexName> newVar(ACL2Object name, int delay, boolean nonblocking)
-        {
-            assert delay >= 0;
-            if (delay == 0 && !nonblocking)
-            {
-                return newName(name);
-            }
-            return super.newVar(name, delay, nonblocking);
-        }
 
         @Override
         public IndexName newName(ACL2Object nameImpl)
@@ -137,15 +108,17 @@ public class IndexName implements SvarName, Svar<IndexName>
 
         public IndexName newName(int index)
         {
-            if (index < 0)
-            {
-                throw new IllegalArgumentException();
-            }
             while (index >= cache.size())
             {
-                cache.add(new IndexName(cache.size()));
+                cache.add(null);
             }
-            return cache.get(index);
+            IndexName name = cache.get(index);
+            if (name == null)
+            {
+                name = new IndexName(index);
+                cache.set(index, name);
+            }
+            return name;
         }
 
         Svar<IndexName> setIndex(Svar<IndexName> svar, int index)
@@ -153,10 +126,6 @@ public class IndexName implements SvarName, Svar<IndexName>
             if (index < 0)
             {
                 throw new IllegalArgumentException();
-            }
-            if (svar.getDelay() == 0 && !svar.isNonblocking())
-            {
-                return newName(index);
             }
             return newVar(ACL2Object.valueOf(index), svar.getDelay(), svar.isNonblocking());
         }

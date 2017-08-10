@@ -520,7 +520,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 assert rsh == 0 && wid == 0;
             } else
             {
-                Svar<IndexName> newSvar = builder.newName(offset + index);
+                IndexName name = builder.newName(offset + index);
+                Svar<IndexName> newSvar = builder.newVar(name);
                 newRanges.add(new Lhrange<>(wid, Lhatom.valueOf(newSvar, rsh)));
             }
         }

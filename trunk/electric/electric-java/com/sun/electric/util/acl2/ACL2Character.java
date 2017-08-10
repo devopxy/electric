@@ -27,7 +27,6 @@ package com.sun.electric.util.acl2;
  */
 class ACL2Character extends ACL2Object
 {
-
     final char c;
     private static final ACL2Character[] allNormed = new ACL2Character[256];
 
@@ -41,7 +40,7 @@ class ACL2Character extends ACL2Object
 
     private ACL2Character(char c)
     {
-        super(HonsManager.DUMMY);
+        super(hashCodeOf(c), HonsManager.GLOBAL);
         this.c = c;
     }
 
@@ -54,11 +53,5 @@ class ACL2Character extends ACL2Object
     public String rep()
     {
         return "#\\" + c;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return 73 + c;
     }
 }

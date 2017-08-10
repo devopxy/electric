@@ -119,6 +119,11 @@ public interface Svar<N extends SvarName>
             return newVar(name, delay, false);
         }
 
+        default Svar<N> newVar(N name)
+        {
+            return newVar(name, 0, false);
+        }
+
         default Svar<N> newVar(N name, int delay, boolean nonblocking)
         {
             ACL2Object nameImpl = name.getACL2Object();

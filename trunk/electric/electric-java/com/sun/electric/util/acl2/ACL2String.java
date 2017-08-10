@@ -39,7 +39,7 @@ class ACL2String extends ACL2Object
 
     private ACL2String(HonsManager hm, String s)
     {
-        super(hm);
+        super(hashCodeOf(s), hm);
         for (int i = 0; i < s.length(); i++)
         {
             if (s.charAt(i) >= 0x100)
@@ -81,15 +81,20 @@ class ACL2String extends ACL2Object
     }
 
     @Override
-    boolean equalsImpl(ACL2Object that)
+    public boolean equals(Object o)
     {
-        return s.equals(((ACL2String)that).s);
+        if (o == this)
+        {
+            return true;
+        }
+        if (o instanceof ACL2String)
+        {
+            ACL2String that = (ACL2String)o;
+            if (this.hashCode == that.hashCode && (this.honsOwner == null || this.honsOwner != that.honsOwner))
+            {
+                return this.s.equals(that.s);
+            }
+        }
+        return false;
     }
-
-    @Override
-    public int hashCode()
-    {
-        return s.hashCode();
-    }
-
 }
