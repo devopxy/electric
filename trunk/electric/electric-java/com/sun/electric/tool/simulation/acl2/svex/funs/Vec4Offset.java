@@ -40,7 +40,7 @@ public class Vec4Offset<N extends SvarName> extends SvexCall<N>
     public static final Function FUNCTION = new Function();
     public final Svex<N> x;
 
-    public Vec4Offset(Svex<N> x)
+    private Vec4Offset(Svex<N> x)
     {
         super(FUNCTION, x);
         this.x = x;

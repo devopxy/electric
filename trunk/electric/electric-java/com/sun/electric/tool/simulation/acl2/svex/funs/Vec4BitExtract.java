@@ -25,6 +25,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
@@ -43,7 +44,7 @@ public class Vec4BitExtract<N extends SvarName> extends SvexCall<N>
     public final Svex<N> index;
     public final Svex<N> x;
 
-    public Vec4BitExtract(Svex<N> index, Svex<N> x)
+    private Vec4BitExtract(Svex<N> index, Svex<N> x)
     {
         super(FUNCTION, index, x);
         this.index = index;
@@ -51,7 +52,7 @@ public class Vec4BitExtract<N extends SvarName> extends SvexCall<N>
     }
 
     @Override
-    public Svex<N> lhsPreproc()
+    public Svex<N> lhsPreproc(SvexManager<N> sm)
     {
         if (index instanceof SvexQuote)
         {
@@ -61,12 +62,12 @@ public class Vec4BitExtract<N extends SvarName> extends SvexCall<N>
                 int iv = ((Vec2)ival).getVal().intValueExact();
                 if (iv >= 0)
                 {
-                    Svex<N> svexRsh = new Vec4Rsh<>(index, x.lhsPreproc());
-                    return new Vec4Concat<>(SvexQuote.valueOf(1), svexRsh, SvexQuote.valueOf(0));
+                    Svex<N> svexRsh = sm.newCall(Vec4Rsh.FUNCTION, index, x.lhsPreproc(sm));
+                    return sm.newCall(Vec4Concat.FUNCTION, SvexQuote.valueOf(1), svexRsh, SvexQuote.valueOf(0));
                 }
             }
         }
-        return super.lhsPreproc();
+        return super.lhsPreproc(sm);
     }
 
     public static class Function extends SvexFunction

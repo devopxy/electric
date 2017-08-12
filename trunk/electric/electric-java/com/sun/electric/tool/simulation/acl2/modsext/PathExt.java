@@ -46,7 +46,6 @@ public abstract class PathExt implements SvarName
     final Path b;
 
     final ModuleExt parent;
-//    public final WireExt wire;
     final int width;
     private final Bit[] bits;
     final Bit[] parentBits;
@@ -56,7 +55,6 @@ public abstract class PathExt implements SvarName
     {
         this.b = b;
         this.parent = parent;
-//        this.wire = wire;
         this.width = width;
         bits = new Bit[width];
         parentBits = new Bit[width];
@@ -64,14 +62,14 @@ public abstract class PathExt implements SvarName
         {
             parentBits[bit] = bits[bit] = new Bit(bit);
         }
-        Lhrange<PathExt> range = new Lhrange<>(width, Lhatom.valueOf(parent.newVar(this, 0, false)));
+        Lhrange<PathExt> range = new Lhrange<>(width, Lhatom.valueOf(parent.sm.getVar(this)));
         namedLhs = new Lhs<>(Collections.singletonList(range));
     }
 
     @Override
-    public ACL2Object getACL2Object()
+    public boolean isSimpleSvarName()
     {
-        return b.getACL2Object();
+        return b.isSimpleSvarName();
     }
 
     public String showFinePortDeps(Map<Object, Set<Object>> graph0, Map<Object, Set<Object>> graph1)
@@ -82,6 +80,20 @@ public abstract class PathExt implements SvarName
     List<Map<Svar<PathExt>, BigInteger>> gatherFineBitDeps(BitSet stateDeps, Map<Object, Set<Object>> graph)
     {
         return parent.gatherFineBitDeps(stateDeps, bits, graph);
+    }
+
+    @Override
+    public int hashCode() // equals(object o) is default
+    {
+        return b.hashCode();
+    }
+
+    @Override
+    public ACL2Object getACL2Object()
+    {
+        ACL2Object result = b.getACL2Object();
+        assert result.hashCode() == hashCode();
+        return b.getACL2Object();
     }
 
     @Override
@@ -101,7 +113,7 @@ public abstract class PathExt implements SvarName
 
     public Svar<PathExt> getVar(int delay)
     {
-        return parent.newVar(this, delay, false);
+        return parent.sm.getVar(this, delay, false);
     }
 
     public Bit getBit(int bit)

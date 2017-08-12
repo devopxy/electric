@@ -22,7 +22,9 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -64,7 +66,7 @@ public class ModDb
         return modnameIdxes.get(modName);
     }
 
-    public Map<ModName, Module<Address>> modalistNamedToIndex(Map<ModName, Module<Address>> modalist, Address.SvarBuilder builder)
+    public Map<ModName, Module<Address>> modalistNamedToIndex(Map<ModName, Module<Address>> modalist)
     {
         Map<ModName, Module<Address>> result = new LinkedHashMap<>();
         for (Map.Entry<ModName, Module<Address>> e : modalist.entrySet())
@@ -72,7 +74,7 @@ public class ModDb
             ModName modName = e.getKey();
             Module<Address> module = e.getValue();
             ElabMod modIdx = modnameIdxes.get(modName);
-            Module<Address> newModule = modIdx.moduleNamedToIndex(module, builder);
+            Module<Address> newModule = modIdx.moduleNamedToIndex(module);
             result.put(modName, newModule);
         }
         return result;
@@ -110,24 +112,29 @@ public class ModDb
         public final Map<Lhs<IndexName>, Lhs<IndexName>> aliaspairs = new LinkedHashMap<>();
         public final Map<Lhs<IndexName>, Driver<IndexName>> assigns = new LinkedHashMap<>();
         public final IndexName.SvarBuilder builder = new IndexName.SvarBuilder();
+        public final SvexManager<IndexName> sm = new SvexManager<>();
         public LhsArr aliases;
 
         public ACL2Object aliaspairsToACL2Object()
         {
+            Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
             ACL2Object alist = NIL;
             for (Map.Entry<Lhs<IndexName>, Lhs<IndexName>> e : aliaspairs.entrySet())
             {
-                alist = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), alist);
+                alist = cons(cons(e.getKey().getACL2Object(backedCache),
+                    e.getValue().getACL2Object(backedCache)), alist);
             }
             return Util.revList(alist);
         }
 
         public ACL2Object assignsToACL2Object()
         {
+            Map<ACL2Backed,ACL2Object> backedCache = new HashMap<>();
             ACL2Object alist = NIL;
             for (Map.Entry<Lhs<IndexName>, Driver<IndexName>> e : assigns.entrySet())
             {
-                alist = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), alist);
+                alist = cons(cons(e.getKey().getACL2Object(backedCache),
+                    e.getValue().getACL2Object(backedCache)), alist);
             }
             return Util.revList(alist);
         }

@@ -26,6 +26,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
@@ -44,7 +45,7 @@ public class Vec4ZeroExt<N extends SvarName> extends SvexCall<N>
     public final Svex<N> width;
     public final Svex<N> x;
 
-    public Vec4ZeroExt(Svex<N> width, Svex<N> x)
+    private Vec4ZeroExt(Svex<N> width, Svex<N> x)
     {
         super(FUNCTION, width, x);
         this.width = width;
@@ -66,11 +67,11 @@ public class Vec4ZeroExt<N extends SvarName> extends SvexCall<N>
     }
 
     @Override
-    public Svex<N> lhsPreproc()
+    public Svex<N> lhsPreproc(SvexManager<N> sm)
     {
-        Svex<N> newWidth = width.lhsPreproc();
-        Svex<N> newX = x.lhsPreproc();
-        return new Vec4Concat<>(newWidth, newX, SvexQuote.valueOf(0));
+        Svex<N> newWidth = width.lhsPreproc(sm);
+        Svex<N> newX = x.lhsPreproc(sm);
+        return sm.newCall(Vec4Concat.FUNCTION, newWidth, newX, SvexQuote.valueOf(0));
     }
 
     public static class Function extends SvexFunction
@@ -87,7 +88,7 @@ public class Vec4ZeroExt<N extends SvarName> extends SvexCall<N>
         }
 
         @Override
-        public <N extends SvarName> Svex<N> callStar(Svex<N>[] args)
+        public <N extends SvarName> Svex<N> callStar(SvexManager<N> sm, Svex<N>[] args)
         {
             assert args.length == 2;
             Svex<N> width = args[0];
@@ -99,11 +100,11 @@ public class Vec4ZeroExt<N extends SvarName> extends SvexCall<N>
                     BigInteger wV = ((Vec2)wVal).getVal();
                     if (wV.signum() >= 0)
                     {
-                        return args[1].zerox(wV.intValueExact());
+                        return args[1].zerox(sm, wV.intValueExact());
                     }
                 }
             }
-            return super.callStar(args);
+            return super.callStar(sm, args);
         }
 
         @Override
@@ -128,7 +129,7 @@ public class Vec4ZeroExt<N extends SvarName> extends SvexCall<N>
                     if (x.isVec2())
                     {
                         BigInteger xv = ((Vec2)x).getVal();
-                        return new Vec2(xv.and(mask));
+                        return Vec2.valueOf(xv.and(mask));
                     }
                     return Vec4.valueOf(
                         x.getUpper().and(mask),

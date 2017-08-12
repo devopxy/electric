@@ -42,7 +42,7 @@ public class Vec4Lt<N extends SvarName> extends SvexCall<N>
     public final Svex<N> x;
     public final Svex<N> y;
 
-    public Vec4Lt(Svex<N> x, Svex<N> y)
+    private Vec4Lt(Svex<N> x, Svex<N> y)
     {
         super(FUNCTION, x, y);
         this.x = x;

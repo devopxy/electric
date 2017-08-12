@@ -30,7 +30,6 @@ import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
 import com.sun.electric.tool.simulation.acl2.mods.Wiretype;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
-import static com.sun.electric.util.acl2.ACL2.*;
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.Comparator;
@@ -57,10 +56,10 @@ public class WireExt extends PathExt
         super(parent, new Path.Wire(b.name), b.width);
         this.b = b;
         this.index = index;
-        if (!stringp(b.name.impl).bool())
+        if (!b.name.isString())
         {
-            Util.check(integerp(b.name.impl).bool() || Util.KEYWORD_SELF.equals(b.name.impl));
-            Util.check(parent.modName.isCoretype);
+            Util.check(b.name.isInteger() || b.name.equals(Name.SELF));
+            Util.check(parent.modName.isCoretype());
         }
         Util.check(b.delay == 0);
         Util.check(!b.revp);
@@ -147,12 +146,6 @@ public class WireExt extends PathExt
                 && this.parent == that.parent;
         }
         return false;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getName().hashCode();
     }
 
     @Override

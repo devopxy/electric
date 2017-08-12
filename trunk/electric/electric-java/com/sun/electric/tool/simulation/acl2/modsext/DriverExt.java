@@ -154,7 +154,7 @@ public class DriverExt
     void computeDeps(int width, boolean clkVal, Map<Svar<PathExt>, Vec4> env,
         Map<SvexCall<PathExt>, SvexCall<PathExt>> patchMemoize)
     {
-        Svex<PathExt> patched = getSvex().patch(env, patchMemoize);
+        Svex<PathExt> patched = getSvex().patch(env, parent.sm, patchMemoize);
         BigInteger mask = BigIntegerUtil.logheadMask(width);
         Map<Svar<PathExt>, BigInteger> varsWithMasks = patched.collectVarsWithMasks(mask, true);
         if (clkVal)

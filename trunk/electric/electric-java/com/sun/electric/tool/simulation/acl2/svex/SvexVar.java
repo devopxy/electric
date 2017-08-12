@@ -24,11 +24,12 @@ package com.sun.electric.tool.simulation.acl2.svex;
 import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
 import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
-import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A variable, which represents a 4vec.
@@ -39,7 +40,6 @@ import java.util.Set;
 public class SvexVar<N extends SvarName> extends Svex<N>
 {
     public Svar<N> svar;
-    private final ACL2Object impl;
 
     public SvexVar(Svar<N> svar)
     {
@@ -48,39 +48,46 @@ public class SvexVar<N extends SvarName> extends Svex<N>
             throw new NullPointerException();
         }
         this.svar = svar;
-        impl = honscopy(svar.getACL2Object());
     }
 
     @Override
-    public ACL2Object getACL2Object()
-    {
-        return impl;
-    }
-
-    @Override
-    public <N1 extends SvarName> Svex<N1> convertVars(Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache)
+    public <N1 extends SvarName> Svex<N1> convertVars(Function<N, N1> rename, SvexManager<N1> sm, Map<Svex<N>, Svex<N1>> cache)
     {
         Svex<N1> svex = cache.get(this);
         if (svex == null)
         {
-            Svar<N1> newVar = builder.newVar(svar);
-            svex = new SvexVar<>(newVar);
+            N1 newName = rename.apply(svar.getName());
+            svex = sm.getSvex(newName, svar.getDelay(), svar.isNonblocking());
             cache.put(this, svex);
         }
         return svex;
     }
 
     @Override
-    public <N1 extends SvarName> Svex<N1> addDelay(int delay, Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache)
+    public Svex<N> addDelay(int delay, SvexManager<N> sm, Map<Svex<N>, Svex<N>> cache)
     {
-        Svex<N1> svex = cache.get(this);
+        Svex<N> svex = cache.get(this);
         if (svex == null)
         {
-            svex = new SvexVar<>(builder.addDelay(svar, delay));
+            svex = sm.getSvex(svar.getName(), delay + svar.getDelay(), svar.isNonblocking());
             cache.put(this, svex);
         }
         return svex;
     }
+
+    /*
+    @Override
+    public <N1 extends SvarName> Svex<N1> addDelay(int delay, Svar.Builder<N1> builder, SvexManager<N1> sm, Map<Svex<N>, Svex<N1>> cache)
+    {
+        Svex<N1> svex = cache.get(this);
+        if (svex == null)
+        {
+            svex = sm.getSvex(svar.getName(), delay + svar.getDelay(), svar.isNonblocking());
+            cache.put(this, svex);
+        }
+        return svex;
+    }
+     */
 
     @Override
     protected void collectVarsRev(Set<Svar<N>> result, Set<SvexCall<N>> visited)
@@ -101,7 +108,7 @@ public class SvexVar<N extends SvarName> extends Svex<N>
     }
 
     @Override
-    public Svex<N> patch(Map<Svar<N>, Vec4> subst, Map<SvexCall<N>, SvexCall<N>> memoize)
+    public Svex<N> patch(Map<Svar<N>, Vec4> subst, SvexManager<N> sm, Map<SvexCall<N>, SvexCall<N>> memoize)
     {
         Vec4 val = subst.get(svar);
         return val != null ? SvexQuote.valueOf(val) : this;
@@ -136,12 +143,28 @@ public class SvexVar<N extends SvarName> extends Svex<N>
     @Override
     public boolean equals(Object o)
     {
-        return o instanceof SvexVar && svar.equals(((SvexVar)o).svar);
+        if (this == o)
+        {
+            return true;
+        }
+        if (o instanceof SvexVar)
+        {
+            SvexVar<?> that = (SvexVar<?>)o;
+            return this.hashCode() == that.hashCode()
+                && this.svar.equals(that.svar);
+        }
+        return false;
     }
 
     @Override
     public int hashCode()
     {
         return svar.hashCode();
+    }
+
+    @Override
+    public ACL2Object getACL2Object(Map<ACL2Backed, ACL2Object> backedCache)
+    {
+        return svar.getACL2Object(backedCache);
     }
 }

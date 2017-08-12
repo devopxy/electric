@@ -25,13 +25,16 @@ import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * An atom with width from left-hand side of SVEX assignment.
@@ -39,61 +42,49 @@ import java.util.Map;
  *
  * @param <N> Type of name of Svex variables
  */
-public class Lhrange<N extends SvarName>
+public class Lhrange<N extends SvarName> implements ACL2Backed
 {
     private final int w;
     private final Lhatom<N> atom;
-
-    Lhrange(Svar.Builder<N> builder, ACL2Object impl, int lsh)
-    {
-        if (consp(impl).bool())
-        {
-            if (integerp(car(impl)).bool())
-            {
-                w = car(impl).intValueExact();
-                atom = Lhatom.valueOf(builder, cdr(impl));
-            } else
-            {
-                w = 1;
-                atom = Lhatom.valueOf(builder, impl);
-            }
-        } else
-        {
-            w = 1;
-            atom = Lhatom.valueOf(builder, impl);
-        }
-        Util.check(w >= 1);
-    }
+    private final int hashCode;
 
     public Lhrange(int w, Lhatom<N> atom)
     {
         this.w = w;
         this.atom = atom;
+        hashCode = w == 1 ? atom.hashCode() : ACL2Object.hashCodeOfCons(ACL2Object.hashCodeOf(w), atom.hashCode());
     }
 
-    public ACL2Object getACL2Object()
+    public static <N extends SvarName> Lhrange<N> fromACL2(SvarName.Builder<N> snb, SvexManager<N> sm, ACL2Object impl)
     {
-        ACL2Object atomImpl = atom.getACL2Object();
-        return w == 1 ? atomImpl : cons(ACL2Object.valueOf(w), atomImpl);
+        int w = 1;
+        ACL2Object atomImpl = impl;
+        if (consp(impl).bool() && integerp(car(impl)).bool())
+        {
+            w = car(impl).intValueExact();
+            atomImpl = cdr(impl);
+        }
+        Lhatom<N> atom = Lhatom.fromACL2(snb, sm, atomImpl);
+        return new Lhrange<>(w, atom);
     }
 
-    public <N1 extends SvarName> Lhrange<N1> convertVars(Svar.Builder<N1> builder)
+    public <N1 extends SvarName> Lhrange<N1> convertVars(Function<N,N1> renameMap, SvexManager<N1> sm)
     {
-        return new Lhrange<>(w, atom.convertVars(builder));
+        return new Lhrange<>(w, atom.convertVars(renameMap, sm));
     }
 
     public Vec4 eval(Map<Svar<N>, Vec4> env)
     {
-        return Vec4Concat.FUNCTION.apply(new Vec2(w), atom.eval(env), Vec4.Z);
+        return Vec4Concat.FUNCTION.apply(Vec2.valueOf(w), atom.eval(env), Vec4.Z);
     }
 
-    public Svex<N> toSvex()
+    public Svex<N> toSvex(SvexManager<N> sm)
     {
         Svex<N>[] args = Svex.newSvexArray(3);
         args[0] = SvexQuote.valueOf(w);
-        args[1] = atom.toSvex();
+        args[1] = atom.toSvex(sm);
         args[2] = SvexQuote.Z();
-        return Vec4Concat.FUNCTION.build(args);
+        return sm.newCall(Vec4Concat.FUNCTION, args);
     }
 
     public Lhatom<N> nextbit()
@@ -153,6 +144,38 @@ public class Lhrange<N extends SvarName>
     }
 
     @Override
+    public boolean equals(Object o)
+    {
+        if (this == o)
+        {
+            return true;
+        }
+        if (o instanceof Lhrange)
+        {
+            Lhrange<?> that = (Lhrange<?>)o;
+            return this.hashCode == that.hashCode
+                && this.atom.equals(that.atom)
+                && this.w == that.w;
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return hashCode;
+    }
+
+    @Override
+    public ACL2Object getACL2Object(Map<ACL2Backed, ACL2Object> backedCache)
+    {
+        ACL2Object atomImpl = atom.getACL2Object(backedCache);
+        ACL2Object result = w == 1 ? atomImpl : hons(ACL2Object.valueOf(w), atomImpl);
+        assert result.hashCode() == hashCode;
+        return result;
+    }
+
+    @Override
     public String toString()
     {
         Svar<N> name = getVar();
@@ -163,25 +186,5 @@ public class Lhrange<N extends SvarName>
         {
             return w + "'Z";
         }
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (o instanceof Lhrange)
-        {
-            Lhrange<?> that = (Lhrange<?>)o;
-            return this.atom.equals(that.atom) && this.w == that.w;
-        }
-        return false;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        int hash = 7;
-        hash = 79 * hash + w;
-        hash = 79 * hash + atom.hashCode();
-        return hash;
     }
 }

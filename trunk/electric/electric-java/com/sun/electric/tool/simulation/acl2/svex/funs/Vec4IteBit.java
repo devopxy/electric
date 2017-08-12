@@ -43,7 +43,7 @@ public class Vec4IteBit<N extends SvarName> extends SvexCall<N>
     public final Svex<N> then;
     public final Svex<N> els;
 
-    public Vec4IteBit(Svex<N> test, Svex<N> then, Svex<N> els)
+    private Vec4IteBit(Svex<N> test, Svex<N> then, Svex<N> els)
     {
         super(FUNCTION, test, then, els);
         this.test = test;

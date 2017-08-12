@@ -21,15 +21,21 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex;
 
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 
 /**
  * Name of SVEX variable
  */
-public interface SvarName
+public interface SvarName extends ACL2Backed
 {
-    ACL2Object getACL2Object();
+    boolean isSimpleSvarName();
 
     String toString(BigInteger mask);
+
+    public static interface Builder<N extends SvarName>
+    {
+        N fromACL2(ACL2Object impl);
+    }
 }

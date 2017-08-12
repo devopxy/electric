@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
@@ -36,6 +37,7 @@ import java.util.Map;
 /**
  * Right “arithmetic” shift of 4vecs.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-RSH>.
+ * @param <N> Type of name of Svex variables
  */
 public class Vec4Rsh<N extends SvarName> extends SvexCall<N>
 {
@@ -43,7 +45,7 @@ public class Vec4Rsh<N extends SvarName> extends SvexCall<N>
     public final Svex<N> shift;
     public final Svex<N> x;
 
-    public Vec4Rsh(Svex<N> shift, Svex<N> x)
+    private Vec4Rsh(Svex<N> shift, Svex<N> x)
     {
         super(FUNCTION, shift, x);
         this.shift = shift;
@@ -94,7 +96,7 @@ public class Vec4Rsh<N extends SvarName> extends SvexCall<N>
     }
 
     @Override
-    public Svex<N> lhsrewriteAux(int shift, int w)
+    public Svex<N> lhsrewriteAux(SvexManager<N> sm, int shift, int w)
     {
         if (this.shift instanceof SvexQuote)
         {
@@ -103,19 +105,19 @@ public class Vec4Rsh<N extends SvarName> extends SvexCall<N>
             {
                 int sv = ((Vec2)sval).getVal().intValueExact();
                 if (sv >= 0) {
-                    return x.lhsrewriteAux(shift + sv, w).rsh(sv);
+                    return x.lhsrewriteAux(sm, shift + sv, w).rsh(sm, sv);
                 }
             }
         }
-        return super.lhsrewriteAux(shift, w);
+        return super.lhsrewriteAux(sm, shift, w);
     }
 
     @Override
-    public Svex<N> lhsPreproc()
+    public Svex<N> lhsPreproc(SvexManager<N> sm)
     {
-        Svex<N> newShift = shift.lhsPreproc();
-        Svex<N> newX = x.lhsPreproc();
-        return new Vec4Rsh<>(newShift, newX);
+        Svex<N> newShift = shift.lhsPreproc(sm);
+        Svex<N> newX = x.lhsPreproc(sm);
+        return sm.newCall(Vec4Rsh.FUNCTION, newShift, newX);
     }
 
     public static class Function extends SvexFunction
@@ -132,7 +134,7 @@ public class Vec4Rsh<N extends SvarName> extends SvexCall<N>
         }
 
         @Override
-        public <N extends SvarName> Svex<N> callStar(Svex<N>[] args)
+        public <N extends SvarName> Svex<N> callStar(SvexManager<N> sm, Svex<N>[] args)
         {
             assert args.length == 2;
             Svex<N> sh = args[0];
@@ -144,11 +146,11 @@ public class Vec4Rsh<N extends SvarName> extends SvexCall<N>
                     BigInteger shV = ((Vec2)shVal).getVal();
                     if (shV.signum() >= 0)
                     {
-                        return args[1].rsh(shV.intValueExact());
+                        return args[1].rsh(sm, shV.intValueExact());
                     }
                 }
             }
-            return super.callStar(args);
+            return super.callStar(sm, args);
         }
 
         @Override

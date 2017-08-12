@@ -124,9 +124,9 @@ public abstract class SvexFunction
 
     public abstract <N extends SvarName> SvexCall<N> build(Svex<N>[] args);
 
-    public <N extends SvarName> Svex<N> callStar(Svex<N>[] args)
+    public <N extends SvarName> Svex<N> callStar(SvexManager<N> sm, Svex<N>[] args)
     {
-        return build(args);
+        return sm.newCall(this, args);
     }
 
     public abstract Vec4 apply(Vec4... args);
@@ -143,7 +143,7 @@ public abstract class SvexFunction
         if (src.isVec2())
         {
             BigInteger srcv = ((Vec2)src).getVal();
-            return new Vec2(srcv.shiftLeft(amt));
+            return Vec2.valueOf(srcv.shiftLeft(amt));
         }
         return Vec4.valueOf(
             src.getUpper().shiftLeft(amt),
@@ -228,7 +228,8 @@ public abstract class SvexFunction
         public <N extends SvarName> SvexCall<N> build(Svex<N>[] args)
         {
             assert args.length == arity;
-            return SvexCall.newCall(this, args);
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+//            return new SvexCall<N>(this, args) {};
         }
 
         @Override

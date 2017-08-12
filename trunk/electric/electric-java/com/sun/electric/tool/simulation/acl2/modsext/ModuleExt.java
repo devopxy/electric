@@ -38,15 +38,15 @@ import com.sun.electric.tool.simulation.acl2.mods.Wire;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
-import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Res;
-import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 
@@ -65,12 +65,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Function;
 
 /**
  * SV module.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODULE>.
  */
-public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<Svar<PathExt>>
+public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparator<Svar<PathExt>>
 {
     // State marker in dependency graphs
     static final String STATE = "STATE";
@@ -85,6 +86,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
 
     final Map<Name, WireExt> wiresIndex = new HashMap<>();
     final Map<Name, ModInstExt> instsIndex = new HashMap<>();
+    final SvexManager<PathExt> sm = new SvexManager<>();
     final ElabMod elabMod;
     final List<ModExport> exports = new ArrayList();
     int useCount;
@@ -95,6 +97,30 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
     final Set<WireExt> stateWires = new LinkedHashSet<>();
     final Map<Svar<PathExt>, BigInteger> stateVars0 = new LinkedHashMap<>();
     final Map<Svar<PathExt>, BigInteger> stateVars1 = new LinkedHashMap<>();
+
+    final Function<Address, PathExt> rename = new Function<Address, PathExt>()
+    {
+        @Override
+        public PathExt apply(Address address)
+        {
+            assert address.index == Address.INDEX_NIL;
+            assert address.scope == 0;
+            Path path = address.path;
+            if (path instanceof Path.Wire)
+            {
+                Path.Wire pw = (Path.Wire)path;
+                WireExt wire = wiresIndex.get(pw.name);
+                assert wire != null;
+                return wire;
+            } else
+            {
+                Path.Scope ps = (Path.Scope)path;
+                ModInstExt inst = instsIndex.get(ps.namespace);
+                assert inst != null;
+                return inst.newPortInst(ps);
+            }
+        }
+    };
 
     ModuleExt(DesignExt design, ModName modName)
     {
@@ -128,8 +154,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         int driverCount = 0;
         for (Map.Entry<Lhs<Address>, Driver<Address>> e : b.assigns.entrySet())
         {
-            Lhs<PathExt> lhs = e.getKey().convertVars(this);
-            Driver<PathExt> driver = e.getValue().convertVars(this, svexCache);
+            Lhs<PathExt> lhs = e.getKey().convertVars(rename, sm);
+            Driver<PathExt> driver = e.getValue().convertVars(rename, sm, svexCache);
             DriverExt drv = new DriverExt(this, driver, "dr" + driverCount++);
             DriverExt old = assigns.put(lhs, drv);
             Util.check(old == null);
@@ -166,8 +192,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
 
         for (Map.Entry<Lhs<Address>, Lhs<Address>> e : b.aliaspairs.entrySet())
         {
-            Lhs<PathExt> lhs = e.getKey().convertVars(this);
-            Lhs<PathExt> rhs = e.getValue().convertVars(this);
+            Lhs<PathExt> lhs = e.getKey().convertVars(rename, sm);
+            Lhs<PathExt> rhs = e.getValue().convertVars(rename, sm);
             Util.check(lhs.ranges.size() == 1);
             Lhrange<PathExt> lhsRange = lhs.ranges.get(0);
             Util.check(lhsRange.getRsh() == 0);
@@ -217,16 +243,16 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             } else
             {
                 WireExt lw = (WireExt)lhsVar.getName();
-                if (stringp(lw.getName().getACL2Object()).bool())
+                if (lw.getName().isString())
                 {
                     Util.check(rhs.ranges.size() == 1);
                     PathExt.PortInst rhsPi = (PathExt.PortInst)rhs.ranges.get(0).getVar().getName();
-                    Util.check(rhsPi.inst.getModname().isCoretype);
+                    Util.check(rhsPi.inst.getModname().isCoretype());
                     rhsPi.setDriver(lhs);
 //                    System.out.println("lw string " + lw + " in " + modName);
-                } else if (integerp(lw.getName().getACL2Object()).bool())
+                } else if (lw.getName().isInteger())
                 {
-                    Util.check(modName.isCoretype);
+                    Util.check(modName.isCoretype());
                     Util.check(rhs.ranges.size() == 1);
                     Lhrange<PathExt> rhsRange = rhs.ranges.get(0);
                     WireExt rhsLw = (WireExt)rhsRange.getVar().getName();
@@ -393,7 +419,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         return builder.newVar(ACL2Object.valueOf(index), x.getDelay(), x.isNonblocking());
     }
 
-    public Svex<IndexName> absindexed(Svex<PathExt> x, IndexName.SvarBuilder builder,
+    public Svex<IndexName> absindexed(Svex<PathExt> x, IndexName.SvarBuilder builder, SvexManager<IndexName> sm,
         Map<Svex<PathExt>, Svex<IndexName>> svexCache)
     {
         Svex<IndexName> result = svexCache.get(x);
@@ -414,9 +440,9 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 Svex<IndexName>[] newArgs = Svex.newSvexArray(args.length);
                 for (int i = 0; i < args.length; i++)
                 {
-                    newArgs[i] = absindexed(args[i], builder, svexCache);
+                    newArgs[i] = absindexed(args[i], builder, sm, svexCache);
                 }
-                result = SvexCall.newCall(sc.fun, newArgs);
+                result = sm.newCall(sc.fun, newArgs);
             }
             svexCache.put(x, result);
         }
@@ -459,7 +485,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
     {
         int idx = var.getName().getIndex();
         PathExt name = findPathExtByIndex(idx);
-        return newVar(name, 0, false);
+        return sm.getVar(name);
     }
 
     public Lhs<PathExt> indexedToNamedExt(Lhs<IndexName> lhs)
@@ -481,7 +507,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         return new Lhs<>(newRanges);
     }
 
-    private Lhs<IndexName> flattenLhs(Lhs<PathExt> lhs, int offset, List<Lhs<IndexName>> portMap, IndexName.SvarBuilder builder)
+    private Lhs<IndexName> flattenLhs(Lhs<PathExt> lhs, int offset, List<Lhs<IndexName>> portMap, SvexManager<IndexName> sm)
     {
         List<Lhrange<IndexName>> newRanges = new LinkedList<>();
         for (Lhrange<PathExt> range : lhs.ranges)
@@ -520,66 +546,67 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
                 assert rsh == 0 && wid == 0;
             } else
             {
-                IndexName name = builder.newName(offset + index);
-                Svar<IndexName> newSvar = builder.newVar(name);
+                IndexName name = IndexName.valueOf(offset + index);
+                Svar<IndexName> newSvar = sm.getVar(name);
                 newRanges.add(new Lhrange<>(wid, Lhatom.valueOf(newSvar, rsh)));
             }
         }
         return new Lhs<>(newRanges).norm();
     }
 
-    private void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, IndexName.SvarBuilder builder)
+    private void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm)
     {
         int wireOffset = arr.size();
         for (WireExt wire : wires)
         {
-            arr.add(flattenLhs(wire.namedLhs, wireOffset, portMap, builder));
+            arr.add(flattenLhs(wire.namedLhs, wireOffset, portMap, sm));
         }
         for (ModInstExt inst : insts)
         {
             List<Lhs<IndexName>> newPortMap = new LinkedList<>();
             for (PathExt.PortInst pi : inst.portInsts)
             {
-                Lhs<IndexName> newLhs = flattenLhs(pi.namedLhs, wireOffset, portMap, builder);
+                Lhs<IndexName> newLhs = flattenLhs(pi.namedLhs, wireOffset, portMap, sm);
                 newPortMap.add(newLhs);
             }
-            inst.proto.makeAliases(newPortMap, arr, builder);
+            inst.proto.makeAliases(newPortMap, arr, sm);
         }
     }
 
     private void testAliases(ModDb.FlattenResult flattenResult)
     {
+        Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
         List<Lhs<IndexName>> arr = new ArrayList<>();
-        makeAliases(Collections.emptyList(), arr, flattenResult.builder);
+        makeAliases(Collections.emptyList(), arr, flattenResult.sm);
         Util.check(flattenResult.aliases.size() == arr.size());
         for (int i = 0; i < arr.size(); i++)
         {
             Lhs<IndexName> flatLhs = flattenResult.aliases.getAlias(i);
             Lhs<IndexName> hierLhs = arr.get(i);
             Util.check(flatLhs.equals(hierLhs));
-            Util.check(flatLhs.getACL2Object().equals(hierLhs.getACL2Object()));
+            Util.check(flatLhs.getACL2Object(backedCache).equals(hierLhs.getACL2Object(backedCache)));
         }
     }
 
     private void makeNormAssigns(int wireOffset, int assignOffset, List<Lhs<IndexName>> portMap,
-        Map<Lhs<IndexName>, Driver<IndexName>> normAssigns, IndexName.SvarBuilder builder)
+        Map<Lhs<IndexName>, Driver<IndexName>> normAssigns, SvexManager<IndexName> sm)
     {
         int assignI = 0;
         for (Map.Entry<Lhs<PathExt>, DriverExt> e : assigns.entrySet())
         {
             Lhs<PathExt> lhs = e.getKey();
             DriverExt drv = e.getValue();
-            Lhs<IndexName> newLhs = flattenLhs(lhs, wireOffset, portMap, builder);
+            Lhs<IndexName> newLhs = flattenLhs(lhs, wireOffset, portMap, sm);
             List<Svar<PathExt>> drvVars = drv.collectVars();
             Lhs<IndexName>[] args = Lhs.newLhsArray(drvVars.size());
             for (int i = 0; i < drvVars.size(); i++)
             {
                 Svar<PathExt> svar = drvVars.get(i);
                 PathExt pathExt = svar.getName();
-                args[i] = flattenLhs(pathExt.namedLhs, wireOffset, portMap, builder);
+                args[i] = flattenLhs(pathExt.namedLhs, wireOffset, portMap, sm);
             }
             SymbolicDriver<IndexName> sDrv = new SymbolicDriver<>(drv, assignOffset + assignI, args, 0, drv.getWidth(), 0);
-            Driver<IndexName> newDrv = sDrv.makeWideDriver(builder);
+            Driver<IndexName> newDrv = sDrv.makeWideDriver(sm);
             normAssigns.put(newLhs, newDrv);
             assignI++;
         }
@@ -588,32 +615,33 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             List<Lhs<IndexName>> newPortMap = new LinkedList<>();
             for (PathExt.PortInst pi : inst.portInsts)
             {
-                Lhs<IndexName> newLhs = flattenLhs(pi.namedLhs, wireOffset, portMap, builder);
+                Lhs<IndexName> newLhs = flattenLhs(pi.namedLhs, wireOffset, portMap, sm);
                 newPortMap.add(newLhs);
             }
             inst.proto.makeNormAssigns(wireOffset + inst.elabModInst.wireOffset,
                 assignOffset + inst.elabModInst.assignOffset,
-                newPortMap, normAssigns, builder);
+                newPortMap, normAssigns, sm);
         }
     }
 
-    private void testNormAssigns(Compile<IndexName> compile, IndexName.SvarBuilder builder)
+    private void testNormAssigns(Compile<IndexName> compile, SvexManager<IndexName> sm)
     {
+        Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
         Map<Lhs<IndexName>, Driver<IndexName>> normAssigns = new LinkedHashMap<>();
-        makeNormAssigns(0, 0, Collections.emptyList(), normAssigns, builder);
+        makeNormAssigns(0, 0, Collections.emptyList(), normAssigns, sm);
         Util.check(normAssigns.size() == compile.normAssigns.size());
         for (Iterator<Map.Entry<Lhs<IndexName>, Driver<IndexName>>> iter1 = normAssigns.entrySet().iterator(),
             iter2 = compile.normAssigns.entrySet().iterator(); iter1.hasNext() || iter2.hasNext();)
         {
             Map.Entry<Lhs<IndexName>, Driver<IndexName>> e1 = iter1.next();
             Map.Entry<Lhs<IndexName>, Driver<IndexName>> e2 = iter2.next();
-            Util.check(e1.getKey().getACL2Object().equals(e2.getKey().getACL2Object()));
-            Util.check(e1.getValue().getACL2Object().equals(e2.getValue().getACL2Object()));
+            Util.check(e1.getKey().getACL2Object(backedCache).equals(e2.getKey().getACL2Object(backedCache)));
+            Util.check(e1.getValue().getACL2Object(backedCache).equals(e2.getValue().getACL2Object(backedCache)));
         }
     }
 
     private void assignsToNetassigns(int wireOffset, int assignOffset, List<Lhs<IndexName>> portMap,
-        Map<Svar<IndexName>, List<SymbolicDriver<IndexName>>> symNetassignsRev, IndexName.SvarBuilder builder)
+        Map<Svar<IndexName>, List<SymbolicDriver<IndexName>>> symNetassignsRev, SvexManager<IndexName> sm)
     {
         for (int i = insts.size() - 1; i >= 0; i--)
         {
@@ -622,13 +650,13 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             List<Lhs<IndexName>> newPortMap = new LinkedList<>();
             for (PathExt.PortInst pi : inst.portInsts)
             {
-                Lhs<IndexName> newLhs = flattenLhs(pi.namedLhs, wireOffset, portMap, builder);
+                Lhs<IndexName> newLhs = flattenLhs(pi.namedLhs, wireOffset, portMap, sm);
                 newPortMap.add(newLhs);
             }
             inst.proto.assignsToNetassigns(wireOffset + inst.elabModInst.wireOffset,
                 assignOffset + inst.elabModInst.assignOffset,
                 newPortMap,
-                symNetassignsRev, builder);
+                symNetassignsRev, sm);
         }
         List<Map.Entry<Lhs<PathExt>, DriverExt>> localAssignsEntries = new ArrayList<>(assigns.entrySet());
         for (int assignI = localAssignsEntries.size() - 1; assignI >= 0; assignI--)
@@ -636,14 +664,14 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             Map.Entry<Lhs<PathExt>, DriverExt> e = localAssignsEntries.get(assignI);
             Lhs<PathExt> oldLhs = e.getKey();
             DriverExt oldDrv = e.getValue();
-            Lhs<IndexName> lhs = flattenLhs(oldLhs, wireOffset, portMap, builder);
+            Lhs<IndexName> lhs = flattenLhs(oldLhs, wireOffset, portMap, sm);
             List<Svar<PathExt>> drvVars = oldDrv.collectVars();
             Lhs<IndexName>[] args = Lhs.newLhsArray(drvVars.size());
             for (int j = 0; j < drvVars.size(); j++)
             {
                 Svar<PathExt> svar = drvVars.get(j);
                 PathExt pathExt = svar.getName();
-                args[j] = flattenLhs(pathExt.namedLhs, wireOffset, portMap, builder);
+                args[j] = flattenLhs(pathExt.namedLhs, wireOffset, portMap, sm);
             }
             assert lhs.isNormp();
             int offset = lhs.width();
@@ -668,10 +696,10 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         }
     }
 
-    private void testAssignsToNetassigns(Compile<IndexName> compile, IndexName.SvarBuilder builder)
+    private void testAssignsToNetassigns(Compile<IndexName> compile, SvexManager<IndexName> sm)
     {
         Map<Svar<IndexName>, List<SymbolicDriver<IndexName>>> symNetassignsRev = new LinkedHashMap<>();
-        assignsToNetassigns(0, 0, Collections.emptyList(), symNetassignsRev, builder);
+        assignsToNetassigns(0, 0, Collections.emptyList(), symNetassignsRev, sm);
 
         List<Map.Entry<Svar<IndexName>, List<SymbolicDriver<IndexName>>>> symNetassignsEntries
             = new ArrayList<>(symNetassignsRev.entrySet());
@@ -695,7 +723,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             {
                 Driver<IndexName> d1 = l1.get(j);
                 SymbolicDriver<IndexName> d2 = l2.get(j);
-                Driver<IndexName> newDrv = d2.makeDriver(builder);
+                Driver<IndexName> newDrv = d2.makeDriver(sm);
                 Util.check(d1.equals(newDrv));
                 Util.check(newDrv.strength == Driver.DEFAULT_STRENGTH);
                 if (svexRes == null)
@@ -714,12 +742,12 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
     {
         IndexName.curElabMod = elabMod;
         ModDb.FlattenResult flattenResult = elabMod.svexmodFlatten(design.b.modalist);
-        IndexName.SvarBuilder builder = flattenResult.builder;
-        Compile<IndexName> compile = new Compile(flattenResult.aliases.getArr(), flattenResult.assigns, builder);
+        SvexManager<IndexName> sm = flattenResult.sm;
+        Compile<IndexName> compile = new Compile(flattenResult.aliases.getArr(), flattenResult.assigns, sm);
 
         testAliases(flattenResult);
-        testNormAssigns(compile, builder);
-        testAssignsToNetassigns(compile, builder);
+        testNormAssigns(compile, sm);
+        testAssignsToNetassigns(compile, sm);
         IndexName.curElabMod = null;
     }
 
@@ -1284,8 +1312,8 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
             int indexOfDot = portInstanceToSplit.indexOf('.');
             String instStr = portInstanceToSplit.substring(0, indexOfDot);
             String portStr = portInstanceToSplit.substring(indexOfDot + 1);
-            Name instName = new Name(ACL2Object.valueOf(instStr));
-            Name portName = new Name(ACL2Object.valueOf(portStr));
+            Name instName = Name.fromACL2(ACL2Object.valueOf(instStr));
+            Name portName = Name.fromACL2(ACL2Object.valueOf(portStr));
             ModInstExt inst = instsIndex.get(instName);
             PathExt.PortInst pi = inst.portInstsIndex.get(portName);
             pi.splitIt = true;
@@ -1620,6 +1648,7 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
         return ret;
     }
 
+    /*
     @Override
     public PathExt newName(ACL2Object nameImpl)
     {
@@ -1634,26 +1663,6 @@ public class ModuleExt extends SvarImpl.Builder<PathExt> implements Comparator<S
 //            Path.Wire subPathWire = (Path.Wire) pathScope.subpath;
             ModInstExt inst = instsIndex.get(pathScope.namespace);
             return inst.newPortInst(pathScope);
-        }
-    }
-
-    /*
-    @Override
-    public SvarImpl<PathExt> newVar(ACL2Object name, int delay, boolean nonblocking)
-    {
-        Util.check(!nonblocking);
-        if (consp(name).bool())
-        {
-            Util.check(delay == 0);
-            ModInstExt inst = instsIndex.get(new Name(car(name)));
-            return inst.newPortInst(name).svar;
-//            Module sm = inst.proto;
-//            Wire wire = sm.wiresIndex.get(new Name(cdr(name)));
-//            return new SVarExt.PortInst(this, name);
-        } else
-        {
-            WireExt wire = wiresIndex.get(new Name(name));
-            return wire.getVar(delay);
         }
     }
      */

@@ -41,7 +41,7 @@ public class Vec4Resor<N extends SvarName> extends SvexCall<N>
     public final Svex<N> x;
     public final Svex<N> y;
 
-    public Vec4Resor(Svex<N> x, Svex<N> y)
+    private Vec4Resor(Svex<N> x, Svex<N> y)
     {
         super(FUNCTION, x, y);
         this.x = x;

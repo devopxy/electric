@@ -26,6 +26,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
@@ -35,6 +36,7 @@ import java.util.Map;
 /**
  * Like logext for 4vecs; the width is also a 4vec.
  * See<http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC-SIGN-EXT>.
+ * @param <N> Type of name of Svex variables
  */
 public class Vec4SignExt<N extends SvarName> extends SvexCall<N>
 {
@@ -42,7 +44,7 @@ public class Vec4SignExt<N extends SvarName> extends SvexCall<N>
     public final Svex<N> width;
     public final Svex<N> x;
 
-    public Vec4SignExt(Svex<N> width, Svex<N> x)
+    private Vec4SignExt(Svex<N> width, Svex<N> x)
     {
         super(FUNCTION, width, x);
         this.width = width;
@@ -64,7 +66,7 @@ public class Vec4SignExt<N extends SvarName> extends SvexCall<N>
     }
 
     @Override
-    public Svex<N> lhsrewriteAux(int shift, int w)
+    public Svex<N> lhsrewriteAux(SvexManager<N> sm, int shift, int w)
     {
         if (width instanceof SvexQuote)
         {
@@ -72,20 +74,21 @@ public class Vec4SignExt<N extends SvarName> extends SvexCall<N>
             if (wval.isVec2())
             {
                 int wv = ((Vec2)wval).getVal().intValueExact();
-                if (wv >= 0 && wv > shift && shift + w <= wv) {
-                    return x.lhsrewriteAux(shift, w);
+                if (wv >= 0 && wv > shift && shift + w <= wv)
+                {
+                    return x.lhsrewriteAux(sm, shift, w);
                 }
             }
         }
-        return super.lhsrewriteAux(shift, w);
+        return super.lhsrewriteAux(sm, shift, w);
     }
 
     @Override
-    public Svex<N> lhsPreproc()
+    public Svex<N> lhsPreproc(SvexManager<N> sm)
     {
-        Svex<N> newWidth = width.lhsPreproc();
-        Svex<N> newX = x.lhsPreproc();
-        return new Vec4SignExt<>(newWidth, newX);
+        Svex<N> newWidth = width.lhsPreproc(sm);
+        Svex<N> newX = x.lhsPreproc(sm);
+        return sm.newCall(Vec4SignExt.FUNCTION, newWidth, newX);
     }
 
     public static class Function extends SvexFunction
@@ -102,7 +105,7 @@ public class Vec4SignExt<N extends SvarName> extends SvexCall<N>
         }
 
         @Override
-        public <N extends SvarName> Svex<N> callStar(Svex<N>[] args)
+        public <N extends SvarName> Svex<N> callStar(SvexManager<N> sm, Svex<N>[] args)
         {
             assert args.length == 2;
             Svex<N> width = args[0];
@@ -114,11 +117,11 @@ public class Vec4SignExt<N extends SvarName> extends SvexCall<N>
                     BigInteger wV = ((Vec2)wVal).getVal();
                     if (wV.signum() >= 0)
                     {
-                        return args[1].signx(wV.intValueExact());
+                        return args[1].signx(sm, wV.intValueExact());
                     }
                 }
             }
-            return super.callStar(args);
+            return super.callStar(sm, args);
         }
 
         @Override
@@ -145,7 +148,7 @@ public class Vec4SignExt<N extends SvarName> extends SvexCall<N>
                     {
                         BigInteger xv = ((Vec2)x).getVal();
                         BigInteger xm = xv.and(mask);
-                        return new Vec2(xv.testBit(wval - 1) ? xm.subtract(pow) : xm);
+                        return Vec2.valueOf(xv.testBit(wval - 1) ? xm.subtract(pow) : xm);
                     }
                     BigInteger uv = x.getUpper();
                     BigInteger lv = x.getLower();

@@ -42,7 +42,7 @@ public class Vec4Quotient<N extends SvarName> extends SvexCall<N>
     public final Svex<N> x;
     public final Svex<N> y;
 
-    public Vec4Quotient(Svex<N> x, Svex<N> y)
+    private Vec4Quotient(Svex<N> x, Svex<N> y)
     {
         super(FUNCTION, x, y);
         this.x = x;
@@ -73,7 +73,7 @@ public class Vec4Quotient<N extends SvarName> extends SvexCall<N>
                 BigInteger yv = ((Vec2)y).getVal();
                 if (yv.signum() != 0)
                 {
-                    return new Vec2(xv.divide(yv));
+                    return Vec2.valueOf(xv.divide(yv));
                 }
             }
             return Vec4.X;

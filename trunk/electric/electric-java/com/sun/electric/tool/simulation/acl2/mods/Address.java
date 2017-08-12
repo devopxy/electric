@@ -40,47 +40,17 @@ public class Address implements SvarName
     public static final int INDEX_NIL = -1;
     public static final int SCOPE_ROOT = -1;
 
-    private final ACL2Object impl;
-
     public final Path path;
     public final int index;
     public final int scope;
-
-    Address(ACL2Object impl)
-    {
-        this.impl = honscopy(impl);
-        if (consp(impl).bool() && KEYWORD_ADDRESS.equals(car(impl)))
-        {
-            List<ACL2Object> list = Util.getList(impl, true);
-            path = Path.fromACL2(list.get(1));
-            if (integerp(list.get(2)).bool())
-            {
-                index = list.get(2).intValueExact();
-                Util.check(index >= 0);
-            } else
-            {
-                Util.checkNil(list.get(2));
-                index = INDEX_NIL;
-            }
-            if (KEYWORD_ROOT.equals(list.get(3)))
-            {
-                scope = SCOPE_ROOT;
-            } else
-            {
-                scope = list.get(3).intValueExact();
-                Util.check(scope >= 0);
-            }
-        } else
-        {
-            path = Path.fromACL2(impl);
-            index = INDEX_NIL;
-            scope = 0;
-        }
-    }
+    private final int hashCode;
 
     Address(Path path)
     {
-        this(path, INDEX_NIL, 0);
+        this.path = path;
+        index = INDEX_NIL;
+        scope = 0;
+        hashCode = path.hashCode();
     }
 
     Address(Path path, int index, int scope)
@@ -93,31 +63,71 @@ public class Address implements SvarName
         {
             throw new IllegalArgumentException();
         }
-        if (scope == 0 && index == INDEX_NIL)
-        {
-            impl = path.getACL2Object();
-        } else
-        {
-            impl = cons(KEYWORD_ADDRESS, cons(
-                path.getACL2Object(), cons(
-                index >= 0 ? ACL2Object.valueOf(index) : NIL, cons(
-                scope >= 0 ? ACL2Object.valueOf(scope) : KEYWORD_ROOT,
-                NIL))));
-        }
         this.path = path;
         this.index = index;
         this.scope = scope;
+        if (index == INDEX_NIL && scope == 0)
+        {
+            hashCode = path.hashCode();
+        } else
+        {
+            hashCode = ACL2Object.hashCodeOfCons(
+                KEYWORD_ADDRESS.hashCode(),
+                ACL2Object.hashCodeOfCons(
+                    path.hashCode(),
+                    ACL2Object.hashCodeOfCons(
+                        index >= 0 ? ACL2Object.hashCodeOf(index) : ACL2Object.HASH_CODE_NIL,
+                        ACL2Object.hashCodeOfCons(
+                            scope >= 0 ? ACL2Object.hashCodeOf(scope) : KEYWORD_ROOT.hashCode(),
+                            ACL2Object.HASH_CODE_NIL))));
+        }
+    }
+
+    public static Address valueOf(Path path)
+    {
+        return new Address(path);
     }
 
     @Override
-    public ACL2Object getACL2Object()
+    public boolean isSimpleSvarName()
     {
-        return impl;
+        return path.isSimpleSvarName() && index == INDEX_NIL && scope == 0;
     }
 
     public static Address fromACL2(ACL2Object impl)
     {
-        return new Address(impl);
+        Address result;
+        if (consp(impl).bool() && KEYWORD_ADDRESS.equals(car(impl)))
+        {
+            List<ACL2Object> list = Util.getList(impl, true);
+            Path path = Path.fromACL2(list.get(1));
+            int index;
+            if (integerp(list.get(2)).bool())
+            {
+                index = list.get(2).intValueExact();
+                Util.check(index >= 0);
+            } else
+            {
+                Util.checkNil(list.get(2));
+                index = INDEX_NIL;
+            }
+            int scope;
+            if (KEYWORD_ROOT.equals(list.get(3)))
+            {
+                scope = SCOPE_ROOT;
+            } else
+            {
+                scope = list.get(3).intValueExact();
+                Util.check(scope >= 0);
+            }
+            result = new Address(path, index, scope);
+        } else
+        {
+            Path path = Path.fromACL2(impl);
+            result = new Address(path);
+        }
+        assert result.hashCode() == impl.hashCode();
+        return result;
     }
 
     public Path getPath()
@@ -137,25 +147,27 @@ public class Address implements SvarName
 
     public Svar<Address> toVar(SvarBuilder builder)
     {
-        return builder.newVar(impl, 0, false);
+        return builder.newVar(this);
     }
 
     @Override
     public String toString(BigInteger mask)
     {
-        throw new UnsupportedOperationException();
+        return path.toString(mask);
     }
 
     @Override
     public boolean equals(Object o)
     {
+        if (this == o)
+        {
+            return true;
+        }
         if (o instanceof Address)
         {
-            Address that = (Address) o;
-            if (this.impl.equals(that.impl)) {
-                return true;
-            }
-            return this.path.equals(that.path)
+            Address that = (Address)o;
+            return this.hashCode == that.hashCode
+                && this.path.equals(that.path)
                 && this.index == that.index
                 && this.scope == that.scope;
         }
@@ -163,17 +175,42 @@ public class Address implements SvarName
     }
 
     @Override
-    public int hashCode() {
-        return impl.hashCode();
+    public int hashCode()
+    {
+        return hashCode;
     }
 
     @Override
-    public String toString() {
+    public ACL2Object getACL2Object()
+    {
+        ACL2Object result;
+        ACL2Object pathImpl = path.getACL2Object();
+        if (index == INDEX_NIL && scope == 0)
+        {
+            result = pathImpl;
+        } else
+        {
+            ACL2Object indexImpl = index >= 0 ? ACL2Object.valueOf(index) : NIL;
+            ACL2Object scopeImpl = scope >= 0 ? ACL2Object.valueOf(scope) : KEYWORD_ROOT;
+            result = hons(
+                KEYWORD_ADDRESS,
+                hons(pathImpl,
+                    hons(indexImpl,
+                        hons(scopeImpl, NIL))));
+        }
+        assert result.hashCode() == hashCode();
+        return result;
+    }
+
+    @Override
+    public String toString()
+    {
         String s = path.toString();
         if (scope == SCOPE_ROOT)
         {
             s = "/" + s;
-        } else if (scope > 0) {
+        } else if (scope > 0)
+        {
             for (int i = 0; i < scope; i++)
             {
                 s = "../" + s;
@@ -186,6 +223,15 @@ public class Address implements SvarName
     {
         Address addr = svar.getName();
         return addr.index == INDEX_NIL || addr.index < bound;
+    }
+
+    public static class SvarNameBuilder implements SvarName.Builder<Address>
+    {
+        @Override
+        public Address fromACL2(ACL2Object impl)
+        {
+            return Address.fromACL2(impl);
+        }
     }
 
     public static class SvarBuilder extends SvarImpl.Builder<Address>

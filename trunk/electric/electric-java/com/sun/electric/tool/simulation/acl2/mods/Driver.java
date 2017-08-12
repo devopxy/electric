@@ -24,11 +24,14 @@ package com.sun.electric.tool.simulation.acl2.mods;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Driver - SVEX expression with strength.
@@ -36,21 +39,15 @@ import java.util.Map;
  *
  * @param <N> Type of name of Svex variables
  */
-public class Driver<N extends SvarName>
+public class Driver<N extends SvarName> implements ACL2Backed
 {
     public static final int DEFAULT_STRENGTH = 6;
 
     public final Svex<N> svex;
     public final int strength;
+    private final int hashCode;
 
     public final List<Svar<N>> vars;
-
-    Driver(Svar.Builder<N> builder, Map<ACL2Object, Svex<N>> svexCache, ACL2Object impl)
-    {
-        svex = Svex.valueOf(builder, car(impl), svexCache);
-        strength = cdr(impl).intValueExact();
-        vars = svex.collectVars();
-    }
 
     public Driver(Svex<N> svex)
     {
@@ -62,27 +59,37 @@ public class Driver<N extends SvarName>
         this.svex = svex;
         this.strength = strength;
         vars = svex.collectVars();
+        hashCode = ACL2Object.hashCodeOfCons(svex.hashCode(), ACL2Object.hashCodeOf(strength));
     }
 
-    public ACL2Object getACL2Object()
+    static <N extends SvarName> Driver<N> fromACL2(SvarName.Builder<N> snb, SvexManager<N> sm, ACL2Object impl,
+        Map<ACL2Object, Svex<N>> svexCache)
     {
-        return cons(svex.getACL2Object(), ACL2Object.valueOf(strength));
+        Svex<N> svex = Svex.fromACL2(snb, sm, car(impl), svexCache);
+        int strength = cdr(impl).intValueExact();
+        return new Driver<>(svex, strength);
     }
 
-    public <N1 extends SvarName> Driver<N1> convertVars(Svar.Builder<N1> builder,
+    public <N1 extends SvarName> Driver<N1> convertVars(Function<N, N1> rename, SvexManager<N1> sm,
         Map<Svex<N>, Svex<N1>> svexCache)
     {
-        Svex<N1> newSvex = svex.convertVars(builder, svexCache);
+        Svex<N1> newSvex = svex.convertVars(rename, sm, svexCache);
         return new Driver<>(newSvex, strength);
     }
 
     @Override
     public boolean equals(Object o)
     {
+        if (this == o)
+        {
+            return true;
+        }
         if (o instanceof Driver)
         {
             Driver<?> that = (Driver<?>)o;
-            return this.svex.equals(that.svex) && this.strength == that.strength;
+            return this.hashCode == that.hashCode
+                && this.svex.equals(that.svex)
+                && this.strength == that.strength;
         }
         return false;
     }
@@ -90,10 +97,20 @@ public class Driver<N extends SvarName>
     @Override
     public int hashCode()
     {
-        int hash = 7;
-        hash = 53 * hash + svex.hashCode();
-        hash = 53 * hash + strength;
-        return hash;
+        return hashCode;
+    }
+
+    @Override
+    public ACL2Object getACL2Object(Map<ACL2Backed, ACL2Object> backedCache)
+    {
+        ACL2Object result = backedCache.get(this);
+        if (result == null)
+        {
+            result = hons(svex.getACL2Object(backedCache), ACL2Object.valueOf(strength));
+            backedCache.put(this, result);
+        }
+        assert result.hashCode() == hashCode;
+        return result;
     }
 
     void vars(Collection<Svar<N>> vars)

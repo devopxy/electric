@@ -26,6 +26,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
@@ -47,7 +48,7 @@ public class Vec4RevBlocks<N extends SvarName> extends SvexCall<N>
     public final Svex<N> bsz;
     public final Svex<N> x;
 
-    public Vec4RevBlocks(Svex<N> width, Svex<N> bsz, Svex<N> x)
+    private Vec4RevBlocks(Svex<N> width, Svex<N> bsz, Svex<N> x)
     {
         super(FUNCTION, width, bsz, x);
         this.width = width;
@@ -56,7 +57,7 @@ public class Vec4RevBlocks<N extends SvarName> extends SvexCall<N>
     }
 
     @Override
-    public Svex<N> lhsPreproc()
+    public Svex<N> lhsPreproc(SvexManager<N> sm)
     {
         if (width instanceof SvexQuote && bsz instanceof SvexQuote)
         {
@@ -75,22 +76,22 @@ public class Vec4RevBlocks<N extends SvarName> extends SvexCall<N>
                     while (nbits >= bv)
                     {
                         stackX.add(x);
-                        x = new Vec4Rsh<>(bsz, x);
+                        x = sm.newCall(Vec4Rsh.FUNCTION, bsz, x);
                         nbits -= bv;
                     }
-                    Svex<N> rest = new Vec4Concat<>(SvexQuote.valueOf(nbits), x, zero);
+                    Svex<N> rest = sm.newCall(Vec4Concat.FUNCTION, SvexQuote.valueOf(nbits), x, zero);
                     while (!stackX.isEmpty())
                     {
                         x = stackX.remove(stackX.size() - 1);
                         nbits += bv;
-                        x = new Vec4Concat<>(bsz, x, zero);
-                        rest = new Vec4Concat<>(SvexQuote.valueOf(nbits), rest, x);
+                        x = sm.newCall(Vec4Concat.FUNCTION, bsz, x, zero);
+                        rest = sm.newCall(Vec4Concat.FUNCTION, SvexQuote.valueOf(nbits), rest, x);
                     }
                     return rest;
                 }
             }
         }
-        return super.lhsPreproc();
+        return super.lhsPreproc(sm);
     }
 
     public static class Function extends SvexFunction

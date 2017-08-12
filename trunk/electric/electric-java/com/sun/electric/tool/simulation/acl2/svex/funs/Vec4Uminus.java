@@ -41,7 +41,7 @@ public class Vec4Uminus<N extends SvarName> extends SvexCall<N>
     public static final Function FUNCTION = new Function();
     public final Svex<N> x;
 
-    public Vec4Uminus(Svex<N> x)
+    private Vec4Uminus(Svex<N> x)
     {
         super(FUNCTION, x);
         this.x = x;
@@ -67,7 +67,7 @@ public class Vec4Uminus<N extends SvarName> extends SvexCall<N>
             if (x.isVec2())
             {
                 BigInteger xv = ((Vec2)x).getVal();
-                return new Vec2(xv.negate());
+                return Vec2.valueOf(xv.negate());
             }
             return Vec4.X;
         }

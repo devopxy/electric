@@ -22,10 +22,12 @@
 package com.sun.electric.tool.simulation.acl2.svex;
 
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A single variable in a symbolic vector expression.
@@ -33,7 +35,7 @@ import java.util.List;
  *
  * @param <N> Type of name of Svex variables
  */
-public interface Svar<N extends SvarName>
+public interface Svar<N extends SvarName> extends ACL2Backed
 {
     public static ACL2Object KEYWORD_VAR = ACL2Object.valueOf("KEYWORD", "VAR");
 
@@ -53,6 +55,27 @@ public interface Svar<N extends SvarName>
     public default String toLispString(int width, int rsh)
     {
         return toString(BigIntegerUtil.logheadMask(width).shiftLeft(rsh));
+    }
+
+    @Override
+    public default ACL2Object getACL2Object(Map<ACL2Backed, ACL2Object> backedCache)
+    {
+        ACL2Object result = backedCache.get(this);
+        if (result == null)
+        {
+            SvarName name = getName();
+            ACL2Object nameImpl = name.getACL2Object();
+            int delayImpl = getDelay();
+            if (isNonblocking()) {
+                delayImpl = ~delayImpl;
+            }
+            result = name.isSimpleSvarName() && delayImpl == 0
+                ? nameImpl
+                : hons(KEYWORD_VAR, hons(nameImpl, ACL2Object.valueOf(delayImpl)));
+            assert result.hashCode() == hashCode();
+            backedCache.put(this, result);
+        }
+        return result;
     }
 
     public default ACL2Object getACL2Object()
@@ -76,7 +99,6 @@ public interface Svar<N extends SvarName>
 
     public static interface Builder<N extends SvarName>
     {
-
         N newName(ACL2Object nameImpl);
 
         Svar<N> newVar(ACL2Object name, int delay, boolean nonblocking);

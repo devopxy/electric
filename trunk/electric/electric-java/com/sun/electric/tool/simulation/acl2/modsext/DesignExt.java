@@ -60,7 +60,7 @@ public class DesignExt
 
     public DesignExt(ACL2Object impl, DesignHints designHints)
     {
-        this(new Design<>(new Address.SvarBuilder(), impl), designHints);
+        this(new Design<>(new Address.SvarNameBuilder(), impl), designHints);
     }
 
     public DesignExt(Design<Address> b, DesignHints designHints)

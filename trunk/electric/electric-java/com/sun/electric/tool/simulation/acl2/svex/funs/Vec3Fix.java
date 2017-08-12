@@ -40,7 +40,7 @@ public class Vec3Fix<N extends SvarName> extends SvexCall<N>
     public static final Function FUNCTION = new Function();
     public final Svex<N> x;
 
-    public Vec3Fix(Svex<N> x)
+    private Vec3Fix(Svex<N> x)
     {
         super(FUNCTION, x);
         this.x = x;

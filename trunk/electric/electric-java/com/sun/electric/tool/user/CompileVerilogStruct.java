@@ -472,10 +472,10 @@ public class CompileVerilogStruct
                 ModName modName = e.getKey();
                 ModuleExt m = e.getValue();
                 VModule vModule;
-                if (modName.isString)
+                if (modName.isString())
                 {
-                    vModule = new VModule(modName.impl.stringValueExact(), true, false);
-                } else if (modName.isGate)
+                    vModule = new VModule(modName.toString(), true, false);
+                } else if (modName.isGate())
                 {
                     vModule = new VModule(modName.toString(), true, true);
                 } else

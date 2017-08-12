@@ -42,7 +42,7 @@ public class Vec4ReductionAnd<N extends SvarName> extends SvexCall<N>
     public static final Function FUNCTION = new Function();
     public final Svex<N> x;
 
-    public Vec4ReductionAnd(Svex<N> x)
+    private Vec4ReductionAnd(Svex<N> x)
     {
         super(FUNCTION, x);
         this.x = x;

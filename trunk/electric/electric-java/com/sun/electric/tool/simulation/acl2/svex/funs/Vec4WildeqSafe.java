@@ -42,7 +42,7 @@ public class Vec4WildeqSafe<N extends SvarName> extends SvexCall<N>
     public final Svex<N> x;
     public final Svex<N> y;
 
-    public Vec4WildeqSafe(Svex<N> x, Svex<N> y)
+    private Vec4WildeqSafe(Svex<N> x, Svex<N> y)
     {
         super(FUNCTION, x, y);
         this.x = x;

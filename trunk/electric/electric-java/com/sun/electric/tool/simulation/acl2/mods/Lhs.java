@@ -24,12 +24,14 @@ package com.sun.electric.tool.simulation.acl2.mods;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
 import com.sun.electric.util.acl2.ACL2;
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,6 +40,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * A shorthand format for an expression consisting of a concatenation of parts of variables.
@@ -45,44 +48,42 @@ import java.util.Map;
  *
  * @param <N> Type of name of Svex variables
  */
-public class Lhs<N extends SvarName>
+public class Lhs<N extends SvarName> implements ACL2Backed
 {
     public final List<Lhrange<N>> ranges = new LinkedList<>();
-
-    Lhs(Svar.Builder<N> builder, ACL2Object impl)
-    {
-        List<ACL2Object> l = Util.getList(impl, true);
-        Util.check(!l.isEmpty());
-        int lsh = 0;
-        for (ACL2Object o : l)
-        {
-            Lhrange<N> lhr = new Lhrange<>(builder, o, lsh);
-            ranges.add(lhr);
-            lsh += lhr.getWidth();
-        }
-    }
+    private final int hashCode;
 
     public Lhs(List<Lhrange<N>> ranges)
     {
         this.ranges.addAll(ranges);
-    }
-
-    public ACL2Object getACL2Object()
-    {
-        ACL2Object list = NIL;
-        for (int i = ranges.size() - 1; i >= 0; i--)
+        int hashCode = ACL2Object.HASH_CODE_NIL;
+        for (int i = this.ranges.size() - 1; i >= 0; i--)
         {
-            list = ACL2.cons(ranges.get(i).getACL2Object(), list);
+            Lhrange<N> range = this.ranges.get(i);
+            hashCode = ACL2Object.hashCodeOfCons(range.hashCode(), hashCode);
         }
-        return list;
+        this.hashCode = hashCode;
     }
 
-    public <N1 extends SvarName> Lhs<N1> convertVars(Svar.Builder<N1> builder)
+    public static <N extends SvarName> Lhs<N> fromACL2(SvarName.Builder<N> snb, SvexManager<N> sm, ACL2Object impl)
+    {
+        List<ACL2Object> l = Util.getList(impl, true);
+        Util.check(!l.isEmpty());
+        List<Lhrange<N>> ranges = new ArrayList<>(l.size());
+        for (ACL2Object o : l)
+        {
+            Lhrange<N> lhr = Lhrange.fromACL2(snb, sm, o);
+            ranges.add(lhr);
+        }
+        return new Lhs<>(ranges);
+    }
+
+    public <N1 extends SvarName> Lhs<N1> convertVars(Function<N, N1> renameMap, SvexManager<N1> sm)
     {
         List<Lhrange<N1>> newRanges = new ArrayList<>();
         for (Lhrange<N> range : ranges)
         {
-            newRanges.add(range.convertVars(builder));
+            newRanges.add(range.convertVars(renameMap, sm));
         }
         return new Lhs<>(newRanges);
     }
@@ -94,7 +95,7 @@ public class Lhs<N extends SvarName>
         {
             Lhrange<N> range = ranges.get(i);
             result = Vec4Concat.FUNCTION.apply(
-                new Vec2(range.getWidth()),
+                Vec2.valueOf(range.getWidth()),
                 range.eval(env),
                 result);
         }
@@ -312,13 +313,13 @@ public class Lhs<N extends SvarName>
         return new Decomp<>(first, rest);
     }
 
-    public Svex<N> toSvex()
+    public Svex<N> toSvex(SvexManager<N> sm)
     {
         Svex<N> svex = SvexQuote.Z();
         for (int i = ranges.size() - 1; i >= 0; i--)
         {
             Lhrange<N> range = ranges.get(i);
-            svex = range.getAtom().toSvex().concat(range.getWidth(), svex);
+            svex = range.getAtom().toSvex(sm).concat(sm, range.getWidth(), svex);
         }
         return svex;
     }
@@ -333,15 +334,35 @@ public class Lhs<N extends SvarName>
     @Override
     public boolean equals(Object o)
     {
-        return o instanceof Lhs && ranges.equals(((Lhs)o).ranges);
+        if (this == o)
+        {
+            return true;
+        }
+        if (o instanceof Lhs)
+        {
+            Lhs<?> that = (Lhs<?>)o;
+            return this.hashCode == that.hashCode
+                && this.ranges.equals(that.ranges);
+        }
+        return false;
     }
 
     @Override
     public int hashCode()
     {
-        int hash = 3;
-        hash = 67 * hash + ranges.hashCode();
-        return hash;
+        return hashCode;
+    }
+
+    @Override
+    public ACL2Object getACL2Object(Map<ACL2Backed, ACL2Object> backedCache)
+    {
+        ACL2Object list = NIL;
+        for (int i = ranges.size() - 1; i >= 0; i--)
+        {
+            list = ACL2.hons(ranges.get(i).getACL2Object(backedCache), list);
+        }
+        assert list.hashCode() == hashCode;
+        return list;
     }
 
     @Override

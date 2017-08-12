@@ -31,7 +31,10 @@ import com.sun.electric.tool.simulation.acl2.mods.ModDb;
 import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.user.User;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
@@ -149,8 +152,9 @@ public class TraceSvtvJobs
         private final Class<H> cls;
         private final File saoFile;
 
-        private Address.SvarBuilder builder;
-        private Svar.Builder<Address> modifiedBuilder;
+        private SvarName.Builder<Address> snb;
+        private SvarName.Builder<Address> modifiedSnb;
+        private SvexManager<Address> sm;
         private Map<ACL2Object, Svex<Address>> svexCache;
 
         private ReadTraceSvtvJob(Class<H> cls, File saoFile)
@@ -163,7 +167,8 @@ public class TraceSvtvJobs
         @Override
         public boolean doIt() throws JobException
         {
-            builder = new Address.SvarBuilder();
+            snb = new Address.SvarNameBuilder();
+            sm = new SvexManager<>();
             svexCache = new HashMap<>();
             try
             {
@@ -223,12 +228,12 @@ public class TraceSvtvJobs
                 IndexName.curElabMod = topMod.elabMod;
                 ModDb.FlattenResult flattenResult = topMod.elabMod.svexmodFlatten(design.b.modalist);
 
-                List<Lhs<Address>> namedAliases = topScope.aliasesToAddress(flattenResult.aliases, builder);
-                Compile<Address> compile = new Compile(namedAliases, flattenResult.assigns, builder);
+                List<Lhs<Address>> namedAliases = topScope.aliasesToAddress(flattenResult.aliases, sm);
+                Compile<Address> compile = new Compile(namedAliases, flattenResult.assigns, sm);
 
-                modifiedBuilder = new ModifiedAddressBuilder(topMod.exports);
-                Map<Svar<Address>, Svex<Address>> svtvOutExprs = readSvexAlist(cdr(svtvList.get(1)), modifiedBuilder);
-                Map<Svar<Address>, Svex<Address>> svtvNextState = readSvexAlist(cdr(svtvList.get(2)), modifiedBuilder);
+                modifiedSnb = new ModifiedAddressBuilder(topMod.exports);
+                Map<Svar<Address>, Svex<Address>> svtvOutExprs = readSvexAlist(cdr(svtvList.get(1)), modifiedSnb);
+                Map<Svar<Address>, Svex<Address>> svtvNextState = readSvexAlist(cdr(svtvList.get(2)), modifiedSnb);
 
                 Util.check(compile.resAssigns.equals(overriddenAssigns));
                 checkSvexAlist(compile.resAssigns, traceList.get(3));
@@ -347,16 +352,16 @@ public class TraceSvtvJobs
 
         private Map<Svar<Address>, Svex<Address>> readSvexAlist(ACL2Object l)
         {
-            return readSvexAlist(l, builder);
+            return readSvexAlist(l, snb);
         }
 
-        private Map<Svar<Address>, Svex<Address>> readSvexAlist(ACL2Object l, Svar.Builder<Address> addressBuilder)
+        private Map<Svar<Address>, Svex<Address>> readSvexAlist(ACL2Object l, SvarName.Builder<Address> snb)
         {
             Map<Svar<Address>, Svex<Address>> result = new LinkedHashMap<>();
             for (ACL2Object pair : Util.getList(l, true))
             {
-                Svar<Address> svar = addressBuilder.fromACL2(car(pair));
-                Svex<Address> svex = Svex.valueOf(addressBuilder, cdr(pair), svexCache);
+                Svar<Address> svar = SvarImpl.fromACL2(snb, sm, car(pair));
+                Svex<Address> svex = Svex.fromACL2(snb, sm, cdr(pair), svexCache);
                 Svex<Address> old = result.put(svar, svex);
                 Util.check(old == null);
             }
@@ -368,8 +373,8 @@ public class TraceSvtvJobs
             Map<Svar<Address>, Svar<Address>> result = new LinkedHashMap<>();
             for (ACL2Object pair : Util.getList(l, true))
             {
-                Svar<Address> svarKey = builder.fromACL2(car(pair));
-                Svar<Address> svarValue = builder.fromACL2(cdr(pair));
+                Svar<Address> svarKey = SvarImpl.fromACL2(snb, sm, car(pair));
+                Svar<Address> svarValue = SvarImpl.fromACL2(snb, sm, cdr(pair));
                 Svar<Address> old = result.put(svarKey, svarValue);
                 Util.check(old == null);
             }
@@ -405,7 +410,7 @@ public class TraceSvtvJobs
         }
     }
 
-    private static class ModifiedAddressBuilder extends Address.SvarBuilder
+    private static class ModifiedAddressBuilder extends Address.SvarNameBuilder
     {
         private final Map<ACL2Object, ACL2Object> patchMap = new HashMap<>();
 
@@ -421,7 +426,7 @@ public class TraceSvtvJobs
         }
 
         @Override
-        public Address newName(ACL2Object nameImpl)
+        public Address fromACL2(ACL2Object nameImpl)
         {
             ACL2Object patch = patchMap.get(nameImpl);
             if (patch == null && consp(nameImpl).bool() && car(nameImpl).equals(KEYWORD_PHASE))
@@ -429,7 +434,7 @@ public class TraceSvtvJobs
                 patch = car(cdr(nameImpl));
                 Util.checkNotNil(stringp(patch));
             }
-            return super.newName(patch != null ? patch : nameImpl);
+            return super.fromACL2(patch != null ? patch : nameImpl);
         }
     }
 }

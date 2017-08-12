@@ -24,7 +24,9 @@ package com.sun.electric.tool.simulation.acl2.mods;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -41,19 +43,33 @@ import java.util.Map;
  */
 public class Module<N extends SvarName>
 {
+    public final SvexManager<N> sm;
+
     public final List<Wire> wires = new ArrayList<>();
     public final List<ModInst> insts = new ArrayList<>();
     public final Map<Lhs<N>, Driver<N>> assigns = new LinkedHashMap<>();
     public final Map<Lhs<N>, Lhs<N>> aliaspairs = new LinkedHashMap<>();
 
-    Module(Svar.Builder<N> builder, ACL2Object impl)
+    public Module(SvexManager<N> sm, Collection<Wire> wires, Collection<ModInst> insts,
+        Map<Lhs<N>, Driver<N>> assigns, Map<Lhs<N>, Lhs<N>> aliaspairs)
     {
+        this.sm = sm;
+        this.wires.addAll(wires);
+        this.insts.addAll(insts);
+        this.assigns.putAll(assigns);
+        this.aliaspairs.putAll(aliaspairs);
+    }
+
+    static <N extends SvarName> Module<N> fromACL2(SvarName.Builder<N> snb, ACL2Object impl)
+    {
+        SvexManager<N> sm = new SvexManager<>();
         List<ACL2Object> fields = Util.getList(impl, true);
         Util.check(fields.size() == 4);
         ACL2Object pair;
 
         pair = fields.get(0);
         Util.check(car(pair).equals(Util.SV_WIRES));
+        List<Wire> wires = new ArrayList<>();
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             Wire wire = new Wire(o);
@@ -62,46 +78,43 @@ public class Module<N extends SvarName>
 
         pair = fields.get(1);
         Util.check(car(pair).equals(Util.SV_INSTS));
+        List<ModInst> insts = new ArrayList<>();
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
-            ModInst modInst = new ModInst(o);
+            ModInst modInst = ModInst.fromACL2(o);
             insts.add(modInst);
         }
         pair = fields.get(2);
         Util.check(car(pair).equals(Util.SV_ASSIGNS));
+        Map<Lhs<N>, Driver<N>> assigns = new LinkedHashMap<>();
         Map<ACL2Object, Svex<N>> svexCache = new HashMap<>();
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
-            Lhs<N> lhs = new Lhs<>(builder, car(pair));
-            Driver<N> driver = new Driver<>(builder, svexCache, cdr(pair));
+            Lhs<N> lhs = Lhs.fromACL2(snb, sm, car(pair));
+            Driver<N> driver = Driver.fromACL2(snb, sm, cdr(pair), svexCache);
             Driver old = assigns.put(lhs, driver);
             Util.check(old == null);
         }
 
         pair = fields.get(3);
         Util.check(car(pair).equals(Util.SV_ALIASPAIRS));
+        Map<Lhs<N>, Lhs<N>> aliaspairs = new LinkedHashMap<>();
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
-            Lhs<N> lhs = new Lhs<>(builder, car(pair));
-            Lhs<N> rhs = new Lhs<>(builder, cdr(pair));
+            Lhs<N> lhs = Lhs.fromACL2(snb, sm, car(pair));
+            Lhs<N> rhs = Lhs.fromACL2(snb, sm, cdr(pair));
             Lhs old = aliaspairs.put(lhs, rhs);
             Util.check(old == null);
         }
-    }
 
-    public Module(Collection<Wire> wires, Collection<ModInst> insts,
-        Map<Lhs<N>, Driver<N>> assigns, Map<Lhs<N>, Lhs<N>> aliaspairs)
-    {
-        this.wires.addAll(wires);
-        this.insts.addAll(insts);
-        this.assigns.putAll(assigns);
-        this.aliaspairs.putAll(aliaspairs);
+        return new Module<>(sm, wires, insts, assigns, aliaspairs);
     }
 
     public ACL2Object getACL2Object()
     {
+        Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
         ACL2Object wiresList = NIL;
         for (int i = wires.size() - 1; i >= 0; i--)
         {
@@ -110,24 +123,26 @@ public class Module<N extends SvarName>
         ACL2Object instsList = NIL;
         for (int i = insts.size() - 1; i >= 0; i--)
         {
-            instsList = cons(insts.get(i).getACL2Object(), instsList);
+            instsList = cons(insts.get(i).getACL2Object(backedCache), instsList);
         }
         ACL2Object assignsList = NIL;
         for (Map.Entry<Lhs<N>, Driver<N>> e : assigns.entrySet())
         {
-            assignsList = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), assignsList);
+            assignsList = cons(cons(e.getKey().getACL2Object(backedCache),
+                e.getValue().getACL2Object(backedCache)), assignsList);
         }
         assignsList = Util.revList(assignsList);
         ACL2Object aliasesList = NIL;
         for (Map.Entry<Lhs<N>, Lhs<N>> e : aliaspairs.entrySet())
         {
-            aliasesList = cons(cons(e.getKey().getACL2Object(), e.getValue().getACL2Object()), aliasesList);
+            aliasesList = cons(cons(e.getKey().getACL2Object(backedCache),
+                e.getValue().getACL2Object(backedCache)), aliasesList);
         }
         aliasesList = Util.revList(aliasesList);
-        return cons(cons(Util.SV_WIRES, wiresList),
-            cons(cons(Util.SV_INSTS, instsList),
-                cons(cons(Util.SV_ASSIGNS, assignsList),
-                    cons(cons(Util.SV_ALIASPAIRS, aliasesList),
+        return hons(hons(Util.SV_WIRES, wiresList),
+            hons(hons(Util.SV_INSTS, instsList),
+                hons(hons(Util.SV_ASSIGNS, assignsList),
+                    hons(hons(Util.SV_ALIASPAIRS, aliasesList),
                         NIL))));
     }
 

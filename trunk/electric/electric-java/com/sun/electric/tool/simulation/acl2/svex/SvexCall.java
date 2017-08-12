@@ -25,11 +25,13 @@ import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4SignExt;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4ZeroExt;
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A function applied to some expressions.
@@ -41,7 +43,8 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
 {
     public final SvexFunction fun;
     protected final Svex<N>[] args;
-    private final ACL2Object impl;
+    private final int hashCode;
+    private SvexManager owner;
 
     @SafeVarargs
     public static <N extends SvarName> SvexCall<N> newCall(SvexFunction fun, Svex<N>... args)
@@ -63,18 +66,18 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
                 throw new NullPointerException();
             }
         }
-        impl = makeACL2Object(fun, args);
-    }
-
-    @SafeVarargs
-    private static <N extends SvarName> ACL2Object makeACL2Object(SvexFunction fun, Svex<N>... args)
-    {
-        ACL2Object impl = NIL;
+        int hashCode = ACL2Object.HASH_CODE_NIL;
         for (int i = args.length - 1; i >= 0; i--)
         {
-            impl = hons(args[i].getACL2Object(), impl);
+            hashCode = ACL2Object.hashCodeOfCons(args[i].hashCode(), hashCode);
         }
-        return hons(fun.fn, impl);
+        this.hashCode = ACL2Object.hashCodeOfCons(fun.fn.hashCode(), hashCode);
+    }
+
+    void setOwner(SvexManager<N> owner)
+    {
+        assert this.owner == null;
+        this.owner = owner;
     }
 
     public Svex<N>[] getArgs()
@@ -83,13 +86,7 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
     }
 
     @Override
-    public ACL2Object getACL2Object()
-    {
-        return impl;
-    }
-
-    @Override
-    public <N1 extends SvarName> Svex<N1> convertVars(Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache)
+    public <N1 extends SvarName> Svex<N1> convertVars(Function<N, N1> rename, SvexManager<N1> sm, Map<Svex<N>, Svex<N1>> cache)
     {
         Svex<N1> svex = cache.get(this);
         if (svex == null)
@@ -97,16 +94,34 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
             Svex<N1>[] newArgs = Svex.newSvexArray(fun.arity);
             for (int i = 0; i < fun.arity; i++)
             {
-                newArgs[i] = args[i].convertVars(builder, cache);
+                newArgs[i] = args[i].convertVars(rename, sm, cache);
             }
-            svex = fun.build(newArgs);
+            svex = sm.newCall(fun, newArgs);
             cache.put(this, svex);
         }
         return svex;
     }
 
     @Override
-    public <N1 extends SvarName> Svex<N1> addDelay(int delay, Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache)
+    public Svex<N> addDelay(int delay, SvexManager<N> sm, Map<Svex<N>, Svex<N>> cache)
+    {
+        Svex<N> svex = cache.get(this);
+        if (svex == null)
+        {
+            Svex<N>[] newArgs = Svex.newSvexArray(fun.arity);
+            for (int i = 0; i < fun.arity; i++)
+            {
+                newArgs[i] = args[i].addDelay(delay, sm, cache);
+            }
+            svex = sm.newCall(fun, newArgs);
+            cache.put(this, svex);
+        }
+        return svex;
+    }
+
+    /*
+    @Override
+    public <N1 extends SvarName> Svex<N1> addDelay(int delay, SvexManager<N1> sm, Map<Svex<N>, Svex<N1>> cache)
     {
         Svex<N1> svex = cache.get(this);
         if (svex == null)
@@ -114,13 +129,14 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
             Svex<N1>[] newArgs = Svex.newSvexArray(fun.arity);
             for (int i = 0; i < fun.arity; i++)
             {
-                newArgs[i] = args[i].addDelay(delay, builder, cache);
+                newArgs[i] = args[i].addDelay(delay, sm, cache);
             }
-            svex = fun.build(newArgs);
+            svex = sm.newCall(fun, newArgs);
             cache.put(this, svex);
         }
         return svex;
     }
+     */
 
     @Override
     protected void collectVarsRev(Set<Svar<N>> result, Set<SvexCall<N>> visited)
@@ -166,7 +182,7 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
     }
 
     @Override
-    public Svex<N> patch(Map<Svar<N>, Vec4> subst, Map<SvexCall<N>, SvexCall<N>> memoize)
+    public Svex<N> patch(Map<Svar<N>, Vec4> subst, SvexManager<N> sm, Map<SvexCall<N>, SvexCall<N>> memoize)
     {
         SvexCall<N> svex = memoize.get(this);
         if (svex == null)
@@ -175,10 +191,10 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
             boolean changed = false;
             for (int i = 0; i < args.length; i++)
             {
-                newArgs[i] = args[i].patch(subst, memoize);
+                newArgs[i] = args[i].patch(subst, sm, memoize);
                 changed = changed || newArgs[i] != args[i];
             }
-            svex = changed ? SvexCall.newCall(fun, newArgs) : this;
+            svex = changed ? sm.newCall(fun, newArgs) : this;
             memoize.put(this, svex);
         }
         return svex;
@@ -258,12 +274,20 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
     @Override
     public boolean equals(Object o)
     {
+        if (this == o)
+        {
+            return true;
+        }
         if (o instanceof SvexCall)
         {
             SvexCall<?> that = (SvexCall<?>)o;
-            if (this.impl.equals(that.impl))
+            if (this.hashCode != that.hashCode)
             {
-                return true;
+                return false;
+            }
+            if (this.owner != null && this.owner == that.owner)
+            {
+                return false;
             }
             if (!this.fun.equals(that.fun))
             {
@@ -277,6 +301,25 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
     @Override
     public int hashCode()
     {
-        return impl.hashCode();
+        return hashCode;
     }
+
+    @Override
+    public ACL2Object getACL2Object(Map<ACL2Backed, ACL2Object> backedCache)
+    {
+        ACL2Object result = backedCache.get(this);
+        if (result == null)
+        {
+            result = NIL;
+            for (int i = args.length - 1; i >= 0; i--)
+            {
+                result = hons(args[i].getACL2Object(backedCache), result);
+            }
+            result = hons(fun.fn, result);
+            backedCache.put(this, result);
+        }
+        assert result.hashCode() == hashCode;
+        return result;
+    }
+
 }
