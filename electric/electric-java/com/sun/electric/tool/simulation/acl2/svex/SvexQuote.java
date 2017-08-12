@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A "quoted constant" 4vec which represents itself.
@@ -41,11 +42,11 @@ import java.util.Set;
 public class SvexQuote<N extends SvarName> extends Svex<N>
 {
     public final Vec4 val;
+    private final int hashCode;
 
-    private final ACL2Object impl;
     private static final int SMALL_CACHE_EXP_LIMIT = 10;
     private static final List<SvexQuote<?>> smallCache = new ArrayList<>();
-    private static final Map<Vec4, SvexQuote<?>> largeCache = new HashMap<>();
+    private static final Map<Vec4, SvexQuote<?>> INTERN = new HashMap<>();
 
     private static final SvexQuote<?> X = new SvexQuote<>(Vec4.X);
     private static final SvexQuote<?> Z = new SvexQuote<>(Vec4.Z);
@@ -54,11 +55,11 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
     {
         for (int v = 0; v < (1 << SMALL_CACHE_EXP_LIMIT); v++)
         {
-            SvexQuote<?> sq = new SvexQuote<>(new Vec2(v));
+            SvexQuote<?> sq = new SvexQuote<>(Vec2.valueOf(v));
             smallCache.add(sq);
         }
-        largeCache.put(X.val, X);
-        largeCache.put(Z.val, Z);
+        INTERN.put(X.val, X);
+        INTERN.put(Z.val, Z);
     }
 
     private SvexQuote(Vec4 val)
@@ -70,11 +71,17 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
         this.val = val;
         if (val.isVec2())
         {
-            impl = honscopy(val.makeAcl2Object());
+            hashCode = val.hashCode();
         } else
         {
-            impl = hons(QUOTE, hons(val.makeAcl2Object(), NIL));
+            hashCode = ACL2Object.hashCodeOfCons(QUOTE.hashCode(),
+                ACL2Object.hashCodeOfCons(val.hashCode(), ACL2Object.HASH_CODE_NIL));
         }
+    }
+
+    public <N1 extends SvarName> SvexQuote<N1> cast()
+    {
+        return (SvexQuote<N1>)this;
     }
 
     public static <N extends SvarName> Svex<N> valueOf(Vec4 val)
@@ -87,13 +94,16 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
                 return (Svex<N>)smallCache.get(bv.intValueExact());
             }
         }
-        SvexQuote<?> sv = largeCache.get(val);
-        if (sv == null)
+        synchronized (INTERN)
         {
-            sv = new SvexQuote<>(val);
-            largeCache.put(val, sv);
+            SvexQuote<?> sv = INTERN.get(val);
+            if (sv == null)
+            {
+                sv = new SvexQuote<>(val);
+                INTERN.put(val, sv);
+            }
+            return (Svex<N>)sv;
         }
-        return (Svex<N>)sv;
     }
 
     public static <N extends SvarName> Svex<N> valueOf(BigInteger val)
@@ -102,7 +112,7 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
         {
             return (Svex<N>)smallCache.get(val.intValueExact());
         }
-        return valueOf(new Vec2(val));
+        return valueOf(Vec2.valueOf(val));
     }
 
     public static <N extends SvarName> Svex<N> valueOf(int val)
@@ -125,33 +135,15 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
     }
 
     @Override
-    public ACL2Object getACL2Object()
+    public <N1 extends SvarName> Svex<N1> convertVars(Function<N, N1> rename, SvexManager<N1> sm, Map<Svex<N>, Svex<N1>> cache)
     {
-        return impl;
+        return this.cast();
     }
 
     @Override
-    public <N1 extends SvarName> Svex<N1> convertVars(Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache)
+    public Svex<N> addDelay(int delay, SvexManager<N> sm, Map<Svex<N>, Svex<N>> cache)
     {
-        Svex<N1> svex = cache.get(this);
-        if (svex == null)
-        {
-            svex = SvexQuote.valueOf(val);
-            cache.put(this, svex);
-        }
-        return svex;
-    }
-
-    @Override
-    public <N1 extends SvarName> Svex<N1> addDelay(int delay, Svar.Builder<N1> builder, Map<Svex<N>, Svex<N1>> cache)
-    {
-        Svex<N1> svex = cache.get(this);
-        if (svex == null)
-        {
-            svex = SvexQuote.valueOf(val);
-            cache.put(this, svex);
-        }
-        return svex;
+        return this;
     }
 
     @Override
@@ -172,7 +164,7 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
     }
 
     @Override
-    public Svex<N> patch(Map<Svar<N>, Vec4> subst, Map<SvexCall<N>, SvexCall<N>> memoize)
+    public Svex<N> patch(Map<Svar<N>, Vec4> subst, SvexManager<N> sm, Map<SvexCall<N>, SvexCall<N>> memoize)
     {
         return this;
     }
@@ -204,12 +196,38 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
     @Override
     public boolean equals(Object o)
     {
-        return o instanceof SvexQuote && val.equals(((SvexQuote)o).val);
+        if (this == o)
+        {
+            return true;
+        }
+        if (o instanceof SvexQuote)
+        {
+            SvexQuote<N> that = (SvexQuote<N>)o;
+            return this.hashCode == that.hashCode
+                && this.val.equals(that.val);
+        }
+        return false;
     }
 
     @Override
     public int hashCode()
     {
-        return val.hashCode();
+        return hashCode;
     }
+
+    @Override
+    public ACL2Object getACL2Object()
+    {
+        ACL2Object result;
+        if (val.isVec2())
+        {
+            result = honscopy(val.getACL2Object());
+        } else
+        {
+            result = hons(QUOTE, hons(val.getACL2Object(), NIL));
+        }
+        assert result.hashCode() == hashCode;
+        return result;
+    }
+
 }

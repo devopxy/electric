@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import java.util.HashMap;
@@ -59,24 +60,24 @@ public class SymbolicDriver<N extends SvarName>
         this.rsh = rsh;
     }
 
-    public Driver<N> makeWideDriver(Svar.Builder<N> builder)
+    public Driver<N> makeWideDriver(SvexManager<N> sm)
     {
         Map<Svex<PathExt>, Svex<N>> memoize = new HashMap<>();
-        return new Driver<>(subst(drv.getSvex(), memoize, builder), drv.getStrength());
+        return new Driver<>(subst(drv.getSvex(), memoize, sm), drv.getStrength());
     }
 
-    public Driver<N> makeDriver(Svar.Builder<N> builder)
+    public Driver<N> makeDriver(SvexManager<N> sm)
     {
         Map<Svex<PathExt>, Svex<N>> memoize = new HashMap<>();
         Svex<N> Z = SvexQuote.Z();
-        Svex<N> svex = subst(drv.getSvex(), memoize, builder);
-        svex = svex.rsh(rsh);
-        svex = svex.concat(width, Z);
-        svex = Z.concat(lsh, svex);
+        Svex<N> svex = subst(drv.getSvex(), memoize, sm);
+        svex = svex.rsh(sm, rsh);
+        svex = svex.concat(sm, width, Z);
+        svex = Z.concat(sm, lsh, svex);
         return new Driver<>(svex, drv.getStrength());
     }
 
-    private Svex<N> subst(Svex<PathExt> x, Map<Svex<PathExt>, Svex<N>> memoize, Svar.Builder<N> builder)
+    private Svex<N> subst(Svex<PathExt> x, Map<Svex<PathExt>, Svex<N>> memoize, SvexManager<N> sm)
     {
         Svex<N> result = memoize.get(x);
         if (result == null)
@@ -88,7 +89,7 @@ public class SymbolicDriver<N extends SvarName>
                 int iArg = drv.collectVars().indexOf(svar);
                 Lhs<N> arg = args[iArg];
                 Map<Svex<N>, Svex<N>> addDelayCache = new HashMap<>();
-                result = arg.toSvex().addDelay(sv.svar.getDelay(), builder, addDelayCache);
+                result = arg.toSvex(sm).addDelay(sv.svar.getDelay(), sm, addDelayCache);
             } else if (x instanceof SvexQuote)
             {
                 result = SvexQuote.valueOf(((SvexQuote)x).val);
@@ -99,9 +100,9 @@ public class SymbolicDriver<N extends SvarName>
                 Svex<N>[] newArgs = Svex.newSvexArray(args.length);
                 for (int i = 0; i < args.length; i++)
                 {
-                    newArgs[i] = subst(args[i], memoize, builder);
+                    newArgs[i] = subst(args[i], memoize, sm);
                 }
-                result = sc.fun.<N>callStar(newArgs);
+                result = sc.fun.<N>callStar(sm, newArgs);
             }
             memoize.put(x, result);
         }

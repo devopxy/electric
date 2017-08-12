@@ -21,6 +21,7 @@
  */
 package com.sun.electric.util.acl2;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -33,8 +34,22 @@ public interface ACL2Backed
     /**
      * Get ACL2Object tree representation of this Java object
      *
-     * @param cache a cache of already computed representations
      * @return ACL2Object tree representation
      */
-    ACL2Object getACL2Object(Map<ACL2Backed, ACL2Object> cache);
+    default ACL2Object getACL2Object()
+    {
+        Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
+        return getACL2Object(backedCache);
+    }
+
+    /**
+     * Get ACL2Object tree representation of this Java object
+     *
+     * @param backedCache a cache of already computed representations
+     * @return ACL2Object tree representation
+     */
+    default ACL2Object getACL2Object(Map<ACL2Backed, ACL2Object> backedCache)
+    {
+        return getACL2Object();
+    }
 }

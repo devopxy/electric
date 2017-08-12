@@ -44,7 +44,7 @@ public class Vec4IteStmt<N extends SvarName> extends SvexCall<N>
     public final Svex<N> then;
     public final Svex<N> els;
 
-    public Vec4IteStmt(Svex<N> test, Svex<N> then, Svex<N> els)
+    private Vec4IteStmt(Svex<N> test, Svex<N> then, Svex<N> els)
     {
         super(FUNCTION, test, then, els);
         this.test = test;

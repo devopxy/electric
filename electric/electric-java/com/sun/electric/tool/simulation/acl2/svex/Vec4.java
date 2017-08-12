@@ -22,19 +22,24 @@
 package com.sun.electric.tool.simulation.acl2.svex;
 
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * The fundamental 4-valued vector representation used throughout SV expressions.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____4VEC>.
  */
-public abstract class Vec4
+public abstract class Vec4 implements ACL2Backed
 {
-    public static final Vec4 X = new Impl(BigInteger.valueOf(-1), BigInteger.valueOf(0));
-    public static final Vec4 Z = new Impl(BigInteger.valueOf(0), BigInteger.valueOf(-1));
-    public static final Vec4 X1 = new Impl(BigInteger.valueOf(1), BigInteger.valueOf(0));
-    public static final Vec4 Z1 = new Impl(BigInteger.valueOf(0), BigInteger.valueOf(1));
+    private static final Map<Impl, Impl> INTERN = new HashMap<>();
+
+    public static final Vec4 X = valueOf(BigInteger.valueOf(-1), BigInteger.valueOf(0));
+    public static final Vec4 Z = valueOf(BigInteger.valueOf(0), BigInteger.valueOf(-1));
+    public static final Vec4 X1 = valueOf(BigInteger.valueOf(1), BigInteger.valueOf(0));
+    public static final Vec4 Z1 = valueOf(BigInteger.valueOf(0), BigInteger.valueOf(1));
 
     public abstract boolean isVec2();
 
@@ -46,18 +51,41 @@ public abstract class Vec4
 
     public abstract BigInteger getLower();
 
-    public abstract ACL2Object makeAcl2Object();
-
     public static final int BIT_LIMIT = 1 << 24;
 
     public static Vec4 valueOf(BigInteger upper, BigInteger lower)
     {
-        return upper.equals(lower) ? new Vec2(upper) : new Impl(upper, lower);
+        if (upper.equals(lower))
+        {
+            return Vec2.valueOf(upper);
+        }
+        Impl key = new Impl(upper, lower);
+        synchronized (INTERN)
+        {
+            Impl result = INTERN.get(key);
+            if (result == null)
+            {
+                result = key;
+                INTERN.put(key, result);
+            }
+            return result;
+        }
     }
 
-    public static Vec4 valueOf(ACL2Object x)
+    public static Vec4 fromACL2(ACL2Object impl)
     {
-        return consp(x).bool() ? new Impl(x) : new Vec2(x);
+        Vec4 result;
+        if (consp(impl).bool())
+        {
+            BigInteger upper = car(impl).bigIntegerValueExact();
+            BigInteger lower = cdr(impl).bigIntegerValueExact();
+            return valueOf(upper, lower);
+        } else
+        {
+            result = Vec2.valueOf(impl.bigIntegerValueExact());
+        }
+        assert result.hashCode() == impl.hashCode();
+        return result;
     }
 
     public abstract Vec4 fix3();
@@ -66,6 +94,7 @@ public abstract class Vec4
     {
         private final BigInteger upper;
         private final BigInteger lower;
+        private final int hashCode;
 
         Impl(BigInteger upper, BigInteger lower)
         {
@@ -75,11 +104,7 @@ public abstract class Vec4
             }
             this.upper = upper;
             this.lower = lower;
-        }
-
-        Impl(ACL2Object rep)
-        {
-            this(car(rep).bigIntegerValueExact(), cdr(rep).bigIntegerValueExact());
+            hashCode = ACL2Object.hashCodeOfCons(upper.hashCode(), lower.hashCode());
         }
 
         @Override
@@ -125,12 +150,6 @@ public abstract class Vec4
         }
 
         @Override
-        public ACL2Object makeAcl2Object()
-        {
-            return cons(ACL2Object.valueOf(upper), ACL2Object.valueOf(lower));
-        }
-
-        @Override
         public boolean equals(Object o)
         {
             if (o instanceof Impl)
@@ -144,10 +163,21 @@ public abstract class Vec4
         @Override
         public int hashCode()
         {
-            int hash = 3;
-            hash = 67 * hash + upper.hashCode();
-            hash = 67 * hash + lower.hashCode();
-            return hash;
+            return hashCode;
+        }
+
+        @Override
+        public ACL2Object getACL2Object()
+        {
+            ACL2Object result = hons(ACL2Object.valueOf(upper), ACL2Object.valueOf(lower));
+            assert result.hashCode() == hashCode();
+            return result;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "vec4[" + upper + "," + lower + "]";
         }
     }
 }

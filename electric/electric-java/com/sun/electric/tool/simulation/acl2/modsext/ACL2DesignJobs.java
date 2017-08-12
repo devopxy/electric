@@ -39,12 +39,14 @@ import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.user.User;
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import com.sun.electric.util.acl2.ACL2Reader;
 import com.sun.electric.util.acl2.ACL2Writer;
@@ -615,8 +617,8 @@ public class ACL2DesignJobs
                     System.out.println(saoFile);
                     gen.scanLib(saoFile);
                     ACL2Reader sr = new ACL2Reader(saoFile);
-                    Address.SvarBuilder builder = new Address.SvarBuilder();
-                    Design<Address> design = new Design<>(builder, sr.root);
+                    SvarName.Builder<Address> snb = new Address.SvarNameBuilder();
+                    Design<Address> design = new Design<>(snb, sr.root);
                     for (Map.Entry<ModName, Module<Address>> e : design.modalist.entrySet())
                     {
                         ModName modName = e.getKey();
@@ -678,6 +680,7 @@ public class ACL2DesignJobs
                 ACL2Object.initHonsMananger(designName);
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 DesignExt design = new DesignExt(sr.root);
+                Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
                 Map<Svex<PathExt>, String> svexLabels = new LinkedHashMap<>();
                 Map<Svex<PathExt>, BigInteger> svexSizes = new HashMap<>();
                 try (PrintStream out = new PrintStream(outFileName))
@@ -760,7 +763,7 @@ public class ACL2DesignJobs
                         Svex<PathExt> svex = e.getKey();
                         String label = e.getValue();
                         Vec4 xeval = svex.xeval(xevalMemoize);
-                        out.println("  (" + label + " . " + xeval.makeAcl2Object().rep() + ")");
+                        out.println("  (" + label + " . " + xeval.getACL2Object(backedCache).rep() + ")");
                     }
                     out.println(" ))");
                     out.println();
@@ -1050,7 +1053,7 @@ public class ACL2DesignJobs
                                     mask = BigInteger.ZERO;
                                 }
                                 out.print("        (");
-                                String rep = lw.getName().getACL2Object().rep();
+                                String rep = lw.getName().toLispString();
                                 if (var.getDelay() == 0)
                                 {
                                     out.print(rep);
@@ -1109,11 +1112,11 @@ public class ACL2DesignJobs
             {
                 ACL2Object.initHonsMananger(designName);
                 ACL2Reader sr = new ACL2Reader(saoFile);
-                Address.SvarBuilder builder = new Address.SvarBuilder();
-                Design<Address> design = new Design<>(builder, sr.root);
+                SvarName.Builder<Address> snb = new Address.SvarNameBuilder();
+                Design<Address> design = new Design<>(snb, sr.root);
                 ModDb db = new ModDb(design.top, design.modalist);
                 IndexName.curElabMod = db.topMod();
-                Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist, builder);
+                Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist);
                 ElabMod topIdx = db.modnameGetIndex(design.top);
                 ModDb.FlattenResult flattenResult = topIdx.svexmodFlatten(indexedMods);
                 ACL2Object indexedAlist = NIL;
@@ -1189,11 +1192,11 @@ public class ACL2DesignJobs
             {
                 ACL2Object.initHonsMananger(designName);
                 ACL2Reader sr = new ACL2Reader(saoFile);
-                Address.SvarBuilder builder = new Address.SvarBuilder();
-                Design<Address> design = new Design<>(builder, sr.root);
+                SvarName.Builder<Address> snb = new Address.SvarNameBuilder();
+                Design<Address> design = new Design<>(snb, sr.root);
                 ModDb db = new ModDb(design.top, design.modalist);
                 IndexName.curElabMod = db.topMod();
-                Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist, builder);
+                Map<ModName, Module<Address>> indexedMods = db.modalistNamedToIndex(design.modalist);
                 ElabMod topElabMod = db.modnameGetIndex(design.top);
                 ElabMod.ModScope topScope = new ElabMod.ModScope(topElabMod);
                 ModDb.FlattenResult flattenResult = topElabMod.svexmodFlatten(indexedMods);
@@ -1204,7 +1207,7 @@ public class ACL2DesignJobs
                 if (isIndexed)
                 {
                     Compile<IndexName> compile = new Compile(flattenResult.aliases.getArr(),
-                        flattenResult.assigns, flattenResult.builder);
+                        flattenResult.assigns, flattenResult.sm);
                     svexarrList = compile.svexarrAsACL2Object();
                     normAssigns = compile.normAssignsAsACL2Object();
                     netAssigns = compile.netAssignsAsACL2Object();
@@ -1213,10 +1216,11 @@ public class ACL2DesignJobs
                 } else
                 {
                     Path.SvarBuilder namedBuilder = new Path.SvarBuilder();
-                    List<Lhs<Path>> namedAliases = topScope.aliasesToPath(flattenResult.aliases, namedBuilder);
-                    Compile<Path> compile = new Compile(namedAliases, flattenResult.assigns, namedBuilder);
+                    SvexManager<Path> sm = new SvexManager<>();
+                    List<Lhs<Path>> namedAliases = topScope.aliasesToPath(flattenResult.aliases, sm);
+                    Compile<Path> compile = new Compile(namedAliases, flattenResult.assigns, sm);
 
-                    namedAliasesList = topScope.aliasesToNamedACL2Object(flattenResult.aliases, namedBuilder);
+                    namedAliasesList = topScope.aliasesToNamedACL2Object(flattenResult.aliases, sm);
 
                     svexarrList = compile.svexarrAsACL2Object();
                     normAssigns = compile.normAssignsAsACL2Object();
@@ -1287,7 +1291,7 @@ public class ACL2DesignJobs
         @Override
         protected boolean ignore_wire(WireExt w)
         {
-            String s = w.getName().impl.stringValueExact();
+            String s = w.getName().toString();
             for (String is : inputs)
             {
                 if (is.equals(s))

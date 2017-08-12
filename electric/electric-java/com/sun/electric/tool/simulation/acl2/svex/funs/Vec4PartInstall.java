@@ -45,7 +45,7 @@ public class Vec4PartInstall<N extends SvarName> extends SvexCall<N>
     public final Svex<N> in;
     public final Svex<N> val;
 
-    public Vec4PartInstall(Svex<N> lsb, Svex<N> width, Svex<N> in, Svex<N> val)
+    private Vec4PartInstall(Svex<N> lsb, Svex<N> width, Svex<N> in, Svex<N> val)
     {
         super(FUNCTION, lsb, width, in, val);
         this.lsb = lsb;

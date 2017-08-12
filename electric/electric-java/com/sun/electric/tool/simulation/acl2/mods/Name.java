@@ -22,66 +22,238 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
 
 /**
  * Type of the names of wires, module instances, and namespaces (such as datatype fields).
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____NAME>.
  */
-public class Name
+public abstract class Name implements ACL2Backed
 {
-    public final ACL2Object impl;
 
-    public Name(ACL2Object impl)
+    public static final Name SELF = new Name()
     {
-        this.impl = honscopy(impl);
+        @Override
+        public boolean isSimpleSvarName()
+        {
+            return true;
+        }
+
+        @Override
+        public int hashCode() // boolean equals(Object o) is default
+        {
+            return Util.KEYWORD_SELF.hashCode();
+        }
+
+        @Override
+        public ACL2Object getACL2Object()
+        {
+            return Util.KEYWORD_SELF;
+        }
+
+        @Override
+        public String toString()
+        {
+            return ":SELF";
+        }
+    };
+
+    public static Name fromACL2(ACL2Object impl)
+    {
+        Name result;
         if (stringp(impl).bool())
         {
+            result = valueOf(impl.stringValueExact());
         } else if (integerp(impl).bool())
         {
-        } else if (symbolp(impl).bool())
+            result = valueOf(impl.intValueExact());
+        } else if (impl.equals(Util.KEYWORD_SELF))
         {
-            Util.check(impl.equals(Util.KEYWORD_SELF));
-        } else if (consp(impl).bool())
-        {
-            Util.check(car(impl).equals(Util.KEYWORD_ANONYMOIUS));
+            result = SELF;
         } else
         {
-            Util.check(false);
+            result = new AnonymousImpl(impl);
         }
+        assert result.hashCode() == impl.hashCode();
+        return result;
     }
 
-    public ACL2Object getACL2Object()
+    public static Name valueOf(String s)
     {
-        return impl;
+        return new StringImpl(s);
     }
 
-    @Override
-    public boolean equals(Object o)
+    public static Name valueOf(BigInteger i)
     {
-        return o instanceof Name && impl.equals(((Name)o).impl);
+        return i.signum() >= 0 && i.bitLength() < Integer.SIZE
+            ? new IndexName(i.intValueExact())
+            : new IntegerImpl(i);
     }
 
-    @Override
-    public int hashCode()
+    public static Name valueOf(int i)
     {
-        return impl.hashCode();
+        return i >= 0 ? new IndexName(i) : new IntegerImpl(BigInteger.valueOf(i));
     }
 
-    @Override
-    public String toString()
+    public boolean isString()
     {
-        if (stringp(impl).bool())
-        {
-            return impl.stringValueExact();
-        } else
-        {
-            return "'" + impl.rep();
-        }
+        return false;
+    }
+
+    public boolean isInteger()
+    {
+        return false;
+    }
+
+    public boolean isSimpleSvarName()
+    {
+        return false;
     }
 
     public String toLispString()
     {
-        return stringp(impl).bool() || integerp(impl).bool() ? impl.rep() : "'" + impl.rep();
+        return toString();
+    }
+
+    private static class StringImpl extends Name
+    {
+        private String s;
+
+        StringImpl(String s)
+        {
+            this.s = s;
+        }
+
+        @Override
+        public boolean isString()
+        {
+            return true;
+        }
+
+        @Override
+        public boolean isSimpleSvarName()
+        {
+            return true;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            return o instanceof StringImpl && s.equals(((StringImpl)o).s);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return ACL2Object.hashCodeOf(s);
+        }
+
+        @Override
+        public ACL2Object getACL2Object()
+        {
+            ACL2Object result = honscopy(ACL2Object.valueOf(s));
+            assert result.hashCode() == hashCode();
+            return result;
+        }
+
+        @Override
+        public String toString()
+        {
+            return s;
+        }
+
+        @Override
+        public String toLispString()
+        {
+            return "\"" + s + "\"";
+        }
+    }
+
+    private static class IntegerImpl extends Name
+    {
+        private BigInteger val;
+
+        IntegerImpl(BigInteger val)
+        {
+            if (val.signum() >= 0 && val.bitLength() <= Integer.SIZE - 1)
+            {
+                throw new IllegalArgumentException();
+            }
+            this.val = val;
+        }
+
+        @Override
+        public boolean isInteger()
+        {
+            return true;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            return o instanceof IntegerImpl && val.equals(((IntegerImpl)o).val);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return ACL2Object.hashCodeOf(val);
+        }
+
+        @Override
+        public ACL2Object getACL2Object()
+        {
+            ACL2Object result = honscopy(ACL2Object.valueOf(val));
+            assert result.hashCode() == hashCode();
+            return result;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "'" + val;
+        }
+    }
+
+    private static class AnonymousImpl extends Name
+    {
+        private ACL2Object args;
+
+        AnonymousImpl(ACL2Object impl)
+        {
+            if (!car(impl).equals(Util.KEYWORD_ANONYMOIUS))
+            {
+                throw new IllegalArgumentException();
+            }
+            this.args = cdr(impl);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            return o instanceof AnonymousImpl && args.equals(((AnonymousImpl)o).args);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return ACL2Object.hashCodeOfCons(Util.KEYWORD_ANONYMOIUS.hashCode(), args.hashCode());
+        }
+
+        @Override
+        public ACL2Object getACL2Object()
+        {
+            ACL2Object result = hons(Util.KEYWORD_ANONYMOIUS, args);
+            assert result.hashCode() == hashCode();
+            return result;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "'(:ANONYMOUS . " + args.rep() + ")";
+        }
     }
 }

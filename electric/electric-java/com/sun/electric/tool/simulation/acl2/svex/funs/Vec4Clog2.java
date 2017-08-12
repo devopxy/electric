@@ -41,7 +41,7 @@ public class Vec4Clog2<N extends SvarName> extends SvexCall<N>
     public static final Function FUNCTION = new Function();
     public final Svex<N> x;
 
-    public Vec4Clog2(Svex<N> x)
+    private Vec4Clog2(Svex<N> x)
     {
         super(FUNCTION, x);
         this.x = x;
@@ -68,7 +68,7 @@ public class Vec4Clog2<N extends SvarName> extends SvexCall<N>
             {
                 BigInteger xv = ((Vec2)x).getVal();
                 int ceil = xv.subtract(BigInteger.ONE).bitLength();
-                return new Vec2(ceil);
+                return Vec2.valueOf(ceil);
             }
             return Vec4.X;
         }

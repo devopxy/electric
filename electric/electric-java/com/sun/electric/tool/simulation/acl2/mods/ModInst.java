@@ -22,16 +22,18 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 
 /**
  * SV module instance.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODINST>.
  */
-public class ModInst
+public class ModInst implements ACL2Backed
 {
     public final Name instname;
     public final ModName modname;
+    private int hashCode;
 
     public ModInst(Name instname, ModName modname)
     {
@@ -41,26 +43,26 @@ public class ModInst
         }
         this.instname = instname;
         this.modname = modname;
+        hashCode = ACL2Object.hashCodeOfCons(instname.hashCode(), modname.hashCode());
     }
 
-    ModInst(ACL2Object impl)
+    public static ModInst fromACL2(ACL2Object impl)
     {
-        instname = new Name(car(impl));
-        modname = ModName.valueOf(cdr(impl));
-    }
-
-    public ACL2Object getACL2Object()
-    {
-        return cons(instname.getACL2Object(), modname.getACL2Object());
+        return new ModInst(Name.fromACL2(car(impl)), ModName.fromACL2(cdr(impl)));
     }
 
     @Override
     public boolean equals(Object o)
     {
+        if (this == o)
+        {
+            return true;
+        }
         if (o instanceof ModInst)
         {
             ModInst that = (ModInst)o;
-            return this.instname.equals(that.instname)
+            return this.hashCode == that.hashCode
+                && this.instname.equals(that.instname)
                 && this.modname.equals(that.modname);
         }
         return false;
@@ -69,10 +71,15 @@ public class ModInst
     @Override
     public int hashCode()
     {
-        int hash = 3;
-        hash = 73 * hash + instname.hashCode();
-        hash = 73 * hash + modname.hashCode();
-        return hash;
+        return ACL2Object.hashCodeOfCons(instname.hashCode(), modname.hashCode());
+    }
+
+    @Override
+    public ACL2Object getACL2Object()
+    {
+        ACL2Object result = hons(instname.getACL2Object(), modname.getACL2Object());
+        assert result.hashCode() == hashCode();
+        return result;
     }
 
     @Override

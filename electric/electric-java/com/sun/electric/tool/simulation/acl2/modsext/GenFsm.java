@@ -65,9 +65,10 @@ public abstract class GenFsm extends GenBase
 
     private static WireExt searchWire(ModuleExt m, String name)
     {
+        Name nm = Name.valueOf(name);
         for (WireExt w : m.wires)
         {
-            if (w.getName().impl.stringValueExact().equals(name))
+            if (w.getName().equals(nm))
             {
                 return w;
             }
@@ -105,7 +106,7 @@ public abstract class GenFsm extends GenBase
         {
             throw new UnsupportedOperationException();
         }
-        String s = w.getName().impl.stringValueExact();
+        String s = w.getName().toString();
         assert svar.getDelay() == 0;
         assert !svar.isNonblocking();
         s();
@@ -150,7 +151,7 @@ public abstract class GenFsm extends GenBase
         {
             WireExt lw = (WireExt)((SvexVar<PathExt>)sv).svar.getName();
             WireExt w = lw;
-            String s = w.getName().impl.stringValueExact();
+            String s = w.getName().toString();
             s("(" + s + "-ext st in)");
         } else if (sv instanceof SvexCall)
         {
@@ -305,7 +306,7 @@ public abstract class GenFsm extends GenBase
 
     private void genDummyWire(WireExt w)
     {
-        String s = w.getName().impl.stringValueExact();
+        String s = w.getName().toString();
         s();
         s("(define " + s + "-ext");
         sb("((st " + projName + "-st-p)");
@@ -345,7 +346,7 @@ public abstract class GenFsm extends GenBase
 
     private void genNextFlipFlop(Name instname, int ffWidth, Lhs<PathExt> r)
     {
-        String s = instname.impl.stringValueExact();
+        String s = instname.toString();
         s();
         s("(define " + s + "-next");
         sb("((st " + projName + "-st-p)");
@@ -424,10 +425,10 @@ public abstract class GenFsm extends GenBase
                 assert svar.getDelay() == 0;
                 assert !svar.isNonblocking();
                 ModInstExt inst = pi.inst;
-                if (isFlipFlopOut(inst.getModname().impl.stringValueExact(),
-                    pi.getProtoName().impl.stringValueExact()))
+                if (isFlipFlopOut(inst.getModname().toString(),
+                    pi.getProtoName().toString()))
                 {
-                    String s = inst.getInstname().impl.stringValueExact();
+                    String s = inst.getInstname().toString();
                     s(":" + s + " (" + s + "-next st in)");
                 }
             }
@@ -469,8 +470,8 @@ public abstract class GenFsm extends GenBase
                 assert !lVar.isNonblocking();
                 ModInstExt inst = pi.inst;
                 int ffWidth = pi.getWidth();
-                if (isFlipFlopOut(inst.getModname().impl.stringValueExact(),
-                    pi.getProtoName().impl.stringValueExact()))
+                if (isFlipFlopOut(inst.getModname().toString(),
+                    pi.getProtoName().toString()))
                 {
                     int rsh = 0;
                     for (Lhrange<PathExt> lr1 : r.ranges)
@@ -541,8 +542,8 @@ public abstract class GenFsm extends GenBase
                 assert lVar.getDelay() == 0;
                 assert !lVar.isNonblocking();
                 ModInstExt inst = pi.inst;
-                if (isFlipFlopIn(inst.getModname().impl.stringValueExact(),
-                    pi.getProtoName().impl.stringValueExact()))
+                if (isFlipFlopIn(inst.getModname().toString(),
+                    pi.getProtoName().toString()))
                 {
                     for (Lhrange<PathExt> lr1 : r.ranges)
                     {
@@ -583,8 +584,8 @@ public abstract class GenFsm extends GenBase
                 assert !lVar.isNonblocking();
                 ModInstExt inst = pi.inst;
                 int ffWidth = pi.getWidth();
-                if (isFlipFlopIn(inst.getModname().impl.stringValueExact(),
-                    pi.getProtoName().impl.stringValueExact()))
+                if (isFlipFlopIn(inst.getModname().toString(),
+                    pi.getProtoName().toString()))
                 {
                     genNextFlipFlop(inst.getInstname(), ffWidth, r);
                 }
@@ -601,7 +602,7 @@ public abstract class GenFsm extends GenBase
         ACL2Reader sr = new ACL2Reader(saoFile);
         DesignExt design = new DesignExt(sr.root);
         ModuleExt m = design.downTop.get(design.getTop());
-        projName = design.getTop().impl.stringValueExact();
+        projName = design.getTop().toString();
         try (PrintStream out = new PrintStream(outFileName))
         {
             this.out = out;
@@ -634,7 +635,7 @@ public abstract class GenFsm extends GenBase
 
     protected void genInput(WireExt w)
     {
-        String s = w.getName().impl.stringValueExact();
+        String s = w.getName().toString();
         s();
         s("(define " + s + "-ext");
         sb("((st " + projName + "-st-p)");

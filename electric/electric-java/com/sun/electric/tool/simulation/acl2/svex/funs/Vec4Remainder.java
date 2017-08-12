@@ -42,7 +42,7 @@ public class Vec4Remainder<N extends SvarName> extends SvexCall<N>
     public final Svex<N> x;
     public final Svex<N> y;
 
-    public Vec4Remainder(Svex<N> x, Svex<N> y)
+    private Vec4Remainder(Svex<N> x, Svex<N> y)
     {
         super(FUNCTION, x, y);
         this.x = x;
@@ -73,7 +73,7 @@ public class Vec4Remainder<N extends SvarName> extends SvexCall<N>
                 BigInteger yv = ((Vec2)y).getVal();
                 if (yv.signum() != 0)
                 {
-                    return new Vec2(xv.remainder(yv));
+                    return Vec2.valueOf(xv.remainder(yv));
                 }
             }
             return Vec4.X;

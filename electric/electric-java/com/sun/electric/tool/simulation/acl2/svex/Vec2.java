@@ -21,8 +21,11 @@
  */
 package com.sun.electric.tool.simulation.acl2.svex;
 
+import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * A 2vec is a 4vec that has no X or Z bits..
@@ -30,13 +33,15 @@ import java.math.BigInteger;
  */
 public class Vec2 extends Vec4
 {
-    public static final Vec2 ZERO = new Vec2(0);
-    public static final Vec2 ONE = new Vec2(1);
-    public static final Vec2 MINUS_ONE = new Vec2(-1);
+    private static final Map<BigInteger, Vec2> INTERN = new HashMap<>();
+
+    public static final Vec2 ZERO = valueOf(0);
+    public static final Vec2 ONE = valueOf(1);
+    public static final Vec2 MINUS_ONE = valueOf(-1);
 
     private final BigInteger val;
 
-    public Vec2(BigInteger val)
+    private Vec2(BigInteger val)
     {
         if (val == null)
         {
@@ -45,24 +50,33 @@ public class Vec2 extends Vec4
         this.val = val;
     }
 
-    public Vec2(long val)
+    public static Vec2 valueOf(BigInteger val)
     {
-        this(BigInteger.valueOf(val));
+        synchronized (INTERN)
+        {
+            Vec2 result = INTERN.get(val);
+            if (result == null)
+            {
+                result = new Vec2(val);
+                INTERN.put(val, result);
+            }
+            return result;
+        }
     }
 
-    public Vec2(int val)
+    public static Vec2 valueOf(long val)
     {
-        this(BigInteger.valueOf(val));
+        return valueOf(BigInteger.valueOf(val));
+    }
+
+    public static Vec2 valueOf(int val)
+    {
+        return valueOf(BigInteger.valueOf(val));
     }
 
     public static Vec2 valueOf(boolean b)
     {
         return b ? MINUS_ONE : ZERO;
-    }
-
-    public Vec2(ACL2Object rep)
-    {
-        val = rep.bigIntegerValueExact();
     }
 
     public BigInteger getVal()
@@ -107,12 +121,6 @@ public class Vec2 extends Vec4
     }
 
     @Override
-    public ACL2Object makeAcl2Object()
-    {
-        return ACL2Object.valueOf(val);
-    }
-
-    @Override
     public boolean equals(Object o)
     {
         return o instanceof Vec2 && val.equals(((Vec2)o).val);
@@ -122,5 +130,19 @@ public class Vec2 extends Vec4
     public int hashCode()
     {
         return val.hashCode();
+    }
+
+    @Override
+    public ACL2Object getACL2Object()
+    {
+        ACL2Object result = honscopy(ACL2Object.valueOf(val));
+        assert result.hashCode() == hashCode();
+        return result;
+    }
+
+    @Override
+    public String toString()
+    {
+        return val.toString();
     }
 }

@@ -42,7 +42,7 @@ public class Vec4Pow<N extends SvarName> extends SvexCall<N>
     public final Svex<N> x;
     public final Svex<N> y;
 
-    public Vec4Pow(Svex<N> x, Svex<N> y)
+    private Vec4Pow(Svex<N> x, Svex<N> y)
     {
         super(FUNCTION, x, y);
         this.x = x;
@@ -73,7 +73,7 @@ public class Vec4Pow<N extends SvarName> extends SvexCall<N>
                 int expv = ((Vec2)exp).getVal().intValueExact();
                 if (expv >= 0 || basev.abs().equals(BigInteger.ONE))
                 {
-                    return new Vec2(basev.pow(expv));
+                    return Vec2.valueOf(basev.pow(expv));
                 }
                 if (basev.signum() != 0)
                 {

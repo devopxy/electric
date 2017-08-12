@@ -94,7 +94,7 @@ public class GenFsmNew extends GenBase
     {
         for (ParameterizedModule parMod : parameterizedModules)
         {
-            if (parMod.setCurBuilder(modName))
+            if (parMod.setCurBuilder(modName, null))
             {
                 return parMod;
             }
@@ -152,7 +152,7 @@ public class GenFsmNew extends GenBase
             boolean found = false;
             for (ParameterizedModule parModule : parModules)
             {
-                if (parModule.setCurBuilder(modName))
+                if (parModule.setCurBuilder(modName, m.b.sm))
                 {
                     assert !found;
                     found = true;

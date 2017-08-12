@@ -41,7 +41,7 @@ public class Vec4Bitnot<N extends SvarName> extends SvexCall<N>
     public static final Function FUNCTION = new Function();
     public final Svex<N> x;
 
-    public Vec4Bitnot(Svex<N> x)
+    private Vec4Bitnot(Svex<N> x)
     {
         super(FUNCTION, x);
         this.x = x;
@@ -71,7 +71,7 @@ public class Vec4Bitnot<N extends SvarName> extends SvexCall<N>
             if (x.isVec2())
             {
                 BigInteger xv = ((Vec2)x).getVal();
-                return new Vec2(xv.not());
+                return Vec2.valueOf(xv.not());
             }
             return Vec4.valueOf(x.getLower().not(), x.getUpper().not());
         }

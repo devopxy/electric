@@ -41,7 +41,7 @@ public class Vec4Onehot0<N extends SvarName> extends SvexCall<N>
     public static final Function FUNCTION = new Function();
     public final Svex<N> x;
 
-    public Vec4Onehot0(Svex<N> x)
+    private Vec4Onehot0(Svex<N> x)
     {
         super(FUNCTION, x);
         this.x = x;

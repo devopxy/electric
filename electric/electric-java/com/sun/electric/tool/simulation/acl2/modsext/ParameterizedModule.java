@@ -35,9 +35,8 @@ import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
-import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
-import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec3Fix;
@@ -60,6 +59,7 @@ import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -86,8 +86,8 @@ public abstract class ParameterizedModule
 
     private Map<String, String> params;
     private final Map<String, Name> names = new HashMap<>();
-    private final Address.SvarBuilder builder = new Address.SvarBuilder();
 
+    private SvexManager<Address> sm;
     private final List<Wire> wires = new ArrayList<>();
     private final List<ModInst> insts = new ArrayList<>();
     private final Map<Lhs<Address>, Driver<Address>> assigns = new LinkedHashMap<>();
@@ -114,7 +114,7 @@ public abstract class ParameterizedModule
      */
     protected Map<String, String> matchModName(ModName modName)
     {
-        if (!modName.isString)
+        if (!modName.isString())
         {
             return null;
         }
@@ -168,13 +168,14 @@ public abstract class ParameterizedModule
      * @param modName ModName to check
      * @return true if modName is a specialization of this parameterized module.
      */
-    public boolean setCurBuilder(ModName modName)
+    public boolean setCurBuilder(ModName modName, SvexManager<Address> sm)
     {
         clear();
         params = matchModName(modName);
         if (params != null)
         {
             curModName = modName;
+            this.sm = sm != null ? sm : new SvexManager<>();
             return true;
         }
         curModName = null;
@@ -183,6 +184,7 @@ public abstract class ParameterizedModule
 
     protected void clear()
     {
+        sm = null;
         names.clear();
         wires.clear();
         insts.clear();
@@ -225,7 +227,7 @@ public abstract class ParameterizedModule
         Name name = names.get(nameStr);
         if (name == null)
         {
-            name = new Name(honscopy(ACL2Object.valueOf(nameStr)));
+            name = Name.fromACL2(honscopy(ACL2Object.valueOf(nameStr)));
             names.put(nameStr, name);
         }
         return name;
@@ -335,7 +337,7 @@ public abstract class ParameterizedModule
      */
     protected void instance(String instName, String modName)
     {
-        instance(instName, ModName.valueOf(ACL2Object.valueOf(modName)));
+        instance(instName, ModName.fromACL2(ACL2Object.valueOf(modName)));
     }
 
     /**
@@ -363,7 +365,9 @@ public abstract class ParameterizedModule
      */
     protected Lhrange<Address> r(Name wireName, int msb, int lsb)
     {
-        Svar<Address> svar = builder.makeSimpleSvar(wireName);
+        Path path = Path.simplePath(wireName);
+        Address address = Address.valueOf(path);
+        Svar<Address> svar = sm.getVar(address);
         return r(svar, msb, lsb);
     }
 
@@ -379,7 +383,9 @@ public abstract class ParameterizedModule
      */
     protected Lhrange<Address> r(String instName, String portName, int msb, int lsb)
     {
-        Svar<Address> svar = builder.makeScopedSvar(getName(instName), getName(portName));
+        Path path = Path.makePath(Collections.singletonList(getName(instName)), getName(portName));
+        Address address = Address.valueOf(path);
+        Svar<Address> svar = sm.getVar(address);
         return r(svar, msb, lsb);
     }
 
@@ -395,27 +401,27 @@ public abstract class ParameterizedModule
 
     protected Svex<Address> unfloat(Svex<Address> x)
     {
-        return SvexCall.newCall(Vec3Fix.FUNCTION, x);
+        return sm.newCall(Vec3Fix.FUNCTION, x);
     }
 
     protected Svex<Address> uor(Svex<Address> x)
     {
-        return SvexCall.newCall(Vec4ReductionOr.FUNCTION, x);
+        return sm.newCall(Vec4ReductionOr.FUNCTION, x);
     }
 
     protected Svex<Address> ite(Svex<Address> test, Svex<Address> th, Svex<Address> el)
     {
-        return SvexCall.newCall(Vec4Ite.FUNCTION, test, th, el);
+        return sm.newCall(Vec4Ite.FUNCTION, test, th, el);
     }
 
     protected Svex<Address> iteStmt(Svex<Address> test, Svex<Address> th, Svex<Address> el)
     {
-        return SvexCall.newCall(Vec4IteStmt.FUNCTION, test, th, el);
+        return sm.newCall(Vec4IteStmt.FUNCTION, test, th, el);
     }
 
     protected Svex<Address> bitnot(Svex<Address> x)
     {
-        return SvexCall.newCall(Vec4Bitnot.FUNCTION, x);
+        return sm.newCall(Vec4Bitnot.FUNCTION, x);
     }
 
     protected Svex<Address> bitnotE(int width, Svex<Address> x)
@@ -430,7 +436,7 @@ public abstract class ParameterizedModule
 
     protected Svex<Address> bitand(Svex<Address> x, Svex<Address> y)
     {
-        return SvexCall.newCall(Vec4Bitand.FUNCTION, x, y);
+        return sm.newCall(Vec4Bitand.FUNCTION, x, y);
     }
 
     protected Svex<Address> bitandE(int width, Svex<Address>... x)
@@ -450,7 +456,7 @@ public abstract class ParameterizedModule
 
     protected Svex<Address> bitor(Svex<Address> x, Svex<Address> y)
     {
-        return SvexCall.newCall(Vec4Bitor.FUNCTION, x, y);
+        return sm.newCall(Vec4Bitor.FUNCTION, x, y);
     }
 
     protected Svex<Address> bitorE(int width, Svex<Address>... x)
@@ -470,7 +476,7 @@ public abstract class ParameterizedModule
 
     protected Svex<Address> bitxor(Svex<Address> x, Svex<Address> y)
     {
-        return SvexCall.newCall(Vec4Bitxor.FUNCTION, x, y);
+        return sm.newCall(Vec4Bitxor.FUNCTION, x, y);
     }
 
     protected Svex<Address> bitxorE(int width, Svex<Address>... x)
@@ -495,42 +501,42 @@ public abstract class ParameterizedModule
 
     protected Svex<Address> plus(Svex<Address> x, Svex<Address> y)
     {
-        return SvexCall.newCall(Vec4Plus.FUNCTION, x, y);
+        return sm.newCall(Vec4Plus.FUNCTION, x, y);
     }
 
     protected Svex<Address> eq(Svex<Address> x, Svex<Address> y)
     {
-        return SvexCall.newCall(Vec4Equality.FUNCTION, x, y);
+        return sm.newCall(Vec4Equality.FUNCTION, x, y);
     }
 
     protected Svex<Address> concat(Svex<Address> n, Svex<Address> lower, Svex<Address> upper)
     {
-        return SvexCall.newCall(Vec4Concat.FUNCTION, n, lower, upper);
+        return sm.newCall(Vec4Concat.FUNCTION, n, lower, upper);
     }
 
     protected Svex<Address> bitExtract(Svex<Address> index, Svex<Address> x)
     {
-        return SvexCall.newCall(Vec4BitExtract.FUNCTION, index, x);
+        return sm.newCall(Vec4BitExtract.FUNCTION, index, x);
     }
 
     protected Svex<Address> partSelect(Svex<Address> lsb, Svex<Address> width, Svex<Address> x)
     {
-        return SvexCall.newCall(Vec4PartSelect.FUNCTION, lsb, width, x);
+        return sm.newCall(Vec4PartSelect.FUNCTION, lsb, width, x);
     }
 
     protected Svex<Address> rsh(Svex<Address> n, Svex<Address> x)
     {
-        return SvexCall.newCall(Vec4Rsh.FUNCTION, n, x);
+        return sm.newCall(Vec4Rsh.FUNCTION, n, x);
     }
 
     protected Svex<Address> zext(Svex<Address> n, Svex<Address> x)
     {
-        return SvexCall.newCall(Vec4ZeroExt.FUNCTION, n, x);
+        return sm.newCall(Vec4ZeroExt.FUNCTION, n, x);
     }
 
     protected Svex<Address> q(int val)
     {
-        return q(new Vec2(val));
+        return q(Vec2.valueOf(val));
     }
 
     protected Svex<Address> q(int upper, int lower)
@@ -551,8 +557,9 @@ public abstract class ParameterizedModule
     protected Svex<Address> v(String wireName, int delay)
     {
         Name name = getName(wireName);
-        Svar<Address> svar = builder.makeSimpleSvar(name, delay);
-        return new SvexVar<>(svar);
+        Path path = Path.simplePath(name);
+        Address address = Address.valueOf(path);
+        return sm.getSvex(address, delay, false);
     }
 
     protected Svex<Address> vE(String wireName)
@@ -661,7 +668,7 @@ public abstract class ParameterizedModule
 
     protected Module<Address> getModule()
     {
-        return new Module<>(wires, insts, assigns, aliaspairs);
+        return new Module<>(sm, wires, insts, assigns, aliaspairs);
     }
 
     protected Module<Address> genModule()

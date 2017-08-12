@@ -22,18 +22,22 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Rsh;
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * An SVar or X at left-hand side of SVEX assignment.
@@ -41,7 +45,7 @@ import java.util.Objects;
  *
  * @param <N> Type of name of Svex Variables
  */
-public abstract class Lhatom<N extends SvarName>
+public abstract class Lhatom<N extends SvarName> implements ACL2Backed
 {
     private static final Lhatom<?> Z = new Z<>();
 
@@ -55,34 +59,39 @@ public abstract class Lhatom<N extends SvarName>
         return new Var<>(svar, rsh);
     }
 
+    @SuppressWarnings("unchecked")
     public static <N extends SvarName> Lhatom<N> Z()
     {
         return (Lhatom<N>)Z;
     }
 
-    public static <N extends SvarName> Lhatom<N> valueOf(Svar.Builder<N> builder, ACL2Object impl)
+    public static <N extends SvarName> Lhatom<N> fromACL2(SvarName.Builder<N> snb, SvexManager<N> sm, ACL2Object impl)
     {
-        if (symbolp(impl).bool())
+        if (impl.equals(Util.KEYWORD_Z))
         {
-            if (impl.equals(Util.KEYWORD_Z))
-            {
-                return new Lhatom.Z<>();
-            }
+            return Z();
         }
-        return new Lhatom.Var<>(builder, impl);
+        ACL2Object nameImpl = impl;
+        int rsh = 0;
+        if (consp(impl).bool() && !(car(impl).equals(Util.KEYWORD_VAR) && consp(cdr(impl)).bool()))
+        {
+            nameImpl = car(impl);
+            rsh = cdr(impl).intValueExact();
+            Util.check(rsh >= 0);
+        }
+        Svar<N> svar = SvarImpl.fromACL2(snb, sm, nameImpl);
+        return valueOf(svar, rsh);
     }
-
-    public abstract ACL2Object getACL2Object();
 
     public abstract Svar<N> getVar();
 
     public abstract int getRsh();
 
-    public abstract <N1 extends SvarName> Lhatom<N1> convertVars(Svar.Builder<N1> builder);
+    public abstract <N1 extends SvarName> Lhatom<N1> convertVars(Function<N, N1> rename, SvexManager<N1> sm);
 
     public abstract Vec4 eval(Map<Svar<N>, Vec4> env);
 
-    public abstract Svex<N> toSvex();
+    public abstract Svex<N> toSvex(SvexManager<N> sm);
 
     abstract void vars(Collection<Svar<N>> vars);
 
@@ -118,6 +127,12 @@ public abstract class Lhatom<N extends SvarName>
         }
 
         @Override
+        public int hashCode()
+        {
+            return Util.KEYWORD_Z.hashCode();
+        }
+
+        @Override
         public ACL2Object getACL2Object()
         {
             return Util.KEYWORD_Z;
@@ -136,7 +151,7 @@ public abstract class Lhatom<N extends SvarName>
         }
 
         @Override
-        public <N1 extends SvarName> Lhatom<N1> convertVars(Svar.Builder<N1> builder)
+        public <N1 extends SvarName> Lhatom<N1> convertVars(Function<N, N1> rename, SvexManager<N1> sm)
         {
             return Z();
         }
@@ -148,7 +163,7 @@ public abstract class Lhatom<N extends SvarName>
         }
 
         @Override
-        public Svex<N> toSvex()
+        public Svex<N> toSvex(SvexManager<N> sm)
         {
             return SvexQuote.Z();
         }
@@ -163,27 +178,7 @@ public abstract class Lhatom<N extends SvarName>
     {
         final Svar<N> name;
         final int rsh;
-
-        private Var(Svar.Builder<N> builder, ACL2Object impl)
-        {
-            if (consp(impl).bool())
-            {
-                if (car(impl).equals(Util.KEYWORD_VAR) && consp(cdr(impl)).bool())
-                {
-                    name = builder.fromACL2(impl);
-                    rsh = 0;
-                } else
-                {
-                    name = builder.fromACL2(car(impl));
-                    rsh = cdr(impl).intValueExact();
-                    Util.check(rsh >= 0);
-                }
-            } else
-            {
-                name = builder.fromACL2(impl);
-                rsh = 0;
-            }
-        }
+        final int hashCode;
 
         private Var(Svar<N> name, int rsh)
         {
@@ -197,15 +192,46 @@ public abstract class Lhatom<N extends SvarName>
             }
             this.name = name;
             this.rsh = rsh;
+            int nameHashCode = name.hashCode();
+            boolean nameIsZ = nameHashCode == Util.KEYWORD_Z.hashCode()
+                && name.getACL2Object().equals(Util.KEYWORD_Z);
+            hashCode = rsh == 0 && !nameIsZ
+                ? nameHashCode
+                : ACL2Object.hashCodeOfCons(nameHashCode, ACL2Object.hashCodeOf(rsh));
         }
 
         @Override
-        public ACL2Object getACL2Object()
+        public boolean equals(Object o)
         {
-            ACL2Object nameRep = name.getACL2Object();
-            return rsh == 0 && !Util.KEYWORD_Z.equals(nameRep)
-                ? nameRep
-                : cons(nameRep, ACL2Object.valueOf(rsh));
+            if (this == o)
+            {
+                return true;
+            }
+            if (o instanceof Var)
+            {
+                Var that = (Var)o;
+                return this.hashCode == that.hashCode
+                    && this.name.equals(that.name)
+                    && this.rsh == that.rsh;
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return hashCode;
+        }
+
+        @Override
+        public ACL2Object getACL2Object(Map<ACL2Backed, ACL2Object> backedCache)
+        {
+            ACL2Object nameImpl = name.getACL2Object(backedCache);
+            ACL2Object result = rsh == 0 && !Util.KEYWORD_Z.equals(nameImpl)
+                ? nameImpl
+                : hons(nameImpl, ACL2Object.valueOf(rsh));
+            assert result.hashCode() == hashCode;
+            return result;
         }
 
         @Override
@@ -221,25 +247,26 @@ public abstract class Lhatom<N extends SvarName>
         }
 
         @Override
-        public <N1 extends SvarName> Lhatom<N1> convertVars(Svar.Builder<N1> builder)
+        public <N1 extends SvarName> Lhatom<N1> convertVars(Function<N, N1> rename, SvexManager<N1> sm)
         {
-            Svar<N1> newName = builder.newVar(name);
-            return valueOf(newName, rsh);
+            N1 newName = rename.apply(name.getName());
+            Svar<N1> newVar = sm.getVar(newName);
+            return valueOf(newVar, rsh);
         }
 
         @Override
         public Vec4 eval(Map<Svar<N>, Vec4> env)
         {
-            Vec4 sh = new Vec2(rsh);
+            Vec4 sh = Vec2.valueOf(rsh);
             Vec4 x = env.getOrDefault(name, Vec4.X);
             return Vec4Rsh.FUNCTION.apply(sh, x);
         }
 
         @Override
-        public Svex<N> toSvex()
+        public Svex<N> toSvex(SvexManager<N> sm)
         {
             Svex<N> svexVar = new SvexVar<>(name);
-            return rsh != 0 ? svexVar.rsh(rsh) : svexVar;
+            return rsh != 0 ? svexVar.rsh(sm, rsh) : svexVar;
         }
 
         @Override

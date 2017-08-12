@@ -24,11 +24,14 @@ package com.sun.electric.tool.simulation.acl2.mods;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -83,12 +86,12 @@ public class LhsArr
         return vars;
     }
 
-    public Svex<IndexName>[] toSvexarr()
+    public Svex<IndexName>[] toSvexarr(SvexManager<IndexName> sm)
     {
         Svex<IndexName>[] result = Svex.newSvexArray(arr.size());
         for (int i = 0; i < arr.size(); i++)
         {
-            result[i] = arr.get(i).toSvex();
+            result[i] = arr.get(i).toSvex(sm);
         }
         return result;
     }
@@ -398,10 +401,11 @@ public class LhsArr
 
     public ACL2Object collectAliasesAsACL2Objects()
     {
+        Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
         ACL2Object result = NIL;
         for (int i = arr.size() - 1; i >= 0; i--)
         {
-            result = cons(arr.get(i).getACL2Object(), result);
+            result = cons(arr.get(i).getACL2Object(backedCache), result);
         }
         return result;
     }

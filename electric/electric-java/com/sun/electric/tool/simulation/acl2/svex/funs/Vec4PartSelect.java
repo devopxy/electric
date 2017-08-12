@@ -26,6 +26,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
@@ -45,7 +46,7 @@ public class Vec4PartSelect<N extends SvarName> extends SvexCall<N>
     public final Svex<N> width;
     public final Svex<N> in;
 
-    public Vec4PartSelect(Svex<N> lsb, Svex<N> width, Svex<N> in)
+    private Vec4PartSelect(Svex<N> lsb, Svex<N> width, Svex<N> in)
     {
         super(FUNCTION, lsb, width, in);
         this.lsb = lsb;
@@ -54,7 +55,7 @@ public class Vec4PartSelect<N extends SvarName> extends SvexCall<N>
     }
 
     @Override
-    public Svex<N> lhsPreproc()
+    public Svex<N> lhsPreproc(SvexManager<N> sm)
     {
         if (lsb instanceof SvexQuote)
         {
@@ -64,12 +65,12 @@ public class Vec4PartSelect<N extends SvarName> extends SvexCall<N>
                 int lv = ((Vec2)lval).getVal().intValueExact();
                 if (lv >= 0)
                 {
-                    Svex<N> svexRsh = new Vec4Rsh<>(lsb, in.lhsPreproc());
-                    return new Vec4Concat<>(width, svexRsh, SvexQuote.valueOf(0));
+                    Svex<N> svexRsh = sm.newCall(Vec4Rsh.FUNCTION, lsb, in.lhsPreproc(sm));
+                    return sm.newCall(Vec4Concat.FUNCTION, width, svexRsh, SvexQuote.valueOf(0));
                 }
             }
         }
-        return super.lhsPreproc();
+        return super.lhsPreproc(sm);
     }
 
     public static class Function extends SvexFunction

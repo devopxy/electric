@@ -27,6 +27,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
@@ -46,7 +47,7 @@ public class Vec4Concat<N extends SvarName> extends SvexCall<N>
     public Svex<N> low;
     public Svex<N> high;
 
-    public Vec4Concat(Svex<N> width, Svex<N> low, Svex<N> high)
+    private Vec4Concat(Svex<N> width, Svex<N> low, Svex<N> high)
     {
         super(FUNCTION, width, low, high);
         this.width = width;
@@ -99,7 +100,7 @@ public class Vec4Concat<N extends SvarName> extends SvexCall<N>
     }
 
     @Override
-    public Svex<N> lhsrewriteAux(int shift, int w)
+    public Svex<N> lhsrewriteAux(SvexManager<N> sm, int shift, int w)
     {
         if (width instanceof SvexQuote)
         {
@@ -112,29 +113,29 @@ public class Vec4Concat<N extends SvarName> extends SvexCall<N>
                     if (wv <= shift)
                     {
                         Svex<N> Z = SvexQuote.Z();
-                        return Z.concat(w, high.lhsrewriteAux(shift - wv, w));
+                        return Z.concat(sm, w, high.lhsrewriteAux(sm, shift - wv, w));
                     } else if (shift + w <= wv)
                     {
-                        return low.lhsrewriteAux(shift, w);
+                        return low.lhsrewriteAux(sm, shift, w);
                     } else
                     {
-                        Svex<N> newLow = low.lhsrewriteAux(shift, wv - shift);
-                        Svex<N> newHigh = high.lhsrewriteAux(0, shift + w - wv);
-                        return newLow.concat(wv, newHigh);
+                        Svex<N> newLow = low.lhsrewriteAux(sm, shift, wv - shift);
+                        Svex<N> newHigh = high.lhsrewriteAux(sm, 0, shift + w - wv);
+                        return newLow.concat(sm, wv, newHigh);
                     }
                 }
             }
         }
-        return super.lhsrewriteAux(shift, w);
+        return super.lhsrewriteAux(sm, shift, w);
     }
 
     @Override
-    public Svex<N> lhsPreproc()
+    public Svex<N> lhsPreproc(SvexManager<N> sm)
     {
-        Svex<N> newWidth = width.lhsPreproc();
-        Svex<N> newLow = low.lhsPreproc();
-        Svex<N> newHigh = high.lhsPreproc();
-        return new Vec4Concat<>(newWidth, newLow, newHigh);
+        Svex<N> newWidth = width.lhsPreproc(sm);
+        Svex<N> newLow = low.lhsPreproc(sm);
+        Svex<N> newHigh = high.lhsPreproc(sm);
+        return sm.newCall(Vec4Concat.FUNCTION, newWidth, newLow, newHigh);
     }
 
     public static class Function extends SvexFunction
@@ -151,7 +152,7 @@ public class Vec4Concat<N extends SvarName> extends SvexCall<N>
         }
 
         @Override
-        public <N extends SvarName> Svex<N> callStar(Svex<N>[] args)
+        public <N extends SvarName> Svex<N> callStar(SvexManager<N> sm, Svex<N>[] args)
         {
             assert args.length == 3;
             Svex<N> width = args[0];
@@ -163,11 +164,11 @@ public class Vec4Concat<N extends SvarName> extends SvexCall<N>
                     BigInteger wV = ((Vec2)wVal).getVal();
                     if (wV.signum() >= 0)
                     {
-                        return args[1].concat(wV.intValueExact(), args[2]);
+                        return args[1].concat(sm, wV.intValueExact(), args[2]);
                     }
                 }
             }
-            return super.callStar(args);
+            return super.callStar(sm, args);
         }
 
         @Override
@@ -192,7 +193,7 @@ public class Vec4Concat<N extends SvarName> extends SvexCall<N>
                                 throw new IllegalArgumentException("very large integer");
                             }
                         }
-                        return new Vec2(BigIntegerUtil.loghead(wval, lv).or(hv.shiftLeft(wval)));
+                        return Vec2.valueOf(BigIntegerUtil.loghead(wval, lv).or(hv.shiftLeft(wval)));
                     }
                     if (wval >= Vec4.BIT_LIMIT)
                     {

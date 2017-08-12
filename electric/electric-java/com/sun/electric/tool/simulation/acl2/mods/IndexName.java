@@ -33,25 +33,54 @@ import java.util.List;
 /**
  *
  */
-public class IndexName implements SvarName
+public class IndexName extends Name implements SvarName
 {
-    private final ACL2Object impl;
+    private final int index;
 
     public static ElabMod curElabMod = null;
 
-    private IndexName(int index)
+    IndexName(int index)
     {
         if (index < 0)
         {
             throw new IllegalArgumentException();
         }
-        impl = honscopy(ACL2Object.valueOf(BigInteger.valueOf(index)));
+        this.index = index;
+    }
+
+    public static IndexName valueOf(int index)
+    {
+        return new IndexName(index);
+    }
+
+    @Override
+    public boolean isInteger()
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isSimpleSvarName()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        return o instanceof IndexName && index == ((IndexName)o).index;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return ACL2Object.hashCodeOf(index);
     }
 
     @Override
     public ACL2Object getACL2Object()
     {
-        return impl;
+        return honscopy(ACL2Object.valueOf(index));
     }
 
     @Override
@@ -63,7 +92,7 @@ public class IndexName implements SvarName
     @Override
     public String toString(BigInteger mask)
     {
-        String s = "{" + Integer.toString(impl.intValueExact());
+        String s = "{" + index;
         if (mask != null)
         {
             s += "#" + mask.toString(16);
@@ -76,9 +105,15 @@ public class IndexName implements SvarName
         return s;
     }
 
+    @Override
+    public String toLispString()
+    {
+        return "'" + index;
+    }
+
     public Name asName()
     {
-        return new Name(impl);
+        return Name.valueOf(index);
     }
 
     public Path asPath()
@@ -88,14 +123,14 @@ public class IndexName implements SvarName
 
     public Address asAddress()
     {
-        return Address.fromACL2(impl);
+        return new Address(asPath());
     }
 
     public int getIndex()
     {
-        return impl.intValueExact();
+        return index;
     }
-    
+
     public static class SvarBuilder extends SvarImpl.Builder<IndexName>
     {
         private final List<IndexName> cache = new ArrayList<>();

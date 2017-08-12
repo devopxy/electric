@@ -38,13 +38,20 @@ public class SvarImpl<N extends SvarName> implements Svar<N>
 {
     private final N name;
     private final int delayImpl;
-    private final ACL2Object impl;
+    private final int hashCode;
 
-    private SvarImpl(N name, int delayImpl, ACL2Object impl)
+    SvarImpl(N name, int delayImpl)
     {
         this.name = name;
         this.delayImpl = delayImpl;
-        this.impl = impl;
+        if (name.isSimpleSvarName() && delayImpl == 0)
+        {
+            hashCode = name.hashCode();
+        } else
+        {
+            hashCode = ACL2Object.hashCodeOfCons(KEYWORD_VAR.hashCode(),
+                ACL2Object.hashCodeOfCons(name.hashCode(), ACL2Object.hashCodeOf(delayImpl)));
+        }
     }
 
     @Override
@@ -56,7 +63,7 @@ public class SvarImpl<N extends SvarName> implements Svar<N>
     @Override
     public ACL2Object getACL2Name()
     {
-        return consp(impl).bool() ? car(cdr(impl)) : impl;
+        return getName().getACL2Object();
     }
 
     @Override
@@ -71,9 +78,101 @@ public class SvarImpl<N extends SvarName> implements Svar<N>
         return delayImpl < 0;
     }
 
+    public static <N extends SvarName> Svar<N> fromACL2(SvarName.Builder<N> snb, SvexManager<N> sm, ACL2Object impl)
+    {
+        ACL2Object nameImpl;
+        int delayImpl;
+        if (consp(impl).bool())
+        {
+            Util.check(car(impl).equals(KEYWORD_VAR));
+            nameImpl = car(cdr(impl));
+            delayImpl = cdr(cdr(impl)).intValueExact();
+        } else
+        {
+            nameImpl = impl;
+            delayImpl = 0;
+        }
+        N name = snb.fromACL2(nameImpl);
+        boolean isNonblocking = delayImpl < 0;
+        int delay = isNonblocking ? ~delayImpl : delayImpl;
+        return sm.getVar(name, delay, isNonblocking);
+    }
+
+    /*
+    static <N extends SvarName> Svar<N> fromACL2(Svar.Builder<N> sb, ACL2Object impl, Map<ACL2Object, Svex<N>> cache)
+    {
+        assert !cache.containsKey(impl);
+        N name;
+        int delayImpl;
+        if (consp(impl).bool())
+        {
+            Util.check(car(impl).equals(KEYWORD_VAR));
+            ACL2Object nameImpl = car(cdr(impl));
+            delayImpl = cdr(cdr(impl)).intValueExact();
+            if (delayImpl != 0)
+            {
+                boolean nameIsSimple = stringp(nameImpl).bool() || symbolp(nameImpl).bool() && !booleanp(nameImpl).bool();
+                ACL2Object impl0 = nameIsSimple ? nameImpl : cons(KEYWORD_VAR, cons(nameImpl, ACL2Object.valueOf(0)));
+                SvexVar<N> svex0 = (SvexVar<N>)cache.get(impl0);
+                if (svex0 != null)
+                {
+                    name = svex0.svar.getName();
+                } else
+                {
+                    name = sb.newName(nameImpl);
+                    Svar<N> svar = new SvarImpl<>(name, 0, impl0);
+                    cache.put(impl0, new SvexVar<>(svar));
+                }
+            } else
+            {
+                name = sb.newName(nameImpl);
+            }
+        } else
+        {
+            name = sb.newName(impl);
+            delayImpl = 0;
+        }
+        Svar<N> svar = new SvarImpl<>(name, delayImpl, impl);
+        return svar;
+//        Svex<N> svex = new SvexVar<>(svar);
+//        cache.put(impl, svex);
+//        return svex;
+    }
+     */
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o)
+        {
+            return true;
+        }
+        if (o instanceof SvarImpl)
+        {
+            SvarImpl that = (SvarImpl)o;
+            return this.hashCode == that.hashCode
+                && this.name.equals(that.name)
+                && this.delayImpl == that.delayImpl;
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return hashCode;
+    }
+
+    @Override
     public ACL2Object getACL2Object()
     {
-        return impl;
+        if (name.isSimpleSvarName() && delayImpl == 0)
+        {
+            return name.getACL2Object();
+        } else
+        {
+            return hons(KEYWORD_VAR,
+                hons(name.getACL2Object(), ACL2Object.valueOf(delayImpl)));
+        }
     }
 
     @Override
@@ -94,28 +193,6 @@ public class SvarImpl<N extends SvarName> implements Svar<N>
             s = "#" + getDelay() + " " + s;
         }
         return s;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (o instanceof Svar)
-        {
-            Svar that = (Svar)o;
-            return this.getACL2Name().equals(that.getACL2Name())
-                && this.getDelay() == that.getDelay()
-                && this.isNonblocking() == that.isNonblocking();
-        }
-        return false;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        int hash = 7;
-        hash = 59 * hash + getACL2Name().hashCode();
-        hash = 59 * hash + getDelay();
-        return hash;
     }
 
     public abstract static class Builder<N extends SvarName> implements Svar.Builder<N>
@@ -144,7 +221,7 @@ public class SvarImpl<N extends SvarName> implements Svar<N>
                     nameCache.put(nameImpl, name);
                 }
                 Util.check(cachedName == name);
-                svar = new SvarImpl<>(name, delayImpl, impl);
+                svar = new SvarImpl<>(name, delayImpl);
                 svarCache.put(impl, svar);
             }
             return svar;
@@ -169,7 +246,7 @@ public class SvarImpl<N extends SvarName> implements Svar<N>
                     name = newName(nameImpl);
                     nameCache.put(nameImpl, name);
                 }
-                svar = new SvarImpl<>(name, delayImpl, impl);
+                svar = new SvarImpl<>(name, delayImpl);
                 svarCache.put(impl, svar);
             }
             return svar;

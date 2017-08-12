@@ -43,7 +43,7 @@ public class Vec4Lsh<N extends SvarName> extends SvexCall<N>
     public final Svex<N> shift;
     public final Svex<N> x;
 
-    public Vec4Lsh(Svex<N> shift, Svex<N> x)
+    private Vec4Lsh(Svex<N> shift, Svex<N> x)
     {
         super(FUNCTION, shift, x);
         this.shift = shift;

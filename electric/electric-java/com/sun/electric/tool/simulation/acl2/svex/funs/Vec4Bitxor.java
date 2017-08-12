@@ -42,7 +42,7 @@ public class Vec4Bitxor<N extends SvarName> extends SvexCall<N>
     public final Svex<N> x;
     public final Svex<N> y;
 
-    public Vec4Bitxor(Svex<N> x, Svex<N> y)
+    private Vec4Bitxor(Svex<N> x, Svex<N> y)
     {
         super(FUNCTION, x, y);
         this.x = x;
@@ -71,7 +71,7 @@ public class Vec4Bitxor<N extends SvarName> extends SvexCall<N>
             {
                 BigInteger xv = ((Vec2)x).getVal();
                 BigInteger yv = ((Vec2)x).getVal();
-                return new Vec2(xv.xor(yv));
+                return Vec2.valueOf(xv.xor(yv));
             }
             BigInteger xmask = x.getUpper().xor(x.getLower())
                 .or(y.getUpper().xor(y.getLower()));

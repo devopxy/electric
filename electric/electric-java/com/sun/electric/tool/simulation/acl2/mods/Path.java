@@ -38,36 +38,20 @@ public abstract class Path implements SvarName
     public static ACL2Object KEYWORD_WIRE = ACL2Object.valueOf("KEYWORD", "WIRE");
     public static ACL2Object KEYWORD_SCOPE = ACL2Object.valueOf("KEYWORD", "SCOPE");
 
-    private final ACL2Object impl;
-
-    Path(ACL2Object impl)
-    {
-        this.impl = honscopy(impl);
-    }
-
-    @Override
-    public ACL2Object getACL2Object()
-    {
-        return impl;
-    }
-
-    @Override
-    public String toString(BigInteger mask)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     public static Path fromACL2(ACL2Object impl)
     {
+        Path result;
         if (consp(impl).bool() && !Util.KEYWORD_ANONYMOIUS.equals(car(impl).bool()))
         {
-            Name namespace = new Name(car(impl));
+            Name namespace = Name.fromACL2(car(impl));
             Path scope = fromACL2(cdr(impl));
-            return new Scope(namespace, scope);
+            result = new Scope(namespace, scope);
         } else
         {
-            return new Wire(impl);
+            result = new Wire(Name.fromACL2(impl));
         }
+        assert result.hashCode() == impl.hashCode();
+        return result;
     }
 
     public static Path simplePath(Name name)
@@ -101,19 +85,23 @@ public abstract class Path implements SvarName
 
     public abstract Path append(Path y);
 
+    @Override
+    public String toString(BigInteger mask)
+    {
+        String s = toString();
+        if (mask != null)
+        {
+            s += "#" + mask.toString(16);
+        }
+        return s;
+    }
+
     public static class Wire extends Path
     {
         public final Name name;
 
-        Wire(ACL2Object impl)
-        {
-            super(impl);
-            name = new Name(impl);
-        }
-
         public Wire(Name name)
         {
-            super(name.getACL2Object());
             if (name == null)
             {
                 throw new NullPointerException();
@@ -128,9 +116,25 @@ public abstract class Path implements SvarName
         }
 
         @Override
+        public boolean isSimpleSvarName()
+        {
+            return name.isSimpleSvarName();
+        }
+
+        @Override
         public Path append(Path y)
         {
             return new Path.Scope(name, y);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o)
+            {
+                return true;
+            }
+            return o instanceof Wire && name.equals(((Wire)o).name);
         }
 
         @Override
@@ -140,9 +144,11 @@ public abstract class Path implements SvarName
         }
 
         @Override
-        public boolean equals(Object o)
+        public ACL2Object getACL2Object()
         {
-            return o instanceof Wire && name.equals(((Wire)o).name);
+            ACL2Object result = name.getACL2Object();
+            assert result.hashCode() == hashCode();
+            return result;
         }
 
         @Override
@@ -156,25 +162,25 @@ public abstract class Path implements SvarName
     {
         public final Path subpath;
         public final Name namespace;
-
-        Scope(ACL2Object impl)
-        {
-            super(impl);
-            namespace = new Name(car(impl));
-            subpath = fromACL2(cdr(impl));
-        }
+        private final int hashCode;
 
         Scope(Name namespace, Path subpath)
         {
-            super(cons(namespace.getACL2Object(), subpath.getACL2Object()));
             this.namespace = namespace;
             this.subpath = subpath;
+            hashCode = ACL2Object.hashCodeOfCons(namespace.hashCode(), subpath.hashCode());
         }
 
         @Override
         public ACL2Object getKind()
         {
             return KEYWORD_SCOPE;
+        }
+
+        @Override
+        public boolean isSimpleSvarName()
+        {
+            return false;
         }
 
         @Override
@@ -186,10 +192,15 @@ public abstract class Path implements SvarName
         @Override
         public boolean equals(Object o)
         {
+            if (this == o)
+            {
+                return true;
+            }
             if (o instanceof Scope)
             {
                 Scope that = (Scope)o;
-                return this.namespace.equals(that.namespace)
+                return this.hashCode == that.hashCode
+                    && this.namespace.equals(that.namespace)
                     && this.subpath.equals(that.subpath);
             }
             return false;
@@ -198,10 +209,15 @@ public abstract class Path implements SvarName
         @Override
         public int hashCode()
         {
-            int hash = 7;
-            hash = 29 * hash + subpath.hashCode();
-            hash = 29 * hash + namespace.hashCode();
-            return hash;
+            return hashCode;
+        }
+
+        @Override
+        public ACL2Object getACL2Object()
+        {
+            ACL2Object result = hons(namespace.getACL2Object(), subpath.getACL2Object());
+            assert result.hashCode() == hashCode();
+            return result;
         }
 
         @Override

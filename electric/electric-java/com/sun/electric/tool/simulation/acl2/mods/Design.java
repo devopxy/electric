@@ -21,7 +21,6 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
-import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import static com.sun.electric.util.acl2.ACL2.car;
 import static com.sun.electric.util.acl2.ACL2.cdr;
@@ -42,7 +41,7 @@ public class Design<N extends SvarName>
     public final Map<ModName, Module<N>> modalist = new LinkedHashMap<>();
     public final ModName top;
 
-    public Design(Svar.Builder<N> builder, ACL2Object impl)
+    public Design(SvarName.Builder<N> snb, ACL2Object impl)
     {
         List<ACL2Object> fields = Util.getList(impl, true);
         Util.check(fields.size() == 2);
@@ -52,8 +51,8 @@ public class Design<N extends SvarName>
         ACL2Object rawModalist = cdr(pair);
         while (consp(rawModalist).bool())
         {
-            ModName modName = ModName.valueOf(car(car(rawModalist)));
-            Module<N> module = new Module<>(builder, cdr(car(rawModalist)));
+            ModName modName = ModName.fromACL2(car(car(rawModalist)));
+            Module<N> module = Module.fromACL2(snb, cdr(car(rawModalist)));
             Module old = modalist.put(modName, module);
             Util.check(old == null);
             rawModalist = cdr(rawModalist);
@@ -61,6 +60,6 @@ public class Design<N extends SvarName>
         Util.checkNil(rawModalist);
         pair = fields.get(1);
         Util.check(car(pair).equals(Util.SV_TOP));
-        top = ModName.valueOf(cdr(pair));
+        top = ModName.fromACL2(cdr(pair));
     }
 }

@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 
 import java.util.HashMap;
@@ -31,75 +32,155 @@ import java.util.Map;
  * A type for names of modules and other hierarchical scopes.
  * See <http://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/?topic=SV____MODNAME>.
  */
-public class ModName
+public abstract class ModName implements ACL2Backed
 {
-    public final ACL2Object impl;
-    public final boolean isString;
-    public final boolean isCoretype;
-    public final boolean isGate;
+    public static final ACL2Object KEYWORD_VL_CORETYPE = ACL2Object.valueOf("KEYWORD", "VL-CORETYPE");
+    public static final ACL2Object KEYWORD_GATE = ACL2Object.valueOf("KEWWORD", "GATE");
 
-    private ModName(ACL2Object impl)
+    private static final Map<ACL2Object, ModName> INTERN = new HashMap<>();
+
+    public boolean isString()
     {
-        this.impl = impl;
-        if (consp(impl).bool())
+        return false;
+    }
+
+    public boolean isCoretype()
+    {
+        return false;
+    }
+
+    public boolean isGate()
+    {
+        return false;
+    }
+
+    public static ModName valueOf(String name)
+    {
+        return fromACL2(ACL2Object.valueOf(name));
+    }
+
+    public static ModName fromACL2(ACL2Object o)
+    {
+        synchronized (INTERN)
         {
-            if (car(impl).equals(ACL2Object.valueOf("KEYWORD", "VL-CORETYPE")))
+            ModName mn = INTERN.get(o);
+            if (mn == null)
             {
-                isCoretype = true;
-                isString = isGate = false;
-            } else if (car(impl).equals(ACL2Object.valueOf("KEWWORD", "GATE")))
-            {
-                isGate = true;
-                isString = isCoretype = false;
-            } else
-            {
-                isString = isCoretype = isGate = false;
+                if (stringp(o).bool())
+                {
+                    mn = new StringImpl(o.stringValueExact());
+                } else
+                {
+                    mn = new MiscImpl(o);
+                }
+                INTERN.put(o, mn);
             }
-        } else if (stringp(impl).bool())
-        {
-            isString = true;
-            isCoretype = isGate = false;
-        } else if (!NIL.equals(impl))
-        {
-            isString = isCoretype = isGate = false;
-        } else
-        {
-            throw new IllegalArgumentException();
+            return mn;
         }
     }
 
-    public ACL2Object getACL2Object()
-    {
-        return impl;
-    }
+    public abstract String toLispString();
 
-    private static final Map<ACL2Object, ModName> allModNames = new HashMap<>();
-
-    public static ModName valueOf(ACL2Object o)
+    private static class StringImpl extends ModName
     {
-        ModName mn = allModNames.get(o);
-        if (mn == null)
+        private final String s;
+
+        StringImpl(String s)
         {
-            mn = new ModName(o);
-            allModNames.put(o, mn);
+            this.s = s;
         }
-        return mn;
+
+        @Override
+        public ACL2Object getACL2Object()
+        {
+            return honscopy(ACL2Object.valueOf(s));
+        }
+
+        @Override
+        public boolean isString()
+        {
+            return true;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return ACL2Object.hashCodeOf(s);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            return o instanceof StringImpl && s.equals(((StringImpl)o).s);
+        }
+
+        @Override
+        public String toString()
+        {
+            return s;
+        }
+
+        @Override
+        public String toLispString()
+        {
+            return "\"" + s + "\"";
+        }
     }
 
-    @Override
-    public String toString()
+    private static class MiscImpl extends ModName
     {
-        if (stringp(impl).bool())
+        private ACL2Object impl;
+
+        MiscImpl(ACL2Object impl)
         {
-            return impl.stringValueExact();
-        } else
+            if (stringp(impl).bool() || impl.equals(NIL))
+            {
+                throw new IllegalArgumentException();
+            }
+            this.impl = impl;
+        }
+
+        @Override
+        public ACL2Object getACL2Object()
+        {
+            return honscopy(impl);
+        }
+
+        @Override
+        public boolean isCoretype()
+        {
+            return car(impl).equals(ACL2Object.valueOf("KEYWORD", "VL-CORETYPE"));
+        }
+
+        @Override
+        public boolean isGate()
+        {
+            return car(impl).equals(ACL2Object.valueOf("KEWWORD", "GATE"));
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return impl.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            return o instanceof MiscImpl && impl.equals(((MiscImpl)o).impl);
+        }
+
+        @Override
+        public String toString()
+        {
+            return "'" + impl.rep();
+        }
+
+        @Override
+        public String toLispString()
         {
             return "'" + impl.rep();
         }
     }
 
-    public String toLispString()
-    {
-        return stringp(impl).bool() ? impl.rep() : "'" + impl.rep();
-    }
 }

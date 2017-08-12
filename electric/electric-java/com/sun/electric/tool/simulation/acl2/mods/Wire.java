@@ -23,8 +23,11 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import static com.sun.electric.util.acl2.ACL2.*;
+import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Wire info as stored in an svex module.
@@ -73,7 +76,7 @@ public class Wire
     public Wire(ACL2Object impl)
     {
         ACL2Object cons0 = car(impl);
-        name = new Name(car(cons0));
+        name = Name.fromACL2(car(cons0));
         ACL2Object cons01 = cdr(cons0);
         width = car(cons01).intValueExact();
         Util.check(width >= 1);
@@ -119,7 +122,8 @@ public class Wire
 
     public ACL2Object getACL2Object()
     {
-        ACL2Object rep00 = name.getACL2Object();
+        Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
+        ACL2Object rep00 = name.getACL2Object(backedCache);
         ACL2Object rep010 = ACL2Object.valueOf(width);
         ACL2Object rep110 = ACL2Object.valueOf(low_idx);
         ACL2Object rep10 = cons(rep010, rep110);

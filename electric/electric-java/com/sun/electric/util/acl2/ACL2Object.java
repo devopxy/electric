@@ -36,8 +36,11 @@ import java.math.BigInteger;
  */
 public abstract class ACL2Object
 {
-    private static final int HASH_CODE_NIL = hashCodeOf("COMMON-LISP", "NIL");
-    private static final int HASH_CODE_T = hashCodeOf("COMMON-LISP", "T");
+    public static final int HASH_CODE_NIL = hashCodeOf("COMMON-LISP", "NIL");
+    public static final int HASH_CODE_T = hashCodeOf("COMMON-LISP", "T");
+    public static final int HASH_CODE_CONS = 7;
+    public static final int HASH_MULT_CAR = 17;
+    public static final int HASH_MULT_CDR = 41;
 
     final int hashCode;
     final HonsManager honsOwner;
@@ -146,10 +149,7 @@ public abstract class ACL2Object
 
     public static int hashCodeOfCons(int hashCar, int hashCdr)
     {
-        int hash = 7;
-        hash = 29 * hash + hashCar;
-        hash = 29 * hash + hashCdr;
-        return hash;
+        return HASH_CODE_CONS + HASH_MULT_CAR * hashCar + HASH_MULT_CDR * hashCdr;
     }
 
     public boolean bool()
