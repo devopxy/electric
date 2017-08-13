@@ -158,6 +158,18 @@ public class SvexQuote<N extends SvarName> extends Svex<N>
     }
 
     @Override
+    <R> R traverse(TraverseVisitor<N, R> visitor, Map<Svex<N>, R> cache)
+    {
+        R result = cache.get(this);
+        if (result == null)
+        {
+            result = visitor.visitQuote(val);
+            cache.put(this, result);
+        }
+        return result;
+    }
+
+    @Override
     public Vec4 xeval(Map<Svex<N>, Vec4> memoize)
     {
         return val;

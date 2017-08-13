@@ -48,10 +48,13 @@ import java.util.TreeMap;
 public class DesignExt
 {
     public final Design<Address> b;
+    public final DesignHints designHints;
     public final ModDb moddb;
 
     public final Map<ModName, ModuleExt> downTop = new LinkedHashMap<>();
     public final Map<ModName, ModuleExt> topDown = new LinkedHashMap<>();
+
+    final List<ParameterizedModule> paremterizedModules;
 
     public DesignExt(ACL2Object impl)
     {
@@ -66,6 +69,9 @@ public class DesignExt
     public DesignExt(Design<Address> b, DesignHints designHints)
     {
         this.b = b;
+        this.designHints = designHints;
+        paremterizedModules = designHints.getParameterizedModules();
+
         moddb = new ModDb(b.top, b.modalist);
         Util.check(moddb.nMods() == b.modalist.size());
 

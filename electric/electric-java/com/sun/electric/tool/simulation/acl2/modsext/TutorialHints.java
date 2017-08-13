@@ -22,8 +22,11 @@
 package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.simulation.acl2.mods.Address;
+import com.sun.electric.tool.simulation.acl2.mods.IndexName;
+import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import java.util.Arrays;
 import java.util.List;
 
@@ -39,7 +42,10 @@ public class TutorialHints implements DesignHints
     @Override
     public List<ParameterizedModule> getParameterizedModules()
     {
-        return Arrays.asList(aluFlop, boothFlop);
+        return Arrays.asList(
+            new Flop(),
+            new BoothFlop()
+        );
     }
 
     @Override
@@ -80,8 +86,13 @@ public class TutorialHints implements DesignHints
         return null;
     }
 
-    private final ParameterizedModule aluFlop = new ParameterizedModule("tutorial", "flop")
+    private static class Flop extends ParameterizedModule
     {
+        Flop()
+        {
+            super("tutorial", "flop");
+        }
+
         @Override
         protected boolean hasState()
         {
@@ -116,10 +127,34 @@ public class TutorialHints implements DesignHints
             int width = getIntParam("width");
             return 2 * width + 1;
         }
-    };
 
-    private final ParameterizedModule boothFlop = new ParameterizedModule("tutorial", "boothflop")
+        @Override
+        protected void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm)
+        {
+            assert portMap.size() == 3;
+            Lhs<IndexName> q = portMap.get(0);
+            Lhs<IndexName> d = portMap.get(1);
+            Lhs<IndexName> clk = portMap.get(2);
+            makeAliases(arr, sm, q, d, clk);
+        }
+
+        static void makeAliases(List<Lhs<IndexName>> arr, SvexManager<IndexName> sm,
+            Lhs<IndexName> q, Lhs<IndexName> d, Lhs<IndexName> clk)
+        {
+            arr.add(q);
+            arr.add(d);
+            arr.add(clk);
+        }
+    }
+
+    private static class BoothFlop extends ParameterizedModule
     {
+
+        BoothFlop()
+        {
+            super("tutorial", "boothflop");
+        }
+
         @Override
         protected boolean hasState()
         {
@@ -153,6 +188,24 @@ public class TutorialHints implements DesignHints
         {
             int width = getIntParam("width");
             return 2 * width + 1;
+        }
+
+        @Override
+        protected void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm)
+        {
+            assert portMap.size() == 3;
+            Lhs<IndexName> q = portMap.get(0);
+            Lhs<IndexName> d = portMap.get(1);
+            Lhs<IndexName> clk = portMap.get(2);
+            makeAliases(arr, sm, q, d, clk);
+        }
+
+        static void makeAliases(List<Lhs<IndexName>> arr, SvexManager<IndexName> sm,
+            Lhs<IndexName> q, Lhs<IndexName> d, Lhs<IndexName> clk)
+        {
+            arr.add(q);
+            arr.add(d);
+            arr.add(clk);
         }
     };
 }

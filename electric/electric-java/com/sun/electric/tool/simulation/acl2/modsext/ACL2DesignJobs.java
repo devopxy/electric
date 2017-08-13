@@ -39,6 +39,7 @@ import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
+import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
 import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
@@ -417,7 +418,32 @@ public class ACL2DesignJobs
                     }
 
                     out.print(" = " + d.getSvex());
-                    out.println(" // " + d.toString());
+                    BigInteger complexity = d.getSvex().traverse(new Svex.TraverseVisitor<PathExt, BigInteger>()
+                    {
+                        @Override
+                        public BigInteger visitQuote(Vec4 val)
+                        {
+                            return BigInteger.ZERO;
+                        }
+
+                        @Override
+                        public BigInteger visitVar(Svar<PathExt> name)
+                        {
+                            return BigInteger.ZERO;
+                        }
+
+                        @Override
+                        public BigInteger visitCall(SvexFunction fun, Svex<PathExt>[] args, List<BigInteger> argVals)
+                        {
+                            BigInteger result = BigInteger.ONE;
+                            for (BigInteger argVal : argVals)
+                            {
+                                result = result.add(argVal);
+                            }
+                            return result;
+                        }
+                    });
+                    out.println(" // " + (complexity.bitLength() > 11 ? "COMPLEX " : "") + complexity + " " + d.toString());
                     if (d.splitIt)
                     {
                         out.println(" // SPLIT");

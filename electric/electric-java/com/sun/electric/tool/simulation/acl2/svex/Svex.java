@@ -198,6 +198,22 @@ public abstract class Svex<N extends SvarName> implements ACL2Backed
         R visitCall(SvexFunction fun, Svex<N>[] args, P p);
     }
 
+    public static interface TraverseVisitor<N extends SvarName, R>
+    {
+        R visitQuote(Vec4 val);
+
+        R visitVar(Svar<N> name);
+
+        R visitCall(SvexFunction fun, Svex<N>[] args, List<R> argVals);
+    }
+
+    public <R> R traverse(TraverseVisitor<N, R> visitor)
+    {
+        return traverse(visitor, new HashMap<>());
+    }
+
+    abstract <R> R traverse(TraverseVisitor<N, R> visitor, Map<Svex<N>, R> cache);
+
     public abstract Vec4 xeval(Map<Svex<N>, Vec4> memoize);
 
     public static <N extends SvarName> Vec4[] listXeval(Svex<N>[] list, Map<Svex<N>, Vec4> memoize)

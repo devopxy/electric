@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.simulation.acl2.mods.Address;
 import com.sun.electric.tool.simulation.acl2.mods.Driver;
+import com.sun.electric.tool.simulation.acl2.mods.IndexName;
 import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
 import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
@@ -712,6 +713,34 @@ public abstract class ParameterizedModule
     {
         return getNumBits();
     }
+
+    protected static Lhs<IndexName> aliasWire(List<Lhs<IndexName>> arr, SvexManager<IndexName> sm, int width)
+    {
+        IndexName name = IndexName.valueOf(arr.size());
+        Svar<IndexName> svar = sm.getVar(name);
+        Lhatom<IndexName> atom = Lhatom.valueOf(svar);
+        Lhrange<IndexName> range = new Lhrange<>(width, atom);
+        Lhs<IndexName> lhs = new Lhs<>(Collections.singletonList(range));
+        arr.add(lhs);
+        return lhs;
+    }
+
+    protected static Lhs<IndexName> aliasWire(List<Lhs<IndexName>> arr, SvexManager<IndexName> sm, int width, int offset)
+    {
+        IndexName name = IndexName.valueOf(arr.size() + offset);
+        Svar<IndexName> svar = sm.getVar(name);
+        Lhatom<IndexName> atom = Lhatom.valueOf(svar);
+        Lhrange<IndexName> range = new Lhrange<>(width, atom);
+        Lhs<IndexName> lhs = new Lhs<>(Collections.singletonList(range));
+        return lhs;
+    }
+
+    protected static Lhs<IndexName> aliasRange(Lhs<IndexName> in, int width, int rsh)
+    {
+        return in.rsh(rsh).concat(width, Lhs.empty());
+    }
+
+    protected abstract void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm);
 
     @Override
     public boolean equals(Object o)

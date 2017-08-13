@@ -87,14 +87,16 @@ public abstract class Name implements ACL2Backed
 
     public static Name valueOf(BigInteger i)
     {
-        return i.signum() >= 0 && i.bitLength() < Integer.SIZE
-            ? new IndexName(i.intValueExact())
-            : new IntegerImpl(i);
+        return new IntegerImpl(i);
+//        return i.signum() >= 0 && i.bitLength() < Integer.SIZE
+//            ? new IndexName(i.intValueExact())
+//            : new IntegerImpl(i);
     }
 
     public static Name valueOf(int i)
     {
-        return i >= 0 ? new IndexName(i) : new IntegerImpl(BigInteger.valueOf(i));
+        return new IntegerImpl(BigInteger.valueOf(i));
+//        return i >= 0 ? new IndexName(i) : new IntegerImpl(BigInteger.valueOf(i));
     }
 
     public boolean isString()
@@ -177,10 +179,10 @@ public abstract class Name implements ACL2Backed
 
         IntegerImpl(BigInteger val)
         {
-            if (val.signum() >= 0 && val.bitLength() <= Integer.SIZE - 1)
-            {
-                throw new IllegalArgumentException();
-            }
+//            if (val.signum() >= 0  val.bitLength() <= Integer.SIZE - 1)
+//            {
+//                throw new IllegalArgumentException();
+//            }
             this.val = val;
         }
 

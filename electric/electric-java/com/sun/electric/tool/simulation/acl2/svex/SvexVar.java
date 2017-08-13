@@ -88,7 +88,6 @@ public class SvexVar<N extends SvarName> extends Svex<N>
         return svex;
     }
      */
-
     @Override
     protected void collectVarsRev(Set<Svar<N>> result, Set<SvexCall<N>> visited)
     {
@@ -99,6 +98,18 @@ public class SvexVar<N extends SvarName> extends Svex<N>
     public <R, D> R accept(Visitor<N, R, D> visitor, D data)
     {
         return visitor.visitVar(svar, data);
+    }
+
+    @Override
+    <R> R traverse(TraverseVisitor<N, R> visitor, Map<Svex<N>, R> cache)
+    {
+        R result = cache.get(this);
+        if (result == null)
+        {
+            result = visitor.visitVar(svar);
+            cache.put(this, result);
+        }
+        return result;
     }
 
     @Override

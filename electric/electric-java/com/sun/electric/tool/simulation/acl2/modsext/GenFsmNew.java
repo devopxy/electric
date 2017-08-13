@@ -149,37 +149,12 @@ public class GenFsmNew extends GenBase
         {
             ModName modName = e.getKey();
             ModuleExt m = e.getValue();
-            boolean found = false;
-            for (ParameterizedModule parModule : parModules)
+            if (m.parMod != null)
             {
-                if (parModule.setCurBuilder(modName, m.b.sm))
-                {
-                    assert !found;
-                    found = true;
-                    Map<String, ModName> parInsts = parModuleInstances.get(parModule);
-                    assert parInsts != null;
-                    parInsts.put(modName.toString(), modName);
-                    modToParMod.put(modName, parModule);
-                    Module<Address> genM = parModule.genModule();
-                    if (genM == null)
-                    {
-                        System.out.println("Module specalizition is unfamiliar " + modName);
-                    } else if (!genM.equals(m.b))
-                    {
-                        System.out.println("Module mismatch " + modName);
-                    } else
-                    {
-                        Util.check(parModule.getNumInsts() == m.elabMod.modNInsts());
-                        Util.check(parModule.getNumWires() == m.elabMod.modNWires());
-                        Util.check(parModule.getNumAssigns() == m.elabMod.modNAssigns());
-                        Util.check(parModule.getNumBits() == m.elabMod.modNBits());
-                        Util.check(parModule.getTotalInsts() == m.elabMod.modTotalInsts());
-                        Util.check(parModule.getTotalWires() == m.elabMod.modTotalWires());
-                        Util.check(parModule.getTotalAssigns() == m.elabMod.modTotalAssigns());
-                        if (parModule.getTotalBits() != m.elabMod.modTotalBits())
-                            Util.check(parModule.getTotalBits() == m.elabMod.modTotalBits());
-                    }
-                }
+                Map<String, ModName> parInsts = parModuleInstances.get(m.parMod);
+                assert parInsts != null;
+                parInsts.put(modName.toString(), modName);
+                modToParMod.put(modName, m.parMod);
             }
             for (Wire wire : m.b.wires)
             {

@@ -23,6 +23,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
+import com.sun.electric.tool.simulation.acl2.svex.SvarNameTexter;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
@@ -33,6 +34,7 @@ import com.sun.electric.util.acl2.ACL2;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -53,6 +55,8 @@ public class Lhs<N extends SvarName> implements ACL2Backed
     public final List<Lhrange<N>> ranges = new LinkedList<>();
     private final int hashCode;
 
+    private static final Lhs<?> EMPTY = new Lhs<>(Collections.emptyList());
+
     public Lhs(List<Lhrange<N>> ranges)
     {
         this.ranges.addAll(ranges);
@@ -63,6 +67,11 @@ public class Lhs<N extends SvarName> implements ACL2Backed
             hashCode = ACL2Object.hashCodeOfCons(range.hashCode(), hashCode);
         }
         this.hashCode = hashCode;
+    }
+
+    public static <N extends SvarName> Lhs<N> empty()
+    {
+        return (Lhs<N>)EMPTY;
     }
 
     public static <N extends SvarName> Lhs<N> fromACL2(SvarName.Builder<N> snb, SvexManager<N> sm, ACL2Object impl)
@@ -372,6 +381,21 @@ public class Lhs<N extends SvarName> implements ACL2Backed
         for (int i = ranges.size() - 1; i >= 0; i--)
         {
             s += ranges.get(i);
+            if (i > 0)
+            {
+                s += ",";
+            }
+        }
+        return s;
+    }
+
+    public String toString(SvarNameTexter<N> texter)
+    {
+        String s = "";
+        int offset = width();
+        for (int i = ranges.size() - 1; i >= 0; i--)
+        {
+            s += ranges.get(i).toString(texter);
             if (i > 0)
             {
                 s += ",";

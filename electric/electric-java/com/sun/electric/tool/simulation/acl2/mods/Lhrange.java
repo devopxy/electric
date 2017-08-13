@@ -24,6 +24,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
+import com.sun.electric.tool.simulation.acl2.svex.SvarNameTexter;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
@@ -68,7 +69,7 @@ public class Lhrange<N extends SvarName> implements ACL2Backed
         return new Lhrange<>(w, atom);
     }
 
-    public <N1 extends SvarName> Lhrange<N1> convertVars(Function<N,N1> renameMap, SvexManager<N1> sm)
+    public <N1 extends SvarName> Lhrange<N1> convertVars(Function<N, N1> renameMap, SvexManager<N1> sm)
     {
         return new Lhrange<>(w, atom.convertVars(renameMap, sm));
     }
@@ -186,5 +187,10 @@ public class Lhrange<N extends SvarName> implements ACL2Backed
         {
             return w + "'Z";
         }
+    }
+
+    public String toString(SvarNameTexter<N> texter)
+    {
+        return atom.toString(texter, w);
     }
 }
