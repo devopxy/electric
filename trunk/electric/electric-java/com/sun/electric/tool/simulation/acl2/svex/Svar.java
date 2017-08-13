@@ -57,6 +57,19 @@ public interface Svar<N extends SvarName> extends ACL2Backed
         return toString(BigIntegerUtil.logheadMask(width).shiftLeft(rsh));
     }
 
+    public default String toString(SvarNameTexter<N> texter, int width, int rsh)
+    {
+        String s = texter.toString(getName(), width, rsh);
+        if (isNonblocking())
+        {
+            s = "#?" + getDelay() + " " + s;
+        } else if (getDelay() != 0)
+        {
+            s = "#" + getDelay() + " " + s;
+        }
+        return s;
+    }
+
     @Override
     public default ACL2Object getACL2Object(Map<ACL2Backed, ACL2Object> backedCache)
     {
@@ -66,7 +79,8 @@ public interface Svar<N extends SvarName> extends ACL2Backed
             SvarName name = getName();
             ACL2Object nameImpl = name.getACL2Object();
             int delayImpl = getDelay();
-            if (isNonblocking()) {
+            if (isNonblocking())
+            {
                 delayImpl = ~delayImpl;
             }
             result = name.isSimpleSvarName() && delayImpl == 0
@@ -78,6 +92,7 @@ public interface Svar<N extends SvarName> extends ACL2Backed
         return result;
     }
 
+    @Override
     public default ACL2Object getACL2Object()
     {
         ACL2Object name = getACL2Name();

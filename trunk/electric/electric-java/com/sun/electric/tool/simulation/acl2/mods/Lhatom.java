@@ -24,6 +24,7 @@ package com.sun.electric.tool.simulation.acl2.mods;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
+import com.sun.electric.tool.simulation.acl2.svex.SvarNameTexter;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
@@ -101,6 +102,8 @@ public abstract class Lhatom<N extends SvarName> implements ACL2Backed
         return getACL2Object().rep();
     }
 
+    public abstract String toString(SvarNameTexter<N> texter, int width);
+
     @Override
     public boolean equals(Object o)
     {
@@ -136,6 +139,12 @@ public abstract class Lhatom<N extends SvarName> implements ACL2Backed
         public ACL2Object getACL2Object()
         {
             return Util.KEYWORD_Z;
+        }
+
+        @Override
+        public String toString(SvarNameTexter<N> texter, int width)
+        {
+            return width + "'Z";
         }
 
         @Override
@@ -232,6 +241,12 @@ public abstract class Lhatom<N extends SvarName> implements ACL2Backed
                 : hons(nameImpl, ACL2Object.valueOf(rsh));
             assert result.hashCode() == hashCode;
             return result;
+        }
+
+        @Override
+        public String toString(SvarNameTexter<N> texter, int width)
+        {
+            return name.toString(texter, width, rsh);
         }
 
         @Override

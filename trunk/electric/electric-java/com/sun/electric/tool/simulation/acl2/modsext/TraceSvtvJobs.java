@@ -33,8 +33,15 @@ import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
+import com.sun.electric.tool.simulation.acl2.svex.SvarNameTexter;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
+import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
+import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
 import com.sun.electric.tool.user.User;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
@@ -46,6 +53,7 @@ import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -152,6 +160,7 @@ public class TraceSvtvJobs
         private final Class<H> cls;
         private final File saoFile;
 
+        private DesignExt design;
         private SvarName.Builder<Address> snb;
         private SvarName.Builder<Address> modifiedSnb;
         private SvexManager<Address> sm;
@@ -179,7 +188,7 @@ public class TraceSvtvJobs
                 List<ACL2Object> traceList = Util.getList(sr.root, true);
                 Util.check(traceList.size() == 26);
                 Util.check(traceList.get(0).equals(ACL2Object.valueOf("KEYWORD", "DESIGN")));
-                DesignExt design = new DesignExt(traceList.get(1), designHints);
+                design = new DesignExt(traceList.get(1), designHints);
                 Util.check(traceList.get(2).equals(ACL2Object.valueOf("KEYWORD", "OVERRIDDEN-ASSIGNS")));
                 Map<Svar<Address>, Svex<Address>> overriddenAssigns = readSvexAlist(traceList.get(3));
                 Util.check(traceList.get(4).equals(ACL2Object.valueOf("KEYWORD", "DELAYS")));
@@ -267,16 +276,18 @@ public class TraceSvtvJobs
                 Util.check(!svtvOutExprsIter.hasNext());
 
                 File outDir = saoFile.getParentFile();
-                printVars(overriddenAssigns.keySet(), new File(outDir, designName + "-overriddenAssigns.txt"));
+                printAliases(namedAliases, new File(outDir, designName + "-aliases.txt"));
+                printSvexarr(compile.svexarr, new File(outDir, designName + "-svexarr.txt"));
+                printSvexalist(overriddenAssigns, new File(outDir, designName + "-overriddenAssigns.txt"));
                 printVars(delays.keySet(), new File(outDir, designName + "-delays.txt"));
-                printVars(rewrittenAssigns.keySet(), new File(outDir, designName + "-rewrittenAssigns.txt"));
-                printVars(rawUpdates.keySet(), new File(outDir, designName + "-rawUpdates.txt"));
-                printVars(update0.keySet(), new File(outDir, designName + "-update0.txt"));
-                printVars(rest.keySet(), new File(outDir, designName + "-rest.txt"));
-                printVars(res1.keySet(), new File(outDir, designName + "-res1.txt"));
-                printVars(res1updates.keySet(), new File(outDir, designName + "-res1updates.txt"));
-                printVars(res1updates2.keySet(), new File(outDir, designName + "-res1updates2.txt"));
-                printVars(updates.keySet(), new File(outDir, designName + "-updates.txt"));
+                printSvexalist(rewrittenAssigns, new File(outDir, designName + "-rewrittenAssigns.txt"));
+                printSvexalist(rawUpdates, new File(outDir, designName + "-rawUpdates.txt"));
+                printSvexalist(update0, new File(outDir, designName + "-update0.txt"));
+                printSvexalist(rest, new File(outDir, designName + "-rest.txt"));
+                printSvexalist(res1, new File(outDir, designName + "-res1.txt"));
+                printSvexalist(res1updates, new File(outDir, designName + "-res1updates.txt"));
+                printSvexalist(res1updates2, new File(outDir, designName + "-res1updates2.txt"));
+                printSvexalist(updates, new File(outDir, designName + "-updates.txt"));
                 printVars(nextStates.keySet(), new File(outDir, designName + "-nextState.txt"));
                 printVars(svtvOutExprs.keySet(), new File(outDir, designName + "-svtvOutExprs.txt"));
                 printVars(svtvNextState.keySet(), new File(outDir, designName + "-svtvNextState.txt"));
@@ -339,17 +350,6 @@ public class TraceSvtvJobs
             return true;
         }
 
-        void printVars(Set<Svar<Address>> vars, File outFile) throws FileNotFoundException
-        {
-            try (PrintStream out = new PrintStream(outFile))
-            {
-                for (Svar<Address> svar : vars)
-                {
-                    out.println(svar);
-                }
-            }
-        }
-
         private Map<Svar<Address>, Svex<Address>> readSvexAlist(ACL2Object l)
         {
             return readSvexAlist(l, snb);
@@ -408,6 +408,138 @@ public class TraceSvtvJobs
             }
             assert i == list.size();
         }
+
+        void printAliases(List<Lhs<Address>> aliases, File outFile) throws FileNotFoundException
+        {
+            ElabMod topMod = design.moddb.topMod();
+            assert aliases.size() == topMod.modTotalWires();
+            SvarNameTexter<Address> texter = topMod.getAddressTexter();
+            try (PrintStream out = new PrintStream(outFile))
+            {
+                for (int i = 0; i < topMod.modTotalWires(); i++)
+                {
+                    Lhs<Address> lhs = aliases.get(i);
+                    out.println(i + ": " + topMod.wireidxToPath(i) + " = " + lhs.toString(texter));
+                }
+            }
+        }
+
+        void printSvexarr(Svex<Address>[] svexarr, File outFile) throws FileNotFoundException
+        {
+            ElabMod topMod = design.moddb.topMod();
+            assert svexarr.length == topMod.modTotalWires();
+            SvarNameTexter<Address> texter = topMod.getAddressTexter();
+            try (PrintStream out = new PrintStream(outFile))
+            {
+                for (int i = 0; i < topMod.modTotalWires(); i++)
+                {
+                    Svex<Address> svex = svexarr[i];
+                    out.print(i + ": " + topMod.wireidxToPath(i));
+                    printSvex(out, svex, Collections.emptyMap(), 1);
+                    out.println();
+                }
+            }
+        }
+
+        void printVars(Set<Svar<Address>> vars, File outFile) throws FileNotFoundException
+        {
+            try (PrintStream out = new PrintStream(outFile))
+            {
+                for (Svar<Address> svar : vars)
+                {
+                    out.println(svar);
+                }
+            }
+        }
+
+        void printSvexalist(Map<Svar<Address>, Svex<Address>> alist, File outFile) throws FileNotFoundException
+        {
+            Map<Svex<Address>, String> multirefsNames = new HashMap<>();
+            for (Map.Entry<Svar<Address>, Svex<Address>> e : alist.entrySet())
+            {
+                Svar<Address> svar = e.getKey();
+                Svex<Address> svex = e.getValue();
+                multirefsNames.put(svex, svar.toString());
+                if (svex instanceof SvexCall)
+                {
+                    SvexCall<Address> sc = (SvexCall<Address>)svex;
+                    if (sc.fun == Vec4Concat.FUNCTION)
+                    {
+                        multirefsNames.put(sc.getArgs()[1], "!" + svar.toString());
+
+                    }
+                }
+            }
+            try (PrintStream out = new PrintStream(outFile))
+            {
+                for (Map.Entry<Svar<Address>, Svex<Address>> e : alist.entrySet())
+                {
+                    Svar<Address> svar = e.getKey();
+                    Svex<Address> svex = e.getValue();
+                    out.print(svar);
+                    printSvex(out, svex, multirefsNames, 1);
+                    out.println();
+                    if (svex instanceof SvexCall)
+                    {
+                        SvexCall<Address> sc = (SvexCall<Address>)svex;
+                        if (sc.fun == Vec4Concat.FUNCTION)
+                        {
+                            out.print("!" + svar);
+                            printSvex(out, sc.getArgs()[1], multirefsNames, 1);
+                            out.println();
+                        }
+                    }
+                }
+            }
+
+        }
+
+        private void printSvex(PrintStream out, Svex<Address> top, Map<Svex<Address>, String> multirefsNames, int indent)
+        {
+            out.println();
+            for (int i = 0; i < indent; i++)
+            {
+                out.print(' ');
+            }
+            if (top instanceof SvexQuote)
+            {
+                SvexQuote<Address> sq = (SvexQuote<Address>)top;
+                if (sq.val.isVec2())
+                {
+                    Vec2 val = (Vec2)sq.val;
+                    out.print(val.getVal());
+                } else if (sq.val.equals(Vec4.X))
+                {
+                    out.print("(4vec-x)");
+                } else if (sq.val.equals(Vec4.Z))
+                {
+                    out.print("(4vec-z)");
+                } else
+                {
+                    out.print("'(" + sq.val.getUpper() + " . " + sq.val.getLower() + ")");
+                }
+            } else if (top instanceof SvexVar)
+            {
+                SvexVar<Address> sv = (SvexVar<Address>)top;
+                out.print("|" + sv.svar + "|");
+            } else
+            {
+                String name = multirefsNames.get(top);
+                if (name != null && indent > 1)
+                {
+                    out.print(name);
+                } else
+                {
+                    SvexCall<Address> sc = (SvexCall<Address>)top;
+                    out.print("(" + sc.fun.applyFn);
+                    for (Svex<Address> arg : sc.getArgs())
+                    {
+                        printSvex(out, arg, multirefsNames, indent + 1);
+                    }
+                    out.print(')');
+                }
+            }
+        }
     }
 
     private static class ModifiedAddressBuilder extends Address.SvarNameBuilder
@@ -436,5 +568,6 @@ public class TraceSvtvJobs
             }
             return super.fromACL2(patch != null ? patch : nameImpl);
         }
+
     }
 }

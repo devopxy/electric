@@ -157,6 +157,10 @@ public class Wire
 
     public String toString(int width, int rsh)
     {
+        if (this.width == 1 && low_idx == 0 && width == 1 && rsh == 0)
+        {
+            return name.toString();
+        }
         if (revp)
         {
             throw new UnsupportedOperationException();

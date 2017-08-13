@@ -27,8 +27,10 @@ import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4ZeroExt;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -137,7 +139,6 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
         return svex;
     }
      */
-
     @Override
     protected void collectVarsRev(Set<Svar<N>> result, Set<SvexCall<N>> visited)
     {
@@ -154,6 +155,23 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
     public <R, D> R accept(Visitor<N, R, D> visitor, D data)
     {
         return visitor.visitCall(fun, args, data);
+    }
+
+    @Override
+    <R> R traverse(TraverseVisitor<N, R> visitor, Map<Svex<N>, R> cache)
+    {
+        R result = cache.get(this);
+        if (result == null)
+        {
+            List<R> argVals = new ArrayList<>(args.length);
+            for (int i = 0; i < args.length; i++)
+            {
+                argVals.add(args[i].traverse(visitor, cache));
+            }
+            result = visitor.visitCall(fun, args, argVals);
+            cache.put(this, result);
+        }
+        return result;
     }
 
     @Override

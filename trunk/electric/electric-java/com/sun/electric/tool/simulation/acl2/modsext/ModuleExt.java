@@ -79,6 +79,7 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
     public final DesignExt design;
     public final ModName modName;
     public final Module<Address> b;
+    public final ParameterizedModule parMod;
     public final List<WireExt> wires = new ArrayList<>();
     public final List<ModInstExt> insts = new ArrayList<>();
     public final Map<Lhs<PathExt>, DriverExt> assigns = new LinkedHashMap<>();
@@ -267,6 +268,34 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
                 }
             }
         }
+        ParameterizedModule parMod = null;
+        for (ParameterizedModule parModule : design.paremterizedModules)
+        {
+            if (parModule.setCurBuilder(modName, b.sm))
+            {
+                assert parMod == null;
+                parMod = parModule;
+                Module<Address> genM = parModule.genModule();
+                if (genM == null)
+                {
+                    System.out.println("Module specalizition is unfamiliar " + modName);
+                } else if (!genM.equals(b))
+                {
+                    System.out.println("Module mismatch " + modName);
+                } else
+                {
+                    Util.check(parModule.getNumInsts() == elabMod.modNInsts());
+                    Util.check(parModule.getNumWires() == elabMod.modNWires());
+                    Util.check(parModule.getNumAssigns() == elabMod.modNAssigns());
+                    Util.check(parModule.getNumBits() == elabMod.modNBits());
+                    Util.check(parModule.getTotalInsts() == elabMod.modTotalInsts());
+                    Util.check(parModule.getTotalWires() == elabMod.modTotalWires());
+                    Util.check(parModule.getTotalAssigns() == elabMod.modTotalAssigns());
+                    Util.check(parModule.getTotalBits() == elabMod.modTotalBits());
+                }
+            }
+        }
+        this.parMod = parMod;
     }
 
     public static void markAssigned(Lhs<PathExt> lhs, BigInteger assignedBits)
@@ -554,8 +583,15 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
         return new Lhs<>(newRanges).norm();
     }
 
-    private void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm)
+    private void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm, boolean useParMods)
     {
+        if (useParMods && parMod != null)
+        {
+            boolean ok = parMod.setCurBuilder(modName, b.sm);
+            assert ok;
+            parMod.makeAliases(portMap, arr, sm);
+            return;
+        }
         int wireOffset = arr.size();
         for (WireExt wire : wires)
         {
@@ -569,7 +605,7 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
                 Lhs<IndexName> newLhs = flattenLhs(pi.namedLhs, wireOffset, portMap, sm);
                 newPortMap.add(newLhs);
             }
-            inst.proto.makeAliases(newPortMap, arr, sm);
+            inst.proto.makeAliases(newPortMap, arr, sm, useParMods);
         }
     }
 
@@ -577,7 +613,14 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
     {
         Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
         List<Lhs<IndexName>> arr = new ArrayList<>();
-        makeAliases(Collections.emptyList(), arr, flattenResult.sm);
+        List<Lhs<IndexName>> topPortMap = new ArrayList<>();
+        for (ModExport export : exports)
+        {
+            Lhs<IndexName> lhs = flattenLhs(export.wire.namedLhs, 0, Collections.emptyList(), flattenResult.sm);
+            assert lhs.ranges.size() == 1 && lhs.ranges.get(0).getVar().getName().getIndex() == export.index;
+            topPortMap.add(lhs);
+        }
+        makeAliases(topPortMap, arr, flattenResult.sm, true);
         Util.check(flattenResult.aliases.size() == arr.size());
         for (int i = 0; i < arr.size(); i++)
         {

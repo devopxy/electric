@@ -22,6 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarNameTexter;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
@@ -320,6 +321,72 @@ public class ElabMod
             throw new RuntimeException("In module " + elabMod.modName + ": missing: " + pathWire.name);
         }
         return elabMod.wireTable[wireIdx];
+    }
+
+    private String pathToString(Path path, int width, int rsh)
+    {
+        Wire wire = pathToWireDecl(path);
+        String prefix = "";
+        while (path instanceof Path.Scope)
+        {
+            Path.Scope ps = (Path.Scope)path;
+            prefix += ps.namespace + ".";
+            path = ps.subpath;
+        }
+        Path.Wire pw = (Path.Wire)path;
+        assert pw.name.equals(wire.name);
+        return prefix + wire.toString(width, rsh);
+    }
+
+    public SvarNameTexter<IndexName> getIndexNameTexter()
+    {
+        return new SvarNameTexter<IndexName>()
+        {
+            @Override
+            public String toString(IndexName name, int width, int rsh)
+            {
+                return pathToString(wireidxToPath(name.getIndex()), width, rsh);
+            }
+        };
+    }
+
+    public SvarNameTexter<Path> getPathTexter()
+    {
+        return new SvarNameTexter<Path>()
+        {
+            @Override
+            public String toString(Path path, int width, int rsh)
+            {
+                return pathToString(path, width, rsh);
+            }
+        };
+    }
+
+    public SvarNameTexter<Address> getAddressTexter()
+    {
+        return new SvarNameTexter<Address>()
+        {
+            @Override
+            public String toString(Address address, int width, int rsh)
+            {
+                String s = pathToString(address.getPath(), width, rsh);
+                if (address.index != Address.INDEX_NIL)
+                {
+                    s = "{" + address.index + "}" + s;
+                }
+                if (address.scope == Address.SCOPE_ROOT)
+                {
+                    s = "/" + s;
+                } else
+                {
+                    for (int i = 0; i < address.scope; i++)
+                    {
+                        s = "../" + s;
+                    }
+                }
+                return s;
+            }
+        };
     }
 
     public Svar<Address> svarNamedToIndexed(Svar<Address> svar, SvexManager<Address> sm)
