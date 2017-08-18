@@ -301,7 +301,7 @@ public abstract class GenFsm extends GenBase
 
     protected void genDummyWireBody(String s, Map<Lhs<PathExt>, DriverExt> drv)
     {
-        showSvex(drv.values().iterator().next().getSvex());
+        showSvex(drv.values().iterator().next().getOrigSvex());
     }
 
     private void genDummyWire(WireExt w)
@@ -520,7 +520,7 @@ public abstract class GenFsm extends GenBase
                 {
                     System.out.println("Twice " + lw);
                 }
-                List<Svar<PathExt>> deps = d.collectVars();
+                List<Svar<PathExt>> deps = d.getOrigVars();
                 for (Svar<PathExt> sv : deps)
                 {
                     dep.add(lw);

@@ -23,16 +23,14 @@ package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
-import com.sun.electric.tool.simulation.acl2.mods.Address;
 import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
-import com.sun.electric.tool.simulation.acl2.mods.Module;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.Path;
-import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
@@ -478,7 +476,7 @@ public class GenFsmNew extends GenBase
             s("(define |" + modName + "-" + lhs + "-loc| (");
             b();
             b();
-            List<Svar<PathExt>> svars = drv.collectVars();
+            List<Svar<PathExt>> svars = drv.getOrigVars();
             for (Svar<PathExt> svar : svars)
             {
                 WireExt lw = (WireExt)svar.getName();
@@ -855,37 +853,50 @@ public class GenFsmNew extends GenBase
             SvexQuote.valueOf(width),
             top,
             SvexQuote.valueOf(0));
-        Set<SvexCall<PathExt>> multirefs = top.multirefs();
-        int indent = 2;
-        Map<Svex<PathExt>, String> multirefNames = Collections.emptyMap();
+        printSvex(out, 2, top);
+    }
+
+    public static <N extends SvarName> void printSvex(PrintStream out, int indent, Svex<N> top)
+    {
+        Set<SvexCall<N>> multirefs = top.multirefs();
+        Map<Svex<N>, String> multirefNames = Collections.emptyMap();
         if (!multirefs.isEmpty())
         {
-            out.println(" ;; MULTIREFS " + multirefs.size());
-            out.print("  (let* (");
+            for (int i = 0; i < indent; i++)
+            {
+                out.print(' ');
+            }
+            out.println(";; MULTIREFS " + multirefs.size());
+            for (int i = 0; i < indent; i++)
+            {
+                out.print(' ');
+            }
+            out.print("(let* (");
+            indent += 2;
             multirefNames = new HashMap<>();
-            Svex<PathExt>[] toposort = top.toposort();
+            Svex<N>[] toposort = top.toposort();
 //            for (int i = 0; i < toposort.length; i++)
             for (int i = toposort.length - 1; i >= 0; i--)
             {
-                Svex<PathExt> svex = toposort[i];
-                if (svex instanceof SvexCall && multirefs.contains((SvexCall<PathExt>)svex))
+                Svex<N> svex = toposort[i];
+                if (svex instanceof SvexCall && multirefs.contains((SvexCall<N>)svex))
                 {
                     String name = "temp" + multirefNames.size();
                     out.println();
                     out.print("   (" + name);
-                    printSvex(svex, multirefNames, 4);
+                    printSvex(out, indent, svex, multirefNames);
                     out.print(')');
                     multirefNames.put(svex, name);
                 }
             }
             out.print(')');
-            indent = 4;
         }
-        printSvex(top, multirefNames, indent);
+        printSvex(out, indent, top, multirefNames);
         out.println(multirefs.isEmpty() ? ")" : "))");
     }
 
-    private void printSvex(Svex<PathExt> top, Map<Svex<PathExt>, String> multirefsNames, int indent)
+    private static <N extends SvarName> void printSvex(PrintStream out, int indent,
+        Svex<N> top, Map<Svex<N>, String> multirefsNames)
     {
         out.println();
         for (int i = 0; i < indent; i++)
@@ -921,11 +932,11 @@ public class GenFsmNew extends GenBase
                 out.print(name);
             } else
             {
-                SvexCall<PathExt> sc = (SvexCall<PathExt>)top;
+                SvexCall<N> sc = (SvexCall<N>)top;
                 out.print("(" + sc.fun.applyFn);
-                for (Svex<PathExt> arg : sc.getArgs())
+                for (Svex<N> arg : sc.getArgs())
                 {
-                    printSvex(arg, multirefsNames, indent + 1);
+                    printSvex(out, indent + 1, arg, multirefsNames);
                 }
                 out.print(')');
             }

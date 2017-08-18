@@ -21,9 +21,22 @@
  */
 package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.Address;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
+import com.sun.electric.tool.simulation.acl2.mods.Name;
+import com.sun.electric.tool.simulation.acl2.mods.Path;
+import com.sun.electric.tool.simulation.acl2.mods.Util;
+import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.Svex;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
+import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import java.math.BigInteger;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Hints to generate FSM for particular design
@@ -39,6 +52,74 @@ public interface DesignHints
     String[] getPortInstancesToSplit(ModName modName);
 
     int[] getDriversToSplit(ModName modName);
+
+    default void testSvtv(ModName modName,
+        Map<Svar<Address>, Svex<Address>> updates,
+        Map<Svar<Address>, Svex<Address>> svtvOutExprs,
+        Map<Svar<Address>, Svex<Address>> svtvNextStates,
+        SvexManager<Address> sm)
+    {
+        System.out.println("Don't know how to test " + modName);
+    }
+
+    static Vec4 makeZ(long val, int width)
+    {
+        return makeZ(BigInteger.valueOf(val), width);
+    }
+
+    static Vec4 makeZ(BigInteger val, int width)
+    {
+        Util.check(val.signum() >= 0 && val.bitLength() <= width);
+        return Vec4.valueOf(val, BigIntegerUtil.MINUS_ONE.shiftLeft(width).or(val));
+    }
+
+    static void test(SvexManager<Address> sm, String clkName,
+        Map<Svar<Address>, Svex<Address>> svtvOutExprs,
+        Map<Svar<Address>, Svex<Address>> svtvNextStates,
+        Map<Svar<Address>, Vec4> env0,
+        Map<Svar<Address>, Vec4> expectedOut,
+        Map<Svar<Address>, Vec4> expectedState)
+    {
+        Address clkAddress = Address.valueOf(Path.simplePath(Name.valueOf(clkName)));
+        Svar<Address> clk = sm.getVar(clkAddress);
+        Svar<Address> clkDelayed = sm.getVar(clkAddress, 1, false);
+        env0.put(clkDelayed, Vec2.ONE);
+        env0.put(clk, Vec2.ZERO);
+        for (Map.Entry<Svar<Address>, Vec4> e : expectedOut.entrySet())
+        {
+            Svar<Address> svar = e.getKey();
+            Vec4 val = e.getValue();
+            if (!svtvOutExprs.get(svar).eval(env0).equals(val))
+            {
+                Vec4 svtvVal = svtvOutExprs.get(svar).eval(env0);
+                System.out.println(svtvVal + " " + val);
+            }
+            Util.check(svtvOutExprs.get(svar).eval(env0).equals(val));
+        }
+
+        Map<Svar<Address>, Vec4> env1 = new HashMap<>();
+        env1.put(clkDelayed, Vec2.ZERO);
+        env1.put(clk, Vec2.ONE);
+        for (Map.Entry<Svar<Address>, Svex<Address>> e : svtvNextStates.entrySet())
+        {
+            Svar<Address> svar = e.getKey();
+            Svex<Address> svex = e.getValue();
+            Vec4 val = svex.eval(env0);
+            env1.put(svar, val);
+        }
+
+        for (Map.Entry<Svar<Address>, Vec4> e : expectedState.entrySet())
+        {
+            Svar<Address> svar = e.getKey();
+            Vec4 val = e.getValue();
+            if (!svtvNextStates.get(svar).eval(env1).equals(val))
+            {
+                Vec4 svtvVal = svtvNextStates.get(svar).eval(env1);
+                System.out.println(svtvVal + " " + val);
+            }
+            Util.check(svtvNextStates.get(svar).eval(env1).equals(val));
+        }
+    }
 
     public static class Dummy implements DesignHints
     {

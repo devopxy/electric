@@ -11,7 +11,7 @@
 (local (include-book "std/osets/under-set-equiv" :dir :system))
 (local (in-theory (disable nfix natp)))
 
-(defconsts (*$DESIGN$* state)
+(defconsts (*$DESIGN$-sao* state)
   (serialize-read "$DESIGN$.sao"))
 
 (define svex-assigns-compose-modified ((x svex-alist-p)
@@ -318,6 +318,9 @@
                    :nphases        nphases)
         moddb aliases)))
 
+(defconst *$MODNAME$*
+  (change-design *$DESIGN$-sao* :top "$MODNAME$"))
+
 (make-event
  (b* ((name '|$DESIGN$-svtv|)
      (ins '(
@@ -328,7 +331,7 @@
       ("$OUTPUT$" |$OUTPUT$|)
       ))
      (internals ())
-     (design *$DESIGN$*)
+     (design *$MODNAME$*)
      (simplify t)
      (pre-simplify t)
      (state-machine t)
@@ -356,7 +359,7 @@
         state-machine))
      (trace
       (list
-       :design *$DESIGN$*
+       :design *$MODNAME$*
        :overridden-assigns overridden-assigns
        :delays delays
        :rewritten-assigns rewritten-assigns
@@ -369,5 +372,5 @@
        :updates updates
        :next-states next-states
        :svtv svtv))
-     (state (serialize-write "$DESIGN$-trace.sao" trace :verbosep t)))
+     (state (serialize-write "$MODNAME$-trace.sao" trace :verbosep t)))
   (value '(value-triple :serialize-write))))

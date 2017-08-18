@@ -73,7 +73,7 @@ public class Vec4Bitor<N extends SvarName> extends SvexCall<N>
             if (x.isVec2() && y.isVec2())
             {
                 BigInteger xv = ((Vec2)x).getVal();
-                BigInteger yv = ((Vec2)x).getVal();
+                BigInteger yv = ((Vec2)y).getVal();
                 return Vec2.valueOf(xv.or(yv));
             }
             return Vec4.valueOf(

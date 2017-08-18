@@ -192,6 +192,19 @@ public class PublicDebugMenu
                     TraceSvtvJobs.readTraceSvtv(TutorialHints.class, f);
                 }
             },
+                new EMenuItem("Test Trace Svtv for Tutorial")
+            {
+                @Override
+                public void run()
+                {
+                    String saoPath = OpenFile.chooseInputFile(FileType.SAO, "Serialized SVEX design", false);
+                    if (saoPath == null)
+                        return;
+                    URL fileURL = TextUtils.makeURLToFile(saoPath);
+                    File f = TextUtils.getFile(fileURL);
+                    TraceSvtvJobs.testTraceSvtv(TutorialHints.class, f);
+                }
+            },
                 new EMenuItem("Dedup SVEX design")
             {
                 @Override
