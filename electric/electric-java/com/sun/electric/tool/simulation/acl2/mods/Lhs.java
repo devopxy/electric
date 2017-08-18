@@ -69,6 +69,7 @@ public class Lhs<N extends SvarName> implements ACL2Backed
         this.hashCode = hashCode;
     }
 
+    @SuppressWarnings("unchecked")
     public static <N extends SvarName> Lhs<N> empty()
     {
         return (Lhs<N>)EMPTY;

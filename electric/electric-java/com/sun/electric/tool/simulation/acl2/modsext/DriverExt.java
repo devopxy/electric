@@ -27,13 +27,24 @@ import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.svex.BigIntegerUtil;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
+import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
+import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
+import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
+import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
+import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Rsh;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4SignExt;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4ZeroExt;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -49,6 +60,10 @@ public class DriverExt
 
     private final Driver<PathExt> b;
     final String name;
+
+    private final Svex<PathExt> normSvex;
+    private final Set<Svex<PathExt>> normSvexRecalc = new HashSet<>();
+    private final List<Svar<PathExt>> normVars;
 
     Map<Svar<PathExt>, BigInteger> crudeDeps0;
     Map<Svar<PathExt>, BigInteger> crudeDeps1;
@@ -68,11 +83,29 @@ public class DriverExt
         {
             Util.check(svar.getName() instanceof WireExt);
         }
+        normSvex = normAssign(b.svex, parent.sm, normSvexRecalc);
+        normVars = normSvex.collectVars();
+//        checkNormSvex(normSvex);
     }
 
-    public Svex<PathExt> getSvex()
+    public Svex<PathExt> getOrigSvex()
     {
         return b.svex;
+    }
+
+    public List<Svar<PathExt>> getOrigVars()
+    {
+        return b.vars;
+    }
+
+    public Svex<PathExt> getNormSvex()
+    {
+        return normSvex;
+    }
+
+    public List<Svar<PathExt>> getNormVars()
+    {
+        return normVars;
     }
 
     public int getStrength()
@@ -90,11 +123,39 @@ public class DriverExt
         return pathBits[bit];
     }
 
+    /**
+     * Substitute Lhs into expression and normalize
+     *
+     * @param <N> SvarName of new Svex
+     * @param args Lhs for variables in the same order as getOrigVars()
+     * @param sm SvexManager
+     * @return expression after substitution and normalization
+     */
+    public <N extends SvarName> Svex<N> subst(Lhs<N>[] args, SvexManager<N> sm)
+    {
+        Svex<N> svexOrig = substOrig(args, sm);
+        Svex<N> svexNorm = substNorm(args, sm);
+        if (svexOrig != svexNorm)
+        {
+            System.out.print("ORIG:");
+            GenFsmNew.printSvex(System.out, 2, getOrigSvex());
+            System.out.print("NORM:");
+            GenFsmNew.printSvex(System.out, 2, getNormSvex());
+            System.out.print("ORIG:");
+            GenFsmNew.printSvex(System.out, 2, svexOrig);
+            System.out.print("NORM:");
+            GenFsmNew.printSvex(System.out, 2, svexNorm);
+            substNorm(args, sm);
+        }
+//        assert svexOrig == svexNorm;
+        return svexOrig;
+    }
+
     @Override
     public String toString()
     {
         assert getStrength() == 6;
-        return name != null ? name : getSvex().toString();
+        return name != null ? name : getOrigSvex().toString();
     }
 
     void setSource(Lhs<PathExt> lhs)
@@ -119,14 +180,9 @@ public class DriverExt
         }
     }
 
-    public final List<Svar<PathExt>> collectVars()
-    {
-        return b.vars;
-    }
-
     void markUsed()
     {
-        for (Svar<PathExt> svar : collectVars())
+        for (Svar<PathExt> svar : getOrigVars())
         {
             ((WireExt)svar.getName()).markUsed();
         }
@@ -154,7 +210,7 @@ public class DriverExt
     void computeDeps(int width, boolean clkVal, Map<Svar<PathExt>, Vec4> env,
         Map<SvexCall<PathExt>, SvexCall<PathExt>> patchMemoize)
     {
-        Svex<PathExt> patched = getSvex().patch(env, parent.sm, patchMemoize);
+        Svex<PathExt> patched = getOrigSvex().patch(env, parent.sm, patchMemoize);
         BigInteger mask = BigIntegerUtil.logheadMask(width);
         Map<Svar<PathExt>, BigInteger> varsWithMasks = patched.collectVarsWithMasks(mask, true);
         if (clkVal)
@@ -210,5 +266,203 @@ public class DriverExt
     List<Map<Svar<PathExt>, BigInteger>> gatherFineBitDeps(BitSet stateDeps, Map<Object, Set<Object>> graph)
     {
         return parent.gatherFineBitDeps(stateDeps, pathBits, graph);
+    }
+
+    /**
+     * Substitute Lhs into expression and normalize using original Svex
+     *
+     * @param <N> SvarName of new Svex
+     * @param args Lhs for variables in the same order as getOrigVars()
+     * @param sm SvexManager
+     * @return expression after substitution and normalization
+     */
+    private <N extends SvarName> Svex<N> substOrig(Lhs<N>[] args, SvexManager<N> sm)
+    {
+        Svex.TraverseVisitor<PathExt, Svex<N>> visitor = new Svex.TraverseVisitor<PathExt, Svex<N>>()
+        {
+            @Override
+            public Svex<N> visitQuote(Vec4 val)
+            {
+                return SvexQuote.valueOf(val);
+            }
+
+            @Override
+            public Svex<N> visitVar(Svar<PathExt> svar)
+            {
+                int iArg = getOrigVars().indexOf(svar);
+                Lhs<N> arg = args[iArg];
+                Map<Svex<N>, Svex<N>> addDelayCache = new HashMap<>();
+                return arg.toSvex(sm).addDelay(svar.getDelay(), sm, addDelayCache);
+            }
+
+            @Override
+            public Svex<N> visitCall(SvexFunction fun, Svex<PathExt>[] args, Svex<N>[] argVals)
+            {
+                return fun.<N>callStar(sm, argVals);
+            }
+
+            @Override
+            public Svex<N>[] newVals(int arity)
+            {
+                return Svex.newSvexArray(arity);
+            }
+        };
+        return getOrigSvex().traverse(visitor);
+    }
+
+    private Svex<PathExt> normAssign(Svex<PathExt> top, SvexManager<PathExt> sm, Set<Svex<PathExt>> recalcSet)
+    {
+        Svex.TraverseVisitor<PathExt, Svex<PathExt>> visitor
+            = new Svex.TraverseVisitor<PathExt, Svex<PathExt>>()
+        {
+            @Override
+            public Svex<PathExt> visitQuote(Vec4 val)
+            {
+                return SvexQuote.valueOf(val);
+            }
+
+            @Override
+            public Svex<PathExt> visitVar(Svar<PathExt> svar)
+            {
+                Svex<PathExt> svex = sm.getSvex(svar);
+                recalcSet.add(svex);
+                return svex;
+            }
+
+            @Override
+            public Svex<PathExt> visitCall(SvexFunction fun, Svex<PathExt>[] args, Svex<PathExt>[] argVals)
+            {
+                if (fun == Vec4Rsh.FUNCTION && args[0] instanceof SvexQuote && args[1] instanceof SvexVar)
+                {
+                    assert argVals[0] == args[0];
+                    Vec4 sh = ((SvexQuote<PathExt>)args[0]).val;
+                    if (sh.isIndex())
+                    {
+                        int shVal = ((Vec2)sh).getVal().intValueExact();
+                        assert shVal > 0;
+                        Svar<PathExt> svar = ((SvexVar<PathExt>)args[1]).svar;
+                        int width = svar.getName().getWidth();
+                        if (shVal >= width)
+                        {
+                            return SvexQuote.Z();
+                        }
+                    }
+                }
+                Svex<PathExt> svex = fun.callStar(sm, argVals);
+                if ((fun == Vec4Rsh.FUNCTION
+                    || fun == Vec4Concat.FUNCTION
+                    || fun == Vec4ZeroExt.FUNCTION
+                    || fun == Vec4SignExt.FUNCTION)
+                    && args[0] instanceof SvexQuote)
+                {
+                    for (Svex<PathExt> argVal : argVals)
+                    {
+                        if (recalcSet.contains(argVal))
+                        {
+                            recalcSet.add(svex);
+                            break;
+                        }
+                    }
+                }
+                return svex;
+            }
+
+            @Override
+            public Svex<PathExt>[] newVals(int arity)
+            {
+                return Svex.newSvexArray(arity);
+            }
+
+        };
+        return top.traverse(visitor);
+    }
+
+    /**
+     * Substitute Lhs into expression and normalize using normalized Svex
+     *
+     * @param <N> SvarName of new Svex
+     * @param lhses Lhs for variables in the same order as getOrigVars()
+     * @param sm SvexManager
+     * @return expression after substitution and normalization
+     */
+    private <N extends SvarName> Svex<N> substNorm(Lhs<N>[] lhses, SvexManager<N> sm)
+    {
+        Svex<N> Z = SvexQuote.Z();
+        Svex.TraverseVisitor<PathExt, Svex<N>> visitor = new Svex.TraverseVisitor<PathExt, Svex<N>>()
+        {
+            @Override
+            public Svex<N> visitQuote(Vec4 val)
+            {
+                return SvexQuote.valueOf(val);
+            }
+
+            @Override
+            public Svex<N> visitVar(Svar<PathExt> svar)
+            {
+                int iArg = getOrigVars().indexOf(svar);
+                Lhs<N> arg = lhses[iArg];
+                Map<Svex<N>, Svex<N>> addDelayCache = new HashMap<>();
+                return arg.toSvex(sm).addDelay(svar.getDelay(), sm, addDelayCache);
+            }
+
+            @Override
+            public Svex<N> visitCall(SvexFunction fun, Svex<PathExt>[] args, Svex<N>[] argVals)
+            {
+                if (fun == Vec4Rsh.FUNCTION
+                    && args[0] instanceof SvexQuote
+                    && normSvexRecalc.contains(args[1]))
+                {
+                    assert argVals[0] == args[0];
+                    Vec4 sh = ((SvexQuote<N>)args[0]).val;
+                    if (sh.isIndex())
+                    {
+                        int shVal = ((Vec2)sh).getVal().intValueExact();
+                        assert shVal > 0;
+                        return argVals[1].rsh(sm, shVal);
+                    }
+                } else if (fun == Vec4Concat.FUNCTION
+                    && args[0] instanceof SvexQuote
+                    && normSvexRecalc.contains(args[1]))
+                {
+                    assert argVals[0] == args[0];
+                    Vec4 w = ((SvexQuote<N>)args[0]).val;
+                    if (w.isIndex())
+                    {
+                        int wVal = ((Vec2)w).getVal().intValueExact();
+                        return argVals[1].concat(sm, wVal, argVals[2]);
+                    }
+                } else if (fun == Vec4ZeroExt.FUNCTION
+                    && args[0] instanceof SvexQuote
+                    && normSvexRecalc.contains(args[1]))
+                {
+                    assert argVals[0] == args[0];
+                    Vec4 w = ((SvexQuote<N>)args[0]).val;
+                    if (w.isIndex())
+                    {
+                        int wVal = ((Vec2)w).getVal().intValueExact();
+                        return argVals[1].zerox(sm, wVal);
+                    }
+                } else if (fun == Vec4SignExt.FUNCTION
+                    && args[0] instanceof SvexQuote
+                    && normSvexRecalc.contains(args[1]))
+                {
+                    assert argVals[0] == args[0];
+                    Vec4 w = ((SvexQuote<N>)args[0]).val;
+                    if (w.isIndex())
+                    {
+                        int wVal = ((Vec2)w).getVal().intValueExact();
+                        return argVals[1].signx(sm, wVal);
+                    }
+                }
+                return sm.newCall(fun, argVals);
+            }
+
+            @Override
+            public Svex<N>[] newVals(int arity)
+            {
+                return Svex.newSvexArray(arity);
+            }
+        };
+        return getNormSvex().traverse(visitor);
     }
 }

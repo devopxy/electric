@@ -45,6 +45,10 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Rsh;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4SignExt;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4ZeroExt;
 import com.sun.electric.tool.user.User;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Backed;
@@ -417,8 +421,8 @@ public class ACL2DesignJobs
                         out.print((i == 0 ? "  " : ",") + lr);
                     }
 
-                    out.print(" = " + d.getSvex());
-                    BigInteger complexity = d.getSvex().traverse(new Svex.TraverseVisitor<PathExt, BigInteger>()
+                    out.print(" = " + d.getOrigSvex());
+                    BigInteger complexity = d.getOrigSvex().traverse(new Svex.TraverseVisitor<PathExt, BigInteger>()
                     {
                         @Override
                         public BigInteger visitQuote(Vec4 val)
@@ -427,13 +431,13 @@ public class ACL2DesignJobs
                         }
 
                         @Override
-                        public BigInteger visitVar(Svar<PathExt> name)
+                        public BigInteger visitVar(Svar<PathExt> svar)
                         {
                             return BigInteger.ZERO;
                         }
 
                         @Override
-                        public BigInteger visitCall(SvexFunction fun, Svex<PathExt>[] args, List<BigInteger> argVals)
+                        public BigInteger visitCall(SvexFunction fun, Svex<PathExt>[] args, BigInteger[] argVals)
                         {
                             BigInteger result = BigInteger.ONE;
                             for (BigInteger argVal : argVals)
@@ -441,6 +445,12 @@ public class ACL2DesignJobs
                                 result = result.add(argVal);
                             }
                             return result;
+                        }
+
+                        @Override
+                        public BigInteger[] newVals(int arity)
+                        {
+                            return new BigInteger[arity];
                         }
                     });
                     out.println(" // " + (complexity.bitLength() > 11 ? "COMPLEX " : "") + complexity + " " + d.toString());
@@ -493,6 +503,16 @@ public class ACL2DesignJobs
                             }
                         }
                     }
+                    if (VERBOSE_DUMP >= 1)
+                    {
+                        GenFsmNew.printSvex(out, 2, d.getNormSvex());
+                        if (!d.getNormVars().equals(d.getOrigVars()))
+                        {
+                            out.println("**** DIFFERENT NORM VARS ****");
+                            out.println("orig: " + d.getOrigVars());
+                            out.println("norm: " + d.getNormVars());
+                        }
+                    }
 //                            out.println("    // 0 depends on " + graph0.get(d.name));
 //                            out.println("    // 1 depends on " + graph1.get(d.name));
 //                            out.println("    // 0 closure " + closure0.get(d.name));
@@ -527,6 +547,7 @@ public class ACL2DesignJobs
                 out.println();
             }
         }
+
     }
 
     public static void genAlu(File saoFile, String outFileName)
@@ -752,7 +773,7 @@ public class ACL2DesignJobs
                     {
                         for (DriverExt dr : m.assigns.values())
                         {
-                            genDedup(out, dr.getSvex(), svexLabels, svexSizes);
+                            genDedup(out, dr.getOrigSvex(), svexLabels, svexSizes);
                         }
                     }
                     out.println(" ) ()))");
@@ -768,7 +789,7 @@ public class ACL2DesignJobs
                         out.print("           (extract-labels '(");
                         for (DriverExt dr : m.assigns.values())
                         {
-                            out.print(" " + svexLabels.get(dr.getSvex()));
+                            out.print(" " + svexLabels.get(dr.getOrigSvex()));
                         }
                         out.println(")");
                         out.println("                           *" + designName + "-dedup*)))))");
@@ -1056,8 +1077,8 @@ public class ACL2DesignJobs
                             Lhs<PathExt> l = e1.getKey();
                             DriverExt d = e1.getValue();
 
-                            List<Svar<PathExt>> vars = d.collectVars();
-                            Map<Svex<PathExt>, BigInteger> masks = d.getSvex().maskAlist(BigIntegerUtil.MINUS_ONE);
+                            List<Svar<PathExt>> vars = d.getOrigVars();
+                            Map<Svex<PathExt>, BigInteger> masks = d.getOrigSvex().maskAlist(BigIntegerUtil.MINUS_ONE);
                             out.print("      (;");
                             assert !l.ranges.isEmpty();
                             for (int i = 0; i < l.ranges.size(); i++)

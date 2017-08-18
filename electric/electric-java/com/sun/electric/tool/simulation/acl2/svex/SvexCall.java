@@ -27,10 +27,8 @@ import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4ZeroExt;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -161,12 +159,13 @@ public abstract class SvexCall<N extends SvarName> extends Svex<N>
     <R> R traverse(TraverseVisitor<N, R> visitor, Map<Svex<N>, R> cache)
     {
         R result = cache.get(this);
-        if (result == null)
+        if (result == null && !cache.containsKey(this))
         {
-            List<R> argVals = new ArrayList<>(args.length);
+            R[] argVals = visitor.newVals(args.length);
+//            R[] argVals = new R[args.length];
             for (int i = 0; i < args.length; i++)
             {
-                argVals.add(args[i].traverse(visitor, cache));
+                argVals[i] = args[i].traverse(visitor, cache);
             }
             result = visitor.visitCall(fun, args, argVals);
             cache.put(this, result);

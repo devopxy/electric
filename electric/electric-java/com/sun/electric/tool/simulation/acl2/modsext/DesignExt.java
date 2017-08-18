@@ -73,14 +73,14 @@ public class DesignExt
         paremterizedModules = designHints.getParameterizedModules();
 
         moddb = new ModDb(b.top, b.modalist);
-        Util.check(moddb.nMods() == b.modalist.size());
+//        Util.check(moddb.nMods() == b.modalist.size());
 
         addToDownTop(b.top);
 //        for (ModName mn : b.modalist.keySet())
 //        {
 //            addToDownTop(mn);
 //        }
-        Util.check(downTop.size() == b.modalist.size());
+//        Util.check(downTop.size() == b.modalist.size());
         int modidx = 0;
         for (Iterator<ModName> it = downTop.keySet().iterator(); it.hasNext(); modidx++)
         {
@@ -95,7 +95,7 @@ public class DesignExt
             ModName key = keys.get(i);
             topDown.put(key, downTop.get(key));
         }
-        Util.check(topDown.size() == b.modalist.size());
+        Util.check(topDown.size() == downTop.size());
 
         topDown.get(b.top).markTop(designHints.getExportNames(b.top));
         Map<String, Integer> globalCounts = new TreeMap<>();

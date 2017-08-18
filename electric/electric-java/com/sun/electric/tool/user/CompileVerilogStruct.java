@@ -526,7 +526,7 @@ public class CompileVerilogStruct
                     DriverExt rhs = e1.getValue();
                     String instanceName = lhs.toString();
                     instanceName = null;
-                    Map<Svar<PathExt>, BigInteger> inputs = rhs.getSvex().collectVarsWithMasks(BigIntegerUtil.logheadMask(lhs.width()), true);
+                    Map<Svar<PathExt>, BigInteger> inputs = rhs.getOrigSvex().collectVarsWithMasks(BigIntegerUtil.logheadMask(lhs.width()), true);
                     String[] assignInputs = new String[inputs.size()];
                     int i = 0;
                     for (Map.Entry<Svar<PathExt>, BigInteger> e2 : inputs.entrySet())

@@ -88,6 +88,11 @@ public class SvexManager<N extends SvarName>
         return canonic;
     }
 
+    public SvexVar<N> getSvex(Svar<N> svar)
+    {
+        return getSvex(svar.getName(), svar.getDelay(), svar.isNonblocking());
+    }
+
     public Svar<N> getVar(N name, int delay, boolean isNonblocking)
     {
         return getSvex(name, delay, isNonblocking).svar;
