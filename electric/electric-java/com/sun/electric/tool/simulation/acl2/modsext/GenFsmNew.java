@@ -160,7 +160,14 @@ public class GenFsmNew extends GenBase
                 {
                     assert parMod == null;
                     parMod = parModule;
-                    Module<Address> genM = parModule.genModule();
+                    Module<Address> genM = null;
+                    try
+                    {
+                        genM = parModule.genModule();
+                    } catch (NumberFormatException exc)
+                    {
+                        exc.printStackTrace(System.out);
+                    }
                     if (genM == null)
                     {
                         System.out.println("Module specializition is unfamiliar " + modName);
