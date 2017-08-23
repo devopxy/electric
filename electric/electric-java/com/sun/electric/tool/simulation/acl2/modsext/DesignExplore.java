@@ -87,7 +87,7 @@ public class DesignExplore<H extends DesignHints>
         }
     }
 
-    private void showMod(PrintStream out, ModName modName, Module<Address> mod)
+    public static void showMod(PrintStream out, ModName modName, Module<Address> mod)
     {
         out.println();
         out.println("module " + modName);
@@ -112,7 +112,7 @@ public class DesignExplore<H extends DesignHints>
             Lhs<Address> rhs = aliaspair.rhs;
             out.println("  assign " + lhs + " = " + rhs);
         }
-        out.print("endmodule // " + modName);
+        out.println("endmodule // " + modName);
     }
 
     public void main(String[] args)
