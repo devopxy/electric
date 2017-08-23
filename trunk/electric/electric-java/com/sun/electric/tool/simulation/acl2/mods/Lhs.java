@@ -34,7 +34,6 @@ import com.sun.electric.util.acl2.ACL2;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -77,7 +76,7 @@ public class Lhs<N extends SvarName> implements ACL2Backed
 
     public static <N extends SvarName> Lhs<N> fromACL2(SvarName.Builder<N> snb, SvexManager<N> sm, ACL2Object impl)
     {
-        List<ACL2Object> l = Util.getList(impl, true);
+        List<ACL2Object> l = Util.getListCheckNormed(impl, true, false);
         Util.check(!l.isEmpty());
         List<Lhrange<N>> ranges = new ArrayList<>(l.size());
         for (ACL2Object o : l)

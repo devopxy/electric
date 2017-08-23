@@ -230,7 +230,7 @@ public abstract class Svex<N extends SvarName> implements ACL2Backed
             public Vec4 visitVar(Svar<N> svar)
             {
                 Vec4 val = env.get(svar);
-                return val != null ? val : Vec4.Z;
+                return val != null ? val : Vec4.X;
             }
 
             @Override

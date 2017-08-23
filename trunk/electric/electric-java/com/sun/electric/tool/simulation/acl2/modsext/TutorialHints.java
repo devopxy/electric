@@ -26,12 +26,9 @@ import com.sun.electric.tool.simulation.acl2.mods.IndexName;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
-import com.sun.electric.tool.simulation.acl2.mods.Name;
-import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
-import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -311,9 +308,9 @@ public class TutorialHints implements DesignHints
         Map<Svar<Address>, Svex<Address>> svtvNextStates, SvexManager<Address> sm)
     {
         CounterState state = new CounterState();
-        for (int i = 0; i < 16; i++)
+        for (int count = 0; count < 16; count++)
         {
-            state.setStage1(i);
+            state.setStage1(count);
             testCounter(sm, svtvOutExprs, svtvNextStates, state, 0, 0);
             testCounter(sm, svtvOutExprs, svtvNextStates, state, 0, 1);
             testCounter(sm, svtvOutExprs, svtvNextStates, state, 1, 0);
@@ -324,32 +321,29 @@ public class TutorialHints implements DesignHints
     private void testCounter(SvexManager<Address> sm,
         Map<Svar<Address>, Svex<Address>> svtvOutExprs,
         Map<Svar<Address>, Svex<Address>> svtvNextStates,
-        CounterState state, int resetVal, int incrVal)
+        CounterState state, int reset, int incr)
     {
-        Svar<Address> reset = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("reset"))));
-        Svar<Address> incr = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("incr"))));
-        Svar<Address> count = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("count"))));
-        Svar<Address> countDelayed = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("count"))), 1, false);
-
         Map<Svar<Address>, Vec4> env = new HashMap<>();
         Map<Svar<Address>, Vec4> expectedOut = new HashMap<>();
         Map<Svar<Address>, Vec4> expectedState = new HashMap<>();
 
         if (state.countValid)
         {
-            env.put(countDelayed, Vec2.valueOf(state.count));
+            DesignHints.putState(sm, env, "count", state.count, 4);
         }
-        env.put(reset, Vec2.valueOf(resetVal));
-        env.put(incr, Vec2.valueOf(incrVal));
-        expectedOut.put(count, Vec2.valueOf(counter$count(state)));
+        DesignHints.putEnv(sm, env, "reset", reset);
+        DesignHints.putEnv(sm, env, "incr", incr);
+
+        DesignHints.putEnv(sm, expectedOut, "count", counter$count(state));
 
         CounterState nextState = new CounterState();
-        counter$nextState(state, nextState, resetVal, true, incrVal, true);
+        counter$nextState(state, nextState, reset, true, incr, true);
         if (nextState.countValid)
         {
-            expectedState.put(countDelayed, DesignHints.makeZ(nextState.count, 4));
+            DesignHints.putState(sm, expectedState, "count", nextState.count, 4);
         }
-        DesignHints.test(sm, "clk", svtvOutExprs, svtvNextStates, env, expectedOut, expectedState);
+
+        DesignHints.test(sm, "clk", null, svtvOutExprs, svtvNextStates, env, expectedOut, expectedState);
     }
 
     public static class Alu16State
@@ -471,18 +465,18 @@ public class TutorialHints implements DesignHints
         {
             0, 1, 0xFFFF, 5, 0x80, 0x08, 0x88
         };
-        for (int abusVal : testVals)
+        for (int abus : testVals)
         {
-            for (int bbusVal : testVals)
+            for (int bbus : testVals)
             {
                 state0.invalidate();
-                state0.setStage1(abusVal, bbusVal);
-                for (int opcodeVal = 0; opcodeVal < 8; opcodeVal++)
+                state0.setStage1(abus, bbus);
+                for (int opcode = 0; opcode < 8; opcode++)
                 {
-                    testAlu16(sm, svtvOutExprs, svtvNextStates, state0, 7 - opcodeVal, abusVal, bbusVal);
-                    alu16$nextState(state0, state1, 7 - opcodeVal, true, abusVal, true, bbusVal, true);
-                    testAlu16(sm, svtvOutExprs, svtvNextStates, state1, opcodeVal, bbusVal, abusVal);
-                    alu16$nextState(state1, state2, 7 - opcodeVal, true, abusVal, true, bbusVal, true);
+                    testAlu16(sm, svtvOutExprs, svtvNextStates, state0, 7 - opcode, abus, bbus);
+                    alu16$nextState(state0, state1, 7 - opcode, true, abus, true, bbus, true);
+                    testAlu16(sm, svtvOutExprs, svtvNextStates, state1, opcode, bbus, abus);
+                    alu16$nextState(state1, state2, 7 - opcode, true, abus, true, bbus, true);
                     testAlu16(sm, svtvOutExprs, svtvNextStates, state2, 0, 0, 0);
                 }
             }
@@ -494,47 +488,41 @@ public class TutorialHints implements DesignHints
         Map<Svar<Address>, Svex<Address>> svtvNextStates,
         Alu16State state, int opcodeVal, int abusVal, int bbusVal)
     {
-        Svar<Address> out = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("out"))));
-        Svar<Address> opcode = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("opcode"))));
-        Svar<Address> abus = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("abus"))));
-        Svar<Address> bbus = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("bbus"))));
-        Svar<Address> abus1Delayed = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("abus1"))), 1, false);
-        Svar<Address> bbus1Delayed = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("bbus1"))), 1, false);
-        Svar<Address> outDelayed = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("out"))), 1, false);
-
         Map<Svar<Address>, Vec4> env = new HashMap<>();
         Map<Svar<Address>, Vec4> expectedOut = new HashMap<>();
         Map<Svar<Address>, Vec4> expectedState = new HashMap<>();
 
         if (state.validStage1)
         {
-            env.put(abus1Delayed, Vec2.valueOf(state.abus1 & 0xFFFF));
-            env.put(bbus1Delayed, Vec2.valueOf(state.bbus1 & 0xFFFF));
+            DesignHints.putState(sm, env, "abus1", state.abus1 & 0xFFFF, 16);
+            DesignHints.putState(sm, env, "bbus1", state.bbus1 & 0xFFFF, 16);
         }
         if (state.validStage2)
         {
-            env.put(outDelayed, Vec2.valueOf(state.out & 0xFFFF));
+            DesignHints.putState(sm, env, "out", state.out & 0xFFFF, 16);
         }
-        env.put(opcode, Vec2.valueOf(opcodeVal));
-        env.put(abus, Vec2.valueOf(abusVal));
-        env.put(bbus, Vec2.valueOf(bbusVal));
+        DesignHints.putEnv(sm, env, "opcode", opcodeVal);
+        DesignHints.putEnv(sm, env, "abus", abusVal);
+        DesignHints.putEnv(sm, env, "bbus", bbusVal);
+
         if (state.validStage2)
         {
-            expectedOut.put(out, Vec2.valueOf(alu16$out(state)));
+            DesignHints.putEnv(sm, expectedOut, "out", alu16$out(state));
         }
 
         Alu16State nextState = new Alu16State();
         alu16$nextState(state, nextState, opcodeVal, true, abusVal, true, bbusVal, true);
         if (nextState.validStage1)
         {
-            expectedState.put(abus1Delayed, DesignHints.makeZ(nextState.abus1 & 0xFFFF, 16));
-            expectedState.put(bbus1Delayed, DesignHints.makeZ(nextState.bbus1 & 0xFFFF, 16));
+            DesignHints.putState(sm, expectedState, "abus1", nextState.abus1 & 0xFFFF, 16);
+            DesignHints.putState(sm, expectedState, "bbus1", nextState.bbus1 & 0xFFFF, 16);
         }
         if (nextState.validStage2)
         {
-            expectedState.put(outDelayed, DesignHints.makeZ(nextState.out & 0xFFFF, 16));
+            DesignHints.putState(sm, expectedState, "out", nextState.out & 0xFFFF, 16);
         }
-        DesignHints.test(sm, "clk", svtvOutExprs, svtvNextStates, env, expectedOut, expectedState);
+
+        DesignHints.test(sm, "clk", null, svtvOutExprs, svtvNextStates, env, expectedOut, expectedState);
     }
 
     int boothenc$ppImpl(int abits, int b, int minusb)
@@ -578,12 +566,12 @@ public class TutorialHints implements DesignHints
         {
             0, 1, 0xFFFF, 5, 0x80, 0x08, 0x88
         };
-        for (int bVal : bVals)
+        for (int b : bVals)
         {
-            int minusbVal = (-((bVal << 16) >> 16)) & 0x1FFFF;
-            for (int abitsVal = 0; abitsVal < 8; abitsVal++)
+            int minusb = (-((b << 16) >> 16)) & 0x1FFFF;
+            for (int abits = 0; abits < 8; abits++)
             {
-                testBoothenc(sm, svtvOutExprs, svtvNextStates, abitsVal, bVal, minusbVal);
+                testBoothenc(sm, svtvOutExprs, svtvNextStates, abits, b, minusb);
             }
         }
     }
@@ -591,23 +579,19 @@ public class TutorialHints implements DesignHints
     private void testBoothenc(SvexManager<Address> sm,
         Map<Svar<Address>, Svex<Address>> svtvOutExprs,
         Map<Svar<Address>, Svex<Address>> svtvNextStates,
-        int abitsVal, int bVal, int minusbVal)
+        int abits, int b, int minusb)
     {
-        Svar<Address> pp = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("pp"))));
-        Svar<Address> abits = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("abits"))));
-        Svar<Address> b = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("b"))));
-        Svar<Address> minusb = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("minusb"))));
-
         Map<Svar<Address>, Vec4> env = new HashMap<>();
         Map<Svar<Address>, Vec4> expectedOut = new HashMap<>();
         Map<Svar<Address>, Vec4> expectedState = new HashMap<>();
 
-        env.put(abits, Vec2.valueOf(abitsVal));
-        env.put(b, Vec2.valueOf(bVal));
-        env.put(minusb, Vec2.valueOf(minusbVal));
-        expectedOut.put(pp, Vec2.valueOf(boothenc$pp(abitsVal, bVal, minusbVal)));
+        DesignHints.putEnv(sm, env, "abits", abits);
+        DesignHints.putEnv(sm, env, "b", b);
+        DesignHints.putEnv(sm, env, "minusb", minusb);
 
-        DesignHints.test(sm, "clk", svtvOutExprs, svtvNextStates, env, expectedOut, expectedState);
+        DesignHints.putEnv(sm, expectedOut, "pp", boothenc$pp(abits, b, minusb));
+
+        DesignHints.test(sm, "clk", null, svtvOutExprs, svtvNextStates, env, expectedOut, expectedState);
     }
 
     public static class BoothpipeState
@@ -788,14 +772,14 @@ public class TutorialHints implements DesignHints
         {
             0, 1, 5100, 0x80, 0x08, 0x88, 0x8000, 0xC050, 0xFFFF
         };
-        for (int aVal : testVals)
+        for (int a : testVals)
         {
-            for (int bVal : testVals)
+            for (int b : testVals)
             {
                 state0.invalidate();
-                state0.setStage1(aVal, bVal);
-                testBoothpipe(sm, svtvOutExprs, svtvNextStates, state0, aVal, bVal, 1);
-                boothpipe$nextState(state0, state1, aVal, true, bVal, true, 1, true);
+                state0.setStage1(a, b);
+                testBoothpipe(sm, svtvOutExprs, svtvNextStates, state0, a, b, 1);
+                boothpipe$nextState(state0, state1, a, true, b, true, 1, true);
                 testBoothpipe(sm, svtvOutExprs, svtvNextStates, state1, 0, 0, 1);
                 boothpipe$nextState(state1, state2, 0, true, 0, true, 1, true);
                 testBoothpipe(sm, svtvOutExprs, svtvNextStates, state2, 0, 0, 1);
@@ -810,67 +794,61 @@ public class TutorialHints implements DesignHints
     private void testBoothpipe(SvexManager<Address> sm,
         Map<Svar<Address>, Svex<Address>> svtvOutExprs,
         Map<Svar<Address>, Svex<Address>> svtvNextStates,
-        BoothpipeState state, int aVal, int bVal, int enVal)
+        BoothpipeState state, int a, int b, int en)
     {
-        Svar<Address> o = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("o"))));
-        Svar<Address> a = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("a"))));
-        Svar<Address> b = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("b"))));
-        Svar<Address> en = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("en"))));
-        Svar<Address> a_c1Delayed = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("a_c1"))), 1, false);
-        Svar<Address> b_c1Delayed = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("b_c1"))), 1, false);
-        Svar<Address> pp01_c2Delayed = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("pp01_c2"))), 1, false);
-        Svar<Address> pp23_c2Delayed = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("pp23_c2"))), 1, false);
-        Svar<Address> pp45_c2Delayed = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("pp45_c2"))), 1, false);
-        Svar<Address> pp67_c2Delayed = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("pp67_c2"))), 1, false);
-        Svar<Address> oDelayed = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf("o"))), 1, false);
-
-        Map<Svar<Address>, Vec4> env0 = new HashMap<>();
+        Map<Svar<Address>, Vec4> env = new HashMap<>();
         Map<Svar<Address>, Vec4> expectedOut = new HashMap<>();
         Map<Svar<Address>, Vec4> expectedState = new HashMap<>();
 
         if (state.validStage1)
         {
-            env0.put(a_c1Delayed, Vec2.valueOf(state.a_c1 & 0xFFFF));
-            env0.put(b_c1Delayed, Vec2.valueOf(state.b_c1 & 0xFFFF));
+            DesignHints.putState(sm, env, "a_c1", state.a_c1 & 0xFFFF, 16);
+            DesignHints.putState(sm, env, "b_c1", state.b_c1 & 0xFFFF, 16);
         }
         if (state.validStage2)
         {
-            env0.put(pp01_c2Delayed, Vec2.valueOf(state.pp01_c2));
-            env0.put(pp23_c2Delayed, Vec2.valueOf(state.pp23_c2));
-            env0.put(pp45_c2Delayed, Vec2.valueOf(state.pp45_c2));
-            env0.put(pp67_c2Delayed, Vec2.valueOf(state.pp67_c2));
+            DesignHints.putState(sm, env, "pp01_c2", state.pp01_c2, 36);
+            DesignHints.putState(sm, env, "pp23_c2", state.pp23_c2, 36);
+            DesignHints.putState(sm, env, "pp45_c2", state.pp45_c2, 36);
+            DesignHints.putState(sm, env, "pp67_c2", state.pp67_c2, 36);
         }
         if (state.validStage3)
         {
-            env0.put(oDelayed, Vec2.valueOf(state.o & 0xFFFFFFFFL));
+            DesignHints.putState(sm, env, "o", state.o & 0xFFFFFFFFL, 32);
         }
-        env0.put(a, Vec2.valueOf(aVal));
-        env0.put(b, Vec2.valueOf(bVal));
-        env0.put(en, Vec2.valueOf(enVal));
+        DesignHints.putEnv(sm, env, "a", a);
+        DesignHints.putEnv(sm, env, "b", b);
+        DesignHints.putEnv(sm, env, "en", en);
+
         if (state.validStage3)
         {
-            expectedOut.put(o, Vec2.valueOf(boothpipe$o(state) & 0xFFFFFFFFL));
+            DesignHints.putEnv(sm, expectedOut, "o", boothpipe$o(state) & 0xFFFFFFFFL);
         }
 
         BoothpipeState nextState = new BoothpipeState();
-        boothpipe$nextState(state, nextState, aVal, true, bVal, true, enVal, true);
+        boothpipe$nextState(state, nextState, a, true, b, true, en, true);
         if (nextState.validStage1)
         {
-            expectedState.put(a_c1Delayed, DesignHints.makeZ(nextState.a_c1 & 0xFFFF, 16));
-            expectedState.put(b_c1Delayed, DesignHints.makeZ(nextState.b_c1 & 0xFFFF, 16));
+            DesignHints.putState(sm, expectedState, "a_c1", nextState.a_c1 & 0xFFFF, 16);
+            DesignHints.putState(sm, expectedState, "b_c1", nextState.b_c1 & 0xFFFF, 16);
         }
         if (nextState.validStage2)
         {
-            expectedState.put(pp01_c2Delayed, DesignHints.makeZ(nextState.pp01_c2, 36));
-            expectedState.put(pp23_c2Delayed, DesignHints.makeZ(nextState.pp23_c2, 36));
-            expectedState.put(pp45_c2Delayed, DesignHints.makeZ(nextState.pp45_c2, 36));
-            expectedState.put(pp67_c2Delayed, DesignHints.makeZ(nextState.pp67_c2, 36));
+            DesignHints.putState(sm, expectedState, "pp01_c2", nextState.pp01_c2, 36);
+            DesignHints.putState(sm, expectedState, "pp23_c2", nextState.pp23_c2, 36);
+            DesignHints.putState(sm, expectedState, "pp45_c2", nextState.pp45_c2, 36);
+            DesignHints.putState(sm, expectedState, "pp67_c2", nextState.pp67_c2, 36);
         }
         if (nextState.validStage3)
         {
-            expectedState.put(oDelayed, DesignHints.makeZ(nextState.o & 0xFFFFFFFFL, 32));
+            DesignHints.putState(sm, expectedState, "o", nextState.o & 0xFFFFFFFFL, 32);
         }
-        DesignHints.test(sm, "clk", svtvOutExprs, svtvNextStates, env0, expectedOut, expectedState);
+
+        DesignHints.test(sm, "clk", null, svtvOutExprs, svtvNextStates, env, expectedOut, expectedState);
     }
 
+    public static void main(String[] args)
+    {
+        new DesignExplore<>(TutorialHints.class).main(args);
+    }
 }

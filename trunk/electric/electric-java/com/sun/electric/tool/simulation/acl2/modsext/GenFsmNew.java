@@ -859,8 +859,23 @@ public class GenFsmNew extends GenBase
     public static <N extends SvarName> void printSvex(PrintStream out, int indent, Svex<N> top)
     {
         Set<SvexCall<N>> multirefs = top.multirefs();
-        Map<Svex<N>, String> multirefNames = Collections.emptyMap();
-        if (!multirefs.isEmpty())
+        printSvex(out, indent, top, multirefs, new HashMap<>(), "temp");
+    }
+
+    public static <N extends SvarName> void printSvex(PrintStream out, int indent, Svex<N> top,
+        Set<SvexCall<N>> multirefs, Map<Svex<N>, String> multirefNames, String svexName)
+    {
+        Svex<N>[] toposort = top.toposort();
+        boolean needMultirefs = false;
+        for (int i = 1; i < toposort.length; i++)
+        {
+            if (toposort[i] instanceof SvexCall && multirefs.contains((SvexCall<N>)toposort[i]))
+            {
+                needMultirefs = true;
+                break;
+            }
+        }
+        if (needMultirefs)
         {
             for (int i = 0; i < indent; i++)
             {
@@ -873,30 +888,49 @@ public class GenFsmNew extends GenBase
             }
             out.print("(let* (");
             indent += 2;
-            multirefNames = new HashMap<>();
-            Svex<N>[] toposort = top.toposort();
+            assert toposort[0] == top;
 //            for (int i = 0; i < toposort.length; i++)
-            for (int i = toposort.length - 1; i >= 0; i--)
+            int tempCount = 0;
+            for (int i = toposort.length - 1; i >= 1; i--)
             {
                 Svex<N> svex = toposort[i];
                 if (svex instanceof SvexCall && multirefs.contains((SvexCall<N>)svex))
                 {
-                    String name = "temp" + multirefNames.size();
+                    SvexCall<N> sc = (SvexCall<N>)svex;
+                    String name = multirefNames.get(sc);
+                    if (name == null)
+                    {
+                        name = svexName + "$" + (tempCount++);
+                        multirefNames.put(sc, name);
+                    }
                     out.println();
-                    out.print("   (" + name);
-                    printSvex(out, indent, svex, multirefNames);
+                    for (int j = 0; j < indent - 1; j++)
+                    {
+                        out.print(' ');
+                    }
+                    out.print("(" + name);
+                    printSvexPart(out, indent, svex, multirefNames, true);
                     out.print(')');
-                    multirefNames.put(svex, name);
+//                    multirefNames.put(svex, name);
+                    multirefs.remove(sc);
                 }
             }
             out.print(')');
         }
-        printSvex(out, indent, top, multirefNames);
+        printSvexPart(out, indent, top, multirefNames, svexName.equals(multirefNames.get(top)));
         out.println(multirefs.isEmpty() ? ")" : "))");
+        if (!multirefNames.containsKey(top))
+        {
+            multirefNames.put(top, svexName);
+        }
+        if (top instanceof SvexCall)
+        {
+            multirefs.remove((SvexCall<N>)top);
+        }
     }
 
-    private static <N extends SvarName> void printSvex(PrintStream out, int indent,
-        Svex<N> top, Map<Svex<N>, String> multirefsNames)
+    private static <N extends SvarName> void printSvexPart(PrintStream out, int indent,
+        Svex<N> top, Map<Svex<N>, String> multirefsNames, boolean isRoot)
     {
         out.println();
         for (int i = 0; i < indent; i++)
@@ -926,17 +960,17 @@ public class GenFsmNew extends GenBase
             out.print("|" + sv.svar + "|");
         } else
         {
-            String name = multirefsNames.get(top);
-            if (name != null)
+            SvexCall<N> sc = (SvexCall<N>)top;
+            String name = multirefsNames.get(sc);
+            if (name != null && !isRoot)
             {
                 out.print(name);
             } else
             {
-                SvexCall<N> sc = (SvexCall<N>)top;
                 out.print("(" + sc.fun.applyFn);
                 for (Svex<N> arg : sc.getArgs())
                 {
-                    printSvex(out, indent + 1, arg, multirefsNames);
+                    printSvexPart(out, indent + 1, arg, multirefsNames, false);
                 }
                 out.print(')');
             }
