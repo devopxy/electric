@@ -62,6 +62,7 @@ public class Lhrange<N extends SvarName> implements ACL2Backed
         ACL2Object atomImpl = impl;
         if (consp(impl).bool() && integerp(car(impl)).bool())
         {
+            Util.check(!impl.isNormed());
             w = car(impl).intValueExact();
             atomImpl = cdr(impl);
         }

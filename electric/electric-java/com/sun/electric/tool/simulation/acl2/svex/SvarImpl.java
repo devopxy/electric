@@ -82,6 +82,7 @@ public class SvarImpl<N extends SvarName> implements Svar<N>
     {
         ACL2Object nameImpl;
         int delayImpl;
+        Util.check(impl.isNormed());
         if (consp(impl).bool())
         {
             Util.check(car(impl).equals(KEYWORD_VAR));

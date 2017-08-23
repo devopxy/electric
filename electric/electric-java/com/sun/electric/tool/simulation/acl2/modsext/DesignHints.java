@@ -33,6 +33,7 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -62,6 +63,40 @@ public interface DesignHints
         System.out.println("Don't know how to test " + modName);
     }
 
+    static void putEnv(SvexManager<Address> sm, Map<Svar<Address>, Vec4> env, String varName, long val)
+    {
+        Svar<Address> svar = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf(varName))));
+        env.put(svar, Vec2.valueOf(val));
+    }
+
+    static void putUpdate(SvexManager<Address> sm, Map<Svar<Address>, Vec4> env, String varName, long val, int width)
+    {
+        Svar<Address> svar = sm.getVar(Address.valueOf(Path.simplePath(Name.valueOf(varName))));
+        env.put(svar, makeZ(val, width));
+    }
+
+    static void putState(SvexManager<Address> sm, Map<Svar<Address>, Vec4> env, String varName, long val, int width)
+    {
+        Path path;
+        int indexDot = varName.indexOf('.');
+        if (indexDot < 0)
+        {
+            path = Path.simplePath(Name.valueOf(varName));
+        } else
+        {
+            List<Name> scopes = new ArrayList<>();
+            while (indexDot >= 0)
+            {
+                scopes.add(Name.valueOf(varName.substring(0, indexDot)));
+                varName = varName.substring(indexDot + 1);
+                indexDot = varName.indexOf('.');
+            }
+            path = Path.makePath(scopes, Name.valueOf(varName));
+        }
+        Svar<Address> svar = sm.getVar(Address.valueOf(path), 1, false);
+        env.put(svar, makeZ(val, width));
+    }
+
     static Vec4 makeZ(long val, int width)
     {
         return makeZ(BigInteger.valueOf(val), width);
@@ -73,7 +108,7 @@ public interface DesignHints
         return Vec4.valueOf(val, BigIntegerUtil.MINUS_ONE.shiftLeft(width).or(val));
     }
 
-    static void test(SvexManager<Address> sm, String clkName,
+    static void test(SvexManager<Address> sm, String clkName, String scanClkName,
         Map<Svar<Address>, Svex<Address>> svtvOutExprs,
         Map<Svar<Address>, Svex<Address>> svtvNextStates,
         Map<Svar<Address>, Vec4> env0,
@@ -83,8 +118,21 @@ public interface DesignHints
         Address clkAddress = Address.valueOf(Path.simplePath(Name.valueOf(clkName)));
         Svar<Address> clk = sm.getVar(clkAddress);
         Svar<Address> clkDelayed = sm.getVar(clkAddress, 1, false);
+        Svar<Address> scanClk = null;
+        Svar<Address> scanClkDelayed = null;
+        if (scanClkName != null)
+        {
+            Address scanClkAddress = Address.valueOf(Path.simplePath(Name.valueOf(scanClkName)));
+            scanClk = sm.getVar(scanClkAddress);
+            scanClkDelayed = sm.getVar(scanClkAddress, 1, false);
+        }
         env0.put(clkDelayed, Vec2.ONE);
         env0.put(clk, Vec2.ZERO);
+        if (scanClkName != null)
+        {
+            env0.put(scanClkDelayed, Vec2.ZERO);
+            env0.put(scanClk, Vec2.ZERO);
+        }
         for (Map.Entry<Svar<Address>, Vec4> e : expectedOut.entrySet())
         {
             Svar<Address> svar = e.getKey();
@@ -100,6 +148,11 @@ public interface DesignHints
         Map<Svar<Address>, Vec4> env1 = new HashMap<>();
         env1.put(clkDelayed, Vec2.ZERO);
         env1.put(clk, Vec2.ONE);
+        if (scanClkName != null)
+        {
+            env1.put(scanClkDelayed, Vec2.ZERO);
+            env1.put(scanClk, Vec2.ZERO);
+        }
         for (Map.Entry<Svar<Address>, Svex<Address>> e : svtvNextStates.entrySet())
         {
             Svar<Address> svar = e.getKey();

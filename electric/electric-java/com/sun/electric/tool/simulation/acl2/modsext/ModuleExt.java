@@ -278,7 +278,7 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
                 Module<Address> genM = parModule.genModule();
                 if (genM == null)
                 {
-                    System.out.println("Module specalizition is unfamiliar " + modName);
+                    System.out.println("Module specializition is unfamiliar " + modName);
                 } else if (!genM.equals(b))
                 {
                     System.out.println("Module mismatch " + modName);

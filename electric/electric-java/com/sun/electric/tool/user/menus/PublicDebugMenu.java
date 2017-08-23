@@ -312,7 +312,7 @@ public class PublicDebugMenu
                         return;
                     URL fileURL = TextUtils.makeURLToFile(saoPath);
                     File f = TextUtils.getFile(fileURL);
-                    ACL2DesignJobs.showSvexLibs(f);
+                    ACL2DesignJobs.showTutorialSvexLibs(f);
                 }
             }),
             new EMenu("Spice",

@@ -39,9 +39,7 @@ import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexCall;
 import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
-import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
-import com.sun.electric.tool.simulation.acl2.svex.Vec4;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
 import com.sun.electric.tool.user.User;
 import static com.sun.electric.util.acl2.ACL2.*;
@@ -54,7 +52,6 @@ import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -295,9 +292,9 @@ public class TraceSvtvJobs
                 printSvexalist(res1updates, new File(outDir, designName + "-res1updates.txt"));
                 printSvexalist(res1updates2, new File(outDir, designName + "-res1updates2.txt"));
                 printSvexalist(updates, new File(outDir, designName + "-updates.txt"));
-                printVars(nextStates.keySet(), new File(outDir, designName + "-nextState.txt"));
-                printVars(svtvOutExprs.keySet(), new File(outDir, designName + "-svtvOutExprs.txt"));
-                printVars(svtvNextState.keySet(), new File(outDir, designName + "-svtvNextState.txt"));
+                printSvexalist(nextStates, new File(outDir, designName + "-nextState.txt"));
+                printSvexalist(svtvOutExprs, new File(outDir, designName + "-svtvOutExprs.txt"));
+                printSvexalist(svtvNextState, new File(outDir, designName + "-svtvNextState.txt"));
 
 
                 /*
@@ -441,8 +438,9 @@ public class TraceSvtvJobs
                 for (int i = 0; i < topMod.modTotalWires(); i++)
                 {
                     Svex<Address> svex = svexarr[i];
-                    out.print(i + ": " + topMod.wireidxToPath(i));
-                    printSvex(out, svex, Collections.emptyMap(), 1);
+                    String name = topMod.wireidxToPath(i).toString();
+                    out.print(i + ": " + name);
+                    GenFsmNew.printSvex(out, 1, svex);
                     out.println();
                 }
             }
@@ -461,91 +459,109 @@ public class TraceSvtvJobs
 
         void printSvexalist(Map<Svar<Address>, Svex<Address>> alist, File outFile) throws FileNotFoundException
         {
-            Map<Svex<Address>, String> multirefsNames = new HashMap<>();
-            for (Map.Entry<Svar<Address>, Svex<Address>> e : alist.entrySet())
-            {
-                Svar<Address> svar = e.getKey();
-                Svex<Address> svex = e.getValue();
-                multirefsNames.put(svex, svar.toString());
-                if (svex instanceof SvexCall)
-                {
-                    SvexCall<Address> sc = (SvexCall<Address>)svex;
-                    if (sc.fun == Vec4Concat.FUNCTION)
-                    {
-                        multirefsNames.put(sc.getArgs()[1], "!" + svar.toString());
-
-                    }
-                }
-            }
+            Map<Svex<Address>, String> names = new HashMap<>();
             try (PrintStream out = new PrintStream(outFile))
             {
                 for (Map.Entry<Svar<Address>, Svex<Address>> e : alist.entrySet())
                 {
                     Svar<Address> svar = e.getKey();
                     Svex<Address> svex = e.getValue();
-                    out.print(svar);
-                    printSvex(out, svex, multirefsNames, 1);
-                    out.println();
+                    names.put(svex, svar.toString());
+                    int lsh = 0;
+                    for (;;)
+                    {
+                        if (!(svex instanceof SvexCall))
+                        {
+                            break;
+                        }
+                        SvexCall<Address> sc = (SvexCall<Address>)svex;
+                        if (sc.fun != Vec4Concat.FUNCTION)
+                        {
+                            break;
+                        }
+                        Svex<Address>[] args = sc.getArgs();
+                        if (!(args[0] instanceof SvexQuote))
+                        {
+                            break;
+                        }
+                        SvexQuote<Address> w = (SvexQuote<Address>)args[0];
+                        if (!(w.val.isIndex()))
+                        {
+                            break;
+                        }
+                        int wVal = ((Vec2)w.val).getVal().intValueExact();
+                        if (args[1] instanceof SvexCall)
+                        {
+                            String svarName = svar + "[" + (lsh + wVal - 1) + ":" + lsh + "]";
+                            names.put(args[1], svarName);
+                        }
+                        svex = args[2];
+                        lsh += wVal;
+                    }
+                }
+                Set<SvexCall<Address>> multirefs = Svex.multirefs(names.keySet());
+                for (Svex<Address> svex : names.keySet())
+                {
                     if (svex instanceof SvexCall)
                     {
-                        SvexCall<Address> sc = (SvexCall<Address>)svex;
-                        if (sc.fun == Vec4Concat.FUNCTION)
+                        multirefs.add((SvexCall<Address>)svex);
+                    }
+                }
+                for (Map.Entry<Svar<Address>, Svex<Address>> e : alist.entrySet())
+                {
+                    Svar<Address> svar = e.getKey();
+                    Svex<Address> svex = e.getValue();
+                    int lsh = 0;
+                    for (;;)
+                    {
+                        if (!(svex instanceof SvexCall))
                         {
-                            out.print("!" + svar);
-                            printSvex(out, sc.getArgs()[1], multirefsNames, 1);
+                            break;
+                        }
+                        SvexCall<Address> sc = (SvexCall<Address>)svex;
+                        if (sc.fun != Vec4Concat.FUNCTION)
+                        {
+                            break;
+                        }
+                        Svex<Address>[] args = sc.getArgs();
+                        if (!(args[0] instanceof SvexQuote))
+                        {
+                            break;
+                        }
+                        SvexQuote<Address> w = (SvexQuote<Address>)args[0];
+                        if (!(w.val.isIndex()))
+                        {
+                            break;
+                        }
+                        int wVal = ((Vec2)w.val).getVal().intValueExact();
+                        if (args[1] instanceof SvexCall)
+                        {
+                            String svarName = svar + "[" + (lsh + wVal - 1) + ":" + lsh + "]";
+                            out.print(svarName);
+                            printSvex(out, sc.getArgs()[1], multirefs, names, svarName, 1);
                             out.println();
                         }
+                        svex = args[2];
+                        lsh += wVal;
                     }
+                }
+                for (Map.Entry<Svar<Address>, Svex<Address>> e : alist.entrySet())
+                {
+                    Svar<Address> svar = e.getKey();
+                    Svex<Address> svex = e.getValue();
+                    String svarName = svar.toString();
+                    out.print(svarName);
+                    printSvex(out, svex, multirefs, names, svarName, 1);
+                    out.println();
                 }
             }
 
         }
 
-        private void printSvex(PrintStream out, Svex<Address> top, Map<Svex<Address>, String> multirefsNames, int indent)
+        private void printSvex(PrintStream out, Svex<Address> top, Set<SvexCall<Address>> multirefs,
+            Map<Svex<Address>, String> names, String multirefPrefix, int indent)
         {
-            out.println();
-            for (int i = 0; i < indent; i++)
-            {
-                out.print(' ');
-            }
-            if (top instanceof SvexQuote)
-            {
-                SvexQuote<Address> sq = (SvexQuote<Address>)top;
-                if (sq.val.isVec2())
-                {
-                    Vec2 val = (Vec2)sq.val;
-                    out.print(val.getVal());
-                } else if (sq.val.equals(Vec4.X))
-                {
-                    out.print("(4vec-x)");
-                } else if (sq.val.equals(Vec4.Z))
-                {
-                    out.print("(4vec-z)");
-                } else
-                {
-                    out.print("'(" + sq.val.getUpper() + " . " + sq.val.getLower() + ")");
-                }
-            } else if (top instanceof SvexVar)
-            {
-                SvexVar<Address> sv = (SvexVar<Address>)top;
-                out.print("|" + sv.svar + "|");
-            } else
-            {
-                String name = multirefsNames.get(top);
-                if (name != null && indent > 1)
-                {
-                    out.print(name);
-                } else
-                {
-                    SvexCall<Address> sc = (SvexCall<Address>)top;
-                    out.print("(" + sc.fun.applyFn);
-                    for (Svex<Address> arg : sc.getArgs())
-                    {
-                        printSvex(out, arg, multirefsNames, indent + 1);
-                    }
-                    out.print(')');
-                }
-            }
+            GenFsmNew.printSvex(out, indent, top, multirefs, names, multirefPrefix);
         }
     }
 

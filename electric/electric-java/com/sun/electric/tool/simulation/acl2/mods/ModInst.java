@@ -48,6 +48,9 @@ public class ModInst implements ACL2Backed
 
     public static ModInst fromACL2(ACL2Object impl)
     {
+        Util.check(!impl.isNormed());
+        Util.check(car(impl).isNormed());
+        Util.check(cdr(impl).isNormed());
         return new ModInst(Name.fromACL2(car(impl)), ModName.fromACL2(cdr(impl)));
     }
 

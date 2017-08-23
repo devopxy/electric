@@ -45,10 +45,6 @@ import com.sun.electric.tool.simulation.acl2.svex.SvexQuote;
 import com.sun.electric.tool.simulation.acl2.svex.SvexVar;
 import com.sun.electric.tool.simulation.acl2.svex.Vec2;
 import com.sun.electric.tool.simulation.acl2.svex.Vec4;
-import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Concat;
-import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Rsh;
-import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4SignExt;
-import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4ZeroExt;
 import com.sun.electric.tool.user.User;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Backed;
@@ -591,11 +587,9 @@ public class ACL2DesignJobs
         }
     }
 
-    public static void showSvexLibs(File saoFile)
+    public static void showTutorialSvexLibs(File saoFile)
     {
-        new ShowSvexLibsJob<>(TutorialHints.class,
-            saoFile).startJob();
-
+        new ShowSvexLibsJob<>(TutorialHints.class, saoFile).startJob();
     }
 
     public static class ShowSvexLibsJob<H extends DesignHints> extends Job
@@ -610,8 +604,7 @@ public class ACL2DesignJobs
             this.saoFile = saoFile;
         }
 
-        @Override
-        public boolean doIt() throws JobException
+        public static <H extends DesignHints> boolean doItNoJob(Class<H> cls, File saoFile)
         {
             try
             {
@@ -629,6 +622,13 @@ public class ACL2DesignJobs
                 ACL2Object.closeHonsManager();
             }
             return true;
+
+        }
+
+        @Override
+        public boolean doIt() throws JobException
+        {
+            return doItNoJob(cls, saoFile);
         }
     }
 
