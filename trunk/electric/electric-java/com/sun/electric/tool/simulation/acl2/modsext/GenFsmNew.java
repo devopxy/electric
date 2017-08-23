@@ -174,6 +174,7 @@ public class GenFsmNew extends GenBase
                     } else if (!genM.equals(m))
                     {
                         System.out.println("Module mismatch " + modName);
+                        DesignExplore.showMod(System.out, modName, m);
                     }
                 }
             }
