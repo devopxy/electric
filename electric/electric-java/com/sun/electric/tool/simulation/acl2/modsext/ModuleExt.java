@@ -22,6 +22,8 @@
 package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.simulation.acl2.mods.Address;
+import com.sun.electric.tool.simulation.acl2.mods.Aliaspair;
+import com.sun.electric.tool.simulation.acl2.mods.Assign;
 import com.sun.electric.tool.simulation.acl2.mods.Driver;
 import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
 import com.sun.electric.tool.simulation.acl2.mods.IndexName;
@@ -153,10 +155,10 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
 
         Map<Svex<Address>, Svex<PathExt>> svexCache = new HashMap<>();
         int driverCount = 0;
-        for (Map.Entry<Lhs<Address>, Driver<Address>> e : b.assigns.entrySet())
+        for (Assign<Address> assign : b.assigns)
         {
-            Lhs<PathExt> lhs = e.getKey().convertVars(rename, sm);
-            Driver<PathExt> driver = e.getValue().convertVars(rename, sm, svexCache);
+            Lhs<PathExt> lhs = assign.lhs.convertVars(rename, sm);
+            Driver<PathExt> driver = assign.driver.convertVars(rename, sm, svexCache);
             DriverExt drv = new DriverExt(this, driver, "dr" + driverCount++);
             DriverExt old = assigns.put(lhs, drv);
             Util.check(old == null);
@@ -191,10 +193,10 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
         }
         this.hasSvtvState = hasSvtvState || !stateWires.isEmpty();
 
-        for (Map.Entry<Lhs<Address>, Lhs<Address>> e : b.aliaspairs.entrySet())
+        for (Aliaspair<Address> aliaspair : b.aliaspairs)
         {
-            Lhs<PathExt> lhs = e.getKey().convertVars(rename, sm);
-            Lhs<PathExt> rhs = e.getValue().convertVars(rename, sm);
+            Lhs<PathExt> lhs = aliaspair.lhs.convertVars(rename, sm);
+            Lhs<PathExt> rhs = aliaspair.rhs.convertVars(rename, sm);
             Util.check(lhs.ranges.size() == 1);
             Lhrange<PathExt> lhsRange = lhs.ranges.get(0);
             Util.check(lhsRange.getRsh() == 0);
@@ -674,16 +676,16 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
         Util.check(normAssignsSym.size() == compile.normAssigns.size());
         Iterator<Map.Entry<Lhs<IndexName>, SymbolicDriver<IndexName>>> iter1
             = normAssignsSym.entrySet().iterator();
-        Iterator<Map.Entry<Lhs<IndexName>, Driver<IndexName>>> iter2
-            = compile.normAssigns.entrySet().iterator();
+        Iterator<Assign<IndexName>> iter2
+            = compile.normAssigns.iterator();
         while (iter1.hasNext() || iter2.hasNext())
         {
             Map.Entry<Lhs<IndexName>, SymbolicDriver<IndexName>> e1 = iter1.next();
             Lhs<IndexName> lhs1 = e1.getKey();
             SymbolicDriver<IndexName> sDrv1 = e1.getValue();
-            Map.Entry<Lhs<IndexName>, Driver<IndexName>> e2 = iter2.next();
-            Lhs<IndexName> lhs2 = e2.getKey();
-            Driver<IndexName> drv2 = e2.getValue();
+            Assign<IndexName> e2 = iter2.next();
+            Lhs<IndexName> lhs2 = e2.lhs;
+            Driver<IndexName> drv2 = e2.driver;
             Util.check(lhs1.getACL2Object(backedCache).equals(lhs2.getACL2Object(backedCache)));
             Driver<IndexName> drv1 = sDrv1.makeWideDriver(sm);
             Util.check(drv1.getACL2Object(backedCache).equals(drv2.getACL2Object(backedCache)));
@@ -762,10 +764,10 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
             = new ArrayList<>(symNormAssignsRev.entrySet());
         assert symNormAssignsEntries.size() == compile.normAssigns.size();
         int normI = symNormAssignsEntries.size();
-        for (Map.Entry<Lhs<IndexName>, Driver<IndexName>> e1 : compile.normAssigns.entrySet())
+        for (Assign<IndexName> assign1 : compile.normAssigns)
         {
-            Lhs<IndexName> lhs1 = e1.getKey();
-            Driver<IndexName> drv1 = e1.getValue();
+            Lhs<IndexName> lhs1 = assign1.lhs;
+            Driver<IndexName> drv1 = assign1.driver;
             Map.Entry<Lhs<IndexName>, SymbolicDriver<IndexName>> e2 = symNormAssignsEntries.get(--normI);
             Lhs<IndexName> lhs2 = e2.getKey();
             SymbolicDriver<IndexName> sDrv2 = e2.getValue();

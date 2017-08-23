@@ -31,7 +31,6 @@ import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -47,17 +46,17 @@ public class Module<N extends SvarName>
 
     public final List<Wire> wires = new ArrayList<>();
     public final List<ModInst> insts = new ArrayList<>();
-    public final Map<Lhs<N>, Driver<N>> assigns = new LinkedHashMap<>();
-    public final Map<Lhs<N>, Lhs<N>> aliaspairs = new LinkedHashMap<>();
+    public final List<Assign<N>> assigns = new ArrayList<>();
+    public final List<Aliaspair<N>> aliaspairs = new ArrayList<>();
 
     public Module(SvexManager<N> sm, Collection<Wire> wires, Collection<ModInst> insts,
-        Map<Lhs<N>, Driver<N>> assigns, Map<Lhs<N>, Lhs<N>> aliaspairs)
+        Collection<Assign<N>> assigns, Collection<Aliaspair<N>> aliaspairs)
     {
         this.sm = sm;
         this.wires.addAll(wires);
         this.insts.addAll(insts);
-        this.assigns.putAll(assigns);
-        this.aliaspairs.putAll(aliaspairs);
+        this.assigns.addAll(assigns);
+        this.aliaspairs.addAll(aliaspairs);
     }
 
     static <N extends SvarName> Module<N> fromACL2(SvarName.Builder<N> snb, ACL2Object impl)
@@ -86,27 +85,27 @@ public class Module<N extends SvarName>
         }
         pair = fields.get(2);
         Util.check(car(pair).equals(Util.SV_ASSIGNS));
-        Map<Lhs<N>, Driver<N>> assigns = new LinkedHashMap<>();
+        List<Assign<N>> assigns = new ArrayList<>();
         Map<ACL2Object, Svex<N>> svexCache = new HashMap<>();
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
             Lhs<N> lhs = Lhs.fromACL2(snb, sm, car(pair));
             Driver<N> driver = Driver.fromACL2(snb, sm, cdr(pair), svexCache);
-            Driver old = assigns.put(lhs, driver);
-            Util.check(old == null);
+            Assign<N> assign = new Assign<>(lhs, driver);
+            assigns.add(assign);
         }
 
         pair = fields.get(3);
         Util.check(car(pair).equals(Util.SV_ALIASPAIRS));
-        Map<Lhs<N>, Lhs<N>> aliaspairs = new LinkedHashMap<>();
+        List<Aliaspair<N>> aliaspairs = new ArrayList<>();
         for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
             Lhs<N> lhs = Lhs.fromACL2(snb, sm, car(pair));
             Lhs<N> rhs = Lhs.fromACL2(snb, sm, cdr(pair));
-            Lhs old = aliaspairs.put(lhs, rhs);
-            Util.check(old == null);
+            Aliaspair<N> aliaspair = new Aliaspair<>(lhs, rhs);
+            aliaspairs.add(aliaspair);
         }
 
         return new Module<>(sm, wires, insts, assigns, aliaspairs);
@@ -126,17 +125,17 @@ public class Module<N extends SvarName>
             instsList = cons(insts.get(i).getACL2Object(backedCache), instsList);
         }
         ACL2Object assignsList = NIL;
-        for (Map.Entry<Lhs<N>, Driver<N>> e : assigns.entrySet())
+        for (Assign<N> assign : assigns)
         {
-            assignsList = cons(cons(e.getKey().getACL2Object(backedCache),
-                e.getValue().getACL2Object(backedCache)), assignsList);
+            assignsList = cons(cons(assign.lhs.getACL2Object(backedCache),
+                assign.driver.getACL2Object(backedCache)), assignsList);
         }
         assignsList = Util.revList(assignsList);
         ACL2Object aliasesList = NIL;
-        for (Map.Entry<Lhs<N>, Lhs<N>> e : aliaspairs.entrySet())
+        for (Aliaspair<N> aliaspair : aliaspairs)
         {
-            aliasesList = cons(cons(e.getKey().getACL2Object(backedCache),
-                e.getValue().getACL2Object(backedCache)), aliasesList);
+            aliasesList = cons(cons(aliaspair.lhs.getACL2Object(backedCache),
+                aliaspair.rhs.getACL2Object(backedCache)), aliasesList);
         }
         aliasesList = Util.revList(aliasesList);
         return hons(hons(Util.SV_WIRES, wiresList),
@@ -173,19 +172,15 @@ public class Module<N extends SvarName>
 
     void vars(Collection<Svar<N>> vars)
     {
-        for (Map.Entry<Lhs<N>, Driver<N>> e : assigns.entrySet())
+        for (Assign<N> assign : assigns)
         {
-            Lhs<N> lhs = e.getKey();
-            Driver<N> driver = e.getValue();
-            lhs.vars(vars);
-            driver.vars(vars);
+            assign.lhs.vars(vars);
+            assign.driver.vars(vars);
         }
-        for (Map.Entry<Lhs<N>, Lhs<N>> e : aliaspairs.entrySet())
+        for (Aliaspair<N> aliaspair : aliaspairs)
         {
-            Lhs<N> lhs = e.getKey();
-            Lhs<N> rhs = e.getValue();
-            lhs.vars(vars);
-            rhs.vars(vars);
+            aliaspair.lhs.vars(vars);
+            aliaspair.rhs.vars(vars);
         }
     }
 

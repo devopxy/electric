@@ -22,6 +22,8 @@
 package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.simulation.acl2.mods.Address;
+import com.sun.electric.tool.simulation.acl2.mods.Aliaspair;
+import com.sun.electric.tool.simulation.acl2.mods.Assign;
 import com.sun.electric.tool.simulation.acl2.mods.Design;
 import com.sun.electric.tool.simulation.acl2.mods.Driver;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
@@ -36,7 +38,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Arrays;
-import java.util.Map;
 
 /**
  * Standalone programs to explore design
@@ -96,17 +97,17 @@ public class DesignExplore<H extends DesignHints>
         {
             out.println("  " + inst.modname + " " + inst.instname);
         }
-        for (Map.Entry<Lhs<Address>, Driver<Address>> e : mod.assigns.entrySet())
+        for (Assign<Address> assign : mod.assigns)
         {
-            Lhs<Address> lhs = e.getKey();
-            Driver<Address> drv = e.getValue();
+            Lhs<Address> lhs = assign.lhs;
+            Driver<Address> drv = assign.driver;
             out.print("  assign " + lhs + " = ");
             GenFsmNew.printSvex(out, 1, drv.svex);
         }
-        for (Map.Entry<Lhs<Address>, Lhs<Address>> e : mod.aliaspairs.entrySet())
+        for (Aliaspair<Address> aliaspair : mod.aliaspairs)
         {
-            Lhs<Address> lhs = e.getKey();
-            Lhs<Address> rhs = e.getValue();
+            Lhs<Address> lhs = aliaspair.lhs;
+            Lhs<Address> rhs = aliaspair.rhs;
             out.println("  assign " + lhs + " = " + rhs);
         }
         out.print("endmodule // " + modName);

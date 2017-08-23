@@ -104,7 +104,7 @@ public class ACL2DesignJobs
                 ACL2Reader sr = new ACL2Reader(saoFile);
                 DesignExt design = new DesignExt(sr.root, designHints);
                 GenFsmNew gen = new GenFsmNew(designHints);
-                gen.scanDesign(design);
+                gen.scanDesign(design.b);
                 String clockName = designHints.getGlobalClock();
                 design.computeCombinationalInputs(clockName);
                 try (PrintStream out = new PrintStream(outFileName))

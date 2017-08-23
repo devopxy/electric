@@ -21,6 +21,7 @@
  */
 package com.sun.electric.tool.simulation.acl2.modsext;
 
+import com.sun.electric.tool.simulation.acl2.mods.Assign;
 import com.sun.electric.tool.simulation.acl2.mods.Driver;
 import com.sun.electric.tool.simulation.acl2.mods.IndexName;
 import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
@@ -56,12 +57,12 @@ public class Compile<N extends SvarName>
     private final List<Lhs<N>> aliases;
     private final SvexManager<N> sm;
     public final Svex<N>[] svexarr;
-    public final Map<Lhs<N>, Driver<N>> normAssigns;
+    public final List<Assign<N>> normAssigns;
     public final Map<Svar<N>, List<Driver<N>>> netAssigns;
     public final Map<Svar<N>, Svex<N>> resAssigns;
     public final Map<Svar<N>, Svar<N>> resDelays;
 
-    Compile(List<Lhs<N>> aliases, Map<Lhs<IndexName>, Driver<IndexName>> assigns, SvexManager<N> sm)
+    Compile(List<Lhs<N>> aliases, List<Assign<IndexName>> assigns, SvexManager<N> sm)
     {
         this.aliases = aliases;
         this.sm = sm;
@@ -127,34 +128,33 @@ public class Compile<N extends SvarName>
         }
     }
 
-    private Map<Lhs<N>, Driver<N>> assignsSubst(Map<Lhs<IndexName>, Driver<IndexName>> assigns,
+    private List<Assign<N>> assignsSubst(Collection<Assign<IndexName>> assigns,
         Map<SvexCall<IndexName>, Svex<N>> memoize)
     {
-        Map<Lhs<N>, Driver<N>> newAssigns = new LinkedHashMap<>();
-        for (Map.Entry<Lhs<IndexName>, Driver<IndexName>> e : assigns.entrySet())
+        List<Assign<N>> newAssigns = new ArrayList<>();
+        for (Assign<IndexName> assign : assigns)
         {
-            Lhs<IndexName> lhs = e.getKey();
-            Driver<IndexName> drv = e.getValue();
+            Lhs<IndexName> lhs = assign.lhs;
+            Driver<IndexName> drv = assign.driver;
             Lhs<N> newLhs = aliasNorm(lhs);
             Svex<N> val = svexSubstFromSvexarr(drv.svex, memoize);
             Driver<N> newDrv = new Driver<>(val, drv.strength);
-            Driver<N> old = newAssigns.put(newLhs, newDrv);
-            assert old == null;
+            Assign<N> newAssign = new Assign<>(newLhs, newDrv);
+            newAssigns.add(newAssign);
         }
         assert newAssigns.size() == assigns.size();
         return newAssigns;
     }
 
-    private Map<Svar<N>, List<Driver<N>>> assignsToNetassigns(Map<Lhs<N>, Driver<N>> assigns)
+    private Map<Svar<N>, List<Driver<N>>> assignsToNetassigns(List<Assign<N>> assigns)
     {
         Svex<N> Z = SvexQuote.Z();
         Map<Svar<N>, List<Driver<N>>> netassignsRev = new LinkedHashMap<>();
-        List<Map.Entry<Lhs<N>, Driver<N>>> assignsEntries = new ArrayList<>(assigns.entrySet());
-        for (int i = assignsEntries.size() - 1; i >= 0; i--)
+        for (int i = assigns.size() - 1; i >= 0; i--)
         {
-            Map.Entry<Lhs<N>, Driver<N>> e = assignsEntries.get(i);
-            Lhs<N> lhs = e.getKey();
-            Driver<N> drv = e.getValue();
+            Assign<N> assign = assigns.get(i);
+            Lhs<N> lhs = assign.lhs;
+            Driver<N> drv = assign.driver;
             assert lhs.isNormp();
             int offset = lhs.width();
             for (int j = lhs.ranges.size() - 1; j >= 0; j--)
@@ -240,10 +240,10 @@ public class Compile<N extends SvarName>
     {
         Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
         ACL2Object result = NIL;
-        for (Map.Entry<Lhs<N>, Driver<N>> e : normAssigns.entrySet())
+        for (Assign<N> assign : normAssigns)
         {
-            Lhs<N> lhs = e.getKey();
-            Driver<N> drv = e.getValue();
+            Lhs<N> lhs = assign.lhs;
+            Driver<N> drv = assign.driver;
             result = cons(cons(lhs.getACL2Object(backedCache), drv.getACL2Object(backedCache)), result);
         }
         return Util.revList(result);

@@ -109,8 +109,8 @@ public class ModDb
 
     public static class FlattenResult
     {
-        public final Map<Lhs<IndexName>, Lhs<IndexName>> aliaspairs = new LinkedHashMap<>();
-        public final Map<Lhs<IndexName>, Driver<IndexName>> assigns = new LinkedHashMap<>();
+        public final List<Aliaspair<IndexName>> aliaspairs = new ArrayList<>();
+        public final List<Assign<IndexName>> assigns = new ArrayList<>();
         public final SvexManager<IndexName> sm = new SvexManager<>();
         public LhsArr aliases;
 
@@ -118,10 +118,10 @@ public class ModDb
         {
             Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
             ACL2Object alist = NIL;
-            for (Map.Entry<Lhs<IndexName>, Lhs<IndexName>> e : aliaspairs.entrySet())
+            for (Aliaspair<IndexName> aliaspair : aliaspairs)
             {
-                alist = cons(cons(e.getKey().getACL2Object(backedCache),
-                    e.getValue().getACL2Object(backedCache)), alist);
+                alist = cons(cons(aliaspair.lhs.getACL2Object(backedCache),
+                    aliaspair.rhs.getACL2Object(backedCache)), alist);
             }
             return Util.revList(alist);
         }
@@ -130,10 +130,10 @@ public class ModDb
         {
             Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
             ACL2Object alist = NIL;
-            for (Map.Entry<Lhs<IndexName>, Driver<IndexName>> e : assigns.entrySet())
+            for (Assign<IndexName> assign : assigns)
             {
-                alist = cons(cons(e.getKey().getACL2Object(backedCache),
-                    e.getValue().getACL2Object(backedCache)), alist);
+                alist = cons(cons(assign.lhs.getACL2Object(backedCache),
+                    assign.driver.getACL2Object(backedCache)), alist);
             }
             return Util.revList(alist);
         }
