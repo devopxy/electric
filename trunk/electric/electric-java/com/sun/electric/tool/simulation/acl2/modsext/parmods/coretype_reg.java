@@ -176,7 +176,7 @@ public class coretype_reg extends ParameterizedModule
             {
                 Name a = Name.valueOf(addr);
                 wire(a, width, p2);
-                int offset = width * (nwords - (addr - u2) - 1);
+                int offset = width * (addr - u2);
                 conn(r(a, width - 1, 0), r(self, offset + width - 1, offset));
             }
 
