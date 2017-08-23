@@ -25,8 +25,6 @@ import com.sun.electric.tool.simulation.acl2.mods.Util;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Implementation of a single variable in a symbolic vector expression.
@@ -82,7 +80,6 @@ public class SvarImpl<N extends SvarName> implements Svar<N>
     {
         ACL2Object nameImpl;
         int delayImpl;
-        Util.check(impl.isNormed());
         if (consp(impl).bool())
         {
             Util.check(car(impl).equals(KEYWORD_VAR));
@@ -195,62 +192,4 @@ public class SvarImpl<N extends SvarName> implements Svar<N>
         }
         return s;
     }
-
-    public abstract static class Builder<N extends SvarName> implements Svar.Builder<N>
-    {
-        private final Map<ACL2Object, N> nameCache = new HashMap<>();
-        private final Map<ACL2Object, Svar<N>> svarCache = new HashMap<>();
-
-        @Override
-        public Svar<N> newVar(N name, int delay, boolean nonblocking)
-        {
-            assert delay >= 0;
-            ACL2Object nameImpl = name.getACL2Object();
-            boolean simpleName = (stringp(nameImpl).bool()
-                || (symbolp(nameImpl).bool() && !booleanp(nameImpl).bool()));
-            int delayImpl = nonblocking ? ~delay : delay;
-            ACL2Object impl = simpleName && delayImpl == 0
-                ? honscopy(nameImpl)
-                : hons(KEYWORD_VAR, hons(nameImpl, ACL2Object.valueOf(delayImpl)));
-            Svar<N> svar = svarCache.get(impl);
-            if (svar == null)
-            {
-                N cachedName = nameCache.get(nameImpl);
-                if (cachedName == null)
-                {
-                    cachedName = name;
-                    nameCache.put(nameImpl, name);
-                }
-                Util.check(cachedName == name);
-                svar = new SvarImpl<>(name, delayImpl);
-                svarCache.put(impl, svar);
-            }
-            return svar;
-        }
-
-        @Override
-        public Svar<N> newVar(ACL2Object nameImpl, int delay, boolean nonblocking)
-        {
-            assert delay >= 0;
-            boolean simpleName = (stringp(nameImpl).bool()
-                || (symbolp(nameImpl).bool() && !booleanp(nameImpl).bool()));
-            int delayImpl = nonblocking ? ~delay : delay;
-            ACL2Object impl = simpleName && delayImpl == 0
-                ? honscopy(nameImpl)
-                : hons(KEYWORD_VAR, hons(nameImpl, ACL2Object.valueOf(delayImpl)));
-            Svar<N> svar = svarCache.get(impl);
-            if (svar == null)
-            {
-                N name = nameCache.get(nameImpl);
-                if (name == null)
-                {
-                    name = newName(nameImpl);
-                    nameCache.put(nameImpl, name);
-                }
-                svar = new SvarImpl<>(name, delayImpl);
-                svarCache.put(impl, svar);
-            }
-            return svar;
-        }
-    };
 }

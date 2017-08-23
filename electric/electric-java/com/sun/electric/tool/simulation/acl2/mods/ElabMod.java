@@ -470,12 +470,12 @@ public class ElabMod
         return new Module<>(sm, m.wires, m.insts, newAssigns, newAliasepairs);
     }
 
-    void initializeAliases(int offset, IndexName.SvarBuilder builder, LhsArr aliases)
+    void initializeAliases(int offset, SvexManager<IndexName> sm, LhsArr aliases)
     {
         for (Wire wire : wireTable)
         {
-            IndexName name = builder.newName(offset);
-            Svar<IndexName> svar = builder.newVar(name);
+            IndexName name = IndexName.valueOf(offset);
+            Svar<IndexName> svar = sm.getVar(name);
             Lhatom<IndexName> atom = Lhatom.valueOf(svar);
             Lhrange<IndexName> range = new Lhrange<>(wire.width, atom);
             Lhs<IndexName> lhs = new Lhs<>(Collections.singletonList(range));
@@ -484,12 +484,12 @@ public class ElabMod
         }
     }
 
-    void initialAliases(int offset, IndexName.SvarBuilder builder, LhsArr aliases)
+    void initialAliases(int offset, SvexManager<IndexName> sm, LhsArr aliases)
     {
-        initializeAliases(offset, builder, aliases);
+        initializeAliases(offset, sm, aliases);
         for (ElabModInst inst : modInstTable)
         {
-            inst.modidx.initialAliases(offset + inst.wireOffset, builder, aliases);
+            inst.modidx.initialAliases(offset + inst.wireOffset, sm, aliases);
         }
     }
 
@@ -497,17 +497,17 @@ public class ElabMod
     {
         ElabMod.ModScope modScope = new ElabMod.ModScope(this);
         ModDb.FlattenResult result = new ModDb.FlattenResult();
-        IndexName.SvarBuilder builder = result.builder;
+        SvexManager<IndexName> sm = result.sm;
         modScope.svexmodFlatten(modalist, result);
-        result.aliases = initialAliases(builder);
+        result.aliases = initialAliases(sm);
         result.aliases.canonicalizeAliasPairs(result.aliaspairs);
         return result;
     }
 
-    LhsArr initialAliases(IndexName.SvarBuilder builder)
+    LhsArr initialAliases(SvexManager<IndexName> sm)
     {
         LhsArr aliases = new LhsArr(totalWires);
-        initialAliases(0, builder, aliases);
+        initialAliases(0, sm, aliases);
         return aliases;
     }
 
@@ -647,14 +647,14 @@ public class ElabMod
             return modIdx.totalWires;
         }
 
-        public Svar<IndexName> absindexed(Svar<Address> x, IndexName.SvarBuilder builder)
+        public Svar<IndexName> absindexed(Svar<Address> x, SvexManager<IndexName> sm)
         {
             Address i = x.getName();
             int index = i.index >= 0 ? wireOffset + i.index : addressToWireindex(i);
-            return builder.newVar(ACL2Object.valueOf(index), x.getDelay(), x.isNonblocking());
+            return sm.getVar(IndexName.valueOf(index), x.getDelay(), x.isNonblocking());
         }
 
-        public Svex<IndexName> absindexed(Svex<Address> x, IndexName.SvarBuilder builder, SvexManager<IndexName> sm,
+        public Svex<IndexName> absindexed(Svex<Address> x, SvexManager<IndexName> sm,
             Map<Svex<Address>, Svex<IndexName>> svexCache)
         {
             Svex<IndexName> result = svexCache.get(x);
@@ -663,7 +663,7 @@ public class ElabMod
                 if (x instanceof SvexVar)
                 {
                     SvexVar<Address> xv = (SvexVar<Address>)x;
-                    Svar<IndexName> name = absindexed(xv.svar, builder);
+                    Svar<IndexName> name = absindexed(xv.svar, sm);
                     result = new SvexVar<>(name);
                 } else if (x instanceof SvexQuote)
                 {
@@ -675,7 +675,7 @@ public class ElabMod
                     Svex<IndexName>[] newArgs = Svex.newSvexArray(args.length);
                     for (int i = 0; i < args.length; i++)
                     {
-                        newArgs[i] = absindexed(args[i], builder, sm, svexCache);
+                        newArgs[i] = absindexed(args[i], sm, svexCache);
                     }
                     result = sm.newCall(sc.fun, newArgs);
                 }
@@ -684,7 +684,7 @@ public class ElabMod
             return result;
         }
 
-        private Lhs<IndexName> absindexed(Lhs<Address> x, IndexName.SvarBuilder builder)
+        private Lhs<IndexName> absindexed(Lhs<Address> x, SvexManager<IndexName> sm)
         {
             List<Lhrange<IndexName>> newRanges = new ArrayList<>();
             for (Lhrange<Address> range : x.ranges)
@@ -693,7 +693,7 @@ public class ElabMod
                 Lhatom<IndexName> newAtom;
                 if (svar != null)
                 {
-                    Svar<IndexName> newSvar = absindexed(svar, builder);
+                    Svar<IndexName> newSvar = absindexed(svar, sm);
                     newAtom = Lhatom.valueOf(newSvar, range.getRsh());
                 } else
                 {
@@ -707,22 +707,21 @@ public class ElabMod
 
         private void svexmodFlatten(Map<ModName, Module<Address>> modalist, ModDb.FlattenResult result)
         {
-            IndexName.SvarBuilder builder = result.builder;
             SvexManager<IndexName> sm = result.sm;
             Map<Svex<Address>, Svex<IndexName>> svexCache = new HashMap<>();
             Module<Address> m = (Module<Address>)modIdx.origMod;
             for (Map.Entry<Lhs<Address>, Driver<Address>> e : m.assigns.entrySet())
             {
-                Lhs<IndexName> newLhs = absindexed(e.getKey(), builder);
+                Lhs<IndexName> newLhs = absindexed(e.getKey(), sm);
                 Driver<Address> driver = e.getValue();
-                Svex<IndexName> newSvex = absindexed(driver.svex, builder, sm, svexCache);
+                Svex<IndexName> newSvex = absindexed(driver.svex, sm, svexCache);
                 Driver<IndexName> newDriver = new Driver<>(newSvex, driver.strength);
                 result.assigns.put(newLhs, newDriver);
             }
             for (Map.Entry<Lhs<Address>, Lhs<Address>> e : m.aliaspairs.entrySet())
             {
-                Lhs<IndexName> newLhs = absindexed(e.getKey(), builder);
-                Lhs<IndexName> newRhs = absindexed(e.getValue(), builder);
+                Lhs<IndexName> newLhs = absindexed(e.getKey(), sm);
+                Lhs<IndexName> newRhs = absindexed(e.getValue(), sm);
                 result.aliaspairs.put(newLhs, newRhs);
             }
             for (int instidx = 0; instidx < m.insts.size(); instidx++)

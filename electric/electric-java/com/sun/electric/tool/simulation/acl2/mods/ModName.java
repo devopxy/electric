@@ -155,7 +155,7 @@ public abstract class ModName implements ACL2Backed
         @Override
         public boolean isGate()
         {
-            return car(impl).equals(ACL2Object.valueOf("KEWWORD", "GATE"));
+            return car(impl).equals(ACL2Object.valueOf("KEYWORD", "GATE"));
         }
 
         @Override

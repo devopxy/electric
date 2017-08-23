@@ -61,25 +61,6 @@ public class Util
         check(!NIL.equals(x));
     }
 
-    public static List<ACL2Object> getListCheckNormed(ACL2Object l, boolean trueList, boolean expectedIsNormed)
-    {
-        List<ACL2Object> result = new ArrayList<>();
-        while (consp(l).bool())
-        {
-            if (l.isNormed() != expectedIsNormed)
-            {
-                System.out.println("List cons is " + (expectedIsNormed ? "normed" : "not normed"));
-            }
-            result.add(car(l));
-            l = cdr(l);
-        }
-        if (trueList)
-        {
-            checkNil(l);
-        }
-        return result;
-    }
-
     public static List<ACL2Object> getList(ACL2Object l, boolean trueList)
     {
         List<ACL2Object> result = new ArrayList<>();

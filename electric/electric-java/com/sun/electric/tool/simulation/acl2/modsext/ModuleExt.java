@@ -441,14 +441,14 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
         }
     }
 
-    public Svar<IndexName> absindexed(Svar<PathExt> x, IndexName.SvarBuilder builder)
+    public Svar<IndexName> absindexed(Svar<PathExt> x, SvexManager<IndexName> sm)
     {
         PathExt i = x.getName();
         int index = i.getIndexInParent();
-        return builder.newVar(ACL2Object.valueOf(index), x.getDelay(), x.isNonblocking());
+        return sm.getVar(IndexName.valueOf(index), x.getDelay(), x.isNonblocking());
     }
 
-    public Svex<IndexName> absindexed(Svex<PathExt> x, IndexName.SvarBuilder builder, SvexManager<IndexName> sm,
+    public Svex<IndexName> absindexed(Svex<PathExt> x, SvexManager<IndexName> sm,
         Map<Svex<PathExt>, Svex<IndexName>> svexCache)
     {
         Svex<IndexName> result = svexCache.get(x);
@@ -457,7 +457,7 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
             if (x instanceof SvexVar)
             {
                 SvexVar<PathExt> xv = (SvexVar<PathExt>)x;
-                Svar<IndexName> name = absindexed(xv.svar, builder);
+                Svar<IndexName> name = absindexed(xv.svar, sm);
                 result = new SvexVar<>(name);
             } else if (x instanceof SvexQuote)
             {
@@ -469,7 +469,7 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
                 Svex<IndexName>[] newArgs = Svex.newSvexArray(args.length);
                 for (int i = 0; i < args.length; i++)
                 {
-                    newArgs[i] = absindexed(args[i], builder, sm, svexCache);
+                    newArgs[i] = absindexed(args[i], sm, svexCache);
                 }
                 result = sm.newCall(sc.fun, newArgs);
             }
@@ -478,7 +478,7 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
         return result;
     }
 
-    private Lhs<IndexName> absindexed(Lhs<PathExt> x, IndexName.SvarBuilder builder)
+    private Lhs<IndexName> absindexed(Lhs<PathExt> x, SvexManager<IndexName> sm)
     {
         List<Lhrange<IndexName>> newRanges = new ArrayList<>();
         for (Lhrange<PathExt> range : x.ranges)
@@ -487,7 +487,7 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
             Lhatom<IndexName> newAtom;
             if (svar != null)
             {
-                Svar<IndexName> newSvar = absindexed(svar, builder);
+                Svar<IndexName> newSvar = absindexed(svar, sm);
                 newAtom = Lhatom.valueOf(newSvar, range.getRsh());
             } else
             {

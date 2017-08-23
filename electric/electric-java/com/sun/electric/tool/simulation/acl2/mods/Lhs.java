@@ -76,7 +76,7 @@ public class Lhs<N extends SvarName> implements ACL2Backed
 
     public static <N extends SvarName> Lhs<N> fromACL2(SvarName.Builder<N> snb, SvexManager<N> sm, ACL2Object impl)
     {
-        List<ACL2Object> l = Util.getListCheckNormed(impl, true, false);
+        List<ACL2Object> l = Util.getList(impl, true);
         Util.check(!l.isEmpty());
         List<Lhrange<N>> ranges = new ArrayList<>(l.size());
         for (ACL2Object o : l)

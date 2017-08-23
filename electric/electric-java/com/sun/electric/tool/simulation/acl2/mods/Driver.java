@@ -65,8 +65,6 @@ public class Driver<N extends SvarName> implements ACL2Backed
     static <N extends SvarName> Driver<N> fromACL2(SvarName.Builder<N> snb, SvexManager<N> sm, ACL2Object impl,
         Map<ACL2Object, Svex<N>> svexCache)
     {
-        Util.check(!impl.isNormed());
-        Util.check(car(impl).isNormed());
         Svex<N> svex = Svex.fromACL2(snb, sm, car(impl), svexCache);
         int strength = cdr(impl).intValueExact();
         return new Driver<>(svex, strength);
