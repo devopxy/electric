@@ -36,6 +36,7 @@ import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
+import com.sun.electric.tool.simulation.acl2.mods.Wiretype;
 import com.sun.electric.tool.simulation.acl2.modsext.parmods.coretype_reg;
 import com.sun.electric.tool.simulation.acl2.modsext.parmods.gate_buf;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
@@ -273,7 +274,7 @@ public abstract class ParameterizedModule
      */
     protected void wire(String wireName, int width)
     {
-        wire(getName(wireName), width);
+        wire(getName(wireName), width, 0);
     }
 
     /**
@@ -282,9 +283,9 @@ public abstract class ParameterizedModule
      * @param name name of a wire
      * @param width width of wire
      */
-    protected void wire(Name name, int width)
+    protected void wire(Name name, int width, int lowIdx)
     {
-        wires.add(new Wire(name, width));
+        wires.add(new Wire(name, width, lowIdx, 0, false, Wiretype.WIRE));
     }
 
     /**

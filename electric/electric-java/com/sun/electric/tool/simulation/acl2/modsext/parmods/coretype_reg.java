@@ -166,7 +166,7 @@ public class coretype_reg extends ParameterizedModule
             for (int addr = u1; addr <= u2; addr++)
             {
                 Name a = Name.valueOf(addr);
-                wire(a, width);
+                wire(a, width, p2);
                 int offset = width * (nwords - (addr - u1) - 1);
                 conn(r(a, width - 1, 0), r(self, offset + width - 1, offset));
             }
@@ -175,8 +175,8 @@ public class coretype_reg extends ParameterizedModule
             for (int addr = u1; addr >= u2; addr--)
             {
                 Name a = Name.valueOf(addr);
-                wire(a, width);
-                int offset = width * (nwords - (addr - u1) - 1);
+                wire(a, width, p2);
+                int offset = width * (nwords - (addr - u2) - 1);
                 conn(r(a, width - 1, 0), r(self, offset + width - 1, offset));
             }
 
