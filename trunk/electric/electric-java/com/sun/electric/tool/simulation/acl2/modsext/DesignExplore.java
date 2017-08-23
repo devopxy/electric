@@ -41,6 +41,8 @@ import java.util.Arrays;
 
 /**
  * Standalone programs to explore design
+ *
+ * @param <H> Type of design hints
  */
 public class DesignExplore<H extends DesignHints>
 {

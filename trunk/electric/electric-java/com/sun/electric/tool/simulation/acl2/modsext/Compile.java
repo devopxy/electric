@@ -50,7 +50,7 @@ import java.util.Map;
 
 /**
  *
- * @param <N>
+ * @param <N> Type of name of Svex variables
  */
 public class Compile<N extends SvarName>
 {

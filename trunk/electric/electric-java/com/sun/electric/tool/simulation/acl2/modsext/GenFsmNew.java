@@ -170,7 +170,7 @@ public class GenFsmNew extends GenBase
                     }
                     if (genM == null)
                     {
-                        System.out.println("Module specializition is unfamiliar " + modName);
+                        System.out.println("Module specialization is unfamiliar " + modName);
                     } else if (!genM.equals(m))
                     {
                         System.out.println("Module mismatch " + modName);

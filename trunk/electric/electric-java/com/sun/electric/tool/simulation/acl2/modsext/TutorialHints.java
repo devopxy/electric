@@ -47,10 +47,11 @@ public class TutorialHints implements DesignHints
     @Override
     public List<ParameterizedModule> getParameterizedModules()
     {
-        return Arrays.asList(
+        List<ParameterizedModule> result = ParameterizedModule.getStandardModules();
+        result.addAll(Arrays.asList(
             new Flop(),
-            new BoothFlop()
-        );
+            new BoothFlop()));
+        return result;
     }
 
     @Override
@@ -125,6 +126,18 @@ public class TutorialHints implements DesignHints
         }
 
         @Override
+        protected Integer getDefaultInt(String paramName)
+        {
+            switch (paramName)
+            {
+                case "width":
+                    return 1;
+                default:
+                    return null;
+            }
+        }
+
+        @Override
         protected boolean hasState()
         {
             return true;
@@ -184,6 +197,18 @@ public class TutorialHints implements DesignHints
         BoothFlop()
         {
             super("tutorial", "boothflop");
+        }
+
+        @Override
+        protected Integer getDefaultInt(String paramName)
+        {
+            switch (paramName)
+            {
+                case "width":
+                    return 1;
+                default:
+                    return null;
+            }
         }
 
         @Override

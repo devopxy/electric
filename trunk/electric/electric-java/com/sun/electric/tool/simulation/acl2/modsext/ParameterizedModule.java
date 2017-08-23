@@ -36,6 +36,8 @@ import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
+import com.sun.electric.tool.simulation.acl2.modsext.parmods.coretype_reg;
+import com.sun.electric.tool.simulation.acl2.modsext.parmods.gate_buf;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
 import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
@@ -87,7 +89,7 @@ public abstract class ParameterizedModule
     private ModName curModName;
     private String curInstName;
 
-    private Map<String, String> params;
+    private Map<String, ACL2Object> params;
     private final Map<String, Name> names = new HashMap<>();
 
     private SvexManager<Address> sm;
@@ -109,13 +111,21 @@ public abstract class ParameterizedModule
         this.paramDelim = paramDelim;
     }
 
+    public static List<ParameterizedModule> getStandardModules()
+    {
+        List<ParameterizedModule> result = new ArrayList<>();
+        result.add(gate_buf.INSTANCE);
+        result.add(coretype_reg.INSTANCE);
+        return result;
+    }
+
     /**
      * Check if modName is a name of a specialization of this parameterized module
      *
      * @param modName a name of a module specialization
      * @return map from parameter names to parameter values
      */
-    protected Map<String, String> matchModName(ModName modName)
+    protected Map<String, ACL2Object> matchModName(ModName modName)
     {
         if (!modName.isString())
         {
@@ -127,7 +137,7 @@ public abstract class ParameterizedModule
             return null;
         }
         String params = modNameStr.substring(this.modName.length());
-        Map<String, String> parMap = new LinkedHashMap<>();
+        Map<String, ACL2Object> parMap = new LinkedHashMap<>();
         while (!params.isEmpty())
         {
             if (!params.startsWith(paramPrefix))
@@ -147,7 +157,14 @@ public abstract class ParameterizedModule
             }
             String paramName = params.substring(0, indDelim);
             String paramVal = params.substring(indDelim + paramDelim.length(), nextPrefix);
-            parMap.put(paramName, paramVal);
+            Integer defaultInt = getDefaultInt(paramName);
+            if (defaultInt != null)
+            {
+                parMap.put(paramName, ACL2Object.valueOf(Integer.parseInt(paramVal)));
+            } else
+            {
+                parMap.put(paramName, ACL2Object.valueOf(paramVal));
+            }
             params = params.substring(nextPrefix);
         }
         return parMap;
@@ -201,6 +218,11 @@ public abstract class ParameterizedModule
         return modName;
     }
 
+    protected Integer getDefaultInt(String paramName)
+    {
+        return null;
+    }
+
     /**
      * Return an string value of parameter of current ModName.
      *
@@ -211,22 +233,8 @@ public abstract class ParameterizedModule
      */
     protected int getIntParam(String paramName)
     {
-        return Integer.parseInt(getParam(paramName));
-    }
-
-    /**
-     * Return an string value of parameter of current ModName.
-     *
-     * @param paramName name of a parameter
-     * @param defaultVal default value of a parameter
-     * @return integer value of a parameter or null if parameter is absent.
-     * @throws NullPointerException if parameter is absent
-     * @throws NumberFormatException if parameter is not an integer
-     */
-    protected int getIntParam(String paramName, int defaultVal)
-    {
-        String s = getParam(paramName);
-        return s != null ? Integer.parseInt(s) : defaultVal;
+        ACL2Object val = getParam(paramName);
+        return val != null ? val.intValueExact() : getDefaultInt(paramName);
     }
 
     /**
@@ -235,7 +243,13 @@ public abstract class ParameterizedModule
      * @param paramName name of a parameter
      * @return Stringvalue of a parameter or null if parameter is absent.
      */
-    protected String getParam(String paramName)
+    protected String getStrParam(String paramName)
+    {
+        ACL2Object val = getParam(paramName);
+        return val != null ? val.stringValueExact() : null;
+    }
+
+    protected ACL2Object getParam(String paramName)
     {
         return params.get(paramName);
     }
