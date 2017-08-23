@@ -215,6 +215,21 @@ public abstract class ParameterizedModule
     }
 
     /**
+     * Return an string value of parameter of current ModName.
+     *
+     * @param paramName name of a parameter
+     * @param defaultVal default value of a parameter
+     * @return integer value of a parameter or null if parameter is absent.
+     * @throws NullPointerException if parameter is absent
+     * @throws NumberFormatException if parameter is not an integer
+     */
+    protected int getIntParam(String paramName, int defaultVal)
+    {
+        String s = getParam(paramName);
+        return s != null ? Integer.parseInt(s) : defaultVal;
+    }
+
+    /**
      * Return a string value of parameter of current ModName.
      *
      * @param paramName name of a parameter
