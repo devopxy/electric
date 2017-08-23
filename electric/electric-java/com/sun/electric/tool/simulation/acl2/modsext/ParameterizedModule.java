@@ -341,7 +341,7 @@ public abstract class ParameterizedModule
      */
     protected void unused(Name name, int width)
     {
-        wire(name, width);
+        wire(name, width, 0);
     }
 
     /**
