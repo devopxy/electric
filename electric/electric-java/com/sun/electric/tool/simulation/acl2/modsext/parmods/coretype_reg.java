@@ -157,17 +157,29 @@ public class coretype_reg extends ParameterizedModule
         int u1 = getIntParam("u1");
         int u2 = getIntParam("u2");
         Util.check(p1 >= p2);
-        Util.check(u1 <= u2);
         int width = p1 - p2 + 1;
-        int nwords = u2 - u1 + 1;
+        int nwords = Math.abs(u2 - u1) + 1;
         Name self = Name.SELF;
         unused(self, nwords * width);
-        for (int addr = u1; addr <= u2; addr++)
+        if (u1 <= u2)
         {
-            Name a = Name.valueOf(addr);
-            wire(a, width);
-            int offset = width * (nwords - (addr - u1) - 1);
-            conn(r(a, width - 1, 0), r(self, offset + width - 1, offset));
+            for (int addr = u1; addr <= u2; addr++)
+            {
+                Name a = Name.valueOf(addr);
+                wire(a, width);
+                int offset = width * (nwords - (addr - u1) - 1);
+                conn(r(a, width - 1, 0), r(self, offset + width - 1, offset));
+            }
+        } else
+        {
+            for (int addr = u1; addr >= u2; addr--)
+            {
+                Name a = Name.valueOf(addr);
+                wire(a, width);
+                int offset = width * (nwords - (addr - u1) - 1);
+                conn(r(a, width - 1, 0), r(self, offset + width - 1, offset));
+            }
+
         }
         return getModule();
     }
