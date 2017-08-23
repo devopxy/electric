@@ -76,7 +76,6 @@ public abstract class Lhatom<N extends SvarName> implements ACL2Backed
         int rsh = 0;
         if (consp(impl).bool() && !(car(impl).equals(Util.KEYWORD_VAR) && consp(cdr(impl)).bool()))
         {
-            Util.check(!impl.isNormed());
             nameImpl = car(impl);
             rsh = cdr(impl).intValueExact();
             Util.check(rsh >= 0);

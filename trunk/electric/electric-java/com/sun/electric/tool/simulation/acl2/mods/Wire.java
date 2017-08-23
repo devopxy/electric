@@ -75,20 +75,15 @@ public class Wire
 
     public Wire(ACL2Object impl)
     {
-        Util.check(!impl.isNormed());
         ACL2Object cons0 = car(impl);
-        Util.check(!cons0.isNormed());
-        Util.check(car(cons0).isNormed());
         name = Name.fromACL2(car(cons0));
         ACL2Object cons01 = cdr(cons0);
-        Util.check(!cons01.isNormed());
         width = car(cons01).intValueExact();
         Util.check(width >= 1);
         low_idx = cdr(cons01).intValueExact();
         if (consp(cdr(impl)).bool())
         {
             ACL2Object cons1 = cdr(impl);
-            Util.check(!cons1.isNormed());
             Util.check(!NIL.equals(car(cons1)) || !NIL.equals(cdr(cons1)));
             if (symbolp(car(cons1)).bool())
             {
@@ -101,7 +96,6 @@ public class Wire
             if (consp(cdr(cons1)).bool())
             {
                 ACL2Object cons11 = cdr(cons1);
-                Util.check(!cons11.isNormed());
                 if (NIL.equals(car(cons11)))
                 {
                     Util.checkNil(car(cons11));

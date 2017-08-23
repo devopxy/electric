@@ -21,14 +21,10 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
-import com.sun.electric.tool.simulation.acl2.svex.Svar;
-import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  *
@@ -129,40 +125,5 @@ public class IndexName extends Name implements SvarName
     public int getIndex()
     {
         return index;
-    }
-
-    public static class SvarBuilder extends SvarImpl.Builder<IndexName>
-    {
-        private final List<IndexName> cache = new ArrayList<>();
-
-        @Override
-        public IndexName newName(ACL2Object nameImpl)
-        {
-            return newName(nameImpl.intValueExact());
-        }
-
-        public IndexName newName(int index)
-        {
-            while (index >= cache.size())
-            {
-                cache.add(null);
-            }
-            IndexName name = cache.get(index);
-            if (name == null)
-            {
-                name = new IndexName(index);
-                cache.set(index, name);
-            }
-            return name;
-        }
-
-        Svar<IndexName> setIndex(Svar<IndexName> svar, int index)
-        {
-            if (index < 0)
-            {
-                throw new IllegalArgumentException();
-            }
-            return newVar(ACL2Object.valueOf(index), svar.getDelay(), svar.isNonblocking());
-        }
     }
 }

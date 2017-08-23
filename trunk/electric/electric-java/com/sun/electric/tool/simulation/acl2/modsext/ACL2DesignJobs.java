@@ -1262,7 +1262,6 @@ public class ACL2DesignJobs
                     resDelays = compile.resDelaysAsACL2Object();
                 } else
                 {
-                    Path.SvarBuilder namedBuilder = new Path.SvarBuilder();
                     SvexManager<Path> sm = new SvexManager<>();
                     List<Lhs<Path>> namedAliases = topScope.aliasesToPath(flattenResult.aliases, sm);
                     Compile<Path> compile = new Compile(namedAliases, flattenResult.assigns, sm);

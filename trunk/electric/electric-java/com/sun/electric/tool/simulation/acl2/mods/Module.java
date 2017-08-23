@@ -63,14 +63,14 @@ public class Module<N extends SvarName>
     static <N extends SvarName> Module<N> fromACL2(SvarName.Builder<N> snb, ACL2Object impl)
     {
         SvexManager<N> sm = new SvexManager<>();
-        List<ACL2Object> fields = Util.getListCheckNormed(impl, true, false);
+        List<ACL2Object> fields = Util.getList(impl, true);
         Util.check(fields.size() == 4);
         ACL2Object pair;
 
         pair = fields.get(0);
         Util.check(car(pair).equals(Util.SV_WIRES));
         List<Wire> wires = new ArrayList<>();
-        for (ACL2Object o : Util.getListCheckNormed(cdr(pair), true, false))
+        for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             Wire wire = new Wire(o);
             wires.add(wire);
@@ -79,7 +79,7 @@ public class Module<N extends SvarName>
         pair = fields.get(1);
         Util.check(car(pair).equals(Util.SV_INSTS));
         List<ModInst> insts = new ArrayList<>();
-        for (ACL2Object o : Util.getListCheckNormed(cdr(pair), true, false))
+        for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             ModInst modInst = ModInst.fromACL2(o);
             insts.add(modInst);
@@ -88,10 +88,9 @@ public class Module<N extends SvarName>
         Util.check(car(pair).equals(Util.SV_ASSIGNS));
         Map<Lhs<N>, Driver<N>> assigns = new LinkedHashMap<>();
         Map<ACL2Object, Svex<N>> svexCache = new HashMap<>();
-        for (ACL2Object o : Util.getListCheckNormed(cdr(pair), true, false))
+        for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
-            Util.check(!pair.isNormed());
             Lhs<N> lhs = Lhs.fromACL2(snb, sm, car(pair));
             Driver<N> driver = Driver.fromACL2(snb, sm, cdr(pair), svexCache);
             Driver old = assigns.put(lhs, driver);
@@ -101,10 +100,9 @@ public class Module<N extends SvarName>
         pair = fields.get(3);
         Util.check(car(pair).equals(Util.SV_ALIASPAIRS));
         Map<Lhs<N>, Lhs<N>> aliaspairs = new LinkedHashMap<>();
-        for (ACL2Object o : Util.getListCheckNormed(cdr(pair), true, false))
+        for (ACL2Object o : Util.getList(cdr(pair), true))
         {
             pair = o;
-            Util.check(!pair.isNormed());
             Lhs<N> lhs = Lhs.fromACL2(snb, sm, car(pair));
             Lhs<N> rhs = Lhs.fromACL2(snb, sm, cdr(pair));
             Lhs old = aliaspairs.put(lhs, rhs);

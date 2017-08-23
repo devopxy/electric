@@ -111,7 +111,6 @@ public class ModDb
     {
         public final Map<Lhs<IndexName>, Lhs<IndexName>> aliaspairs = new LinkedHashMap<>();
         public final Map<Lhs<IndexName>, Driver<IndexName>> assigns = new LinkedHashMap<>();
-        public final IndexName.SvarBuilder builder = new IndexName.SvarBuilder();
         public final SvexManager<IndexName> sm = new SvexManager<>();
         public LhsArr aliases;
 
@@ -129,7 +128,7 @@ public class ModDb
 
         public ACL2Object assignsToACL2Object()
         {
-            Map<ACL2Backed,ACL2Object> backedCache = new HashMap<>();
+            Map<ACL2Backed, ACL2Object> backedCache = new HashMap<>();
             ACL2Object alist = NIL;
             for (Map.Entry<Lhs<IndexName>, Driver<IndexName>> e : assigns.entrySet())
             {

@@ -226,25 +226,4 @@ public abstract class Path implements SvarName
             return namespace + "." + subpath;
         }
     }
-
-    public static class SvarBuilder extends SvarImpl.Builder<Path>
-    {
-        @Override
-        public Path newName(ACL2Object nameImpl)
-        {
-            return Path.fromACL2(nameImpl);
-        }
-
-        public Svar<Path> makeSimpleSvar(Name name)
-        {
-            ACL2Object pathImpl = name.getACL2Object();
-            return newVar(pathImpl, 0, false);
-        }
-
-        public Svar<Path> makeScopedSvar(Name scope, Name name)
-        {
-            ACL2Object pathImpl = hons(scope.getACL2Object(), name.getACL2Object());
-            return newVar(pathImpl, 0, false);
-        }
-    }
 }

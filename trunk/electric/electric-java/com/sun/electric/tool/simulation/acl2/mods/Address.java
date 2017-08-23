@@ -22,7 +22,6 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
-import com.sun.electric.tool.simulation.acl2.svex.SvarImpl;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
@@ -145,11 +144,6 @@ public class Address implements SvarName
         return scope >= 0 ? scope : null;
     }
 
-    public Svar<Address> toVar(SvarBuilder builder)
-    {
-        return builder.newVar(this);
-    }
-
     @Override
     public String toString(BigInteger mask)
     {
@@ -231,34 +225,6 @@ public class Address implements SvarName
         public Address fromACL2(ACL2Object impl)
         {
             return Address.fromACL2(impl);
-        }
-    }
-
-    public static class SvarBuilder extends SvarImpl.Builder<Address>
-    {
-        @Override
-        public Address newName(ACL2Object nameImpl)
-        {
-            return Address.fromACL2(nameImpl);
-        }
-
-        public Svar<Address> makeSimpleSvar(Name name)
-        {
-            return makeSimpleSvar(name, 0);
-        }
-
-        public Svar<Address> makeSimpleSvar(Name name, int delay)
-        {
-//            Path path = Path.simplePath(name);
-            ACL2Object addressImpl = name.getACL2Object();
-            return newVar(addressImpl, delay, false);
-        }
-
-        public Svar<Address> makeScopedSvar(Name scope, Name name)
-        {
-//            Path path = Path.makePath(Arrays.asList(scope), name);
-            ACL2Object addressImpl = hons(scope.getACL2Object(), name.getACL2Object());
-            return newVar(addressImpl, 0, false);
         }
     }
 }
