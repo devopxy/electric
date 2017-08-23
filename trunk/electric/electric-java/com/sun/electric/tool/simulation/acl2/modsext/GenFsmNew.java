@@ -23,9 +23,13 @@ package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.Job;
 import com.sun.electric.tool.JobException;
+import com.sun.electric.tool.simulation.acl2.mods.Address;
+import com.sun.electric.tool.simulation.acl2.mods.Assign;
+import com.sun.electric.tool.simulation.acl2.mods.Design;
 import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
+import com.sun.electric.tool.simulation.acl2.mods.Module;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
@@ -103,9 +107,10 @@ public class GenFsmNew extends GenBase
     public void scanLib(File saoFile) throws IOException
     {
         ACL2Reader sr = new ACL2Reader(saoFile);
-        DesignExt design = new DesignExt(sr.root, designHints);
+        SvarName.Builder<Address> snb = new Address.SvarNameBuilder();
+        Design<Address> design = new Design<>(snb, sr.root);
         scanDesign(design);
-        for (ModName modName : design.downTop.keySet())
+        for (ModName modName : design.modalist.keySet())
         {
             if (!modToParMod.containsKey(modName))
             {
@@ -136,38 +141,56 @@ public class GenFsmNew extends GenBase
         }
     }
 
-    void scanDesign(DesignExt design)
+    void scanDesign(Design<Address> design)
     {
         List<ParameterizedModule> parModules = parameterizedModules;
         for (ParameterizedModule parModule : parModules)
         {
             parModuleInstances.put(parModule, new TreeMap<>(TextUtils.STRING_NUMBER_ORDER));
         }
-        for (Map.Entry<ModName, ModuleExt> e : design.downTop.entrySet())
+        for (Map.Entry<ModName, Module<Address>> e : design.modalist.entrySet())
         {
             ModName modName = e.getKey();
-            ModuleExt m = e.getValue();
-            if (m.parMod != null)
+            Module<Address> m = e.getValue();
+
+            ParameterizedModule parMod = null;
+            for (ParameterizedModule parModule : parameterizedModules)
             {
-                Map<String, ModName> parInsts = parModuleInstances.get(m.parMod);
+                if (parModule.setCurBuilder(modName, m.sm))
+                {
+                    assert parMod == null;
+                    parMod = parModule;
+                    Module<Address> genM = parModule.genModule();
+                    if (genM == null)
+                    {
+                        System.out.println("Module specializition is unfamiliar " + modName);
+                    } else if (!genM.equals(m))
+                    {
+                        System.out.println("Module mismatch " + modName);
+                    }
+                }
+            }
+            if (parMod != null)
+            {
+                Map<String, ModName> parInsts = parModuleInstances.get(parMod);
                 assert parInsts != null;
                 parInsts.put(modName.toString(), modName);
-                modToParMod.put(modName, m.parMod);
+                modToParMod.put(modName, parMod);
             }
-            for (Wire wire : m.b.wires)
+            for (Wire wire : m.wires)
             {
                 vec4sizes.add(wire.width);
             }
-            for (Lhs<?> lhs : m.b.assigns.keySet())
+            for (Assign<Address> assign : m.assigns)
             {
-                vec4sizes.add(lhs.width());
+                vec4sizes.add(assign.lhs.width());
             }
         }
     }
 
     void gen(String designName, DesignExt design, File outDir) throws FileNotFoundException
     {
-        scanDesign(design);
+        scanDesign(design.b);
         this.designName = designName;
 
         File readSaoFile = new File(outDir, designName + "-sao.lisp");

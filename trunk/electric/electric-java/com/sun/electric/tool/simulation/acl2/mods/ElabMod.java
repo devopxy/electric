@@ -33,7 +33,6 @@ import com.sun.electric.util.acl2.ACL2Object;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -451,21 +450,23 @@ public class ElabMod
     {
         SvexManager<Address> sm = new SvexManager<>();
         Map<Svex<Address>, Svex<Address>> svexCache = new HashMap<>();
-        Map<Lhs<Address>, Driver<Address>> newAssigns = new LinkedHashMap<>();
-        for (Map.Entry<Lhs<Address>, Driver<Address>> e : m.assigns.entrySet())
+        List<Assign<Address>> newAssigns = new ArrayList<>();
+        for (Assign<Address> assign : m.assigns)
         {
-            Lhs<Address> newLhs = lhsNamedToIndex(e.getKey(), sm);
-            Driver<Address> driver = e.getValue();
+            Lhs<Address> newLhs = lhsNamedToIndex(assign.lhs, sm);
+            Driver<Address> driver = assign.driver;
             Svex<Address> newSvex = svexNamedToIndex(driver.svex, sm, svexCache);
             Driver<Address> newDriver = new Driver<>(newSvex, driver.strength);
-            newAssigns.put(newLhs, newDriver);
+            Assign<Address> newAssign = new Assign<>(newLhs, newDriver);
+            newAssigns.add(newAssign);
         }
-        Map<Lhs<Address>, Lhs<Address>> newAliasepairs = new LinkedHashMap<>();
-        for (Map.Entry<Lhs<Address>, Lhs<Address>> e : m.aliaspairs.entrySet())
+        List<Aliaspair<Address>> newAliasepairs = new ArrayList<>();
+        for (Aliaspair<Address> aliaspair : m.aliaspairs)
         {
-            Lhs<Address> newLhs = lhsNamedToIndex(e.getKey(), sm);
-            Lhs<Address> newRhs = lhsNamedToIndex(e.getValue(), sm);
-            newAliasepairs.put(newLhs, newRhs);
+            Lhs<Address> newLhs = lhsNamedToIndex(aliaspair.lhs, sm);
+            Lhs<Address> newRhs = lhsNamedToIndex(aliaspair.rhs, sm);
+            Aliaspair<Address> newAliaspair = new Aliaspair<>(newLhs, newRhs);
+            newAliasepairs.add(newAliaspair);
         }
         return new Module<>(sm, m.wires, m.insts, newAssigns, newAliasepairs);
     }
@@ -710,19 +711,21 @@ public class ElabMod
             SvexManager<IndexName> sm = result.sm;
             Map<Svex<Address>, Svex<IndexName>> svexCache = new HashMap<>();
             Module<Address> m = (Module<Address>)modIdx.origMod;
-            for (Map.Entry<Lhs<Address>, Driver<Address>> e : m.assigns.entrySet())
+            for (Assign<Address> assign : m.assigns)
             {
-                Lhs<IndexName> newLhs = absindexed(e.getKey(), sm);
-                Driver<Address> driver = e.getValue();
+                Lhs<IndexName> newLhs = absindexed(assign.lhs, sm);
+                Driver<Address> driver = assign.driver;
                 Svex<IndexName> newSvex = absindexed(driver.svex, sm, svexCache);
                 Driver<IndexName> newDriver = new Driver<>(newSvex, driver.strength);
-                result.assigns.put(newLhs, newDriver);
+                Assign<IndexName> newAssign = new Assign<>(newLhs, newDriver);
+                result.assigns.add(newAssign);
             }
-            for (Map.Entry<Lhs<Address>, Lhs<Address>> e : m.aliaspairs.entrySet())
+            for (Aliaspair<Address> aliaspair : m.aliaspairs)
             {
-                Lhs<IndexName> newLhs = absindexed(e.getKey(), sm);
-                Lhs<IndexName> newRhs = absindexed(e.getValue(), sm);
-                result.aliaspairs.put(newLhs, newRhs);
+                Lhs<IndexName> newLhs = absindexed(aliaspair.lhs, sm);
+                Lhs<IndexName> newRhs = absindexed(aliaspair.rhs, sm);
+                Aliaspair<IndexName> newAliaspair = new Aliaspair<>(newLhs, newRhs);
+                result.aliaspairs.add(newAliaspair);
             }
             for (int instidx = 0; instidx < m.insts.size(); instidx++)
             {

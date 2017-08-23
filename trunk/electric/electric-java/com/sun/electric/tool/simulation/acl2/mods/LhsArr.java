@@ -30,6 +30,7 @@ import com.sun.electric.util.acl2.ACL2Backed;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -383,19 +384,17 @@ public class LhsArr
         arr.clear();
     }
 
-    public void putPairs(Map<Lhs<IndexName>, Lhs<IndexName>> pairs)
+    public void putPairs(Collection<Aliaspair<IndexName>> aliaspairs)
     {
-        for (Map.Entry<Lhs<IndexName>, Lhs<IndexName>> e : pairs.entrySet())
+        for (Aliaspair<IndexName> aliaspair : aliaspairs)
         {
-            Lhs<IndexName> x = e.getKey();
-            Lhs<IndexName> y = e.getValue();
-            addPair(x, y);
+            addPair(aliaspair.lhs, aliaspair.rhs);
         }
     }
 
-    public void canonicalizeAliasPairs(Map<Lhs<IndexName>, Lhs<IndexName>> pairs)
+    public void canonicalizeAliasPairs(Collection<Aliaspair<IndexName>> aliaspairs)
     {
-        putPairs(pairs);
+        putPairs(aliaspairs);
         finishCanonicalize();
     }
 

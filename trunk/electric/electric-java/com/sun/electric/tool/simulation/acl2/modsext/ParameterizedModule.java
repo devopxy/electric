@@ -22,6 +22,8 @@
 package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.simulation.acl2.mods.Address;
+import com.sun.electric.tool.simulation.acl2.mods.Aliaspair;
+import com.sun.electric.tool.simulation.acl2.mods.Assign;
 import com.sun.electric.tool.simulation.acl2.mods.Driver;
 import com.sun.electric.tool.simulation.acl2.mods.IndexName;
 import com.sun.electric.tool.simulation.acl2.mods.Lhatom;
@@ -91,8 +93,8 @@ public abstract class ParameterizedModule
     private SvexManager<Address> sm;
     private final List<Wire> wires = new ArrayList<>();
     private final List<ModInst> insts = new ArrayList<>();
-    private final Map<Lhs<Address>, Driver<Address>> assigns = new LinkedHashMap<>();
-    private final Map<Lhs<Address>, Lhs<Address>> aliaspairs = new LinkedHashMap<>();
+    private final List<Assign<Address>> assigns = new ArrayList<>();
+    private final List<Aliaspair<Address>> aliaspairs = new ArrayList<>();
 
     public ParameterizedModule(String libName, String modName)
     {
@@ -620,7 +622,8 @@ public abstract class ParameterizedModule
     private void assign(Lhs<Address> lhs, Svex<Address> svex)
     {
         Driver<Address> driver = new Driver<>(svex);
-        assigns.put(lhs, driver);
+        Assign<Address> assign = new Assign<>(lhs, driver);
+        assigns.add(assign);
     }
 
     /**
@@ -664,7 +667,8 @@ public abstract class ParameterizedModule
         Lhs<Address> lhs = new Lhs<>(Arrays.asList(lrange));
         Lhs<Address> rhs = new Lhs<>(Arrays.asList(ranges));
         Util.check(lhs.width() == rhs.width());
-        aliaspairs.put(lhs, rhs);
+        Aliaspair<Address> aliaspair = new Aliaspair<>(lhs, rhs);
+        aliaspairs.add(aliaspair);
     }
 
     protected Module<Address> getModule()
