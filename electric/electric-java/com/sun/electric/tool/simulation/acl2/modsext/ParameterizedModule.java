@@ -146,18 +146,26 @@ public abstract class ParameterizedModule
                 return null;
             }
             params = params.substring(paramPrefix.length());
-            int indDelim = params.indexOf(paramDelim);
-            if (indDelim < 0)
-            {
-                return null;
-            }
-            int nextPrefix = params.indexOf(paramPrefix, indDelim + paramDelim.length());
+            int nextPrefix = params.indexOf(paramPrefix);
             if (nextPrefix < 0)
             {
                 nextPrefix = params.length();
             }
-            String paramName = params.substring(0, indDelim);
-            String paramVal = params.substring(indDelim + paramDelim.length(), nextPrefix);
+            String paramName, paramVal;
+            if (paramDelim != null)
+            {
+                int indDelim = params.lastIndexOf(paramDelim, nextPrefix - paramDelim.length());
+                if (indDelim < 0)
+                {
+                    return null;
+                }
+                paramName = params.substring(0, indDelim);
+                paramVal = params.substring(indDelim + paramDelim.length(), nextPrefix);
+            } else
+            {
+                paramName = "";
+                paramVal = params.substring(0, nextPrefix);
+            }
             Integer defaultInt = getDefaultInt(paramName);
             if (defaultInt != null)
             {
