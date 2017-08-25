@@ -1,17 +1,20 @@
----------------- This is Electric, Version 9.07 ----------------
+---------------- This is Electric, Version 9.08 ----------------
 
 Electric is written in the Java programming language and is distributed in a
 single ".jar" file.  There are two variations on the ".jar" file:
   With source code (called "electric-X.XX.jar")
   Without source code (called, "electricBinary-X.XX.jar").
 Both of these files have the binary ".class" files needed to run Electric,
-but the one with source-code is larger because it also has all of the Java code. 
+but the one with source-code is larger because it also has all of the Java code.
+
+If you wish to examine the very latest source code, it can be found in a Subversion repository at
+  http://www.gnu.org/software/electric/electric.html
 
 ---------------- Requirements:
 
-Electric requires OpenJDK, Apache Harmony, or Oracle Java version 1.7.
+Electric requires OpenJDK, Apache Harmony, or Oracle Java version 1.8.
 It is developed with Oracle Java, so if you run into problems with
-other versions, try installing Java 1.7 or later from Oracle.
+other versions, try installing Java 1.8 or later from Oracle.
 
 ---------------- Running:
 
