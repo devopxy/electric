@@ -125,23 +125,23 @@ public class Module<N extends SvarName>
             instsList = cons(insts.get(i).getACL2Object(backedCache), instsList);
         }
         ACL2Object assignsList = NIL;
-        for (Assign<N> assign : assigns)
+        for (int i = assigns.size() - 1; i >= 0; i--)
         {
+            Assign<N> assign = assigns.get(i);
             assignsList = cons(cons(assign.lhs.getACL2Object(backedCache),
                 assign.driver.getACL2Object(backedCache)), assignsList);
         }
-        assignsList = Util.revList(assignsList);
         ACL2Object aliasesList = NIL;
-        for (Aliaspair<N> aliaspair : aliaspairs)
+        for (int i = aliaspairs.size() - 1; i >= 0; i--)
         {
+            Aliaspair<N> aliaspair = aliaspairs.get(i);
             aliasesList = cons(cons(aliaspair.lhs.getACL2Object(backedCache),
                 aliaspair.rhs.getACL2Object(backedCache)), aliasesList);
         }
-        aliasesList = Util.revList(aliasesList);
-        return hons(hons(Util.SV_WIRES, wiresList),
-            hons(hons(Util.SV_INSTS, instsList),
-                hons(hons(Util.SV_ASSIGNS, assignsList),
-                    hons(hons(Util.SV_ALIASPAIRS, aliasesList),
+        return cons(cons(Util.SV_WIRES, wiresList),
+            cons(cons(Util.SV_INSTS, instsList),
+                cons(cons(Util.SV_ASSIGNS, assignsList),
+                    cons(cons(Util.SV_ALIASPAIRS, aliasesList),
                         NIL))));
     }
 

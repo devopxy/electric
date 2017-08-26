@@ -40,18 +40,18 @@ import java.util.Map;
 /**
  * Verilog module coretype_reg.
  */
-public class coretype_reg extends ParameterizedModule
+public class coretype extends ParameterizedModule
 {
 
     public static final ACL2Object KEYWORD_VL_CORETYPE = ACL2Object.valueOf("KEYWORD", "VL-CORETYPE");
+    public static final ACL2Object KEYWORD_VL_LOGIC = ACL2Object.valueOf("KEYWORD", "VL-LOGIC");
     public static final ACL2Object KEYWORD_VL_REG = ACL2Object.valueOf("KEYWORD", "VL-REG");
     public static final ACL2Object KEYWORD_VL_RANGE = ACL2Object.valueOf("KEYWORD", "VL-RANGE");
     public static final ACL2Object KEYWORD_VL_LITERAL = ACL2Object.valueOf("KEYWORD", "VL-LITERAL");
     public static final ACL2Object KEYWORD_VL_CONSTINT = ACL2Object.valueOf("KEYWORD", "VL-CONSTINT");
     public static final ACL2Object KEYWORD_VL_SIGNED = ACL2Object.valueOf("KEYWORD", "VL-SIGNED");
 
-    public static final ModName MODNAME_CORETYPE_38_1599 = ModName.fromACL2(ACL2.hons(KEYWORD_VL_CORETYPE, ACL2.hons(ACL2.hons(KEYWORD_VL_REG, mkRange(38, 0)), ACL2.hons(mkRange(0, 1599), ACL2.NIL))));
-    public static final coretype_reg INSTANCE = new coretype_reg();
+    public static final coretype INSTANCE = new coretype();
 
     private static ACL2Object mkRange(int val1, int val2)
     {
@@ -64,12 +64,10 @@ public class coretype_reg extends ParameterizedModule
         return ACL2.hons(KEYWORD_VL_LITERAL, ACL2.hons(constint, ACL2.hons(ACL2.hons(ACL2Object.valueOf("VL_ORIG_EXPR"), ACL2.hons(KEYWORD_VL_LITERAL, ACL2.hons(constint, ACL2.NIL))), ACL2.NIL)));
     }
 
-    private coretype_reg()
+    private coretype()
     {
-        super("coretype", "reg");
+        super("verilog", "coretype");
     }
-    final int nwords = 1600;
-    final int width = 39;
 
     @Override
     protected Map<String, ACL2Object> matchModName(ModName modName)
@@ -83,6 +81,7 @@ public class coretype_reg extends ParameterizedModule
         {
             return null;
         }
+        ACL2Object coretype = car(car(impl));
         ACL2Object pdims = cdr(car(cdr(impl)));
         ACL2Object udims = car(cdr(cdr(impl)));
         ACL2Object pdim = car(pdims);
@@ -104,6 +103,7 @@ public class coretype_reg extends ParameterizedModule
         int u1 = cdr(car(cdr(ucint1))).intValueExact();
         int u2 = cdr(car(cdr(ucint2))).intValueExact();
         Map<String, ACL2Object> result = new LinkedHashMap<>();
+        result.put("coretype", coretype);
         result.put("p1", ACL2Object.valueOf(p1));
         result.put("p2", ACL2Object.valueOf(p2));
         result.put("u1", ACL2Object.valueOf(u1));
@@ -113,7 +113,8 @@ public class coretype_reg extends ParameterizedModule
 
     private boolean matchReg(ACL2Object impl)
     {
-        return car(car(impl)).equals(KEYWORD_VL_REG)
+        ACL2Object coretype = car(car(impl));
+        return (coretype.equals(KEYWORD_VL_LOGIC) || coretype.equals(KEYWORD_VL_REG))
             && matchRange(cdr(car(impl)))
             && matchRange(car(cdr(impl)))
             && cdr(cdr(impl)).equals(NIL);
@@ -187,6 +188,13 @@ public class coretype_reg extends ParameterizedModule
     @Override
     protected int getNumWires()
     {
+        int p1 = getIntParam("p1");
+        int p2 = getIntParam("p2");
+        int u1 = getIntParam("u1");
+        int u2 = getIntParam("u2");
+        Util.check(p1 >= p2);
+        int width = p1 - p2 + 1;
+        int nwords = Math.abs(u2 - u1) + 1;
         return 1 + nwords;
     }
 
@@ -199,23 +207,35 @@ public class coretype_reg extends ParameterizedModule
     @Override
     protected int getNumBits()
     {
+        int p1 = getIntParam("p1");
+        int p2 = getIntParam("p2");
+        int u1 = getIntParam("u1");
+        int u2 = getIntParam("u2");
+        Util.check(p1 >= p2);
+        int width = p1 - p2 + 1;
+        int nwords = Math.abs(u2 - u1) + 1;
         return 2 * nwords * width;
     }
 
     @Override
-    protected void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm)
+    protected void makeAliases(List<Lhs<IndexName>> pm, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm)
     {
-        assert portMap.size() == 1;
-        Lhs<IndexName> self = portMap.get(0);
-        makeAliases(arr, sm,
-            nwords, width,
-            self);
+        int p1 = getIntParam("p1");
+        int p2 = getIntParam("p2");
+        int u1 = getIntParam("u1");
+        int u2 = getIntParam("u2");
+        assert pm.size() == 1;
+        makeAliases(arr, sm, p1, p2, u1, u2,
+            pm.get(0));
     }
 
     public static void makeAliases(List<Lhs<IndexName>> arr, SvexManager<IndexName> sm,
-        int nwords, int width,
+        int p1, int p2, int u1, int u2,
         Lhs<IndexName> self)
     {
+        Util.check(p1 >= p2);
+        int width = p1 - p2 + 1;
+        int nwords = Math.abs(u2 - u1) + 1;
         arr.add(self);
         for (int addr = 0; addr < nwords; addr++)
         {

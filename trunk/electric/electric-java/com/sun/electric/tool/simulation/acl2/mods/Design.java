@@ -22,9 +22,7 @@
 package com.sun.electric.tool.simulation.acl2.mods;
 
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
-import static com.sun.electric.util.acl2.ACL2.car;
-import static com.sun.electric.util.acl2.ACL2.cdr;
-import static com.sun.electric.util.acl2.ACL2.consp;
+import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,5 +59,21 @@ public class Design<N extends SvarName>
         pair = fields.get(1);
         Util.check(car(pair).equals(Util.SV_TOP));
         top = ModName.fromACL2(cdr(pair));
+    }
+
+    public ACL2Object getACL2Object()
+    {
+        ACL2Object modalistList = NIL;
+        for (Map.Entry<ModName, Module<N>> e : modalist.entrySet())
+        {
+            ModName modName = e.getKey();
+            Module<N> m = e.getValue();
+            modalistList = cons(cons(modName.getACL2Object(), m.getACL2Object()),
+                modalistList);
+        }
+        modalistList = Util.revList(modalistList);
+        return cons(cons(Util.SV_MODALIST, modalistList),
+            cons(cons(Util.SV_TOP, top.getACL2Object()),
+                NIL));
     }
 }
