@@ -37,7 +37,7 @@ import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
 import com.sun.electric.tool.simulation.acl2.mods.Wiretype;
-import com.sun.electric.tool.simulation.acl2.modsext.parmods.coretype_reg;
+import com.sun.electric.tool.simulation.acl2.modsext.parmods.coretype;
 import com.sun.electric.tool.simulation.acl2.modsext.parmods.gate_buf;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.Svex;
@@ -116,7 +116,7 @@ public abstract class ParameterizedModule
     {
         List<ParameterizedModule> result = new ArrayList<>();
         result.add(gate_buf.INSTANCE);
-        result.add(coretype_reg.INSTANCE);
+        result.add(coretype.INSTANCE);
         return result;
     }
 
