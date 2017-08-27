@@ -186,9 +186,9 @@ public class DesignExplore<H extends DesignHints>
 
     private static void checkAssign(Assign<Address> assign)
     {
-        if (assign.driver.strength != 6)
+        if (assign.driver.strength != 6 && assign.driver.strength != 0)
         {
-            System.out.println("!!! Difficutl driver strength " + assign.lhs + " " + assign.driver.strength);
+            System.out.println("!!! Difficult driver strength " + assign.lhs + " " + assign.driver.strength);
         }
         for (Svar<Address> svar : assign.driver.vars)
         {
