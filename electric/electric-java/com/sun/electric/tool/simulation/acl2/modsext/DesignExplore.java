@@ -26,11 +26,14 @@ import com.sun.electric.tool.simulation.acl2.mods.Aliaspair;
 import com.sun.electric.tool.simulation.acl2.mods.Assign;
 import com.sun.electric.tool.simulation.acl2.mods.Design;
 import com.sun.electric.tool.simulation.acl2.mods.Driver;
+import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModInst;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
+import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
+import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.util.acl2.ACL2Object;
 import com.sun.electric.util.acl2.ACL2Reader;
@@ -39,6 +42,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Arrays;
+import java.util.Map;
 
 /**
  * Standalone programs to explore design
@@ -62,7 +66,147 @@ public class DesignExplore<H extends DesignHints>
 
     private void showLibs(String saoFileName)
     {
-        ACL2DesignJobs.ShowSvexLibsJob.doItNoJob(cls, new File(saoFileName));
+        File saoFile = new File(saoFileName);
+        try
+        {
+            ACL2Object.initHonsMananger(saoFile.getName());
+            DesignHints designHints = cls.newInstance();
+            ACL2Reader sr = new ACL2Reader(saoFile);
+            SvarName.Builder<Address> snb = new Address.SvarNameBuilder();
+            Design<Address> design = new Design<>(snb, sr.root);
+            GenFsmNew gen = new GenFsmNew(designHints);
+            gen.scanDesign(design);
+            for (Map.Entry<ModName, Module<Address>> e : design.modalist.entrySet())
+            {
+                ModName modName = e.getKey();
+                Module<Address> m = e.getValue();
+                if (gen.modToParMod.containsKey(modName))
+                {
+                    continue;
+                }
+                System.out.println(modName);
+                if (!modName.isString())
+                {
+                    System.out.println("!!! Difficult modName");
+                }
+                for (Wire wire : m.wires)
+                {
+                    if (!wire.name.isString())
+                    {
+                        System.out.println("!!! Difficult wire name " + wire.name);
+                    }
+                }
+                for (ModInst inst : m.insts)
+                {
+                    if (!inst.instname.isString())
+                    {
+                        System.out.println("!!! Difficult inst name " + inst.instname + " " + inst.modname);
+                    }
+                }
+                for (Assign<Address> assign : m.assigns)
+                {
+                    if (!easyLhs(assign.lhs, 1))
+                    {
+                        System.out.println("!!! Difficult assign " + assign.lhs);
+                    }
+                    checkAssign(assign);
+                }
+                for (Aliaspair<Address> aliaspair : m.aliaspairs)
+                {
+                    if (aliaspair.lhs.ranges.size() != 1)
+                    {
+                        System.out.println("!!! Difficult lhs size " + aliaspair.lhs + " = " + aliaspair.rhs);
+                    }
+                    if (!easyLhs(aliaspair.lhs, 1))
+                    {
+                        System.out.println("!!! Difficult lhs " + aliaspair.lhs + " = " + aliaspair.rhs);
+                    }
+                    if (aliaspair.lhs.ranges.get(0).getVar().getName().path.getDepth() == 1)
+                    {
+                        if (!easyLhs(aliaspair.rhs, 0))
+                        {
+                            System.out.println("!!! Difficult rhs " + aliaspair.lhs + " = " + aliaspair.rhs);
+                        }
+                    } else
+                    {
+                        if (aliaspair.rhs.ranges.size() != 1)
+                        {
+                            System.out.println("!!! Difficult rhs size " + aliaspair.lhs + " = " + aliaspair.rhs);
+                        }
+                        if (!easyLhs(aliaspair.rhs, 1))
+                        {
+                            System.out.println("!!! Difficult rhs " + aliaspair.lhs + " = " + aliaspair.rhs);
+                        }
+                        if (aliaspair.rhs.ranges.get(0).getVar().getName().path.getDepth() != 1)
+                        {
+                            System.out.println("!!! Difficult rhs depth " + aliaspair.lhs + " = " + aliaspair.rhs);
+                        }
+                    }
+                    if (aliaspair.lhs.ranges.get(0).getVar().getName().path.getDepth() == 0)
+                    {
+                    }
+                }
+            }
+            gen.showLibs();
+        } catch (InstantiationException | IllegalAccessException | IOException e)
+        {
+            System.out.println(e.getMessage());
+        } finally
+        {
+            ACL2Object.closeHonsManager();
+        }
+    }
+
+    private static boolean easyLhs(Lhs<Address> lhs, int maxDepth)
+    {
+        for (Lhrange<Address> range : lhs.ranges)
+        {
+            Svar<Address> svar = range.getVar();
+            if (svar == null)
+            {
+                return false;
+            }
+            if (svar.getDelay() != 0 || svar.isNonblocking())
+            {
+                return false;
+            }
+            Address addr = svar.getName();
+            if (addr.index != Address.INDEX_NIL || addr.scope != 0)
+            {
+                return false;
+            }
+            Path path = addr.getPath();
+            if (path.getDepth() > maxDepth)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void checkAssign(Assign<Address> assign)
+    {
+        if (assign.driver.strength != 6)
+        {
+            System.out.println("!!! Difficutl driver strength " + assign.lhs + " " + assign.driver.strength);
+        }
+        for (Svar<Address> svar : assign.driver.vars)
+        {
+            if (svar.getDelay() > 1 || svar.isNonblocking())
+            {
+                System.out.println("!!! Difficult delay " + assign.lhs + " " + svar);
+            }
+            Address addr = svar.getName();
+            if (addr.index != Address.INDEX_NIL || addr.scope != 0)
+            {
+                System.out.println("!!! Difficult address " + assign.lhs + " " + svar);
+            }
+            Path path = addr.getPath();
+            if (path.getDepth() != 0)
+            {
+                System.out.println("!!! Difficult path " + assign.lhs + " " + svar);
+            }
+        }
     }
 
     private void strip(String saoFileName)
@@ -88,7 +232,7 @@ public class DesignExplore<H extends DesignHints>
             outFileName += "-stripped.sao";
             File outFile = new File(saoDir, outFileName);
             ACL2Writer.write(design.getACL2Object(), outFile);
-        } catch (/*InstantiationException | IllegalAccessException |*/IOException e)
+        } catch (IOException e)
         {
             System.out.println(e.getMessage());
         } finally
@@ -111,7 +255,7 @@ public class DesignExplore<H extends DesignHints>
                 ModName modName = ModName.valueOf(modNameStr);
                 showMod(System.out, modName, design.modalist.get(modName));
             }
-        } catch (/*InstantiationException | IllegalAccessException |*/IOException e)
+        } catch (IOException e)
         {
             System.out.println(e.getMessage());
         } finally
