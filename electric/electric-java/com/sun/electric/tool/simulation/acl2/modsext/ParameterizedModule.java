@@ -59,6 +59,7 @@ import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4PartSelect;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Plus;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4ReductionOr;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4Rsh;
+import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4SignExt;
 import com.sun.electric.tool.simulation.acl2.svex.funs.Vec4ZeroExt;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
@@ -573,6 +574,11 @@ public abstract class ParameterizedModule
     protected Svex<Address> zext(Svex<Address> n, Svex<Address> x)
     {
         return sm.newCall(Vec4ZeroExt.FUNCTION, n, x);
+    }
+
+    protected Svex<Address> sext(Svex<Address> n, Svex<Address> x)
+    {
+        return sm.newCall(Vec4SignExt.FUNCTION, n, x);
     }
 
     protected Svex<Address> q(int val)
