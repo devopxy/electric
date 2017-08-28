@@ -248,8 +248,8 @@ public class LhsArr
 
     private void pairsSetAliases(Lhs<IndexName> x, Lhs<IndexName> y)
     {
-        Lhs.Decomp dx = x.decomp();
-        Lhs.Decomp dy = y.decomp();
+        Lhs.Decomp<IndexName> dx = x.decomp();
+        Lhs.Decomp<IndexName> dy = y.decomp();
         if (dx.first == null || dy.first == null)
         {
             return;

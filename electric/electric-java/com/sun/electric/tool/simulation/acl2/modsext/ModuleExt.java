@@ -287,13 +287,9 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
                 } else
                 {
                     Util.check(parModule.getNumInsts() == elabMod.modNInsts());
-                    Util.check(parModule.getNumWires() == elabMod.modNWires());
                     Util.check(parModule.getNumAssigns() == elabMod.modNAssigns());
-                    Util.check(parModule.getNumBits() == elabMod.modNBits());
                     Util.check(parModule.getTotalInsts() == elabMod.modTotalInsts());
-                    Util.check(parModule.getTotalWires() == elabMod.modTotalWires());
                     Util.check(parModule.getTotalAssigns() == elabMod.modTotalAssigns());
-                    Util.check(parModule.getTotalBits() == elabMod.modTotalBits());
                 }
             }
         }
@@ -587,13 +583,6 @@ public class ModuleExt /*extends SvarImpl.Builder<PathExt>*/ implements Comparat
 
     private void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm, boolean useParMods)
     {
-        if (useParMods && parMod != null)
-        {
-            boolean ok = parMod.setCurBuilder(modName, b.sm);
-            assert ok;
-            parMod.makeAliases(portMap, arr, sm);
-            return;
-        }
         int wireOffset = arr.size();
         for (WireExt wire : wires)
         {

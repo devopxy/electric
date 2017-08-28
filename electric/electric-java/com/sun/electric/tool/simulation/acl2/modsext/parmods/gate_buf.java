@@ -65,30 +65,4 @@ public class gate_buf extends ParameterizedModule
         assign("out1", 1, unfloat(v("in")));
         return getModule();
     }
-
-    @Override
-    protected int getNumWires()
-    {
-        return 2;
-    }
-
-    @Override
-    protected void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm)
-    {
-        assert portMap.size() == 2;
-        Lhs<IndexName> out1 = portMap.get(0);
-        Lhs<IndexName> in = portMap.get(1);
-        makeAliases(arr, sm,
-            out1,
-            in);
-    }
-
-    public static void makeAliases(List<Lhs<IndexName>> arr, SvexManager<IndexName> sm,
-        Lhs<IndexName> out1,
-        Lhs<IndexName> in)
-    {
-        arr.add(out1);
-        arr.add(in);
-    }
-
 }

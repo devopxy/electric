@@ -22,8 +22,6 @@
 package com.sun.electric.tool.simulation.acl2.modsext;
 
 import com.sun.electric.tool.simulation.acl2.mods.Address;
-import com.sun.electric.tool.simulation.acl2.mods.IndexName;
-import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
@@ -158,37 +156,6 @@ public class TutorialHints implements DesignHints
 
             return getModule();
         }
-
-        @Override
-        protected int getNumWires()
-        {
-            return 3;
-        }
-
-        @Override
-        protected int getNumBits()
-        {
-            int width = getIntParam("width");
-            return 2 * width + 1;
-        }
-
-        @Override
-        protected void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm)
-        {
-            assert portMap.size() == 3;
-            Lhs<IndexName> q = portMap.get(0);
-            Lhs<IndexName> d = portMap.get(1);
-            Lhs<IndexName> clk = portMap.get(2);
-            makeAliases(arr, sm, q, d, clk);
-        }
-
-        static void makeAliases(List<Lhs<IndexName>> arr, SvexManager<IndexName> sm,
-            Lhs<IndexName> q, Lhs<IndexName> d, Lhs<IndexName> clk)
-        {
-            arr.add(q);
-            arr.add(d);
-            arr.add(clk);
-        }
     }
 
     private static class BoothFlop extends ParameterizedModule
@@ -231,37 +198,6 @@ public class TutorialHints implements DesignHints
                     v("q", 1)));
 
             return getModule();
-        }
-
-        @Override
-        protected int getNumWires()
-        {
-            return 3;
-        }
-
-        @Override
-        protected int getNumBits()
-        {
-            int width = getIntParam("width");
-            return 2 * width + 1;
-        }
-
-        @Override
-        protected void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm)
-        {
-            assert portMap.size() == 3;
-            Lhs<IndexName> q = portMap.get(0);
-            Lhs<IndexName> d = portMap.get(1);
-            Lhs<IndexName> clk = portMap.get(2);
-            makeAliases(arr, sm, q, d, clk);
-        }
-
-        static void makeAliases(List<Lhs<IndexName>> arr, SvexManager<IndexName> sm,
-            Lhs<IndexName> q, Lhs<IndexName> d, Lhs<IndexName> clk)
-        {
-            arr.add(q);
-            arr.add(d);
-            arr.add(clk);
         }
     };
 

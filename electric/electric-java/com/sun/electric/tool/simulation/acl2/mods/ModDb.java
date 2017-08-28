@@ -41,9 +41,17 @@ public class ModDb
     final List<ElabMod> mods = new ArrayList<>();
     final Map<ModName, ElabMod> modnameIdxes = new HashMap<>();
 
-    public <N extends SvarName> ModDb(ModName modName, Map<ModName, Module<N>> modalist)
+    public ModDb(ModName modName, Map<ModName, Module<Address>> modalist)
     {
         moduleToDb(modName, modalist);
+    }
+
+    public ModDb(Map<ModName, Module<Address>> modalist)
+    {
+        for (ModName modName : modalist.keySet())
+        {
+            moduleToDb(modName, modalist);
+        }
     }
 
     public int nMods()
@@ -80,7 +88,7 @@ public class ModDb
         return result;
     }
 
-    private <N extends SvarName> void moduleToDb(ModName modName, Map<ModName, Module<N>> modalist)
+    private void moduleToDb(ModName modName, Map<ModName, Module<Address>> modalist)
     {
         ElabMod elabMod = modnameIdxes.get(modName);
         if (elabMod != null)
@@ -92,7 +100,7 @@ public class ModDb
             throw new IllegalArgumentException("Module loop " + modName);
         }
         modnameIdxes.put(modName, null);
-        Module<N> module = modalist.get(modName);
+        Module<Address> module = modalist.get(modName);
         if (module == null)
         {
             throw new IllegalArgumentException("Module not found " + modName);

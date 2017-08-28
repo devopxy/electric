@@ -53,10 +53,10 @@ public class ElabMod
     final int totalBits;
     final int totalInsts;
     final int totalAssigns; // Extension
-    final Module<?> origMod;
+    final Module<Address> origMod;
     final int modMeas;
 
-    ElabMod(ModName modName, Module<?> origMod, Map<ModName, ElabMod> modnameIdxes)
+    ElabMod(ModName modName, Module<Address> origMod, Map<ModName, ElabMod> modnameIdxes)
     {
 //        this.index = index;
         this.modName = modName;
@@ -710,7 +710,7 @@ public class ElabMod
         {
             SvexManager<IndexName> sm = result.sm;
             Map<Svex<Address>, Svex<IndexName>> svexCache = new HashMap<>();
-            Module<Address> m = (Module<Address>)modIdx.origMod;
+            Module<Address> m = modIdx.origMod;
             for (Assign<Address> assign : m.assigns)
             {
                 Lhs<IndexName> newLhs = absindexed(assign.lhs, sm);

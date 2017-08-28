@@ -481,7 +481,8 @@ public abstract class ParameterizedModule
         return sm.newCall(Vec4Bitand.FUNCTION, x, y);
     }
 
-    protected Svex<Address> bitandE(int width, Svex<Address>... x)
+    @SafeVarargs
+    protected final Svex<Address> bitandE(int width, Svex<Address>... x)
     {
         Svex<Address> result = null;
         for (Svex<Address> xi : x)
@@ -491,7 +492,8 @@ public abstract class ParameterizedModule
         return result;
     }
 
-    protected Svex<Address> bitandE(Svex<Address>... x)
+    @SafeVarargs
+    protected final Svex<Address> bitandE(Svex<Address>... x)
     {
         return bitandE(1, x);
     }
@@ -501,7 +503,8 @@ public abstract class ParameterizedModule
         return sm.newCall(Vec4Bitor.FUNCTION, x, y);
     }
 
-    protected Svex<Address> bitorE(int width, Svex<Address>... x)
+    @SafeVarargs
+    protected final Svex<Address> bitorE(int width, Svex<Address>... x)
     {
         Svex<Address> result = null;
         for (Svex<Address> xi : x)
@@ -511,7 +514,8 @@ public abstract class ParameterizedModule
         return result;
     }
 
-    protected Svex<Address> bitorE(Svex<Address>... x)
+    @SafeVarargs
+    protected final Svex<Address> bitorE(Svex<Address>... x)
     {
         return bitorE(1, x);
     }
@@ -521,7 +525,8 @@ public abstract class ParameterizedModule
         return sm.newCall(Vec4Bitxor.FUNCTION, x, y);
     }
 
-    protected Svex<Address> bitxorE(int width, Svex<Address>... x)
+    @SafeVarargs
+    protected final Svex<Address> bitxorE(int width, Svex<Address>... x)
     {
         Svex<Address> result = null;
         for (Svex<Address> xi : x)
@@ -536,7 +541,8 @@ public abstract class ParameterizedModule
         return bitxorE(width, x.toArray(Svex.newSvexArray(x.size())));
     }
 
-    protected Svex<Address> bitxorE(Svex<Address>... x)
+    @SafeVarargs
+    protected final Svex<Address> bitxorE(Svex<Address>... x)
     {
         return bitxorE(1, x);
     }
@@ -677,7 +683,8 @@ public abstract class ParameterizedModule
      * @param portName name of port
      * @param ranges list of Lhranges
      */
-    protected void conn(String portName, Lhrange<Address>... ranges)
+    @SafeVarargs
+    protected final void conn(String portName, Lhrange<Address>... ranges)
     {
         conn(curInstName, portName, ranges);
     }
@@ -695,7 +702,8 @@ public abstract class ParameterizedModule
         conn(portName, r(wireName, width - 1, 0));
     }
 
-    private void conn(String instName, String portName, Lhrange<Address>... ranges)
+    @SafeVarargs
+    private final void conn(String instName, String portName, Lhrange<Address>... ranges)
     {
         int width = 0;
         for (Lhrange<Address> range : ranges)
@@ -706,7 +714,8 @@ public abstract class ParameterizedModule
         conn(lrange, ranges);
     }
 
-    protected void conn(Lhrange<Address> lrange, Lhrange<Address>... ranges)
+    @SafeVarargs
+    protected final void conn(Lhrange<Address> lrange, Lhrange<Address>... ranges)
     {
         Lhs<Address> lhs = new Lhs<>(Arrays.asList(lrange));
         Lhs<Address> rhs = new Lhs<>(Arrays.asList(ranges));
@@ -730,16 +739,9 @@ public abstract class ParameterizedModule
         return 0;
     }
 
-    protected abstract int getNumWires();
-
     protected int getNumAssigns()
     {
         return 1;
-    }
-
-    protected int getNumBits()
-    {
-        return getNumWires();
     }
 
     protected int getTotalInsts()
@@ -747,19 +749,9 @@ public abstract class ParameterizedModule
         return getNumInsts();
     }
 
-    protected int getTotalWires()
-    {
-        return getNumWires();
-    }
-
     protected int getTotalAssigns()
     {
         return getNumAssigns();
-    }
-
-    protected int getTotalBits()
-    {
-        return getNumBits();
     }
 
     protected static Lhs<IndexName> aliasWire(List<Lhs<IndexName>> arr, SvexManager<IndexName> sm, int width)
@@ -787,8 +779,6 @@ public abstract class ParameterizedModule
     {
         return in.rsh(rsh).concat(width, Lhs.empty());
     }
-
-    protected abstract void makeAliases(List<Lhs<IndexName>> portMap, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm);
 
     @Override
     public boolean equals(Object o)
