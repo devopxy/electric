@@ -28,10 +28,12 @@ import com.sun.electric.tool.simulation.acl2.mods.Assign;
 import com.sun.electric.tool.simulation.acl2.mods.Design;
 import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
+import com.sun.electric.tool.simulation.acl2.mods.ModDb;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.Path;
+import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
@@ -73,7 +75,7 @@ public class GenFsmNew extends GenBase
     {
         new GenFsmJob(cls, saoFile, designName).startJob();
     }
-    
+
     private final String[] clockNames =
     {
         "l2clk"
@@ -82,16 +84,16 @@ public class GenFsmNew extends GenBase
     final Map<ParameterizedModule, Map<String, ModName>> parModuleInstances = new LinkedHashMap<>();
     private final Set<Integer> vec4sizes = new TreeSet<>();
     private String designName;
-    
+
     private final DesignHints designHints;
     private final List<ParameterizedModule> parameterizedModules;
-    
+
     protected GenFsmNew(DesignHints designHints)
     {
         this.designHints = designHints;
         parameterizedModules = designHints.getParameterizedModules();
     }
-    
+
     ParameterizedModule matchParameterized(ModName modName)
     {
         for (ParameterizedModule parMod : parameterizedModules)
@@ -103,7 +105,7 @@ public class GenFsmNew extends GenBase
         }
         return null;
     }
-    
+
     public void scanLib(File saoFile) throws IOException
     {
         ACL2Reader sr = new ACL2Reader(saoFile);
@@ -118,7 +120,7 @@ public class GenFsmNew extends GenBase
             }
         }
     }
-    
+
     public void showLibs()
     {
         System.out.println("========= Instances of libs ============");
@@ -140,8 +142,13 @@ public class GenFsmNew extends GenBase
             System.out.println("(def-4vec-p " + width + ")");
         }
     }
-    
+
     void scanDesign(Design<Address> design)
+    {
+        scanDesign(design, null);
+    }
+
+    void scanDesign(Design<Address> design, ModDb modDb)
     {
         List<ParameterizedModule> parModules = parameterizedModules;
         for (ParameterizedModule parModule : parModules)
@@ -152,7 +159,7 @@ public class GenFsmNew extends GenBase
         {
             ModName modName = e.getKey();
             Module<Address> m = e.getValue();
-            
+
             ParameterizedModule parMod = null;
             for (ParameterizedModule parModule : parameterizedModules)
             {
@@ -176,6 +183,13 @@ public class GenFsmNew extends GenBase
                         System.out.println("Module mismatch " + modName);
                         DesignExplore.showMod(System.out, modName, m);
                         DesignExplore.showMod(System.out, modName, genM);
+                    } else if (modDb != null)
+                    {
+                        ElabMod elabMod = modDb.modnameGetIndex(modName);
+                        Util.check(parModule.getNumInsts() == elabMod.modNInsts());
+                        Util.check(parModule.getNumAssigns() == elabMod.modNAssigns());
+                        Util.check(parModule.getTotalInsts() == elabMod.modTotalInsts());
+                        Util.check(parModule.getTotalAssigns() == elabMod.modTotalAssigns());
                     }
                 }
             }
@@ -196,12 +210,13 @@ public class GenFsmNew extends GenBase
             }
         }
     }
-    
-    void gen(String designName, DesignExt design, File outDir) throws FileNotFoundException
+
+    void gen(String designName, DesignExt design,
+         File outDir) throws FileNotFoundException
     {
         scanDesign(design.b);
         this.designName = designName;
-        
+
         File readSaoFile = new File(outDir, designName + "-sao.lisp");
         try (PrintStream out = new PrintStream(readSaoFile))
         {
@@ -211,10 +226,10 @@ public class GenFsmNew extends GenBase
         {
             this.out = null;
         }
-        
+
         String clockName = designHints.getGlobalClock();
         design.computeCombinationalInputs(clockName);
-        
+
         for (Map.Entry<ParameterizedModule, Map<String, ModName>> e : parModuleInstances.entrySet())
         {
             ParameterizedModule parMod = e.getKey();
@@ -223,7 +238,7 @@ public class GenFsmNew extends GenBase
             {
                 continue;
             }
-            
+
             File statesFile = new File(outDir, parMod.modName + "-st.lisp");
             try (PrintStream out = new PrintStream(statesFile))
             {
@@ -242,7 +257,7 @@ public class GenFsmNew extends GenBase
             {
                 continue;
             }
-            
+
             File statesFile = new File(outDir, modName + "-st.lisp");
             try (PrintStream out = new PrintStream(statesFile))
             {
@@ -253,7 +268,7 @@ public class GenFsmNew extends GenBase
                 this.out = null;
             }
         }
-        
+
         for (Map.Entry<ParameterizedModule, Map<String, ModName>> e : parModuleInstances.entrySet())
         {
             ParameterizedModule parMod = e.getKey();
@@ -262,7 +277,7 @@ public class GenFsmNew extends GenBase
             {
                 continue;
             }
-            
+
             File locFile = new File(outDir, parMod.modName + "-loc.lisp");
             try (PrintStream out = new PrintStream(locFile))
             {
@@ -279,7 +294,7 @@ public class GenFsmNew extends GenBase
             {
                 continue;
             }
-            
+
             File statesFile = new File(outDir, modName + "-loc.lisp");
             try (PrintStream out = new PrintStream(statesFile))
             {
@@ -290,7 +305,7 @@ public class GenFsmNew extends GenBase
                 this.out = null;
             }
         }
-        
+
         for (Map.Entry<ParameterizedModule, Map<String, ModName>> e : parModuleInstances.entrySet())
         {
             ParameterizedModule parMod = e.getKey();
@@ -299,7 +314,7 @@ public class GenFsmNew extends GenBase
             {
                 continue;
             }
-            
+
             File locFile = new File(outDir, parMod.modName + "-svtv.lisp");
             try (PrintStream out = new PrintStream(locFile))
             {
@@ -318,7 +333,7 @@ public class GenFsmNew extends GenBase
             {
                 continue;
             }
-            
+
             File statesFile = new File(outDir, modName + "-svtv.lisp");
             try (PrintStream out = new PrintStream(statesFile))
             {
@@ -330,7 +345,7 @@ public class GenFsmNew extends GenBase
             }
         }
     }
-    
+
     private void printReadSao()
     {
         s("(in-package \"SV\")");
@@ -386,7 +401,7 @@ public class GenFsmNew extends GenBase
         e();
         assert indent == 0;
     }
-    
+
     private void printPhaseStates(DesignExt design, ParameterizedModule parMod, Collection<ModName> modNames)
     {
         s("(in-package \"SV\")");
@@ -417,7 +432,7 @@ public class GenFsmNew extends GenBase
                 }
             }
         }
-        
+
         for (ModName modName : modNames)
         {
             ModuleExt m = design.downTop.get(modName);
@@ -433,7 +448,7 @@ public class GenFsmNew extends GenBase
             }
         }
     }
-    
+
     private void printLocs(DesignExt design, ParameterizedModule parMod, Collection<ModName> modNames)
     {
         s("(in-package \"SV\")");
@@ -446,7 +461,7 @@ public class GenFsmNew extends GenBase
             printPhase2(modName, m);
         }
     }
-    
+
     private void printSvtvs(DesignExt design, ParameterizedModule parMod, Collection<ModName> modNames)
     {
         ModName modName0 = modNames.iterator().next();
@@ -473,7 +488,7 @@ public class GenFsmNew extends GenBase
         s("(local (gl::def-gl-clause-processor boothpipe-glcp))");
         s();
         s("(local (gl::gl-satlink-mode))");
-        
+
         s();
         s("(define check-design-flatten-and-normalize");
         s("  ((x design-p))");
@@ -487,14 +502,14 @@ public class GenFsmNew extends GenBase
         s("       ((when err) (raise \"Error flattening design: ~@0\" err)");
         s("        (mv nil nil moddb aliases)))");
         s("    (mv flat-assigns flat-delays moddb aliases)))");
-        
+
         for (ModName modName : modNames)
         {
             ModuleExt m = design.downTop.get(modName);
             printSvtv(design, modName, m);
         }
     }
-    
+
     private void printPhase2(ModName modName, ModuleExt m)
     {
         s();
@@ -554,7 +569,7 @@ public class GenFsmNew extends GenBase
             assignIndex++;
         }
     }
-    
+
     private void printPhaseState(ModName modName, ModuleExt m)
     {
         s();
@@ -586,7 +601,7 @@ public class GenFsmNew extends GenBase
         e();
         assert indent == 0;
     }
-    
+
     private void printCycleState(ModName modName, ModuleExt m)
     {
         s();
@@ -618,7 +633,7 @@ public class GenFsmNew extends GenBase
         e();
         assert indent == 0;
     }
-    
+
     private void printSvtv(DesignExt design, ModName modName, ModuleExt m)
     {
         ElabMod modIdx = design.moddb.modnameGetIndex(modName);
@@ -878,7 +893,7 @@ public class GenFsmNew extends GenBase
         e();
          */
     }
-    
+
     private void printSvex(Svex<PathExt> top, int width)
     {
         top = SvexCall.newCall(Vec4Concat.FUNCTION,
@@ -887,13 +902,13 @@ public class GenFsmNew extends GenBase
             SvexQuote.valueOf(0));
         printSvex(out, 2, top);
     }
-    
+
     public static <N extends SvarName> void printSvex(PrintStream out, int indent, Svex<N> top)
     {
         Set<SvexCall<N>> multirefs = top.multirefs();
         printSvex(out, indent, top, multirefs, new HashMap<>(), "temp");
     }
-    
+
     public static <N extends SvarName> void printSvex(PrintStream out, int indent, Svex<N> top,
         Set<SvexCall<N>> multirefs, Map<Svex<N>, String> multirefNames, String svexName)
     {
@@ -960,7 +975,7 @@ public class GenFsmNew extends GenBase
             multirefs.remove((SvexCall<N>)top);
         }
     }
-    
+
     private static <N extends SvarName> void printSvexPart(PrintStream out, int indent,
         Svex<N> top, Map<Svex<N>, String> multirefsNames, boolean isRoot)
     {
@@ -1008,7 +1023,7 @@ public class GenFsmNew extends GenBase
             }
         }
     }
-    
+
     private Path[] makeSvtvState(ModName modName, DesignExt design)
     {
         List<Name> scopes = new ArrayList<>();
@@ -1023,11 +1038,11 @@ public class GenFsmNew extends GenBase
         assert i == 0;
         return result;
     }
-    
+
     private void makeSvtvStateBad(List<Name> scopes, ModName modName, Map<Name, Path[]> bind, DesignExt design, Set<Path> statePaths)
     {
         ModuleExt mod = design.downTop.get(modName);
-        
+
         for (int i = mod.insts.size() - 1; i >= 0; i--)
         {
             ModInstExt inst = mod.insts.get(i);
@@ -1089,7 +1104,7 @@ public class GenFsmNew extends GenBase
             }
         }
     }
-    
+
     private void makeSvtvState(List<Name> scopes, ModName modName, Map<Name, Path[]> bind, DesignExt design, Set<Path> statePaths)
     {
         ModuleExt mod = design.downTop.get(modName);
@@ -1152,13 +1167,13 @@ public class GenFsmNew extends GenBase
             }
         }
     }
-    
+
     static class GenFsmJob<H extends DesignHints> extends Job
     {
         private final Class<H> cls;
         private final File saoFile;
         private final String designName;
-        
+
         private GenFsmJob(Class<H> cls, File saoFile, String designName)
         {
             super("Dump SV Design", User.getUserTool(), Job.Type.SERVER_EXAMINE, null, null, Job.Priority.USER);
@@ -1166,7 +1181,7 @@ public class GenFsmNew extends GenBase
             this.saoFile = saoFile;
             this.designName = designName;
         }
-        
+
         @Override
         public boolean doIt() throws JobException
         {
@@ -1190,5 +1205,5 @@ public class GenFsmNew extends GenBase
             return true;
         }
     }
-    
+
 }

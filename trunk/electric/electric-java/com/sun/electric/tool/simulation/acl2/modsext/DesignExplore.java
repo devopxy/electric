@@ -28,6 +28,7 @@ import com.sun.electric.tool.simulation.acl2.mods.Design;
 import com.sun.electric.tool.simulation.acl2.mods.Driver;
 import com.sun.electric.tool.simulation.acl2.mods.Lhrange;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
+import com.sun.electric.tool.simulation.acl2.mods.ModDb;
 import com.sun.electric.tool.simulation.acl2.mods.ModInst;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
@@ -35,6 +36,8 @@ import com.sun.electric.tool.simulation.acl2.mods.Path;
 import com.sun.electric.tool.simulation.acl2.mods.Wire;
 import com.sun.electric.tool.simulation.acl2.svex.Svar;
 import com.sun.electric.tool.simulation.acl2.svex.SvarName;
+import com.sun.electric.tool.simulation.acl2.svex.SvexFunction;
+import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import com.sun.electric.util.acl2.ACL2Reader;
 import com.sun.electric.util.acl2.ACL2Writer;
@@ -64,7 +67,7 @@ public class DesignExplore<H extends DesignHints>
         System.exit(1);
     }
 
-    private void showLibs(String saoFileName)
+    private void showLibs(String saoFileName, boolean checkElabMod)
     {
         File saoFile = new File(saoFileName);
         try
@@ -74,8 +77,9 @@ public class DesignExplore<H extends DesignHints>
             ACL2Reader sr = new ACL2Reader(saoFile);
             SvarName.Builder<Address> snb = new Address.SvarNameBuilder();
             Design<Address> design = new Design<>(snb, sr.root);
+            ModDb modDb = checkElabMod ? new ModDb(design.modalist) : null;
             GenFsmNew gen = new GenFsmNew(designHints);
-            gen.scanDesign(design);
+            gen.scanDesign(design, modDb);
             for (Map.Entry<ModName, Module<Address>> e : design.modalist.entrySet())
             {
                 ModName modName = e.getKey();
@@ -240,6 +244,45 @@ public class DesignExplore<H extends DesignHints>
             ACL2Object.closeHonsManager();
         }
     }
+    
+    private void restoreParameterized(String saoFileName)
+    {
+        try
+        {
+            File saoFile = new File(saoFileName);
+            
+            ACL2Object.initHonsMananger(saoFile.getName());
+            ACL2Reader sr = new ACL2Reader(saoFile);
+            SvarName.Builder<Address> snb = new Address.SvarNameBuilder();
+            Design<Address> design = new Design<>(snb, sr.root);
+            DesignHints designHints = cls.newInstance();
+            GenFsmNew gen = new GenFsmNew(designHints);
+            SvexFunction.isFnSym(NIL); // for proper initialization of class SvexFunction
+            for (ModName modName : design.modalist.keySet())
+            {
+                ParameterizedModule parMod = gen.matchParameterized(modName);
+                if (parMod != null) {
+                    Module<Address> m = parMod.genModule();
+                    design.modalist.put(modName, m);
+                }
+            }
+            File saoDir = saoFile.getParentFile();
+            String outFileName = saoFileName.endsWith("-stripped.sao")
+                ? saoFileName.substring(0, saoFileName.length() - "-stripped.sao".length())
+                : saoFileName.endsWith(".sao")
+                ? saoFileName.substring(0, saoFileName.length() - ".sao".length())
+                : saoFileName;
+            outFileName += "-restored.sao";
+            File outFile = new File(saoDir, outFileName);
+            ACL2Writer.write(design.getACL2Object(), outFile);
+        } catch (InstantiationException | IllegalAccessException | IOException e)
+        {
+            System.out.println(e.getMessage());
+        } finally
+        {
+            ACL2Object.closeHonsManager();
+        }
+    }
 
     private void showMods(String saoFileName, String[] modNames)
     {
@@ -306,7 +349,14 @@ public class DesignExplore<H extends DesignHints>
                 {
                     help();
                 }
-                showLibs(args[1]);
+                showLibs(args[1], false);
+                break;
+            case "showlibdb":
+                if (args.length != 2)
+                {
+                    help();
+                }
+                showLibs(args[1], true);
                 break;
             case "strip":
                 if (args.length < 1)
@@ -314,6 +364,13 @@ public class DesignExplore<H extends DesignHints>
                     help();
                 }
                 strip(args[1]);
+                break;
+            case "restorepar":
+                if (args.length < 1)
+                {
+                    help();
+                }
+                restoreParameterized(args[1]);
                 break;
             case "showmod":
                 if (args.length < 2)

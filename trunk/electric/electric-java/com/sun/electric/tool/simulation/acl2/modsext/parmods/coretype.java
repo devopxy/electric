@@ -186,62 +186,8 @@ public class coretype extends ParameterizedModule
     }
 
     @Override
-    protected int getNumWires()
-    {
-        int p1 = getIntParam("p1");
-        int p2 = getIntParam("p2");
-        int u1 = getIntParam("u1");
-        int u2 = getIntParam("u2");
-        Util.check(p1 >= p2);
-        int width = p1 - p2 + 1;
-        int nwords = Math.abs(u2 - u1) + 1;
-        return 1 + nwords;
-    }
-
-    @Override
     protected int getNumAssigns()
     {
         return 0;
     }
-
-    @Override
-    protected int getNumBits()
-    {
-        int p1 = getIntParam("p1");
-        int p2 = getIntParam("p2");
-        int u1 = getIntParam("u1");
-        int u2 = getIntParam("u2");
-        Util.check(p1 >= p2);
-        int width = p1 - p2 + 1;
-        int nwords = Math.abs(u2 - u1) + 1;
-        return 2 * nwords * width;
-    }
-
-    @Override
-    protected void makeAliases(List<Lhs<IndexName>> pm, List<Lhs<IndexName>> arr, SvexManager<IndexName> sm)
-    {
-        int p1 = getIntParam("p1");
-        int p2 = getIntParam("p2");
-        int u1 = getIntParam("u1");
-        int u2 = getIntParam("u2");
-        assert pm.size() == 1;
-        makeAliases(arr, sm, p1, p2, u1, u2,
-            pm.get(0));
-    }
-
-    public static void makeAliases(List<Lhs<IndexName>> arr, SvexManager<IndexName> sm,
-        int p1, int p2, int u1, int u2,
-        Lhs<IndexName> self)
-    {
-        Util.check(p1 >= p2);
-        int width = p1 - p2 + 1;
-        int nwords = Math.abs(u2 - u1) + 1;
-        arr.add(self);
-        for (int addr = 0; addr < nwords; addr++)
-        {
-            int offset = width * (nwords - addr - 1);
-            arr.add(aliasRange(self, width, offset));
-        }
-    }
-
 }
