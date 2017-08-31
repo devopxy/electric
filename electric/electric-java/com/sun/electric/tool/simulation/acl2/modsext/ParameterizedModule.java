@@ -733,12 +733,12 @@ public abstract class ParameterizedModule
     {
         return null;
     }
-    
+
     protected String[] genDepModNameStrings()
     {
         return new String[0];
     }
-    
+
     protected ModName[] genDepModNames()
     {
         String[] modNameStrings = genDepModNameStrings();
@@ -749,13 +749,13 @@ public abstract class ParameterizedModule
         }
         return result;
     }
-    
+
     protected ModInst[] genAllModInsts(ModName[] n)
     {
         Util.check(n.length == 0);
         return new ModInst[0];
     }
-    
+
     protected int getNumInsts()
     {
         return 0;
