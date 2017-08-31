@@ -733,7 +733,29 @@ public abstract class ParameterizedModule
     {
         return null;
     }
-
+    
+    protected String[] genDepModNameStrings()
+    {
+        return new String[0];
+    }
+    
+    protected ModName[] genDepModNames()
+    {
+        String[] modNameStrings = genDepModNameStrings();
+        ModName[] result = new ModName[modNameStrings.length];
+        for (int i = 0; i < result.length; i++)
+        {
+            result[i] = ModName.valueOf(modNameStrings[i]);
+        }
+        return result;
+    }
+    
+    protected ModInst[] genAllModInsts(ModName[] n)
+    {
+        Util.check(n.length == 0);
+        return new ModInst[0];
+    }
+    
     protected int getNumInsts()
     {
         return 0;
@@ -746,12 +768,12 @@ public abstract class ParameterizedModule
 
     protected int getTotalInsts()
     {
-        return getNumInsts();
+        return genAllModInsts(genDepModNames()).length;
     }
 
     protected int getTotalAssigns()
     {
-        return getNumAssigns();
+        return 1;
     }
 
     protected static Lhs<IndexName> aliasWire(List<Lhs<IndexName>> arr, SvexManager<IndexName> sm, int width)

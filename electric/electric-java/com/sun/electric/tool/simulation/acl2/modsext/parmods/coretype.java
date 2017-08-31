@@ -22,19 +22,15 @@
 package com.sun.electric.tool.simulation.acl2.modsext.parmods;
 
 import com.sun.electric.tool.simulation.acl2.mods.Address;
-import com.sun.electric.tool.simulation.acl2.mods.IndexName;
-import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
 import com.sun.electric.tool.simulation.acl2.mods.Util;
 import com.sun.electric.tool.simulation.acl2.modsext.ParameterizedModule;
-import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import com.sun.electric.util.acl2.ACL2;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Object;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -187,6 +183,12 @@ public class coretype extends ParameterizedModule
 
     @Override
     protected int getNumAssigns()
+    {
+        return 0;
+    }
+
+    @Override
+    protected int getTotalAssigns()
     {
         return 0;
     }

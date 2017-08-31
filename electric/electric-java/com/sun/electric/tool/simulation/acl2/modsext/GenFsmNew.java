@@ -29,6 +29,7 @@ import com.sun.electric.tool.simulation.acl2.mods.Design;
 import com.sun.electric.tool.simulation.acl2.mods.ElabMod;
 import com.sun.electric.tool.simulation.acl2.mods.Lhs;
 import com.sun.electric.tool.simulation.acl2.mods.ModDb;
+import com.sun.electric.tool.simulation.acl2.mods.ModInst;
 import com.sun.electric.tool.simulation.acl2.mods.ModName;
 import com.sun.electric.tool.simulation.acl2.mods.Module;
 import com.sun.electric.tool.simulation.acl2.mods.Name;
@@ -186,9 +187,24 @@ public class GenFsmNew extends GenBase
                     } else if (modDb != null)
                     {
                         ElabMod elabMod = modDb.modnameGetIndex(modName);
+
                         Util.check(parModule.getNumInsts() == elabMod.modNInsts());
                         Util.check(parModule.getNumAssigns() == elabMod.modNAssigns());
-                        Util.check(parModule.getTotalInsts() == elabMod.modTotalInsts());
+
+                        ModDb newModDb = new ModDb(elabMod, modDb);
+                        ModName[] depModNames = parMod.genDepModNames();
+                        Util.check(newModDb.nMods() == depModNames.length + 1);
+                        Util.check(newModDb.topMod() == elabMod);
+                        for (int modIdx = 0; modIdx < depModNames.length; modIdx++)
+                        {
+                            Util.check(newModDb.getMod(modIdx).modidxGetName().equals(depModNames[modIdx]));
+                        }
+                        ModInst[] allInsts = parModule.genAllModInsts(parMod.genDepModNames());
+                        Util.check(allInsts.length == elabMod.modTotalInsts());
+                        for (int i = 0; i < allInsts.length; i++)
+                        {
+                            Util.check(allInsts[i].equals(elabMod.instIndexToInstDecl(i)));
+                        }
                         Util.check(parModule.getTotalAssigns() == elabMod.modTotalAssigns());
                     }
                 }
@@ -212,7 +228,7 @@ public class GenFsmNew extends GenBase
     }
 
     void gen(String designName, DesignExt design,
-         File outDir) throws FileNotFoundException
+        File outDir) throws FileNotFoundException
     {
         scanDesign(design.b);
         this.designName = designName;

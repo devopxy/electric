@@ -71,7 +71,7 @@ public class ModInst implements ACL2Backed
     @Override
     public int hashCode()
     {
-        return ACL2Object.hashCodeOfCons(instname.hashCode(), modname.hashCode());
+        return hashCode;
     }
 
     @Override

@@ -21,7 +21,6 @@
  */
 package com.sun.electric.tool.simulation.acl2.mods;
 
-import com.sun.electric.tool.simulation.acl2.svex.SvarName;
 import com.sun.electric.tool.simulation.acl2.svex.SvexManager;
 import static com.sun.electric.util.acl2.ACL2.*;
 import com.sun.electric.util.acl2.ACL2Backed;
@@ -52,6 +51,11 @@ public class ModDb
         {
             moduleToDb(modName, modalist);
         }
+    }
+
+    public ModDb(ElabMod elabMod, ModDb origDb)
+    {
+        moduleToDb(elabMod, origDb.modnameIdxes);
     }
 
     public int nMods()
@@ -113,6 +117,23 @@ public class ModDb
         mods.add(elabMod);
         ElabMod old = modnameIdxes.put(modName, elabMod);
         assert old == null;
+    }
+
+    private void moduleToDb(ElabMod elabMod, Map<ModName, ElabMod> origModDb)
+    {
+        ElabMod newElabMod = modnameIdxes.get(elabMod.modName);
+        if (newElabMod != null)
+        {
+            Util.check(newElabMod == elabMod);
+            return;
+        }
+        modnameIdxes.put(elabMod.modName, elabMod);
+
+        for (ModInst modInst : elabMod.origMod.insts)
+        {
+            moduleToDb(origModDb.get(modInst.modname), origModDb);
+        }
+        mods.add(elabMod);
     }
 
     public static class FlattenResult
