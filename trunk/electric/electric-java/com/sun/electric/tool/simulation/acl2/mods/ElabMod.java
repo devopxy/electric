@@ -202,6 +202,30 @@ public class ElabMod
         return minInst;
     }
 
+    public int instFindInst(int inst)
+    {
+        if (inst < modInstTable.length || inst >= totalInsts)
+        {
+            throw new IllegalArgumentException();
+        }
+        int minInst = 0;
+        int maxInst = modInstTable.length;
+        while (maxInst > 1 + minInst)
+        {
+            int guess = (maxInst - minInst) >> 1;
+            int pivot = minInst + guess;
+            int pivotOffset = modInstTable[pivot].instOffset;
+            if (inst < pivotOffset)
+            {
+                maxInst = pivot;
+            } else
+            {
+                minInst = pivot;
+            }
+        }
+        return minInst;
+    }
+
     int assignFindInst(int assign)
     {
         if (assign < origMod.assigns.size() || assign >= totalAssigns)
@@ -260,6 +284,19 @@ public class ElabMod
             result[i] = wireidxToPath(wires[i]);
         }
         return result;
+    }
+
+    public ModInst instIndexToInstDecl(int instidx)
+    {
+        ElabMod elabMod = this;
+        while (instidx >= elabMod.modInstTable.length)
+        {
+            int instIdx = elabMod.instFindInst(instidx);
+            ElabModInst elabModInst = elabMod.modInstTable[instIdx];
+            instidx -= elabModInst.instOffset;
+            elabMod = elabModInst.modidx;
+        }
+        return elabMod.origMod.insts.get(instidx);
     }
 
     /**
